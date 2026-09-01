@@ -1,0 +1,379 @@
+/* The to-dos themselves: the rows, the composer, and the two lists that hold
+ * them.
+ *
+ * Split out of Project.css because these rules are shared by both places a
+ * to-do appears — the unorganized panel and an expanded sequence card — and
+ * belong to neither. Imported once from ProjectPage.js, like its sibling. */
+
+
+/* One row for a to-do, in the unorganized panel or under THEN inside an open
+ * card. The menu and the delete × are positioned against this row, so they
+ * anchor to their own to-do rather than to whichever list it happens to be in.
+ *
+ * The row is centred rather than baseline-aligned now that it leads with a
+ * circle: a 19px control and a 15.5px line of text have no shared baseline
+ * worth aligning to, and centring is what makes the column of circles straight.
+ *
+ * The hover fill bleeds wider than the text column — the row is inset 8px
+ * inside a list that is itself inset — so a hovered row reads as a band rather
+ * than as a highlight around the words.
+ *
+ * A row is a single line tall, so the shared bubble's default corner would
+ * overhang it. These two properties pull it onto the row's right edge instead,
+ * and the matching right padding keeps the ⋯ toggle out from under it —
+ * reserved whether or not the bubble is showing, so hovering never reflows the
+ * text beside it. */
+.todo-item {
+    --delete-bubble-top: 0.35rem;
+    --delete-bubble-right: 0.15rem;
+
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 44px 8px 8px;
+    border-radius: 9px;
+    font-size: 15.5px;
+    color: #33333a;
+}
+
+.todo-item:hover {
+    background: #f7f7f9;
+}
+
+.todo-item-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Completed work stays readable but stops competing for attention. Inside a
+ * card a finished to-do has left this list for the DONE group entirely; this is
+ * what one looks like in the unorganized panel, which has no such group. */
+.todo-item--complete .todo-item-text {
+    color: #adadb5;
+    text-decoration: line-through;
+    text-decoration-color: #d6d6dc;
+}
+
+/* Blocked work keeps full contrast, because it is the thing that needs a
+ * decision — it is the circle beside it that carries the mark. */
+.todo-item--blocked .todo-item-text {
+    color: #6c5658;
+}
+
+/* -- The checkbox ----------------------------------------------------------
+ *
+ * One circle, worn at four sizes: 16px on a folded card's status line, 19px in
+ * a list and on the add row, 24px in the spotlight, 18px as the complete badge.
+ * The base is the list size, and each context sets its own.
+ *
+ * `::after` is the hit target rather than padding, which would move the circle
+ * itself: the visible ring stays the design's size while the thing a finger has
+ * to land on is comfortably over 32px.
+ */
+.todo-check {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 19px;
+    height: 19px;
+    padding: 0;
+    border: 1.5px solid #c6c6cd;
+    border-radius: 50%;
+    background: none;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.todo-check::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+}
+
+button.todo-check:hover {
+    border-color: oklch(0.58 0.15 295);
+}
+
+/* The one in operation: heavier ring, and filling it on hover is the preview of
+ * the click. */
+.todo-check--next {
+    width: 24px;
+    height: 24px;
+    border: 2px solid oklch(0.58 0.15 295);
+}
+
+button.todo-check--next:hover {
+    background: oklch(0.58 0.15 295);
+}
+
+/* Waiting on something. The same shape in red, and deliberately not a button:
+ * the move on a blocked sequence is to unblock it, not to tick its first
+ * to-do. */
+.todo-check--waiting {
+    border: 2px solid #d9b3b5;
+    cursor: default;
+}
+
+.todo-check--blocked {
+    border-color: #d9b3b5;
+}
+
+/* Filled rather than outlined once done, so a finished row reads at a glance
+ * without the tick having to be large. */
+.todo-check--done {
+    border-color: transparent;
+    background: #dcdce1;
+}
+
+button.todo-check--done:hover {
+    border-color: transparent;
+    background: #c9c9d0;
+}
+
+/* The add row's circle: dashed, because the row is not a to-do yet. */
+.todo-check--ghost {
+    border-style: dashed;
+    border-color: #d4d4da;
+    cursor: inherit;
+}
+
+/* A row with nothing to drag still reserves the handle's width, so text in the
+ * panel lines up with text in a card and a done row lines up with a live one. */
+.todo-item-handle-slot {
+    flex: 0 0 auto;
+    width: 14px;
+}
+
+/* -- The add row ---------------------------------------------------------- */
+
+/* A ghost list item that becomes a field in place (design 2B.4): the same
+ * geometry either way, so the row being typed sits exactly where the row being
+ * made will. */
+.todo-add-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 9px;
+}
+
+.todo-add-row:hover {
+    background: #f7f7f9;
+}
+
+/* Styled as the row it becomes rather than as a button, but a button all the
+ * same: it is the only way to add a to-do to an open card, so it has to be
+ * reachable from the keyboard. */
+.todo-add-row-open {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: text;
+}
+
+.todo-add-row-placeholder {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 15.5px;
+    color: #a6a6ae;
+}
+
+/* No visible box: the field is the row, at the row's own size and position. */
+.todo-add-row-field {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 15.5px;
+    color: #33333a;
+}
+
+.todo-add-row-field:focus {
+    outline: none;
+}
+
+/* Revealed on hover or keyboard focus, so a long list is not a wall of dots —
+ * `focus-within` keeps it reachable once the menu itself has focus. Sat inside
+ * the row's reserved right padding, beside the delete ×. */
+.todo-item-menu-toggle {
+    position: absolute;
+    top: 50%;
+    right: 1.4rem;
+    transform: translateY(-50%);
+    flex: 0 0 auto;
+    padding: 0 0.2rem;
+    border: none;
+    background: none;
+    color: #888;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.todo-item:hover .todo-item-menu-toggle,
+.todo-item:focus-within .todo-item-menu-toggle {
+    opacity: 1;
+}
+
+.todo-item-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 2;
+    min-width: 12rem;
+    margin: 0;
+    padding: 0.25rem;
+    list-style: none;
+    border: 1px solid #d8d8d8;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+
+.todo-item-menu button {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.todo-item-menu button:hover,
+.todo-item-menu button:focus-visible {
+    background: #f0f0f0;
+}
+
+/* -- To-do composer ------------------------------------------------------- */
+
+.todo-composer {
+    margin-top: 0.5rem;
+}
+
+.todo-composer-row {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.todo-composer-field {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid #d8d8d8;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.todo-composer-add {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.todo-composer-error {
+    margin: 0.3rem 0 0;
+    color: #b3261e;
+    font-size: 0.75rem;
+}
+
+/* The unorganized panel is a 16rem dock, not a card: the same row at the card's
+ * size would wrap every second to-do. It keeps the geometry and gives back the
+ * scale. */
+.unorganized-panel .todo-item {
+    gap: 8px;
+    padding: 5px 40px 5px 4px;
+    font-size: 13.5px;
+}
+
+.unorganized-panel .todo-check {
+    width: 16px;
+    height: 16px;
+}
+
+/* -- To-do lists ---------------------------------------------------------- */
+
+.unorganized-panel-list,
+.sequence-card-todo-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Only the panel has an empty line left to style. An open card says the same
+ * thing with its add row, which also does something about it. */
+.unorganized-panel-empty {
+    margin: 0;
+    color: #888;
+    font-size: 0.8rem;
+}
+
+/* The card's own list has no margin of its own: `.sequence-card-then` around it
+ * sets the inset, so the rows' hover fills bleed wider than the text column. */
+.sequence-card-todo-list {
+    margin: 0;
+}
+
+/* -- Drag and drop -------------------------------------------------------- */
+
+/* Dragging is done by a handle, not by the row, so the status control and the
+ * menu beside it stay ordinary buttons (spec section 4.7). It stays faint until
+ * the row is hovered or something in it has focus, so a list of to-dos does not
+ * read as a column of grips. */
+.todo-item-drag-handle {
+    flex: 0 0 auto;
+    width: 14px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #c9c9cf;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: grab;
+    line-height: 1;
+    touch-action: none;
+}
+
+.todo-item:hover .todo-item-drag-handle,
+.todo-item:focus-within .todo-item-drag-handle {
+    color: #767676;
+}
+
+.todo-item-drag-handle:active {
+    cursor: grabbing;
+}
+
+.todo-item--dragging {
+    opacity: 0.4;
+}
+
+/* A gap between two to-dos. It has no height of its own until a drag that this
+ * sequence would accept is in flight, so the list keeps its ordinary spacing the
+ * rest of the time. */
+.drop-zone {
+    height: 0;
+    border-radius: 2px;
+    transition: height 120ms ease, background-color 120ms ease;
+}
+
+.drop-zone--armed {
+    height: 4px;
+}
+
+.drop-zone--over {
+    background: #4a7dbd;
+}

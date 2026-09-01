@@ -1,0 +1,617 @@
+/* The sequence card, top to bottom.
+ *
+ * Split out of Project.css, which owns the page and the canvas the cards sit on:
+ * the card grew a folded face, a spotlight band, a DONE group and a footer, and
+ * keeping all of that next to the layer layout would have made one file nobody
+ * could find anything in.
+ *
+ * The tokens below are the design's, named by role rather than by hue so a
+ * later change of accent is one block rather than a search. They are scoped to
+ * the card rather than declared globally: this is the only surface in the app
+ * that speaks in them, and index.css is still what everything else builds from.
+ */
+
+.sequence-card {
+    /* Surfaces */
+    --seq-surface: #ffffff;
+    --seq-surface-muted: #fcfcfd;
+    --seq-surface-done: #fbfbfc;
+
+    /* Lines */
+    --seq-border: rgba(0, 0, 0, 0.07);
+    --seq-border-subtle: rgba(0, 0, 0, 0.05);
+    --seq-border-rule: rgba(0, 0, 0, 0.06);
+    --seq-border-control: rgba(0, 0, 0, 0.09);
+
+    /* Type */
+    --seq-text: #1a1a1c;
+    --seq-text-secondary: #33333a;
+    --seq-text-muted: #8a8a90;
+    --seq-text-faint: #9a9aa2;
+    --seq-text-fainter: #a6a6ae;
+    --seq-text-ghost: #b0b0b8;
+    --seq-text-ghosted: #c4c4cb;
+
+    /* The sequence in operation. The checkbox circles are the design's accent
+     * too, but they are styled in Todos.css beside the rows that share them —
+     * the values live there rather than being declared twice. */
+    --seq-accent-strong: oklch(0.52 0.14 295);
+    --seq-accent-bg: oklch(0.972 0.014 295);
+    --seq-accent-border: oklch(0.9 0.04 295);
+    --seq-accent-ring: oklch(0.965 0.018 295);
+    --seq-accent-card-border: oklch(0.88 0.05 295);
+
+    /* Blocked */
+    --seq-danger: #a34d4d;
+    --seq-danger-text: #6c5658;
+    --seq-danger-bg: #fbf0f0;
+    --seq-danger-band: #faf6f6;
+    --seq-danger-border: #eeced0;
+    --seq-danger-edge: #eeddde;
+
+    /* Finished */
+    --seq-done-badge: #c9c9d0;
+    --seq-done-text: #adadb5;
+    --seq-strike: #d6d6dc;
+
+    /* Interaction */
+    --seq-row-hover: #f7f7f9;
+    --seq-control-hover: #f0f0f3;
+
+    --seq-radius: 14px;
+    --seq-radius-band: 11px;
+    --seq-radius-row: 9px;
+    --seq-radius-pill: 20px;
+
+    position: relative;
+    /* 460px in the mock; on the canvas a card shares a layer row with its
+     * siblings, so it takes the design's floor rather than its width and grows
+     * into whatever the row can spare. */
+    flex: 0 1 25rem;
+    min-width: 0;
+    border: 1px solid var(--seq-border);
+    border-radius: var(--seq-radius);
+    background: var(--seq-surface);
+    /* So the footer's fill and the folded card's ground clip to the radius. */
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    /* One big tap target: no double-tap zoom delay, and no card-wide grey flash
+       from the platform's default tap highlight. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.sequence-card--open {
+    box-shadow:
+        0 1px 2px rgba(16, 16, 24, 0.04),
+        0 8px 24px -16px rgba(16, 16, 24, 0.18);
+}
+
+.sequence-card--folded {
+    box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
+}
+
+/* The regions a card click deliberately passes over say so: a to-do, the
+ * spotlight, the add row and the DONE group are worked in, not aimed at. */
+.sequence-card .todo-item,
+.sequence-card .todo-add-row,
+.sequence-card .sequence-spotlight,
+.sequence-card .sequence-done {
+    cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sequence-card {
+        transition: none;
+    }
+}
+
+/* -- The four faces --------------------------------------------------------
+ *
+ * The state a card wears, from `lib/sequenceCard`. Only one card on the canvas
+ * ever carries the ring, which is what makes it a focal point rather than a
+ * decoration — the exclusivity is enforced in `Canvas`, not here.
+ */
+
+.sequence-card--state-active {
+    border-color: var(--seq-accent-card-border);
+}
+
+.sequence-card--state-active.sequence-card--folded {
+    box-shadow:
+        0 1px 2px rgba(16, 16, 24, 0.04),
+        0 0 0 3px var(--seq-accent-ring);
+}
+
+.sequence-card--state-active.sequence-card--open {
+    box-shadow:
+        0 1px 2px rgba(16, 16, 24, 0.04),
+        0 8px 24px -16px rgba(16, 16, 24, 0.18),
+        0 0 0 3px var(--seq-accent-ring);
+}
+
+.sequence-card--state-blocked {
+    border-color: var(--seq-danger-edge);
+}
+
+/* A finished sequence loses its white fill and drops to grey, so live work is
+ * what stands out on a canvas of many. */
+.sequence-card--state-complete {
+    border-color: var(--seq-border-rule);
+    background: var(--seq-surface-done);
+}
+
+.sequence-card--state-complete.sequence-card--folded {
+    box-shadow: none;
+}
+
+/* -- The chevron ---------------------------------------------------------- */
+
+.sequence-card-expander {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--seq-text-faint);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.sequence-card-expander:hover,
+.sequence-card-expander:focus-visible {
+    background: var(--seq-control-hover);
+    color: var(--seq-text);
+}
+
+.sequence-card--state-complete .sequence-card-expander {
+    color: var(--seq-text-ghosted);
+}
+
+/* -- Folded (2A) -----------------------------------------------------------
+ *
+ * One title, and one line of status under it when the state has something to
+ * say. The two-line faces sit a little tighter than the single-line ones so
+ * both end up the same visual weight on the canvas.
+ */
+
+.sequence-card-collapsed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    /* The right padding is the delete ×'s corner, kept clear whether or not the
+     * bubble is showing — otherwise the count would sit underneath it. */
+    padding: 13px 32px 13px 14px;
+}
+
+.sequence-card-collapsed--quiet {
+    padding: 15px 32px 15px 14px;
+}
+
+.sequence-card-collapsed-lines {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.sequence-card-collapsed-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.sequence-card-collapsed-line + .sequence-card-collapsed-line {
+    margin-top: 4px;
+}
+
+/* The title is an `InlineTitle`, which reads as text until it is focused, so a
+ * folded card is a line of type rather than a field. */
+.sequence-card-collapsed-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--seq-text);
+}
+
+.sequence-card-collapsed--quiet .sequence-card-collapsed-title {
+    flex: 1 1 auto;
+    color: var(--seq-text-secondary);
+}
+
+.sequence-card--state-complete .sequence-card-collapsed-title {
+    font-weight: 600;
+    color: var(--seq-text-faint);
+}
+
+.sequence-card-progress {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--seq-text-fainter);
+    /* So "1/4" and "10/40" do not shuffle the title beside them. */
+    font-variant-numeric: tabular-nums;
+}
+
+.sequence-card-collapsed-summary {
+    flex: 0 0 auto;
+    font-size: 12.5px;
+    color: var(--seq-text-fainter);
+}
+
+.sequence-card--state-complete .sequence-card-collapsed-summary {
+    color: #b8b8bf;
+}
+
+/* The smallest the circle is worn. The status line of a folded card is one line
+ * of a glance, and the 24px spotlight ring would own the card. */
+.sequence-card-collapsed-line .todo-check {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+}
+
+/* NEXT / WAITING ON — the label that says which of the two lines this is. */
+.sequence-card-collapsed-label {
+    flex: 0 0 auto;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    color: var(--seq-accent-strong);
+}
+
+.sequence-card--state-blocked .sequence-card-collapsed-label {
+    color: var(--seq-danger);
+}
+
+/* One line, always: a folded card is a glance, and a next step that wrapped
+ * would make two cards different heights for no reason the reader cares about. */
+.sequence-card-collapsed-next {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--seq-text);
+}
+
+.sequence-card--state-blocked .sequence-card-collapsed-next {
+    color: var(--seq-danger-text);
+}
+
+.sequence-card-complete-badge {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--seq-done-badge);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+}
+
+/* -- Open: header (2B.1) -------------------------------------------------- */
+
+.sequence-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px 12px 18px;
+}
+
+.sequence-card-heading {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.sequence-card-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--seq-text);
+}
+
+.sequence-card-description {
+    margin: 2px 0 0;
+    /* A description is typed by whoever owns the plan, so a long unbroken run of
+     * characters has to wrap rather than push out of the card. */
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    color: var(--seq-text-faint);
+}
+
+/* Upright, not italic: an empty description is a blank to fill in, and italics
+ * made it read as an aside about the sequence. */
+.sequence-card-description--empty {
+    font-style: normal;
+}
+
+.sequence-card-badge {
+    flex: 0 0 auto;
+    padding: 4px 9px;
+    border: 1px solid var(--seq-border-control);
+    border-radius: var(--seq-radius-pill);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    color: var(--seq-text-muted);
+}
+
+.sequence-card-badge--blocked {
+    border-color: var(--seq-danger-border);
+    background: var(--seq-danger-bg);
+    color: var(--seq-danger);
+}
+
+/* -- Open: the spotlight (2B.2) -------------------------------------------- */
+
+/* The only tinted area on the card, and the largest type on it: this is the one
+ * thing the reader is meant to act on. */
+.sequence-spotlight {
+    margin: 2px 12px 4px;
+    padding: 14px 16px;
+    border: 1px solid var(--seq-accent-border);
+    border-radius: var(--seq-radius-band);
+    background: var(--seq-accent-bg);
+}
+
+.sequence-spotlight--blocked {
+    border-color: var(--seq-danger-edge);
+    background: var(--seq-danger-band);
+}
+
+.sequence-spotlight-eyebrow {
+    margin-bottom: 7px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--seq-accent-strong);
+}
+
+.sequence-spotlight--blocked .sequence-spotlight-eyebrow {
+    color: var(--seq-danger);
+}
+
+.sequence-spotlight-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Present but quiet: the band is the thing being pointed at, so the handle only
+ * comes forward once the pointer is in it or something inside has focus. */
+.sequence-spotlight-handle {
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.sequence-spotlight:hover .sequence-spotlight-handle,
+.sequence-spotlight:focus-within .sequence-spotlight-handle {
+    opacity: 1;
+}
+
+.sequence-spotlight--dragging {
+    opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sequence-spotlight-handle {
+        transition: none;
+    }
+}
+
+.sequence-spotlight-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: var(--seq-text);
+}
+
+.sequence-spotlight--blocked .sequence-spotlight-text {
+    color: var(--seq-danger-text);
+}
+
+/* The gap above the band, which is how a to-do is promoted into it by drag. It
+ * takes no room until a drop that this sequence would accept is in flight. */
+.sequence-card-spotlight-slot {
+    margin: 0 12px;
+    padding: 0;
+    list-style: none;
+}
+
+/* -- Open: THEN (2B.3) ----------------------------------------------------- */
+
+/* The header, the band and the footer draw their own separation; the body
+ * between them is just the column of rows. */
+.sequence-card-body {
+    padding: 0;
+}
+
+.sequence-card-then {
+    padding: 6px 12px 4px;
+}
+
+/* THEN and DONE — the two quiet headings inside an open card. */
+.sequence-card-section-label {
+    padding: 6px 8px 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--seq-text-ghost);
+}
+
+/* -- Open: the DONE group (2B.5) ------------------------------------------- */
+
+.sequence-done {
+    padding: 0 12px 4px;
+}
+
+/* A heading that is also the toggle, so the whole line is the target rather than
+ * the word "hide" at the end of it. */
+.sequence-done-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 12px 8px 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.sequence-done-label {
+    flex: 0 0 auto;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--seq-text-ghost);
+}
+
+.sequence-done-rule {
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--seq-border-rule);
+}
+
+.sequence-done-toggle {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: var(--seq-text-ghost);
+}
+
+.sequence-done-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sequence-done-item {
+    --delete-bubble-top: 4px;
+    --delete-bubble-right: 2px;
+
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 26px 7px 8px;
+    border-radius: var(--seq-radius-row);
+}
+
+.sequence-done-item:last-child {
+    padding-bottom: 10px;
+}
+
+.sequence-done-item:hover {
+    background: var(--seq-row-hover);
+}
+
+.sequence-done-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 14.5px;
+    color: var(--seq-done-text);
+    text-decoration: line-through;
+    /* Thinner than the text it crosses, so the row still reads. */
+    text-decoration-color: var(--seq-strike);
+}
+
+.sequence-done-day {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    color: var(--seq-text-ghosted);
+}
+
+/* -- Open: the footer (2B.6) ----------------------------------------------- */
+
+.sequence-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border-top: 1px solid var(--seq-border-subtle);
+    background: var(--seq-surface-muted);
+}
+
+/* A pill rather than the bare checkbox it was: the footer is a strip of chrome,
+ * and a lone checkbox floating in one read as an unfinished form. */
+.sequence-blocked-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border: 1px solid var(--seq-border-control);
+    border-radius: var(--seq-radius-pill);
+    background: #fff;
+    font-size: 12.5px;
+    color: #6c6c74;
+    cursor: pointer;
+}
+
+.sequence-blocked-toggle:hover,
+.sequence-blocked-toggle:focus-visible {
+    border-color: #d9a0a0;
+    color: var(--seq-danger);
+}
+
+.sequence-blocked-toggle--on {
+    border-color: var(--seq-danger-border);
+    background: var(--seq-danger-bg);
+    color: var(--seq-danger);
+}
+
+.sequence-blocked-dot {
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+}
+
+.sequence-blocked-toggle--on .sequence-blocked-dot {
+    background: currentColor;
+}
+
+.sequence-card-status {
+    flex: 1 1 auto;
+    font-size: 12.5px;
+    color: var(--seq-text-fainter);
+    text-align: right;
+}
+
+/* -- Cards as drop targets -------------------------------------------------
+ *
+ * While a to-do is in the air every card says whether it would take it. In v1
+ * most will not: a to-do already filed in a sequence can only be reordered
+ * inside that same one (spec section 2), so a card that cannot accept the drop
+ * recedes rather than letting the user aim at it and find nothing happened.
+ */
+.sequence-card--eligible {
+    border-color: #4a7dbd;
+}
+
+.sequence-card--ineligible {
+    opacity: 0.45;
+}
+
+.sequence-card--over {
+    background: #eef4fb;
+    box-shadow:
+        0 0 0 2px #4a7dbd,
+        0 6px 18px rgba(20, 30, 50, 0.18);
+}

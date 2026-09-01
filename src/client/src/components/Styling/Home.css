@@ -1,0 +1,77 @@
+/* ─── Landing Page ───────────────────────────────────────────────────────────── */
+.Home {
+  text-align: center;
+}
+
+.Home-logo {
+  width: 60vh;
+  max-width: 100%;
+  height: auto;
+  pointer-events: none;
+  margin-bottom: 3vh;
+  /* Inverts SVG/PNG to white — useful on dark backgrounds */
+  filter: brightness(0) invert(1);
+}
+
+.Home-header {
+  /* The landing page is the one deliberately dark surface in the app — the body
+   * ground is light, so this paints its own. The inverted logo above depends on
+   * it. */
+  background-color: var(--bg-dark);
+  color: var(--text-white);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+}
+
+.center {
+  width: 60vh;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Industrial Button ──────────────────────────────────────────────────────── */
+/* Reused across pages for primary CTAs */
+.industrial-button {
+  background-color: #4a4a4a;
+  color: var(--text-white);
+  padding: var(--space-sm) 12px;
+  margin: var(--space-sm);
+  font-size: var(--font-md);
+  font-weight: bold;
+  border: 2px solid #333;
+  border-radius: var(--radius-sm);
+  letter-spacing: 1px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  width: 100%;
+  cursor: pointer;
+}
+
+.industrial-button:hover {
+  background-color: #5c5c5c;
+  transform: translateY(-2px);
+}
+
+.industrial-button:active {
+  background-color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  transform: translateY(0);
+}
+
+@media (max-width: 500px) {
+  .Home-logo {
+    width: 150px;
+  }
+
+  .industrial-button {
+    max-width: 200px;
+  }
+}

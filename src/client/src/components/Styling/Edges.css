@@ -1,0 +1,131 @@
+/* Edges, connector dots, and connect mode (spec sections 4.6 and 4.7).
+ *
+ * Split out of `Project.css`, which covers the page and the canvas layout: this
+ * is everything about the connections between sequences rather than about the
+ * cards themselves, and it grew large enough to read better on its own.
+ */
+
+/* -- Edges ----------------------------------------------------------------
+ *
+ * The measured SVG overlay (spec section 4.6). It covers the canvas's whole
+ * scrollable area and sits behind every row, so the lines read as running
+ * underneath the cards they join.
+ *
+ * `pointer-events: none` throughout: an edge is created and removed through
+ * connect mode, never by clicking the line, and a stray line must never
+ * intercept a click meant for a card beneath it.
+ */
+
+.edge-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.edge {
+    stroke: #9bb4d4;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* A skip edge takes the long way round through the gutter, so it is drawn a
+ * little lighter — it is passing the layers in between, not touching them. */
+.edge--skip {
+    stroke: #b9c9de;
+    stroke-dasharray: 4 3;
+}
+
+/* -- Connector dot --------------------------------------------------------
+ *
+ * The handle a connection starts from, on the bottom edge of every card, and
+ * the point outgoing edges are measured to (spec section 4.7). Filled in while
+ * its sequence is armed as a parent.
+ */
+
+.sequence-card-connector {
+    display: flex;
+    justify-content: center;
+    /* Pulled onto the card's bottom border so the dot straddles it, which is
+     * where the edges leaving this card are drawn from. */
+    margin-bottom: -0.4rem;
+    padding-top: 0.15rem;
+}
+
+.connector-dot {
+    width: 0.8rem;
+    height: 0.8rem;
+    padding: 0;
+    border: 1px solid #9bb4d4;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+}
+
+.connector-dot:hover,
+.connector-dot:focus-visible {
+    border-color: #4a7dbd;
+    box-shadow: 0 0 0 2px #dce7f5;
+}
+
+.connector-dot--selected {
+    border-color: #2f5d94;
+    background: #2f5d94;
+}
+
+/* -- Connect mode ---------------------------------------------------------
+ *
+ * While any dot is armed the canvas answers one question on every card: could
+ * this be the other end? Eligible cards are outlined and everything else
+ * recedes, so the legal targets are the only thing left to aim at.
+ */
+
+.canvas--connecting .sequence-card {
+    transition: opacity 0.12s ease-in-out;
+}
+
+.sequence-card--connect-selected {
+    border-color: #2f5d94;
+    box-shadow: 0 0 0 2px #dce7f5;
+}
+
+.sequence-card--connect-eligible {
+    border-color: #4a7dbd;
+    box-shadow: 0 0 0 2px #dce7f5;
+    cursor: pointer;
+}
+
+.sequence-card--connect-dimmed {
+    opacity: 0.4;
+}
+
+/* The click target an eligible card lays over itself, so the whole card
+ * connects while the controls on it keep working — expanding a card to look
+ * inside before tethering it must not also tether it. Transparent: the outline
+ * on the card is what says this is aimable at. */
+.sequence-card-connect-target {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.sequence-card-connect-target:focus-visible {
+    outline: 2px solid #2f5d94;
+    outline-offset: 2px;
+}
+
+/* Above that target, because a dot on an eligible card still means "connect
+ * from here" — that is how a middle layer becomes a parent in its own right. */
+.sequence-card-connector {
+    position: relative;
+    z-index: 3;
+}

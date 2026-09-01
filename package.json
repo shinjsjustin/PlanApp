@@ -1,0 +1,39 @@
+{
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-session": "^1.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.11.3",
+    "zod": "^4.4.3"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "client": "npm start --prefix src/client",
+    "dev": "concurrently \"npm run start\" \"npm run client\"",
+    "test": "jest",
+    "test:client": "CI=true npm test --prefix src/client",
+    "test:all": "npm test && npm run test:client && npm run test:e2e",
+    "test:e2e": "DB_NAME=planapp_test playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "concurrently": "^9.0.1",
+    "jest": "^29.7.0",
+    "supertest": "^7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "testTimeout": 15000,
+    "testPathIgnorePatterns": [
+      "<rootDir>/tests/e2e/"
+    ]
+  }
+}

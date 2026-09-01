@@ -1,0 +1,131 @@
+/* The shared delete affordance: one red × for every deletable thing in the app.
+ *
+ * Written once, here, and imported by `common/DeleteBubble.js` so it arrives
+ * with the component rather than having to be remembered by each page.
+ *
+ * The contract with a host is two classes and one positioning context:
+ *
+ *   - the host element carries `has-delete-bubble` and is `position: relative`;
+ *   - the bubble is a DIRECT CHILD of it, and pins itself to its top-right
+ *     corner.
+ *
+ * Direct child, because these hosts nest: a to-do sits in a sequence card, which
+ * sits in a layer row, and all three are deletable. A descendant selector would
+ * mean hovering a layer row lit up the × on every card and to-do inside it.
+ *
+ * A host that needs the corner moved sets `--delete-bubble-top` and
+ * `--delete-bubble-right` on itself rather than re-declaring the button.
+ */
+
+.delete-bubble {
+    position: absolute;
+    top: var(--delete-bubble-top, 0.4rem);
+    right: var(--delete-bubble-right, 0.4rem);
+    /* Above the overlays some hosts lay over themselves — the project card's
+     * stretched link, a sequence card's connect target — so the × keeps its own
+     * click wherever it is dropped. */
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 24px: the smallest target that is still comfortable to hit on a phone,
+     * where this is always visible. */
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 1px solid #e0a3ae;
+    border-radius: 50%;
+    background: #fff;
+    color: #b00020;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+    /* A tap target of its own on touch, where it is always showing: no
+     * double-tap zoom delay, and a highlight we choose rather than the
+     * platform's grey square over a round button. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(176, 0, 32, 0.15);
+    /* Compositor-only properties, so revealing a bubble never reflows the item
+     * it is pinned to. */
+    transition: opacity 120ms ease, transform 120ms ease;
+}
+
+/*
+ * Hidden, but never `display: none` and never `visibility: hidden`: the button
+ * stays in the tab order and in the accessibility tree, so it can be reached
+ * without a pointer. `pointer-events` is the one thing that must come off — an
+ * invisible button that still swallows clicks is worse than no button, and on
+ * the project card it would sit over the link covering the whole card.
+ */
+.has-delete-bubble > .delete-bubble {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+}
+
+/*
+ * Two ways in. Hovering the item is the pointer's, and focus on the button
+ * itself is the keyboard's — without that second rule a tab would land on
+ * something invisible.
+ */
+.has-delete-bubble:hover > .delete-bubble,
+.has-delete-bubble > .delete-bubble:focus-visible {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+/*
+ * The innermost hovered item owns the ×, so pointing at a to-do does not also
+ * arm the card and the layer around it. Kept as its own rule rather than folded
+ * into the reveal above: where `:has()` is missing this one is simply dropped,
+ * and the reveal still works — nested items just light up together, which is the
+ * behaviour without it rather than no delete affordance at all.
+ */
+.has-delete-bubble:has(.has-delete-bubble:hover) > .delete-bubble:not(:focus-visible) {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+}
+
+.delete-bubble:hover {
+    border-color: #b00020;
+    background: #fdf2f4;
+}
+
+.delete-bubble:focus-visible {
+    outline: 2px solid #b00020;
+    outline-offset: 2px;
+}
+
+/*
+ * No hover to reveal on, so there is nothing to reveal: the bubble is simply
+ * there, held back at a lower opacity so a list of items does not read as a row
+ * of red dots. It is fully opaque again the moment it is focused or pressed.
+ */
+@media (hover: none) {
+    .has-delete-bubble > .delete-bubble {
+        /* Held back, but not past the point of legibility: 0.7 keeps the glyph
+         * at roughly 4.6:1 against the card behind it. */
+        opacity: 0.7;
+        transform: none;
+        pointer-events: auto;
+    }
+
+    .has-delete-bubble > .delete-bubble:focus-visible,
+    .has-delete-bubble > .delete-bubble:active {
+        opacity: 1;
+    }
+}
+
+/*
+ * The reveal still happens — it is what makes the control reachable — it just
+ * happens at once, with no movement and nothing to animate.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .has-delete-bubble > .delete-bubble,
+    .has-delete-bubble:has(.has-delete-bubble:hover) > .delete-bubble:not(:focus-visible) {
+        transform: none;
+        transition: none;
+    }
+}

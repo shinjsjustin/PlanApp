@@ -1,0 +1,480 @@
+/* Project page — the layered canvas, with the unorganized panel floating over it.
+ *
+ * Layers stack top to bottom and each is a flex row; nothing on the canvas is
+ * absolutely positioned, so expanding a card simply grows its row (spec 4.6).
+ *
+ * The page is the only thing that scrolls. The canvas is not a scroll container
+ * of its own and neither is anything in it, so a wheel anywhere over the layers
+ * moves the page — one scrollbar, one scroll position, and a card that grows
+ * when it opens grows the page rather than a window inside it.
+ *
+ * The visual order of the page is deliberate: sequence cards are the objects,
+ * and the layers holding them are bands of ground rather than boxes. Everything
+ * below follows from that — the layer row has no chrome of its own, and the
+ * cards carry the only border and shadow on the canvas.
+ */
+
+/* The ground the cards sit on is the body's own (`--bg-page` in `index.css`,
+ * a shade off white) — the page no longer paints it itself, so a white card
+ * reads as a raised object everywhere, edge to edge, for free. */
+.project-page {
+    /* The content column, as numbers rather than as a `max-width` alone: the
+     * unorganized panel is taken out of the flow and has to line itself up with
+     * an edge it is no longer inside. */
+    --page-max: 1400px;
+    --page-pad: 1.5rem;
+
+    /* The floating panel's own box, kept here because it measures itself against
+     * the content column above and has to read both from one place. */
+    --panel-width: 16rem;
+    /* The tallest it may grow before its list starts scrolling. The second term
+     * keeps it clear of the page header on a short window. */
+    --panel-max-height: min(26rem, calc(100vh - 12rem));
+
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: var(--page-pad) var(--page-pad) 4rem;
+    /* The ground runs to the physical edges of the screen, so on a notched
+     * device the content has to be held off them itself. */
+    padding-right: max(var(--page-pad), env(safe-area-inset-right));
+    padding-left: max(var(--page-pad), env(safe-area-inset-left));
+}
+
+.project-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.project-header h1 {
+    margin: 0;
+}
+
+.project-description {
+    margin: 0;
+    color: #555;
+}
+
+.project-loading,
+.project-error {
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.project-toast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #f0c2cb;
+    border-radius: 6px;
+    background: #fdf2f4;
+    color: #b00020;
+}
+
+.project-toast p {
+    margin: 0;
+}
+
+/* The drag-and-drop area, and nothing else: the panel inside it is taken out of
+ * the flow, so the canvas is the only thing left to lay out and it simply fills
+ * the page. There is no column split here any more. */
+.project-body {
+    display: block;
+}
+
+/* -- Unorganized panel ----------------------------------------------------
+ *
+ * A dock floating over the canvas rather than a column beside it. It is pinned
+ * to the viewport, so it stays reachable as a drag source however far down the
+ * layers the page has scrolled, and the canvas underneath keeps the full width
+ * of the page instead of being pushed into the remainder.
+ *
+ * Horizontally it takes the margin beside the content column when the window is
+ * wide enough to have one, so on a large screen it sits alongside the page and
+ * covers nothing; on a narrower one it runs out of margin and genuinely floats
+ * over the canvas, which is what the collapse is for. Being out of the flow, it
+ * has to reconstruct that edge from the same numbers `.project-page` lays itself
+ * out with.
+ *
+ * The list inside it is the one thing on this page that may scroll on its own,
+ * because it is not on the page: pinned to the viewport, a long list of loose
+ * to-dos has nowhere else to go. The canvas underneath is still scrolled by the
+ * page alone.
+ */
+.unorganized-panel {
+    position: fixed;
+    /* Over the canvas and its cards, under the confirm dialog (z-index 20). */
+    z-index: 15;
+    /* Anchored to the bottom-left corner and growing upwards. The corner is
+     * chosen rather than the top one because the top-left of the canvas is
+     * where the first layer's title and its cards are: a dock that opened over
+     * those would need collapsing before the page could be used at all. */
+    bottom: var(--page-pad);
+    left: max(
+        var(--page-pad),
+        calc((100vw - var(--page-max)) / 2 - var(--panel-width) - 0.75rem)
+    );
+    display: flex;
+    flex-direction: column;
+    width: var(--panel-width);
+    max-height: var(--panel-max-height);
+    padding: 0.75rem;
+    border: 1px solid #d8d8d8;
+    border-radius: 10px;
+    /* White against the page's ground, and lifted well clear of it: this now
+     * overlaps the cards rather than sitting beside them, and the shadow is what
+     * says which of the two is on top. */
+    background: #fff;
+    box-shadow:
+        0 1px 2px rgba(20, 30, 50, 0.06),
+        0 10px 28px rgba(20, 30, 50, 0.16);
+}
+
+/* Folded away, it is a pill in the corner of the page and the canvas under it is
+ * whole again — which is the point of it being an overlay at all. It shrinks to
+ * its header, so `width` and `max-height` both have to let go. */
+.unorganized-panel--collapsed {
+    width: auto;
+    max-height: none;
+    padding: 0.35rem 0.5rem;
+    border-radius: 999px;
+}
+
+.unorganized-panel-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+    font-size: inherit;
+    font-weight: 600;
+}
+
+/* The same chevron the sequence cards use, at the same weight, so "this folds"
+ * looks like one idea across the page. */
+.unorganized-panel-chevron {
+    flex: 0 0 auto;
+    color: #999;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.unorganized-panel-toggle:hover .unorganized-panel-chevron {
+    color: #333;
+}
+
+.unorganized-panel-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0.75rem;
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.unorganized-panel-body p {
+    margin: 0;
+}
+
+/* The list is the part that scrolls, rather than the body around it: the header
+ * above and the composer below stay put, so a long backlog never carries away
+ * the field it is added from. */
+.unorganized-panel-list {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.unorganized-panel-empty,
+.unorganized-panel .todo-composer {
+    flex: 0 0 auto;
+}
+
+/* Narrow windows have no room for a 16rem panel sitting on top of the cards, so
+ * it gives back what it can and the collapsed pill does the rest. */
+@media (max-width: 40rem) {
+    .project-page {
+        --panel-width: min(16rem, calc(100vw - 2 * var(--page-pad)));
+        --panel-max-height: min(20rem, calc(100vh - 10rem));
+    }
+}
+
+/* -- Canvas --------------------------------------------------------------- */
+
+/* The canvas is the page: no pan, no zoom (spec 2), and no scrolling of its own
+ * either. It has no `overflow` and no height of its own, so it is exactly as tall
+ * as its layers and the page's scrollbar is the only one there is — expanding a
+ * card grows the page, not a window cut into it.
+ *
+ * `--canvas-gutter` is the width of the reserved right-hand column every layer
+ * row leaves free. It is declared here so the rows, their footers and — from
+ * phase 7 — the skip-edge lanes all measure from one number. */
+.canvas {
+    /* Mirrored in `lib/geometry.js` as `CANVAS_GUTTER_WIDTH`, which places the
+     * skip-edge lanes inside this column. Change one and change the other. */
+    --canvas-gutter: 3rem;
+
+    /* The positioning context for the edge overlay, which is stretched across the
+     * whole canvas rather than sitting in the flow. `useNodePositions` measures
+     * against this box and adds back `scrollTop`/`scrollLeft`, which are simply
+     * zero now that nothing here scrolls. */
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.canvas--empty {
+    padding: 2rem;
+    border: 1px dashed #d8d8d8;
+    border-radius: 8px;
+    color: #666;
+    text-align: center;
+}
+
+.canvas--empty p {
+    margin: 0 0 0.5rem;
+}
+
+/* -- The right-hand gutter -------------------------------------------------
+ *
+ * A real, permanent column down the right of the canvas, the same width on
+ * every row whether or not it holds a button. The add-sequence button sits in
+ * it beside its layer row; the add-layer button sits in it directly below.
+ * Both are pushed there by `margin-left: auto`, so the column holds its place
+ * when a row grows or a card expands.
+ *
+ * It is reserved rather than incidental because phase 7 routes skip-edges —
+ * the ones that jump past a layer — down lanes inside it.
+ */
+
+.canvas-layer {
+    /* Above the edge overlay, so a line never covers a title or a button. */
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.canvas-layer-main,
+.canvas-layer-footer {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.canvas-gutter {
+    flex: 0 0 var(--canvas-gutter);
+    width: var(--canvas-gutter);
+    margin-left: auto;
+    display: flex;
+    justify-content: center;
+    padding: 0.75rem 0;
+}
+
+.canvas-gutter-button {
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px dashed #c4c4c4;
+    border-radius: 50%;
+    background: #fff;
+    color: #666;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.canvas-gutter-button:hover,
+.canvas-gutter-button:focus-visible {
+    border-style: solid;
+    border-color: #7a7a7a;
+    color: #222;
+}
+
+/* -- Layer row ------------------------------------------------------------ */
+
+/* No border and no background at rest: a layer is a band of the page, and the
+ * only things that mark it are the quiet label above it and the cards inside it.
+ * The gap between bands is the canvas's own `gap` plus the gutter row that sits
+ * between them, which is separation enough without a rule drawn across the page.
+ *
+ * It keeps `position: relative` because that is the contract the shared delete
+ * bubble pins itself to — the band is still the hover area that reveals the ×,
+ * it just no longer draws itself until the pointer is in it. */
+.layer-row {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Enough to keep the hover tint off the title and the cards, and no more.
+     * The negative left margin puts the title back on the canvas's left edge, so
+     * the tint is inset padding rather than a shift in the layout. */
+    margin-left: -0.5rem;
+    padding: 0.35rem 0.5rem 0.5rem;
+    border-radius: 8px;
+    background: transparent;
+    transition: background-color 120ms ease;
+}
+
+/* The one moment a layer draws itself: while the pointer is in it. At rest it is
+ * page; on hover it is a band, which is what gives the delete × revealed at its
+ * far corner something to belong to. A shade off the page ground, so it registers
+ * as an area without becoming a box again. */
+.layer-row:hover {
+    background: #f2f3f4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .layer-row {
+        transition: none;
+    }
+}
+
+/* The band's × sits at the top-right of the band, which with the box gone is the
+ * right end of the title line. The row is at its shortest there, so the bubble
+ * is pulled up to sit centred on that line rather than below it. */
+.layer-row > .delete-bubble {
+    --delete-bubble-top: 0.1rem;
+    --delete-bubble-right: 0.25rem;
+}
+
+/* The room the × occupies is reserved for good, hidden or not: a header that
+ * only made space on hover would shuffle its title every time the pointer
+ * crossed the row. */
+.layer-row-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    padding-right: 2rem;
+}
+
+/* A label, not a heading. It no longer stretches the width of the band: a
+ * full-width edit box was the last piece of layer chrome, and a title that ends
+ * where its text does is what makes the row read as a caption over the cards.
+ *
+ * #6b6b6b is 5.1:1 on the page ground — quiet, still comfortably past AA. */
+.layer-row-title {
+    flex: 0 1 auto;
+    max-width: 20rem;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: #6b6b6b;
+}
+
+/* The hover border the shared `.inline-title` draws is tuned for a white card;
+ * on the page ground it would be all but invisible, and this title is now the
+ * only way into renaming a layer. Darkened, and lifted onto white, so hovering
+ * still says "this is a field". */
+.layer-row-title .inline-title:hover {
+    border-color: #c9c9c9;
+    background: #fff;
+}
+
+.layer-row-empty {
+    margin: 0;
+    /* Matches the title: #888 was 3.4:1 once the page stopped being white. */
+    color: #6b6b6b;
+    font-size: 0.85rem;
+}
+
+/* The row itself: cards spaced evenly, growing with whichever one is open. */
+.layer-row-sequences {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-evenly;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* -- Inline editable titles ----------------------------------------------- */
+
+/* Reads as text until it is focused, so a canvas of titles is not a canvas of
+ * form fields. */
+.inline-title {
+    width: 100%;
+    min-width: 0;
+    padding: 0.15rem 0.25rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+}
+
+.inline-title:hover {
+    border-color: #e0e0e0;
+}
+
+.inline-title:focus {
+    border-color: #7a7a7a;
+    background: #fff;
+    outline: none;
+}
+
+/* -- Sequence card --------------------------------------------------------
+ *
+ * The card itself lives in `SequenceCard.css`, imported alongside this file.
+ * It grew a folded face, a spotlight band, a DONE group and a footer with the
+ * redesign, and none of that is about the page or the canvas this file owns.
+ */
+
+/* -- Confirmation --------------------------------------------------------- */
+
+/* Fixed and centred rather than anchored to the card it belongs to, so it is
+ * legible wherever on a scrolling canvas that card happens to be. The huge
+ * spread on the first shadow is the backdrop, which saves an element whose only
+ * job would be to be grey. */
+.confirm-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 20;
+    transform: translate(-50%, -50%);
+    width: min(24rem, calc(100vw - 2rem));
+    padding: 1rem;
+    border: 1px solid #d8d8d8;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow:
+        0 0 0 100vmax rgba(20, 20, 20, 0.35),
+        0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.confirm-dialog-title {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+}
+
+.confirm-dialog-message {
+    margin: 0 0 1rem;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.confirm-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.confirm-dialog-confirm {
+    border-color: #b00020;
+    background: #b00020;
+    color: #fff;
+}

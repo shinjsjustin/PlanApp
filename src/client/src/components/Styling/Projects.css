@@ -1,0 +1,274 @@
+/* Projects home page — grid, cards, and the create dialog. */
+
+.projects-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+}
+
+.projects-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.projects-header h1 {
+    margin: 0;
+}
+
+.projects-loading,
+.projects-error,
+.projects-empty {
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.projects-empty p {
+    margin: 0 0 0.5rem;
+}
+
+/* The grid is the one place that decides how many cards fit per row. */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/*
+ * The whole card is the way into the project, without a click handler on the
+ * card itself: the title's link grows an `::after` that covers the card, so a
+ * click anywhere in the body lands on the link and keyboard, middle-click and
+ * "open in new tab" all keep working. The card is the positioning context that
+ * overlay is measured against.
+ */
+.project-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px solid #d8d8d8;
+    border-radius: 8px;
+    background: #fff;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    /* The card is one big tap target now: no double-tap zoom delay, and no
+       full-card grey flash from the platform's default tap highlight. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.project-card:hover {
+    border-color: #4a7bd0;
+    box-shadow: 0 2px 8px rgba(20, 40, 80, 0.12);
+}
+
+/*
+ * Keyboard focus on the title link has to light up the card it covers. Scoped
+ * to `:focus-visible` rather than plain `:focus-within`, or every click on
+ * Rename would ring the whole card too.
+ */
+.project-card:has(:focus-visible) {
+    border-color: #4a7bd0;
+    box-shadow: 0 0 0 3px rgba(74, 123, 208, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .project-card {
+        transition: none;
+    }
+}
+
+/*
+ * Everything with a click of its own — the actions, the rename form, the
+ * confirmation, an inline error — sits back above the overlay so the card-wide
+ * link cannot swallow it.
+ *
+ * The delete × is the exception that proves it: it raises itself in
+ * `DeleteBubble.css`, because a control pinned to the card's corner needs
+ * `position: absolute` and could not also take the `relative` this class sets.
+ */
+.project-card-raised {
+    position: relative;
+    z-index: 1;
+}
+
+/*
+ * Title block: the project's name and how far through its to-dos it is. The
+ * right padding is the delete ×'s corner, reserved whether or not the bubble is
+ * showing, so the progress line never ends up underneath it and the heading
+ * never reflows on hover.
+ */
+.project-card-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-right: 1.5rem;
+}
+
+.project-card-title {
+    min-width: 0;
+    margin: 0;
+    font-size: 1.1rem;
+    overflow-wrap: break-word;
+}
+
+/* The title is the way into the project page. */
+.project-card-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.project-card-title a:hover,
+.project-card-title a:focus {
+    text-decoration: underline;
+}
+
+/* The stretched hit area: the link, spread over the whole card. */
+.project-card-title a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+}
+
+/*
+ * While a form is open over the card, the card is no longer a link — the
+ * overlay would sit between the reader and the field they are editing.
+ */
+.project-card--editing .project-card-title a::after {
+    content: none;
+}
+
+.project-card-description {
+    margin: 0;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.project-card-progress {
+    margin: 0;
+    color: #777;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The ready frontier — the point of the card. One line per sequence that can be
+ * started right now, with the to-do to pick up in it stacked underneath.
+ */
+.project-card-frontier-heading {
+    margin: 0 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #777;
+}
+
+.project-card-frontier ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.frontier-line {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-left: 0.6rem;
+    border-left: 3px solid #4a7bd0;
+    overflow-wrap: break-word;
+}
+
+.frontier-sequence {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.frontier-todo {
+    color: #555;
+    font-size: 0.85rem;
+}
+
+/*
+ * Both of these mean "the frontier is empty", and they must not read alike: one
+ * is a finished project, the other is one nobody has planned yet.
+ */
+.project-card-complete {
+    margin: 0;
+    color: #2e7d32;
+    font-size: 0.85rem;
+}
+
+.project-card-unplanned {
+    margin: 0;
+    color: #777;
+    font-size: 0.85rem;
+}
+
+.project-card-rename {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.project-card-rename label,
+.dialog-form label {
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.project-card-actions,
+.dialog-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.project-card-confirm p {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+.field-error {
+    margin: 0;
+    color: #b00020;
+    font-size: 0.85rem;
+}
+
+/* Dialog — a plain centred overlay; no library, matching the rest of the app. */
+.dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.dialog {
+    width: min(28rem, 100%);
+    padding: 1.5rem;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.dialog h2 {
+    margin: 0 0 1rem;
+}
+
+.dialog-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}

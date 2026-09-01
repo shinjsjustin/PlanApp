@@ -1,0 +1,9 @@
+Ok new project, couple things
+
+First: create sql database 
+Second: create .env in server, populate db creds
+Third: create .env in client, populate reroutings.  
+Fourth: cd src/client npm i , then cd ../.. npm i 
+
+Note: new users will default access level 1
+Note: use deploy_local.sh to run

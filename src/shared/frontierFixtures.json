@@ -1,0 +1,132 @@
+{
+  "README": "The ready frontier (spec section 4.3) is derived twice: in the browser by src/client/src/lib/graph.js, and on the server by src/lib/frontier.js for the projects home page. Both test suites read this one table so the two cannot drift apart silently. Client suite: src/client/src/lib/graph.frontier.test.js. Server suite: tests/unit/frontier.test.js. Objects here are in the API's camelCase wire shape, which is what both derivations consume.",
+  "layers": [
+    { "id": 10, "projectId": 1, "title": "Learning", "position": 0 },
+    { "id": 20, "projectId": 1, "title": "Design", "position": 1 },
+    { "id": 30, "projectId": 1, "title": "Build", "position": 2 }
+  ],
+  "cases": [
+    {
+      "name": "a sequence with no parents is ready as soon as it is incomplete",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn aerodynamics", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [
+        { "id": 101, "projectId": 1, "sequenceId": 1, "text": "Read up on lift", "status": "incomplete", "position": 0 }
+      ],
+      "edges": [],
+      "expected": [{ "sequenceId": 1, "nextTodoId": 101 }]
+    },
+    {
+      "name": "a ready sequence holding no to-dos has no next to-do",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn aerodynamics", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [],
+      "edges": [],
+      "expected": [{ "sequenceId": 1, "nextTodoId": null }]
+    },
+    {
+      "name": "a sequence with two parents is held back while only one of them is complete",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn aerodynamics", "isBlocked": false, "position": 0 },
+        { "id": 2, "projectId": 1, "layerId": 10, "title": "Learn electronics", "isBlocked": false, "position": 1 },
+        { "id": 3, "projectId": 1, "layerId": 20, "title": "Design rotor system", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [
+        { "id": 101, "projectId": 1, "sequenceId": 1, "text": "Read up on lift", "status": "complete", "position": 0 },
+        { "id": 201, "projectId": 1, "sequenceId": 2, "text": "Learn to solder", "status": "incomplete", "position": 0 },
+        { "id": 301, "projectId": 1, "sequenceId": 3, "text": "Pick a rotor size", "status": "incomplete", "position": 0 }
+      ],
+      "edges": [
+        { "id": 1, "projectId": 1, "parentId": 1, "childId": 3 },
+        { "id": 2, "projectId": 1, "parentId": 2, "childId": 3 }
+      ],
+      "expected": [{ "sequenceId": 2, "nextTodoId": 201 }]
+    },
+    {
+      "name": "a sequence with two parents is released once both of them are complete",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn aerodynamics", "isBlocked": false, "position": 0 },
+        { "id": 2, "projectId": 1, "layerId": 10, "title": "Learn electronics", "isBlocked": false, "position": 1 },
+        { "id": 3, "projectId": 1, "layerId": 20, "title": "Design rotor system", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [
+        { "id": 101, "projectId": 1, "sequenceId": 1, "text": "Read up on lift", "status": "complete", "position": 0 },
+        { "id": 201, "projectId": 1, "sequenceId": 2, "text": "Learn to solder", "status": "complete", "position": 0 },
+        { "id": 301, "projectId": 1, "sequenceId": 3, "text": "Pick a rotor size", "status": "incomplete", "position": 0 }
+      ],
+      "edges": [
+        { "id": 1, "projectId": 1, "parentId": 1, "childId": 3 },
+        { "id": 2, "projectId": 1, "parentId": 2, "childId": 3 }
+      ],
+      "expected": [{ "sequenceId": 3, "nextTodoId": 301 }]
+    },
+    {
+      "name": "a blocked sequence stays in the frontier and holds its children back",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn electronics", "isBlocked": true, "position": 0 },
+        { "id": 2, "projectId": 1, "layerId": 20, "title": "Design rotor system", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [
+        { "id": 101, "projectId": 1, "sequenceId": 1, "text": "Source an ESC", "status": "complete", "position": 0 },
+        { "id": 201, "projectId": 1, "sequenceId": 2, "text": "Pick a rotor size", "status": "incomplete", "position": 0 }
+      ],
+      "edges": [{ "id": 1, "projectId": 1, "parentId": 1, "childId": 2 }],
+      "expected": [{ "sequenceId": 1, "nextTodoId": null }]
+    },
+    {
+      "name": "an all-complete project has an empty frontier",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn aerodynamics", "isBlocked": false, "position": 0 },
+        { "id": 2, "projectId": 1, "layerId": 20, "title": "Design rotor system", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [
+        { "id": 101, "projectId": 1, "sequenceId": 1, "text": "Read up on lift", "status": "complete", "position": 0 },
+        { "id": 201, "projectId": 1, "sequenceId": 2, "text": "Pick a rotor size", "status": "complete", "position": 0 }
+      ],
+      "edges": [{ "id": 1, "projectId": 1, "parentId": 1, "childId": 2 }],
+      "expected": []
+    },
+    {
+      "name": "a project with no sequences at all has an empty frontier",
+      "sequences": [],
+      "todos": [
+        { "id": 900, "projectId": 1, "sequenceId": null, "text": "Buy a soldering iron", "status": "incomplete", "position": 0 }
+      ],
+      "edges": [],
+      "expected": []
+    },
+    {
+      "name": "the drone example surfaces one ready sequence per unblocked thread",
+      "sequences": [
+        { "id": 1, "projectId": 1, "layerId": 10, "title": "Learn aerodynamics", "isBlocked": false, "position": 0 },
+        { "id": 2, "projectId": 1, "layerId": 10, "title": "Learn electronics", "isBlocked": false, "position": 1 },
+        { "id": 3, "projectId": 1, "layerId": 10, "title": "Learn network communications", "isBlocked": false, "position": 2 },
+        { "id": 4, "projectId": 1, "layerId": 20, "title": "Design rotor system", "isBlocked": false, "position": 0 },
+        { "id": 5, "projectId": 1, "layerId": 30, "title": "Connect drone to wifi", "isBlocked": false, "position": 0 }
+      ],
+      "todos": [
+        { "id": 101, "projectId": 1, "sequenceId": 1, "text": "Read up on lift", "status": "complete", "position": 0 },
+        { "id": 102, "projectId": 1, "sequenceId": 1, "text": "Model the airflow", "status": "complete", "position": 1 },
+        { "id": 201, "projectId": 1, "sequenceId": 2, "text": "Learn to solder", "status": "complete", "position": 0 },
+        { "id": 202, "projectId": 1, "sequenceId": 2, "text": "Understand ESCs", "status": "incomplete", "position": 1 },
+        { "id": 203, "projectId": 1, "sequenceId": 2, "text": "Read the datasheets", "status": "incomplete", "position": 2 },
+        { "id": 301, "projectId": 1, "sequenceId": 3, "text": "Learn 802.11 basics", "status": "complete", "position": 0 },
+        { "id": 401, "projectId": 1, "sequenceId": 4, "text": "Pick a rotor size", "status": "incomplete", "position": 0 },
+        { "id": 501, "projectId": 1, "sequenceId": 5, "text": "Flash the firmware", "status": "incomplete", "position": 1 },
+        { "id": 502, "projectId": 1, "sequenceId": 5, "text": "Bring up the radio", "status": "incomplete", "position": 0 },
+        { "id": 900, "projectId": 1, "sequenceId": null, "text": "Buy a soldering iron", "status": "incomplete", "position": 0 }
+      ],
+      "edges": [
+        { "id": 1, "projectId": 1, "parentId": 1, "childId": 4 },
+        { "id": 2, "projectId": 1, "parentId": 2, "childId": 4 },
+        { "id": 3, "projectId": 1, "parentId": 3, "childId": 5 }
+      ],
+      "expected": [
+        { "sequenceId": 2, "nextTodoId": 202 },
+        { "sequenceId": 5, "nextTodoId": 502 }
+      ]
+    }
+  ]
+}
