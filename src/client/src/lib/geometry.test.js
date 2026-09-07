@@ -307,3 +307,70 @@ describe('edgePaths', () => {
         expect(JSON.stringify({ edges, nodes })).toBe(before);
     });
 });
+
+describe('edgePaths with clipped nodes', () => {
+    const node = (x, y, layerPosition, isClipped = false) => ({
+        dot: { x, y: y + 40 },
+        top: { x, y },
+        layerPosition,
+        isClipped,
+    });
+
+    test('draws an edge when neither end is clipped', () => {
+        // Arrange
+        const edges = [{ id: 1, parentId: 1, childId: 2 }];
+        const nodes = { 1: node(100, 0, 0), 2: node(100, 200, 1) };
+
+        // Act
+        const paths = edgePaths({ edges, nodes, gutterX: 500 });
+
+        // Assert
+        expect(paths).toHaveLength(1);
+    });
+
+    test('leaves out an edge whose parent is scrolled out of its row', () => {
+        // Arrange
+        const edges = [{ id: 1, parentId: 1, childId: 2 }];
+        const nodes = { 1: node(100, 0, 0, true), 2: node(100, 200, 1) };
+
+        // Act
+        const paths = edgePaths({ edges, nodes, gutterX: 500 });
+
+        // Assert
+        expect(paths).toEqual([]);
+    });
+
+    test('leaves out an edge whose child is scrolled out of its row', () => {
+        // Arrange
+        const edges = [{ id: 1, parentId: 1, childId: 2 }];
+        const nodes = { 1: node(100, 0, 0), 2: node(100, 200, 1, true) };
+
+        // Act
+        const paths = edgePaths({ edges, nodes, gutterX: 500 });
+
+        // Assert
+        expect(paths).toEqual([]);
+    });
+
+    test('a clipped skip edge does not consume a gutter lane', () => {
+        // Arrange — two skip edges over the same rows; one end of the first is
+        // clipped, so the second should take lane 0 rather than lane 1.
+        const edges = [
+            { id: 1, parentId: 1, childId: 3 },
+            { id: 2, parentId: 2, childId: 4 },
+        ];
+        const nodes = {
+            1: node(100, 0, 0, true),
+            2: node(200, 0, 0),
+            3: node(100, 400, 2),
+            4: node(200, 400, 2),
+        };
+
+        // Act
+        const [remaining] = edgePaths({ edges, nodes, gutterX: 500 });
+
+        // Assert — lane 0 sits at gutterX exactly.
+        expect(remaining.id).toBe(2);
+        expect(remaining.d).toContain('500,');
+    });
+});
