@@ -444,15 +444,40 @@
     font-size: 0.85rem;
 }
 
-/* The row itself: cards spaced evenly, growing with whichever one is open. */
+/* The row itself: cards at their full width, left to right, scrolling sideways
+ * when there are more than fit.
+ *
+ * They used to be spread with `space-evenly` and allowed to shrink, which meant
+ * a layer holding six sequences squeezed all six into unreadable slivers rather
+ * than admitting it had run out of room. Scrolling is the honest answer: the
+ * cards keep their size and the row keeps its place, and the add-sequence button
+ * is outside this box so it stays reachable however far the row has been pushed.
+ *
+ * `overflow-x: auto` forces `overflow-y` to compute to `auto` as well — the CSS
+ * Overflow spec will not leave one axis `visible` while the other is not — so
+ * this row clips on every edge, not just the one meant to scroll. Hence padding
+ * on all four sides: it reserves room for what a card paints outside its own
+ * border box, chiefly the 3px active-card ring, which was otherwise cut off at
+ * the top of every card and at the outer edge of the first and last.
+ *
+ * It does not reserve the scrollbar's height. Nothing here can: a classic
+ * scrollbar takes ~15px and an overlay scrollbar takes none, and
+ * `scrollbar-gutter: stable` is no help — measured, it reserves its gutter on
+ * the inline-end edge, taking 15px off the row's right on classic-scrollbar
+ * platforms even when the row never scrolls, while reserving nothing along the
+ * bottom. So the divider below can still shift a little the first time a row
+ * becomes scrollable on those platforms. Accepted as a small cosmetic wobble
+ * rather than paid for on every row at every width. */
 .layer-row-sequences {
     display: flex;
     align-items: flex-start;
-    justify-content: space-evenly;
+    justify-content: flex-start;
     gap: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0.25rem;
 }
 
 /* -- Inline editable titles ----------------------------------------------- */

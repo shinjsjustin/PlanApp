@@ -64,11 +64,13 @@
     --seq-radius-pill: 20px;
 
     position: relative;
-    /* 460px in the mock; on the canvas a card shares a layer row with its
-     * siblings, so it takes the design's floor rather than its width and grows
-     * into whatever the row can spare. */
-    flex: 0 1 25rem;
-    min-width: 0;
+    /* 460px in the mock; on the canvas a card takes the design's floor. It no
+     * longer shrinks to fit its row — the row scrolls sideways instead, so a
+     * layer holding six sequences shows six readable cards rather than six
+     * slivers. `min-width` matches for the same reason: without it a flex item
+     * can still be squeezed below its basis. */
+    flex: 0 0 25rem;
+    min-width: 25rem;
     border: 1px solid var(--seq-border);
     border-radius: var(--seq-radius);
     background: var(--seq-surface);
