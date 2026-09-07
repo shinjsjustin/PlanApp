@@ -347,10 +347,12 @@ it, so `DropZone` and the sequence cards need no change.
 **`src/client/src/components/Project/DragDropArea.js`** — branches on
 `event.active.data.current.kind`.
 
-**dnd-kit ids get namespaced** (`todo-5`, `seq-5`). To-do and sequence ids are
-independent auto-increments, so bare integers would collide across the two
-draggable kinds in one `DndContext`. The real id keeps travelling in `data`,
-which is how the handlers already read it.
+**Sequence dnd-kit ids are prefixed** (`seq-5`). To-do and sequence ids are
+independent auto-increments, so two bare integers in one `DndContext` could name
+different things. A string prefix on the new draggables is enough to rule that
+out — `5 !== 'seq-5'` — so the to-do ids stay as they are and the existing
+draggables are not touched. The real id keeps travelling in `data`, which is how
+the handlers already read it.
 
 **`SequenceCard.js`** — a grip handle in the card header, not a draggable card
 body. The body's click already belongs to connect mode.
@@ -428,9 +430,12 @@ refused.
 
 **Component** — the collapsed project card shows the title and not the frontier;
 the frontier is present in the DOM for a screen reader; the layer divider button
-carries its label; the notice toast renders `state.notice` with `role="status"`
-and disappears when dismissed. Reducer-level: `noticeRaised` then `rolledBack`
-leaves no notice standing.
+carries its label. Reducer-level for the notice: it is raised, cleared, and
+dropped by a `rolledBack` so a restored graph is not left with a claim about
+edges that came back. The toast's own rendering is asserted end to end rather
+than in isolation — `ProjectPage.test.js` renders the real page over a mocked
+API and has no seam for injecting `state.notice`, and adding one purely to reach
+a toast would be worse than the E2E that raises a real notice from a real move.
 
 **E2E** — `tests/e2e/criticalFlow.spec.js` gains a sequence dragged across
 layers. Per-row scrolling and edge clipping go here too and nowhere else: jsdom
