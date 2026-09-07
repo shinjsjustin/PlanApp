@@ -17,9 +17,10 @@ import { useProjectContext } from '../../state/ProjectContext';
 // scrollbar for the whole project. Layers stack top to bottom by position, with
 // the edges drawn behind them in a measured SVG overlay (spec section 4.6).
 //
-// Each row carries its own slice of the right-hand gutter, including the button
-// that adds a layer below it, so the only add-layer button that belongs here is
-// the one for a project with no layers for it to sit under.
+// Each row carries its own slice of the right-hand gutter for its add-sequence
+// button, and its own full-width divider below it for adding a layer, so the
+// only add-layer button that belongs here is the one for a project with no
+// layers for it to sit under.
 //
 // This is where the three threads of connect mode are tied together, because it
 // is the only place holding all of them: the selection, the layers the

@@ -251,9 +251,10 @@
  *
  * A real, permanent column down the right of the canvas, the same width on
  * every row whether or not it holds a button. The add-sequence button sits in
- * it beside its layer row; the add-layer button sits in it directly below.
- * Both are pushed there by `margin-left: auto`, so the column holds its place
- * when a row grows or a card expands.
+ * it beside its layer row, pushed there by `margin-left: auto`, so the column
+ * holds its place when a row grows or a card expands. The add-layer button is
+ * not in this column — see `.layer-divider` below, which spans the row's full
+ * width instead.
  *
  * It is reserved rather than incidental because phase 7 routes skip-edges —
  * the ones that jump past a layer — down lanes inside it.
@@ -267,8 +268,7 @@
     flex-direction: column;
 }
 
-.canvas-layer-main,
-.canvas-layer-footer {
+.canvas-layer-main {
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
@@ -301,6 +301,70 @@
     border-style: solid;
     border-color: #7a7a7a;
     color: #222;
+}
+
+/* -- The add-layer divider -------------------------------------------------
+ *
+ * Shaped like what it makes. A layer is a band across the canvas, so the control
+ * that inserts one is a band across the canvas — where the add-sequence button
+ * beside the row is a circle, because a sequence is a card.
+ *
+ * Quiet at rest so a canvas of six layers is not five dashed rules shouting for
+ * attention, and firm the moment it is pointed at or focused. Quiet, but not
+ * invisible: the glyph is held at #7a7a7a rather than a lighter grey because it
+ * is the only thing identifying the control to a sighted user, and WCAG 1.4.11
+ * wants 3:1 for that.
+ */
+.layer-divider {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    /* Tall enough to aim at without pushing the layers apart. */
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #7a7a7a;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* The rule sits at the button's own vertical centre rather than its top edge, so
+ * the glyph — already centred by the flex box above — lands on it exactly. The
+ * obvious alternative, pulling the glyph up over a top border with a negative
+ * margin, does not work: `align-items: center` centres the margin box, so the
+ * glyph moves only half the margin and ends up under the line rather than on it. */
+.layer-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #dcdcdc;
+}
+
+.layer-divider:hover::before,
+.layer-divider:focus-visible::before {
+    border-top-color: #7a7a7a;
+}
+
+.layer-divider:hover,
+.layer-divider:focus-visible {
+    color: #333;
+}
+
+.layer-divider:focus-visible {
+    outline: 2px solid #4a7bd0;
+    outline-offset: 2px;
+}
+
+/* The glyph sits on the page's own ground so the dashes do not run through it. */
+.layer-divider-glyph {
+    padding: 0 0.4rem;
+    background: var(--bg-page, #f7f7f8);
 }
 
 /* -- Layer row ------------------------------------------------------------ */

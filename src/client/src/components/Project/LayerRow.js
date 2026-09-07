@@ -15,8 +15,9 @@ import { clientKeyOf } from '../../state/projectReducer';
 // is positioned absolutely, so expanding a card simply grows the row. The gutter
 // is a real column, rendered whether or not it holds a button, because phase 7
 // routes skip-edges down it — the add-sequence button pins to the right of the
-// row with `margin-left: auto`, and the add-layer button sits below it in the
-// same column.
+// row with `margin-left: auto`. The add-layer button is not in that column at
+// all: it is the full-width divider below the row, shaped like the band it
+// creates rather than like the card the other button creates.
 //
 // `sequences` is the whole project's — the row picks out its own, so the canvas
 // does not have to group them first. `activeSequenceId` passes straight through:
@@ -104,17 +105,21 @@ const LayerRow = ({ layer, sequences, todos, activeSequenceId = null }) => {
                 </div>
             </div>
 
+            {/* A band-shaped control, because it makes a band. The add-sequence
+                button above is a circle, because it makes a card. The two used
+                to be the same + a few pixels apart in the same column, which
+                said nothing about which was which. */}
             <div className="canvas-layer-footer">
-                <div className="canvas-gutter">
-                    <button
-                        type="button"
-                        className="canvas-gutter-button"
-                        aria-label={`Add a layer below ${layer.title}`}
-                        onClick={() => addLayer(layer.id)}
-                    >
+                <button
+                    type="button"
+                    className="layer-divider"
+                    aria-label={`Add a layer below ${layer.title}`}
+                    onClick={() => addLayer(layer.id)}
+                >
+                    <span className="layer-divider-glyph" aria-hidden="true">
                         +
-                    </button>
-                </div>
+                    </span>
+                </button>
             </div>
 
             {isConfirmingDelete && (
