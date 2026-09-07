@@ -38,11 +38,12 @@ the answer.
    whole. Per-row scrolling costs edge-tracking work that a canvas-wide scroller
    would not (section 7), but it keeps short layers still while a long one is
    panned, and keeps the add-sequence button pinned and reachable.
-2. **A cross-layer sequence move deletes newly-invalid edges silently.** Refusing
-   the move would make a connected sequence nearly immovable, which defeats the
-   feature. Confirming each one would make routine reorganizing heavy. The cost
-   is accepted knowingly: this is the one destructive action in the app that does
-   not announce itself.
+2. **A cross-layer sequence move deletes newly-invalid edges without a prompt,
+   and reports afterward.** Refusing the move would make a connected sequence
+   nearly immovable, which defeats the feature. Confirming each one would make
+   routine reorganizing heavy. So the drag stays fast and a dismissible notice
+   says what it cost — the only destructive action in the app that reports after
+   the fact rather than asking before it.
 3. **The home card's drop-down overlays rather than expands.** An in-flow
    expansion grows the card and reflows every card in its grid row on hover.
 4. **Hover *and* `:focus-within` open the drop-down**, and touch devices get it
@@ -287,7 +288,10 @@ A sequence card carries a grip handle. Dragging it onto another layer files it
 there; dragging it within its layer reorders it. Dropping it onto another card
 takes that card's place; dropping it onto the row's empty space appends it.
 
-Edges that the move would invalidate are deleted, without a prompt.
+Edges the move invalidates are deleted without a prompt. When any were, a
+dismissible notice appears above the canvas — *"Moved “Learn electronics”.
+2 connections were removed."* — so the drag stays fast and the cost is still
+visible (decision 2).
 
 ### The edge problem
 
@@ -296,8 +300,8 @@ layer above the child's. That single comparison is also the whole cycle story:
 every edge steps down a layer, so a chain can never return to where it began.
 
 Moving a sequence between layers can break that invariant for edges that were
-valid when they were made. Per decision 2, the move proceeds and the offending
-edges are deleted silently.
+valid when they were made. Per decision 2, the move proceeds, the offending edges
+are deleted, and a notice reports how many afterward.
 
 ### Server
 
@@ -369,7 +373,33 @@ invalidates.
 
 **`src/client/src/hooks/useProjectMutations.js`** —
 `moveSequence(sequenceId, placement)`, through `updateEntity` with
-`method: 'put'`, exactly as `moveTodo` does.
+`method: 'put'`, exactly as `moveTodo` does. When the cascade removed any edges,
+it raises the notice below.
+
+### The notice
+
+The page has one toast today, and it is an error: `state.actionError`, set by
+`rolledBack`, painted red, carrying `role="alert"`. A successful move that cost
+some connections is not an error, so it needs a second, quieter channel rather
+than a reuse of that one.
+
+- **`projectReducer.js`** — a `notice` field beside `actionError`, with
+  `noticeRaised` and `noticeCleared` handlers. `rolledBack` also clears `notice`:
+  a rolled-back move restores the edges, so a notice claiming they were removed
+  would be a lie left on screen.
+- **`projectActions.js`** — `noticeRaised(message)` and `noticeCleared()`.
+- **`useProjectGraph.js`** — exposes `raiseNotice` and `dismissNotice`, mirroring
+  the existing `dismissActionError`.
+- **`ProjectPage.js`** — renders `state.notice` in a second `.project-toast` with
+  a `--notice` modifier and `role="status"`, not `role="alert"`: it reports
+  something that already happened and must not interrupt a screen reader
+  mid-sentence.
+- **`Project.css`** — `.project-toast--notice` overrides only the three colour
+  declarations, on a neutral ground rather than the error palette.
+
+The notice is raised optimistically, alongside the change it describes, and
+dismissed by hand like the error toast. No timer: an auto-dismissing toast is one
+more thing to make the E2E suite flaky, and this message is worth reading.
 
 ### Why the response does not enumerate deleted edges
 
@@ -398,7 +428,9 @@ refused.
 
 **Component** — the collapsed project card shows the title and not the frontier;
 the frontier is present in the DOM for a screen reader; the layer divider button
-carries its label.
+carries its label; the notice toast renders `state.notice` with `role="status"`
+and disappears when dismissed. Reducer-level: `noticeRaised` then `rolledBack`
+leaves no notice standing.
 
 **E2E** — `tests/e2e/criticalFlow.spec.js` gains a sequence dragged across
 layers. Per-row scrolling and edge clipping go here too and nowhere else: jsdom
