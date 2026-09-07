@@ -304,40 +304,28 @@
 
 /* -- Layer row ------------------------------------------------------------ */
 
-/* No border and no background at rest: a layer is a band of the page, and the
- * only things that mark it are the quiet label above it and the cards inside it.
- * The gap between bands is the canvas's own `gap` plus the gutter row that sits
- * between them, which is separation enough without a rule drawn across the page.
+/* No border and no background, hovered or not: a layer is a band of the page, and
+ * the only things that mark it are the quiet label above it and the cards inside
+ * it. The gap between bands is the canvas's own `gap` plus the gutter row that
+ * sits between them, which is separation enough without a rule drawn across the
+ * page.
+ *
+ * The band used to tint on hover to give the revealed × something to belong to,
+ * but the tint painted over the edges running behind the row, which are the one
+ * thing on this canvas worth not covering — the × is reveal enough.
  *
  * It keeps `position: relative` because that is the contract the shared delete
- * bubble pins itself to — the band is still the hover area that reveals the ×,
- * it just no longer draws itself until the pointer is in it. */
+ * bubble pins itself to. The padding and the negative left margin stay too: they
+ * are the box the delete bubble pins its corner to (`--delete-bubble-top`/
+ * `--delete-bubble-right` below), not leftovers of the tint. */
 .layer-row {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
-    /* Enough to keep the hover tint off the title and the cards, and no more.
-     * The negative left margin puts the title back on the canvas's left edge, so
-     * the tint is inset padding rather than a shift in the layout. */
     margin-left: -0.5rem;
     padding: 0.35rem 0.5rem 0.5rem;
     border-radius: 8px;
     background: transparent;
-    transition: background-color 120ms ease;
-}
-
-/* The one moment a layer draws itself: while the pointer is in it. At rest it is
- * page; on hover it is a band, which is what gives the delete × revealed at its
- * far corner something to belong to. A shade off the page ground, so it registers
- * as an area without becoming a box again. */
-.layer-row:hover {
-    background: #f2f3f4;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .layer-row {
-        transition: none;
-    }
 }
 
 /* The band's × sits at the top-right of the band, which with the box gone is the
