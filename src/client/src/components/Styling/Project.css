@@ -16,23 +16,27 @@
 
 /* The ground the cards sit on is the body's own (`--bg-page` in `index.css`,
  * a shade off white) — the page no longer paints it itself, so a white card
- * reads as a raised object everywhere, edge to edge, for free. */
+ * reads as a raised object everywhere, edge to edge, for free.
+ *
+ * The canvas wants every pixel of the window: a layer holding six sequences has
+ * nowhere to put them, and a centred 1400px column was giving away the margins
+ * on either side to nothing. There is no content column any more — the page is
+ * the window, held off its physical edges by `--page-pad` and no more.
+ *
+ * `--page-max` is gone with it. The unorganized panel used to reconstruct the
+ * margin from that number to park itself beside the content; with no margin to
+ * park in, it is honestly an overlay at every width, which is what its collapsed
+ * pill was always for. */
 .project-page {
-    /* The content column, as numbers rather than as a `max-width` alone: the
-     * unorganized panel is taken out of the flow and has to line itself up with
-     * an edge it is no longer inside. */
-    --page-max: 1400px;
-    --page-pad: 1.5rem;
+    --page-pad: 0.75rem;
 
-    /* The floating panel's own box, kept here because it measures itself against
-     * the content column above and has to read both from one place. */
+    /* The floating panel's own box, kept here because the panel is out of the
+     * flow and has to read its numbers from somewhere. */
     --panel-width: 16rem;
     /* The tallest it may grow before its list starts scrolling. The second term
      * keeps it clear of the page header on a short window. */
     --panel-max-height: min(26rem, calc(100vh - 12rem));
 
-    max-width: var(--page-max);
-    margin: 0 auto;
     padding: var(--page-pad) var(--page-pad) 4rem;
     /* The ground runs to the physical edges of the screen, so on a notched
      * device the content has to be held off them itself. */
@@ -93,12 +97,10 @@
  * layers the page has scrolled, and the canvas underneath keeps the full width
  * of the page instead of being pushed into the remainder.
  *
- * Horizontally it takes the margin beside the content column when the window is
- * wide enough to have one, so on a large screen it sits alongside the page and
- * covers nothing; on a narrower one it runs out of margin and genuinely floats
- * over the canvas, which is what the collapse is for. Being out of the flow, it
- * has to reconstruct that edge from the same numbers `.project-page` lays itself
- * out with.
+ * It floats over the bottom-left of the canvas at every window width, since the
+ * page went full-bleed and there is no margin beside a content column to sit in
+ * any more. That is what the collapse is for: folded, it is a pill in the corner
+ * and the canvas under it is whole again.
  *
  * The list inside it is the one thing on this page that may scroll on its own,
  * because it is not on the page: pinned to the viewport, a long list of loose
@@ -114,10 +116,9 @@
      * where the first layer's title and its cards are: a dock that opened over
      * those would need collapsing before the page could be used at all. */
     bottom: var(--page-pad);
-    left: max(
-        var(--page-pad),
-        calc((100vw - var(--page-max)) / 2 - var(--panel-width) - 0.75rem)
-    );
+    /* Simply the page's own inset. There is no margin beside the content column
+     * to park in any more, because there is no content column. */
+    left: var(--page-pad);
     display: flex;
     flex-direction: column;
     width: var(--panel-width);
