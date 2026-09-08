@@ -413,6 +413,14 @@
     background: transparent;
 }
 
+/* A layer with a card in the air over it. The one moment a band draws itself —
+ * a drop has to say where it will land, and unlike the hover tint removed above
+ * this is momentary and answers a question the person is actively asking. */
+.layer-row--over {
+    background: #eef3fb;
+    box-shadow: inset 0 0 0 1px #4a7bd0;
+}
+
 /* The band's × sits at the top-right of the band, which with the box gone is the
  * right end of the title line. The row is at its shortest there, so the bubble
  * is pulled up to sit centred on that line rather than below it. */

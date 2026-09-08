@@ -19,9 +19,10 @@ import { CARD_STATE } from '../../lib/sequenceCard';
 // deliberately not one — the thing to do about a blocked sequence is unblock it,
 // not tick its first to-do.
 //
-// `children` is the chevron, passed in rather than rendered here: it is the
-// card's own control, carries the card's `aria-expanded`, and reads the same in
-// both modes.
+// `children` is the chevron, and `grip` is the drag handle, both passed in
+// rather than rendered here: each is the card's own control, carries state the
+// card itself owns (the chevron's `aria-expanded`, the grip's sortable
+// listeners), and reads the same in both modes.
 
 const CHECK = '✓';
 
@@ -32,7 +33,7 @@ const summaryOf = (state, counts) => {
     return `${counts.total} to-do${counts.total === 1 ? '' : 's'}`;
 };
 
-const SequenceCardCollapsed = ({ model, title, onCompleteTodo, children }) => {
+const SequenceCardCollapsed = ({ model, title, onCompleteTodo, children, grip }) => {
     const { state, counts, next } = model;
 
     // A status line needs both a state that wants one and something to put in
@@ -46,6 +47,7 @@ const SequenceCardCollapsed = ({ model, title, onCompleteTodo, children }) => {
         return (
             <div className="sequence-card-collapsed sequence-card-collapsed--quiet">
                 {children}
+                {grip}
 
                 {state === CARD_STATE.complete && (
                     <span className="sequence-card-complete-badge" aria-hidden="true">
@@ -64,6 +66,7 @@ const SequenceCardCollapsed = ({ model, title, onCompleteTodo, children }) => {
     return (
         <div className="sequence-card-collapsed">
             {children}
+            {grip}
 
             <div className="sequence-card-collapsed-lines">
                 <div className="sequence-card-collapsed-line">

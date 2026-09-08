@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 import ConfirmDialog from './ConfirmDialog';
 import ConnectorDot from './ConnectorDot';
@@ -69,7 +69,7 @@ const INTERACTIVE_WITHIN_CARD = [
     '.confirm-dialog',
 ].join(', ');
 
-const SequenceCard = ({ sequence, todos, isActive = false }) => {
+const SequenceCard = ({ sequence, todos, isActive = false, index }) => {
     const {
         deleteSequence,
         deleteTodo,
@@ -98,6 +98,35 @@ const SequenceCard = ({ sequence, todos, isActive = false }) => {
         disabled: !isEligibleTarget,
         data: { dropTarget: { kind: DROP_TARGET.append, sequenceId: sequence.id } },
     });
+
+    /**
+     * The card as something to pick up, and as somewhere to drop another card.
+     *
+     * The id is prefixed because to-do ids and sequence ids are independent
+     * auto-increments, and two bare integers in one `DndContext` could name
+     * different things. `dropTarget` carries the LAYER, because where a card
+     * lands is a slot in a layer — the card it was dropped on is only how that
+     * slot was aimed at.
+     */
+    const sortable = useSortable({
+        id: `seq-${sequence.id}`,
+        data: {
+            sequenceId: sequence.id,
+            dropTarget: { kind: DROP_TARGET.item, layerId: sequence.layerId, index },
+        },
+    });
+
+    /**
+     * The `<li>` already carries a ref — `registry.registerCard`, which is how
+     * `useNodePositions` finds this card to draw edges to. The sortable needs
+     * the same node, so the two are composed rather than one replacing the
+     * other. (The to-do droppable's `setNodeRef` is NOT here: it lives on
+     * `.sequence-card-body` further down, and stays there.)
+     */
+    const setCardNode = (node) => {
+        registry?.registerCard(sequence.id, node);
+        sortable.setNodeRef(node);
+    };
 
     // Everything the card draws, derived from the graph on every render. The
     // status word underneath is still `sequenceStatus`'s, unchanged: the card
@@ -170,6 +199,7 @@ const SequenceCard = ({ sequence, todos, isActive = false }) => {
         activeDragTodo ? `sequence-card--${isEligibleTarget ? 'eligible' : 'ineligible'}` : '',
         isOver ? 'sequence-card--over' : '',
         connectState ? `sequence-card--connect-${connectState}` : '',
+        sortable.isDragging ? 'sequence-card--dragging' : '',
     ]
         .filter(Boolean)
         .join(' ');
@@ -183,6 +213,18 @@ const SequenceCard = ({ sequence, todos, isActive = false }) => {
             onClick={toggleExpanded}
         >
             <span aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>
+        </button>
+    );
+
+    const grip = (
+        <button
+            type="button"
+            className="sequence-card-grip"
+            aria-label={`Move ${sequence.title} to another layer`}
+            {...sortable.attributes}
+            {...sortable.listeners}
+        >
+            <span aria-hidden="true">⠿</span>
         </button>
     );
 
@@ -201,7 +243,13 @@ const SequenceCard = ({ sequence, todos, isActive = false }) => {
 
     return (
         <li
-            ref={(node) => registry?.registerCard(sequence.id, node)}
+            ref={setCardNode}
+            style={{
+                transform: sortable.transform
+                    ? `translate3d(${sortable.transform.x}px, ${sortable.transform.y}px, 0)`
+                    : undefined,
+                transition: sortable.transition,
+            }}
             className={className}
             // Read by the styling, and the one thing a test can check about a
             // drag jsdom cannot otherwise see: which cards would take this to-do.
@@ -246,6 +294,7 @@ const SequenceCard = ({ sequence, todos, isActive = false }) => {
                     model={model}
                     title={title}
                     onCompleteTodo={completeTodo}
+                    grip={grip}
                 >
                     {chevron}
                 </SequenceCardCollapsed>
@@ -253,6 +302,7 @@ const SequenceCard = ({ sequence, todos, isActive = false }) => {
                 <>
                     <div className="sequence-card-header">
                         {chevron}
+                        {grip}
 
                         <div className="sequence-card-heading">
                             {title}

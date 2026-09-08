@@ -617,3 +617,26 @@
         0 0 0 2px #4a7dbd,
         0 6px 18px rgba(20, 30, 50, 0.18);
 }
+
+/* The one way to pick a card up. Faint until the card is hovered, like the grips
+ * on the to-do rows inside it, so a canvas of cards is not a canvas of handles. */
+.sequence-card-grip {
+    flex: 0 0 auto;
+    padding: 0 0.25rem;
+    border: 0;
+    background: none;
+    color: #c8c8c8;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: grab;
+}
+
+.sequence-card:hover .sequence-card-grip,
+.sequence-card-grip:focus-visible {
+    color: #7a7a7a;
+}
+
+.sequence-card--dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
