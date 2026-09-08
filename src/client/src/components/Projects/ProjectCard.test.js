@@ -100,14 +100,17 @@ describe('ProjectCard', () => {
         expect(screen.getByText('1/4 to-dos done')).toBeInTheDocument();
     });
 
-    test('keeps the progress in the title block, beside the title', () => {
+    test('keeps the progress out of the title block, in the reveal panel instead', () => {
         // Arrange & Act
         renderCard();
 
-        // Assert — spec section 4.8 puts overall progress in the title block, not
-        // adrift below the body.
+        // Assert — spec section 8 moved overall progress out of the title block
+        // and into the hover/focus reveal, so the collapsed face is the name alone.
         const heading = screen.getByRole('heading', { name: 'Build a drone' });
-        expect(heading.closest('.project-card-heading')).toHaveTextContent('1/4 to-dos done');
+        expect(heading.closest('.project-card-heading')).not.toHaveTextContent('1/4 to-dos done');
+
+        const progress = screen.getByText('1/4 to-dos done');
+        expect(progress.closest('.project-card-reveal')).not.toBeNull();
     });
 
     test('links its title through to the project page', () => {
@@ -194,6 +197,39 @@ describe('ProjectCard', () => {
             // Assert
             expect((await screen.findByRole('alert')).closest('.project-card-raised')).not.toBeNull();
         });
+    });
+
+    test('keeps the frontier in a reveal panel rather than on the collapsed face', () => {
+        // Arrange & Act
+        renderCard({
+            project: {
+                ...project,
+                frontier: [
+                    {
+                        sequenceId: 7,
+                        sequenceTitle: 'Learn electronics',
+                        nextTodo: { id: 1, text: 'Learn to solder' },
+                    },
+                ],
+            },
+        });
+
+        // Assert — the title is the card's face; everything else is in the reveal,
+        // which is present for a screen reader and hidden only by CSS.
+        const title = screen.getByRole('link', { name: project.title });
+        expect(title.closest('.project-card-reveal')).toBeNull();
+
+        const frontierEntry = screen.getByText('Learn electronics');
+        expect(frontierEntry.closest('.project-card-reveal')).not.toBeNull();
+    });
+
+    test('keeps the progress line out of the collapsed face too', () => {
+        // Arrange & Act
+        renderCard();
+
+        // Assert
+        const progress = screen.getByText(/to-dos done/);
+        expect(progress.closest('.project-card-reveal')).not.toBeNull();
     });
 
     describe('the ready frontier', () => {

@@ -7,10 +7,17 @@ import DeleteBubble from '../common/DeleteBubble';
 // interactions and shows their failures inline; `onRename` and `onDelete` do the
 // call and are expected to reject when it fails.
 //
-// A title block with the overall to-do progress, and a body listing the ready
-// frontier — what can be started right now (spec section 4.8). The frontier
-// itself is computed server-side, in `src/lib/frontier.js`; the card only
-// renders what `GET /api/projects` hands it.
+// At rest the card is the project's name and nothing else. Hovering it — or
+// tabbing to its title — drops a panel down holding the overall to-do progress,
+// the description, and the ready frontier: what can be started right now (spec
+// section 4.8). The frontier itself is computed server-side, in
+// `src/lib/frontier.js`; the card only renders what `GET /api/projects` hands it.
+//
+// The reveal is entirely CSS, in `Styling/Projects.css`. Nothing here knows
+// whether the panel is open, because nothing here needs to: it holds no
+// controls, and it stays in the accessibility tree whether it is showing or
+// not — collapsed with `opacity`, deliberately not with `visibility`, which
+// would take it out of the reading order along with the screen.
 
 const MODES = { idle: 'idle', renaming: 'renaming', confirmingDelete: 'confirmingDelete' };
 
@@ -152,19 +159,37 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
                     </div>
                 </form>
             ) : (
-                <div className="project-card-heading">
-                    <h3 className="project-card-title">
-                        <Link to={`/projects/${project.id}`}>{project.title}</Link>
-                    </h3>
-                    <p className="project-card-progress">
-                        {`${project.completedTodoCount}/${project.todoCount} to-dos done`}
-                    </p>
-                </div>
+                <>
+                    <div className="project-card-heading">
+                        <h3 className="project-card-title">
+                            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+                        </h3>
+                    </div>
+
+                    {/* Everything but the name. A grid of twenty projects is a
+                        list of names to choose from; the detail is what you want
+                        about the one you are pointing at, not about all twenty
+                        at once.
+
+                        It stays in the DOM and in the accessibility tree
+                        throughout — the collapse is visual density, not
+                        information hiding, so nothing here is `hidden` and the
+                        CSS is careful to keep it that way. Nothing in it is
+                        interactive either, which is what makes it safe to leave
+                        under the card-wide link overlay. */}
+                    <div className="project-card-reveal">
+                        <p className="project-card-progress">
+                            {`${project.completedTodoCount}/${project.todoCount} to-dos done`}
+                        </p>
+
+                        {project.description && (
+                            <p className="project-card-description">{project.description}</p>
+                        )}
+
+                        <FrontierBlock project={project} />
+                    </div>
+                </>
             )}
-
-            {project.description && <p className="project-card-description">{project.description}</p>}
-
-            <FrontierBlock project={project} />
 
             {error && (
                 <p className={`field-error ${RAISED}`} role="alert">

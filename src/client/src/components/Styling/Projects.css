@@ -97,17 +97,14 @@
     z-index: 1;
 }
 
-/*
- * Title block: the project's name and how far through its to-dos it is. The
- * right padding is the delete ×'s corner, reserved whether or not the bubble is
- * showing, so the progress line never ends up underneath it and the heading
- * never reflows on hover.
- */
+/* Title block: just the project's name at rest. Everything else — progress,
+ * description, frontier — lives in `.project-card-reveal` below. */
 .project-card-heading {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
     gap: 0.5rem;
+    /* The delete ×'s corner, reserved whether or not the bubble is showing, so
+     * the title never reflows on hover. */
     padding-right: 1.5rem;
 }
 
@@ -243,6 +240,90 @@
     margin: 0;
     color: #b00020;
     font-size: 0.85rem;
+}
+
+/* -- The card's drop-down --------------------------------------------------
+ *
+ * A card at rest is a name. Everything else — the progress line, the
+ * description, the ready frontier — hangs below it and appears while the card is
+ * pointed at or its title is focused.
+ *
+ * It DROPS rather than expands: an in-flow panel would grow the card and reflow
+ * every other card in its grid row on hover, so this is taken out of the flow and
+ * overlays the cards below instead. `left`/`right` of -1px make it flush with the
+ * card's border rather than inset by it.
+ */
+.project-card-reveal {
+    position: absolute;
+    top: 100%;
+    left: -1px;
+    right: -1px;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    border: 1px solid #4a7bd0;
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+    box-shadow: 0 8px 16px -8px rgba(20, 40, 80, 0.25);
+    opacity: 0;
+    /* Not `visibility: hidden`, which would drop the panel out of the
+     * accessibility tree along with the screen — a screen reader browsing the
+     * grid would then get project names and nothing else, since browse mode
+     * moves its own cursor without moving DOM focus and never fires the
+     * `:focus-within` below. Transparent instead, and unclickable, so it is
+     * collapsed visually while staying in the reading order. */
+    pointer-events: none;
+    transition: opacity 150ms ease;
+}
+
+/*
+ * Two ways in, like the delete bubble: hovering is the pointer's, and
+ * `:focus-within` is the keyboard's — the title link already stretches over the
+ * whole card, so tabbing to it opens the panel with no extra control.
+ */
+.project-card:hover .project-card-reveal,
+.project-card:focus-within .project-card-reveal {
+    padding: 0.75rem 1rem 1rem;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/*
+ * An open panel has to sit above the cards beside and below it, and a grid item
+ * cannot lift its own overlay without lifting itself. 2 rather than 1: an
+ * in-card raised control (`.project-card-raised`) sits at 1, and the active
+ * card's own stacking context has to clear that too.
+ */
+.project-card:hover,
+.project-card:focus-within {
+    z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .project-card-reveal {
+        transition: none;
+    }
+}
+
+/*
+ * No hover to open on, so there is nothing to open: the panel is simply part of
+ * the card. Absolute positioning has to go with it — a permanently-open overlay
+ * would cover the card below it forever.
+ */
+@media (hover: none) {
+    .project-card-reveal {
+        position: static;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+        opacity: 1;
+        pointer-events: auto;
+    }
 }
 
 /* Dialog — a plain centred overlay; no library, matching the rest of the app. */
