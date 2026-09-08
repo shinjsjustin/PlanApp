@@ -48,6 +48,11 @@
   --radius-lg:   12px;
   --radius-pill: 16px;
 
+  /* Stacking — the one layer that outranks everything else on a page, for the
+   * modal question that has to be answered before anything else can be used.
+   * Above the navbar and its dropdown (z-index 1000). */
+  --z-modal: 2000;
+
   /* Typography — TODO: replace font stack if using a custom font */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;

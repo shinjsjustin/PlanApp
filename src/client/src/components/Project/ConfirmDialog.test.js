@@ -5,7 +5,7 @@ import { click } from '../../testUtils/interact';
 
 import ConfirmDialog from './ConfirmDialog';
 
-const renderDialog = (props = {}) =>
+const renderDialog = (props = {}, options) =>
     render(
         <ConfirmDialog
             title="Delete this sequence?"
@@ -14,7 +14,8 @@ const renderDialog = (props = {}) =>
             onConfirm={jest.fn()}
             onCancel={jest.fn()}
             {...props}
-        />
+        />,
+        options
     );
 
 describe('ConfirmDialog', () => {
@@ -67,5 +68,34 @@ describe('ConfirmDialog', () => {
 
         // Assert
         expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('ConfirmDialog stacking', () => {
+    test('renders on the body, so nothing on the canvas can be painted over it', () => {
+        // Arrange — a card that creates its own stacking context, as the canvas
+        // rows and a dragged card both do.
+        const card = document.createElement('div');
+        card.style.transform = 'translate(0, 0)';
+        card.style.zIndex = '1';
+        document.body.appendChild(card);
+
+        // Act
+        renderDialog({}, { container: card });
+
+        // Assert
+        const dialog = screen.getByRole('dialog');
+        expect(card.contains(dialog)).toBe(false);
+        expect(document.body.contains(dialog)).toBe(true);
+    });
+
+    test('sits on a full-page backdrop, which is what covers the page beneath', () => {
+        // Act
+        renderDialog();
+
+        // Assert
+        const backdrop = screen.getByRole('dialog').parentElement;
+        expect(backdrop).toHaveClass('confirm-dialog-backdrop');
+        expect(backdrop.parentElement).toBe(document.body);
     });
 });

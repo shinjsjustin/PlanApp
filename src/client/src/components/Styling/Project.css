@@ -129,7 +129,7 @@
  */
 .unorganized-panel {
     position: fixed;
-    /* Over the canvas and its cards, under the confirm dialog (z-index 20). */
+    /* Over the canvas and its cards, under the confirm dialog. */
     z-index: 15;
     /* Anchored to the bottom-left corner and growing upwards. The corner is
      * chosen rather than the top one because the top-left of the canvas is
@@ -546,20 +546,30 @@
  * legible wherever on a scrolling canvas that card happens to be. The huge
  * spread on the first shadow is the backdrop, which saves an element whose only
  * job would be to be grey. */
-.confirm-dialog {
+/* The dialog is portalled onto the body, so this is a sheet over the whole
+ * viewport rather than a box placed within the page: it dims what is behind,
+ * takes the clicks aimed at it, and centres the one thing that is still to be
+ * answered. Above every other layer on the page — the floating panel, the
+ * navbar and its dropdown — because nothing may cover a question that has to be
+ * answered before the page can be used again. */
+.confirm-dialog-backdrop {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: 20;
-    transform: translate(-50%, -50%);
-    width: min(24rem, calc(100vw - 2rem));
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(20, 20, 20, 0.35);
+}
+
+.confirm-dialog {
+    width: min(24rem, 100%);
     padding: 1rem;
     border: 1px solid #d8d8d8;
     border-radius: 8px;
     background: #fff;
-    box-shadow:
-        0 0 0 100vmax rgba(20, 20, 20, 0.35),
-        0 8px 24px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .confirm-dialog-title {
