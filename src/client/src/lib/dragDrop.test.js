@@ -1,4 +1,9 @@
-import { DROP_TARGET, isEligibleDropTarget, resolveTodoPlacement } from './dragDrop';
+import {
+    DROP_TARGET,
+    isEligibleDropTarget,
+    resolveSequencePlacement,
+    resolveTodoPlacement,
+} from './dragDrop';
 
 // What a drop means, worked out from plain data (spec section 4.7).
 //
@@ -111,5 +116,85 @@ describe('a drop the target will not accept', () => {
     test('asks for no move when a to-do lands back on the unorganized panel', () => {
         expect(placement(2000, append(null))).toBeNull();
         expect(placement(1000, onItem(null, 0))).toBeNull();
+    });
+});
+
+describe('resolveSequencePlacement', () => {
+    const sequence = (id, layerId, position) => ({ id, layerId, position });
+
+    const sequences = [sequence(1, 10, 0), sequence(2, 10, 1), sequence(3, 20, 0)];
+
+    test('appends a sequence joining another layer', () => {
+        // Arrange
+        const target = { kind: DROP_TARGET.append, layerId: 20 };
+
+        // Act
+        const placement = resolveSequencePlacement({
+            activeSequence: sequences[0],
+            target,
+            sequences,
+        });
+
+        // Assert — the target layer holds one card, so the newcomer takes slot 1.
+        expect(placement).toEqual({ layerId: 20, position: 1 });
+    });
+
+    test('takes the place of the card it was dropped on', () => {
+        // Arrange
+        const target = { kind: DROP_TARGET.item, layerId: 20, index: 0 };
+
+        // Act
+        const placement = resolveSequencePlacement({
+            activeSequence: sequences[0],
+            target,
+            sequences,
+        });
+
+        // Assert
+        expect(placement).toEqual({ layerId: 20, position: 0 });
+    });
+
+    test('counts a same-layer reorder from the list with the card lifted out', () => {
+        // Arrange — card 1 moves to the end of its own layer, which holds two.
+        const target = { kind: DROP_TARGET.append, layerId: 10 };
+
+        // Act
+        const placement = resolveSequencePlacement({
+            activeSequence: sequences[0],
+            target,
+            sequences,
+        });
+
+        // Assert — one slot, not two: the card is not counted against itself.
+        expect(placement).toEqual({ layerId: 10, position: 1 });
+    });
+
+    test('resolves to nothing when a card is let go where it already was', () => {
+        // Arrange
+        const target = { kind: DROP_TARGET.item, layerId: 10, index: 0 };
+
+        // Act
+        const placement = resolveSequencePlacement({
+            activeSequence: sequences[0],
+            target,
+            sequences,
+        });
+
+        // Assert
+        expect(placement).toBeNull();
+    });
+
+    test('resolves to nothing without a target or without a sequence', () => {
+        // Arrange & Act & Assert
+        expect(
+            resolveSequencePlacement({ activeSequence: sequences[0], target: null, sequences })
+        ).toBeNull();
+        expect(
+            resolveSequencePlacement({
+                activeSequence: null,
+                target: { kind: DROP_TARGET.append, layerId: 20 },
+                sequences,
+            })
+        ).toBeNull();
     });
 });
