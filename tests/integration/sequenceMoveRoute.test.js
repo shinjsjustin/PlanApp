@@ -1,5 +1,9 @@
 'use strict';
 
+const request = require('supertest');
+
+const app = require('../../src/server');
+const { authHeaderFor } = require('../helpers/auth');
 const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
@@ -174,5 +178,129 @@ describe('sequencesRepo.move', () => {
 
         // Assert
         expect(moved).toBeNull();
+    });
+});
+
+describe('PUT /api/sequences/:id/move', () => {
+    test('moves a sequence to another layer and answers with the new row', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, top, middle } = await createFixture(conn);
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+        await sequencesRepo.create(conn, { layerId: middle.id, title: 'B' });
+
+        // Act
+        const response = await request(app)
+            .put(`/api/sequences/${moving.id}/move`)
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ layerId: middle.id, position: 0 });
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(response.body.data).toMatchObject({
+            id: moving.id,
+            layerId: middle.id,
+            position: 0,
+        });
+        expect(await layerOrder(conn, middle.id)).toEqual([
+            ['A', 0],
+            ['B', 1],
+        ]);
+    });
+
+    test('deletes an edge the move invalidates, through the HTTP layer', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, project, top, middle, bottom } = await createFixture(conn);
+        const parent = await sequencesRepo.create(conn, { layerId: top.id, title: 'Parent' });
+        const child = await sequencesRepo.create(conn, { layerId: middle.id, title: 'Child' });
+        await edgesRepo.create(conn, {
+            projectId: project.id,
+            parentId: parent.id,
+            childId: child.id,
+        });
+
+        // Act — parent drops below its child.
+        const response = await request(app)
+            .put(`/api/sequences/${parent.id}/move`)
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ layerId: bottom.id, position: 0 });
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(await edgesRepo.listByProject(conn, project.id)).toEqual([]);
+    });
+
+    test('answers 400 for a position past the end of the target layer', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, top, middle } = await createFixture(conn);
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+
+        // Act
+        const response = await request(app)
+            .put(`/api/sequences/${moving.id}/move`)
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ layerId: middle.id, position: 9 });
+
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/position/);
+        expect(await layerOrder(conn, top.id)).toEqual([['A', 0]]);
+    });
+
+    test('answers 400 for a layer in a different project', async () => {
+        // Arrange — the same owner, two projects.
+        const conn = getConn();
+        const { ownerId, top } = await createFixture(conn);
+        const other = await projectsRepo.create(conn, { ownerId, title: 'Other plan' });
+        const foreignLayer = await layersRepo.create(conn, {
+            projectId: other.id,
+            title: 'Elsewhere',
+        });
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+
+        // Act
+        const response = await request(app)
+            .put(`/api/sequences/${moving.id}/move`)
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ layerId: foreignLayer.id, position: 0 });
+
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/not in this project/);
+    });
+
+    test('answers 403 for a sequence belonging to someone else', async () => {
+        // Arrange
+        const conn = getConn();
+        const { top, middle } = await createFixture(conn);
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+        const stranger = await createTestUser(conn, { email: 'stranger@example.com' });
+
+        // Act
+        const response = await request(app)
+            .put(`/api/sequences/${moving.id}/move`)
+            .set('Authorization', authHeaderFor(stranger))
+            .send({ layerId: middle.id, position: 0 });
+
+        // Assert
+        expect(response.status).toBe(403);
+    });
+
+    test('answers 400 when the body names no layer', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, top } = await createFixture(conn);
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+
+        // Act
+        const response = await request(app)
+            .put(`/api/sequences/${moving.id}/move`)
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ position: 0 });
+
+        // Assert
+        expect(response.status).toBe(400);
     });
 });
