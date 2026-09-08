@@ -198,8 +198,9 @@
 }
 
 /*
- * Both of these mean "the frontier is empty", and they must not read alike: one
- * is a finished project, the other is one nobody has planned yet.
+ * All three mean "the frontier is empty", and they must not read alike: a
+ * finished project, one nobody has planned yet, and one that is stuck behind
+ * blocked work are three different situations for three different colors.
  */
 .project-card-complete {
     margin: 0;
@@ -210,6 +211,12 @@
 .project-card-unplanned {
     margin: 0;
     color: #777;
+    font-size: 0.85rem;
+}
+
+.project-card-blocked {
+    margin: 0;
+    color: #b25a00;
     font-size: 0.85rem;
 }
 

@@ -263,11 +263,13 @@ describe('ProjectCard', () => {
         });
 
         test('shows a completed state when nothing is left to start', () => {
-            // Arrange & Act — an empty frontier, but the project does hold work.
+            // Arrange & Act — an empty frontier, but the project does hold work,
+            // and none of it is blocked.
             renderCard({
                 project: {
                     frontier: [],
                     sequenceCount: 5,
+                    blockedSequenceCount: 0,
                     todoCount: 4,
                     completedTodoCount: 4,
                 },
@@ -277,6 +279,28 @@ describe('ProjectCard', () => {
             expect(screen.getByText(/every sequence is complete/i)).toBeInTheDocument();
             expect(screen.queryByRole('list', { name: /ready now/i })).not.toBeInTheDocument();
             expect(screen.queryByText(/no sequences yet/i)).not.toBeInTheDocument();
+            expect(screen.queryByText(/nothing can be started/i)).not.toBeInTheDocument();
+        });
+
+        test('shows a blocked state, not a completed one, when everything left is blocked', () => {
+            // Arrange & Act — an empty frontier, but the project still holds
+            // sequences, and some of what's left is blocked.
+            renderCard({
+                project: {
+                    frontier: [],
+                    sequenceCount: 5,
+                    blockedSequenceCount: 2,
+                    todoCount: 4,
+                    completedTodoCount: 1,
+                },
+            });
+
+            // Assert — this must NOT read as "every sequence is complete": a
+            // stuck project is not a finished one.
+            expect(screen.getByText(/nothing can be started/i)).toBeInTheDocument();
+            expect(screen.queryByText(/every sequence is complete/i)).not.toBeInTheDocument();
+            expect(screen.queryByText(/no sequences yet/i)).not.toBeInTheDocument();
+            expect(screen.queryByRole('list', { name: /ready now/i })).not.toBeInTheDocument();
         });
 
         test('distinguishes a project with no sequences from a completed one', () => {

@@ -200,6 +200,25 @@ describe('GET /api/projects — ready frontier', () => {
         });
     });
 
+    test('counts sequences that are blocked, apart from the ones merely gated behind them', async () => {
+        // Arrange — the drone project, with electronics marked blocked by hand.
+        // The rotor design sits behind electronics too, but it is gated, not
+        // itself blocked — only electronics should count.
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const { electronics } = await createDroneProject(conn, ownerId);
+        await sequencesRepo.update(conn, electronics.id, { isBlocked: true });
+
+        // Act
+        const response = await listProjects(ownerId);
+
+        // Assert
+        expect(response.body.data[0]).toMatchObject({
+            sequenceCount: 5,
+            blockedSequenceCount: 1,
+        });
+    });
+
     test('reports no sequences at all as a sequence count of zero', async () => {
         // Arrange
         const conn = getConn();

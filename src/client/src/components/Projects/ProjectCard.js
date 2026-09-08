@@ -37,22 +37,39 @@ const HAS_BUBBLE = 'has-delete-bubble';
 /**
  * The body of the card: the ready frontier, or why there is nothing in it.
  *
- * An empty frontier has two quite different meanings, and running them together
- * would be the one thing this page exists to avoid. A project whose every
- * sequence is finished is done; a project with no sequences has not been planned
- * yet. `sequenceCount` is what tells them apart.
+ * An empty frontier has three quite different meanings, and running them
+ * together would be the one thing this page exists to avoid:
+ *   - no sequences at all — the project has not been planned yet;
+ *   - sequences, none of them blocked, all of them complete — the project is
+ *     done;
+ *   - sequences, but everything still open is blocked, or waiting behind
+ *     something blocked — the project is stuck, not finished.
+ * `sequenceCount` and `blockedSequenceCount` are what tell the three apart:
+ * no sequences beats everything else, then any blocked sequence beats
+ * "complete", so a stuck project never reads as a finished one.
  */
 const FrontierBlock = ({ project }) => {
     const headingId = `ready-now-${project.id}`;
 
     if (project.frontier.length === 0) {
-        return project.sequenceCount === 0 ? (
-            <p className="project-card-unplanned">
-                No sequences yet — open the project to plan the first layer of work.
-            </p>
-        ) : (
-            <p className="project-card-complete">Every sequence is complete. Nothing left to start.</p>
-        );
+        if (project.sequenceCount === 0) {
+            return (
+                <p className="project-card-unplanned">
+                    No sequences yet — open the project to plan the first layer of work.
+                </p>
+            );
+        }
+
+        if (project.blockedSequenceCount > 0) {
+            return (
+                <p className="project-card-blocked">
+                    Nothing can be started: what's left is blocked, or waiting on something
+                    blocked.
+                </p>
+            );
+        }
+
+        return <p className="project-card-complete">Every sequence is complete. Nothing left to start.</p>;
     }
 
     return (

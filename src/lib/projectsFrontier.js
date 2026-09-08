@@ -4,7 +4,7 @@ const edgesRepo = require('../db/repositories/edgesRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
-const { readyFrontier } = require('./frontier');
+const { SEQUENCE_STATUS, readyFrontier, sequenceStatus } = require('./frontier');
 const { toEdge, toFrontierEntry, toProject, toSequence, toTodo } = require('./serializers');
 
 /**
@@ -41,13 +41,20 @@ const groupByProject = (rows, projectIds) => {
 };
 
 /**
- * Attaches the frontier and the sequence count to already-serialized projects.
- * The one place the payload's shape is decided, whether it came from a list
- * query or a single-project one.
+ * Attaches the frontier, the sequence count, and the blocked count to
+ * already-serialized projects. The one place the payload's shape is decided,
+ * whether it came from a list query or a single-project one.
  *
- * `sequenceCount` is what tells an all-complete project apart from one with
- * nothing planned yet: both have an empty frontier, and the card says something
- * different about each.
+ * An empty frontier means one of three things (see `readyFrontier`'s own doc
+ * comment), and the card needs to tell all three apart:
+ *   - `sequenceCount === 0` — nothing has been planned yet.
+ *   - `sequenceCount > 0` and `blockedSequenceCount === 0` — every sequence is
+ *     complete.
+ *   - `blockedSequenceCount > 0` — something is left, but it is blocked, or
+ *     waiting behind something that is.
+ * `sequenceCount` is the total regardless of status; `blockedSequenceCount` is
+ * how many of those are blocked by hand, which is what separates the second
+ * case from the third.
  */
 const attachFrontiers = (projects, { sequences, edges, todos }) => {
     const projectIds = projects.map((project) => project.id);
@@ -58,14 +65,18 @@ const attachFrontiers = (projects, { sequences, edges, todos }) => {
 
     return projects.map((project) => {
         const own = sequencesByProject.get(project.id);
+        const ownTodos = todosByProject.get(project.id);
 
         return {
             ...project,
             sequenceCount: own.length,
+            blockedSequenceCount: own.filter(
+                (sequence) => sequenceStatus(sequence, ownTodos) === SEQUENCE_STATUS.blocked
+            ).length,
             frontier: readyFrontier({
                 sequences: own,
                 edges: edgesByProject.get(project.id),
-                todos: todosByProject.get(project.id),
+                todos: ownTodos,
             }).map(toFrontierEntry),
         };
     });
