@@ -8,6 +8,9 @@ const {
     dragOnto,
     expectDrawnEdge,
     newCredentials,
+    openProject,
+    seedConnectedPlan,
+    seedCrowdedPlan,
 } = require('./helpers');
 
 // The one critical flow (spec section 6).
@@ -275,5 +278,168 @@ test('plans a project end to end: to-dos, sequences, layers and a drawn edge', a
         await expect(frontier).toContainText(DRONE.parentSequence);
         await expect(frontier).toContainText(DRONE.parentTodo);
         await expect(frontier).not.toContainText(DRONE.childSequence);
+    });
+});
+
+// The three things a real browser has to judge that the flow above cannot
+// (Tasks 4, 5 and 12): a sequence dragged into another layer, a crowded row
+// that scrolls instead of shrinking its cards, and an edge that stops being
+// drawn once its end has scrolled out of sight.
+//
+// Each test seeds its own account and project rather than extending the flow
+// above. None of these is a further step of "plan a project end to end" — they
+// are independent facts about the canvas — and splitting them out means a
+// failure in one cannot leave the shared flow's account or project in a state
+// the steps after it were not written to expect.
+
+/** Below this, a card has shrunk rather than held its 25rem width (Task 4). */
+const MIN_SEQUENCE_CARD_WIDTH_PX = 399;
+
+const CONNECTED_PLAN = {
+    topLayer: 'Foundations',
+    bottomLayer: 'Design',
+    parent: 'Learn electronics',
+    child: 'Build a circuit',
+};
+
+test.describe('the sequence drag, row scrolling and edge clipping', () => {
+    const dragCredentials = newCredentials();
+    const foldedDragCredentials = newCredentials();
+    const scrollCredentials = newCredentials();
+    const clippingCredentials = newCredentials();
+
+    test.afterAll(async () => {
+        await Promise.all(
+            [dragCredentials, foldedDragCredentials, scrollCredentials, clippingCredentials].map(
+                (credentials) => deleteUserByEmail(credentials.email)
+            )
+        );
+    });
+
+    test('drags a sequence into another layer and reports the connections it cost', async ({
+        page,
+    }) => {
+        const { projectId } = await seedConnectedPlan(page, dragCredentials, {
+            projectTitle: 'Circuit design',
+            topLayerTitle: CONNECTED_PLAN.topLayer,
+            bottomLayerTitle: CONNECTED_PLAN.bottomLayer,
+            parentTitle: CONNECTED_PLAN.parent,
+            childTitle: CONNECTED_PLAN.child,
+        });
+
+        await openProject(page, projectId);
+
+        const card = sequenceCard(page, CONNECTED_PLAN.parent);
+        const targetLayer = page.getByRole('region', { name: CONNECTED_PLAN.bottomLayer });
+        const grip = card.getByRole('button', {
+            name: `Move ${CONNECTED_PLAN.parent} to another layer`,
+        });
+
+        // The header, not the region as a whole: the region also contains the
+        // sequence the parent is connected to, and dnd-kit's pointer collision
+        // detection would rather land on that card's own droppable than the
+        // layer's. Aiming at the header — inside the region, outside every
+        // card — keeps the drop unambiguous.
+        await dragOnto(page, grip, targetLayer.locator('.layer-row-header'));
+
+        await expect(
+            targetLayer.locator(`li[data-sequence-title="${CONNECTED_PLAN.parent}"]`)
+        ).toBeVisible();
+        // `getByRole('status')` alone is ambiguous here: `@dnd-kit` renders its
+        // own `role="status"` live region for screen readers announcing the
+        // drag, and after a drop it still holds an English sentence next to the
+        // app's own notice. The class is what tells them apart.
+        await expect(page.locator('.project-toast--notice')).toContainText(
+            '1 connection was removed'
+        );
+    });
+
+    // Task 12 gave the grip to `SequenceCardCollapsed` as well as the open
+    // card, specifically so a folded card could be reorganised without opening
+    // it first. That only means something if a folded drag is actually
+    // exercised, not just an open one.
+    test('drags a folded sequence card into another layer just as well as an open one', async ({
+        page,
+    }) => {
+        const { projectId } = await seedConnectedPlan(page, foldedDragCredentials, {
+            projectTitle: 'Folded circuit design',
+            topLayerTitle: CONNECTED_PLAN.topLayer,
+            bottomLayerTitle: CONNECTED_PLAN.bottomLayer,
+            parentTitle: CONNECTED_PLAN.parent,
+            childTitle: CONNECTED_PLAN.child,
+        });
+
+        await openProject(page, projectId);
+
+        const card = sequenceCard(page, CONNECTED_PLAN.parent);
+        const targetLayer = page.getByRole('region', { name: CONNECTED_PLAN.bottomLayer });
+
+        await page
+            .getByRole('button', { name: `Collapse ${CONNECTED_PLAN.parent}` })
+            .click();
+        await expect(
+            page.getByRole('button', { name: `Expand ${CONNECTED_PLAN.parent}` })
+        ).toBeVisible();
+
+        const grip = card.getByRole('button', {
+            name: `Move ${CONNECTED_PLAN.parent} to another layer`,
+        });
+
+        await dragOnto(page, grip, targetLayer.locator('.layer-row-header'));
+
+        await expect(
+            targetLayer.locator(`li[data-sequence-title="${CONNECTED_PLAN.parent}"]`)
+        ).toBeVisible();
+        await expect(page.locator('.project-toast--notice')).toContainText(
+            '1 connection was removed'
+        );
+    });
+
+    test('scrolls a crowded layer sideways rather than shrinking its cards', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 });
+
+        const { projectId } = await seedCrowdedPlan(page, scrollCredentials, 'Crowded layer');
+
+        await openProject(page, projectId);
+
+        const row = page.locator('.layer-row-sequences').first();
+
+        const { scrollWidth, clientWidth } = await row.evaluate((node) => ({
+            scrollWidth: node.scrollWidth,
+            clientWidth: node.clientWidth,
+        }));
+
+        expect(scrollWidth, 'a crowded row should overflow rather than fit').toBeGreaterThan(
+            clientWidth
+        );
+
+        const cardWidth = await row
+            .locator('.sequence-card')
+            .first()
+            .evaluate((node) => node.getBoundingClientRect().width);
+
+        expect(cardWidth, 'a crowded card should hold its width, not shrink').toBeGreaterThan(
+            MIN_SEQUENCE_CARD_WIDTH_PX
+        );
+    });
+
+    test('stops drawing an edge to a card scrolled out of its row', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 });
+
+        const { projectId } = await seedCrowdedPlan(page, clippingCredentials, 'Crowded edges');
+
+        await openProject(page, projectId);
+
+        const edges = page.locator('svg.edge-layer path.edge');
+
+        await expect(edges).toHaveCount(1);
+        expectDrawnEdge(await edges.first().getAttribute('d'));
+
+        await page
+            .locator('.layer-row-sequences')
+            .first()
+            .evaluate((node) => node.scrollTo({ left: node.scrollWidth }));
+
+        await expect.poll(() => edges.count()).toBe(0);
     });
 });
