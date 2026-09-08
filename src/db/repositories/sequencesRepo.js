@@ -1,7 +1,7 @@
 'use strict';
 
 const { firstRow, buildAssignments, applyPositions } = require('./sql');
-const { insertAt, removeItem } = require('./positions');
+const { insertAt, moveItem, removeItem } = require('./positions');
 const todosRepo = require('./todosRepo');
 
 /**
@@ -12,6 +12,10 @@ const todosRepo = require('./todosRepo');
  * a sequence's status is derived from its to-dos (spec section 4.3), so it can
  * never go stale. `is_collapsed` sits alongside it but is not status at all — it
  * is whether the card is folded shut, remembered per sequence.
+ *
+ * `move` is the one function here that touches another table: a sequence
+ * changing layer can invalidate edges that were legal when they were made, and
+ * they go with the move. See the note on `DELETE_INVALID_EDGES`.
  */
 
 const TABLE = 'sequences';
@@ -147,6 +151,71 @@ const update = async (conn, id, patch) => {
 };
 
 /**
+ * The SQL that drops every edge touching a sequence which no longer points
+ * strictly downward.
+ *
+ * `assertCanConnect` is the rule at the boundary: a parent's layer must be
+ * strictly above its child's. A sequence changing layer can break that for edges
+ * that were valid when they were made — so they are deleted with the move rather
+ * than left to make the graph mean something it does not (spec decision 2).
+ *
+ * Strictly: `>=` catches the same-layer case as well as the upward one. Two
+ * sequences in one band are parallel work and neither gates the other.
+ */
+const DELETE_INVALID_EDGES = `
+    DELETE e FROM sequence_edges e
+    JOIN sequences ps ON ps.id = e.parent_id
+    JOIN sequences cs ON cs.id = e.child_id
+    JOIN layers pl ON pl.id = ps.layer_id
+    JOIN layers cl ON cl.id = cs.layer_id
+    WHERE (e.parent_id = ? OR e.child_id = ?)
+      AND pl.position >= cl.position`;
+
+/**
+ * Puts a sequence at a position in a layer — the verb behind dragging a card
+ * from one band to another, and behind reordering one within its band.
+ *
+ * Modelled on `todosRepo.move`, and for the same reason: a layer is an ordered
+ * list like any other, so filing a sequence into a different one and shuffling
+ * it within its own are the same operation over one or two lists.
+ *
+ * The target index is validated BEFORE anything is written, so a bad position
+ * cannot leave the sequence detached from the layer it came from. Callers run
+ * this inside a transaction; it rewrites two tables.
+ *
+ * Trusts its caller on project membership: this does not check that `layerId`
+ * belongs to the sequence's project (see `assertLayerInProject`, the route's
+ * job). A repo-level cross-project move is a defence-in-depth question, not one
+ * this function answers.
+ *
+ * Returns the updated row, or null when the sequence is gone.
+ */
+const move = async (conn, id, { layerId, position }) => {
+    const sequence = await findById(conn, id);
+    if (!sequence) return null;
+
+    const sourceOrdering = await listIds(conn, sequence.layer_id);
+
+    if (sequence.layer_id === layerId) {
+        await applyPositions(conn, TABLE, moveItem(sourceOrdering, id, position));
+
+        return findById(conn, id);
+    }
+
+    const targetOrdering = await listIds(conn, layerId);
+    // Validate the index before writing anything, so a bad position cannot leave
+    // the sequence detached from its old layer.
+    const newTargetOrdering = insertAt(targetOrdering, id, position);
+
+    await conn.execute('UPDATE sequences SET layer_id = ? WHERE id = ?', [layerId, id]);
+    await applyPositions(conn, TABLE, removeItem(sourceOrdering, id));
+    await applyPositions(conn, TABLE, newTargetOrdering);
+    await conn.execute(DELETE_INVALID_EDGES, [id, id]);
+
+    return findById(conn, id);
+};
+
+/**
  * Deletes a sequence and closes the gap in its layer. Its to-dos are not deleted:
  * `todos.sequence_id` is ON DELETE SET NULL, so they return to the unorganized
  * panel. Its edges cascade away.
@@ -183,6 +252,7 @@ module.exports = {
     listByOwner,
     listByProject,
     listIds,
+    move,
     update,
     remove,
 };
