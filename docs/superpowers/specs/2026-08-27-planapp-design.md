@@ -3,6 +3,12 @@
 **Date:** 2026-08-27
 **Status:** Approved, ready for implementation planning
 
+**Amended by:** `2026-09-07-planapp-ui-changes-design.md`, which supersedes three
+statements below. §2 puts horizontal crowding and sequence dragging out of scope;
+both are now in. §4.6 says the canvas has no scrolling of its own — still true of
+the canvas, but its layer rows now scroll sideways. The original text is left as
+written so the decisions it records stay legible.
+
 ---
 
 ## 1. Purpose
