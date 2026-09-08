@@ -16,23 +16,27 @@
 
 /* The ground the cards sit on is the body's own (`--bg-page` in `index.css`,
  * a shade off white) — the page no longer paints it itself, so a white card
- * reads as a raised object everywhere, edge to edge, for free. */
+ * reads as a raised object everywhere, edge to edge, for free.
+ *
+ * The canvas wants every pixel of the window: a layer holding six sequences has
+ * nowhere to put them, and a centred 1400px column was giving away the margins
+ * on either side to nothing. There is no content column any more — the page is
+ * the window, held off its physical edges by `--page-pad` and no more.
+ *
+ * `--page-max` is gone with it. The unorganized panel used to reconstruct the
+ * margin from that number to park itself beside the content; with no margin to
+ * park in, it is honestly an overlay at every width, which is what its collapsed
+ * pill was always for. */
 .project-page {
-    /* The content column, as numbers rather than as a `max-width` alone: the
-     * unorganized panel is taken out of the flow and has to line itself up with
-     * an edge it is no longer inside. */
-    --page-max: 1400px;
-    --page-pad: 1.5rem;
+    --page-pad: 0.75rem;
 
-    /* The floating panel's own box, kept here because it measures itself against
-     * the content column above and has to read both from one place. */
+    /* The floating panel's own box, kept here because the panel is out of the
+     * flow and has to read its numbers from somewhere. */
     --panel-width: 16rem;
     /* The tallest it may grow before its list starts scrolling. The second term
      * keeps it clear of the page header on a short window. */
     --panel-max-height: min(26rem, calc(100vh - 12rem));
 
-    max-width: var(--page-max);
-    margin: 0 auto;
     padding: var(--page-pad) var(--page-pad) 4rem;
     /* The ground runs to the physical edges of the screen, so on a notched
      * device the content has to be held off them itself. */
@@ -75,8 +79,28 @@
     color: #b00020;
 }
 
+/* Both toasts are permanently mounted now (see `ProjectPage.js`) and toggle
+ * `hidden` rather than being removed from the DOM. The UA stylesheet's
+ * `[hidden] { display: none }` has the same specificity as the class rule
+ * above, and an author rule beats a user-agent rule at equal specificity — so
+ * without this, the `display: flex` above would win and a "hidden" toast
+ * would still take up space and paint. */
+.project-toast[hidden] {
+    display: none;
+}
+
 .project-toast p {
     margin: 0;
+}
+
+/* The same box as the error toast, in a colour that is not an emergency: this
+ * reports what a change cost, not that something went wrong. Only the three
+ * colour declarations are overridden — the shape is shared on purpose, so the
+ * two read as one channel with two temperatures. */
+.project-toast--notice {
+    border-color: #d3d9e2;
+    background: #f4f7fb;
+    color: #2c3e56;
 }
 
 /* The drag-and-drop area, and nothing else: the panel inside it is taken out of
@@ -93,12 +117,10 @@
  * layers the page has scrolled, and the canvas underneath keeps the full width
  * of the page instead of being pushed into the remainder.
  *
- * Horizontally it takes the margin beside the content column when the window is
- * wide enough to have one, so on a large screen it sits alongside the page and
- * covers nothing; on a narrower one it runs out of margin and genuinely floats
- * over the canvas, which is what the collapse is for. Being out of the flow, it
- * has to reconstruct that edge from the same numbers `.project-page` lays itself
- * out with.
+ * It floats over the bottom-left of the canvas at every window width, since the
+ * page went full-bleed and there is no margin beside a content column to sit in
+ * any more. That is what the collapse is for: folded, it is a pill in the corner
+ * and the canvas under it is whole again.
  *
  * The list inside it is the one thing on this page that may scroll on its own,
  * because it is not on the page: pinned to the viewport, a long list of loose
@@ -114,10 +136,9 @@
      * where the first layer's title and its cards are: a dock that opened over
      * those would need collapsing before the page could be used at all. */
     bottom: var(--page-pad);
-    left: max(
-        var(--page-pad),
-        calc((100vw - var(--page-max)) / 2 - var(--panel-width) - 0.75rem)
-    );
+    /* Simply the page's own inset. There is no margin beside the content column
+     * to park in any more, because there is no content column. */
+    left: var(--page-pad);
     display: flex;
     flex-direction: column;
     width: var(--panel-width);
@@ -250,9 +271,10 @@
  *
  * A real, permanent column down the right of the canvas, the same width on
  * every row whether or not it holds a button. The add-sequence button sits in
- * it beside its layer row; the add-layer button sits in it directly below.
- * Both are pushed there by `margin-left: auto`, so the column holds its place
- * when a row grows or a card expands.
+ * it beside its layer row, pushed there by `margin-left: auto`, so the column
+ * holds its place when a row grows or a card expands. The add-layer button is
+ * not in this column — see `.layer-divider` below, which spans the row's full
+ * width instead.
  *
  * It is reserved rather than incidental because phase 7 routes skip-edges —
  * the ones that jump past a layer — down lanes inside it.
@@ -266,8 +288,7 @@
     flex-direction: column;
 }
 
-.canvas-layer-main,
-.canvas-layer-footer {
+.canvas-layer-main {
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
@@ -302,42 +323,102 @@
     color: #222;
 }
 
+/* -- The add-layer divider -------------------------------------------------
+ *
+ * Shaped like what it makes. A layer is a band across the canvas, so the control
+ * that inserts one is a band across the canvas — where the add-sequence button
+ * beside the row is a circle, because a sequence is a card.
+ *
+ * Quiet at rest so a canvas of six layers is not five dashed rules shouting for
+ * attention, and firm the moment it is pointed at or focused. Quiet, but not
+ * invisible: the glyph is held at #7a7a7a rather than a lighter grey because it
+ * is the only thing identifying the control to a sighted user, and WCAG 1.4.11
+ * wants 3:1 for that.
+ */
+.layer-divider {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    /* Tall enough to aim at without pushing the layers apart. */
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #7a7a7a;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* The rule sits at the button's own vertical centre rather than its top edge, so
+ * the glyph — already centred by the flex box above — lands on it exactly. The
+ * obvious alternative, pulling the glyph up over a top border with a negative
+ * margin, does not work: `align-items: center` centres the margin box, so the
+ * glyph moves only half the margin and ends up under the line rather than on it. */
+.layer-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #dcdcdc;
+}
+
+.layer-divider:hover::before,
+.layer-divider:focus-visible::before {
+    border-top-color: #7a7a7a;
+}
+
+.layer-divider:hover,
+.layer-divider:focus-visible {
+    color: #333;
+}
+
+.layer-divider:focus-visible {
+    outline: 2px solid #4a7bd0;
+    outline-offset: 2px;
+}
+
+/* The glyph sits on the page's own ground so the dashes do not run through it. */
+.layer-divider-glyph {
+    padding: 0 0.4rem;
+    background: var(--bg-page, #f7f7f8);
+}
+
 /* -- Layer row ------------------------------------------------------------ */
 
-/* No border and no background at rest: a layer is a band of the page, and the
- * only things that mark it are the quiet label above it and the cards inside it.
- * The gap between bands is the canvas's own `gap` plus the gutter row that sits
- * between them, which is separation enough without a rule drawn across the page.
+/* No border and no background, hovered or not: a layer is a band of the page, and
+ * the only things that mark it are the quiet label above it and the cards inside
+ * it. The gap between bands is the canvas's own `gap` plus the gutter row that
+ * sits between them, which is separation enough without a rule drawn across the
+ * page.
+ *
+ * The band used to tint on hover to give the revealed × something to belong to,
+ * but the tint painted over the edges running behind the row, which are the one
+ * thing on this canvas worth not covering — the × is reveal enough.
  *
  * It keeps `position: relative` because that is the contract the shared delete
- * bubble pins itself to — the band is still the hover area that reveals the ×,
- * it just no longer draws itself until the pointer is in it. */
+ * bubble pins itself to. The padding and the negative left margin stay too: they
+ * are the box the delete bubble pins its corner to (`--delete-bubble-top`/
+ * `--delete-bubble-right` below), not leftovers of the tint. */
 .layer-row {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
-    /* Enough to keep the hover tint off the title and the cards, and no more.
-     * The negative left margin puts the title back on the canvas's left edge, so
-     * the tint is inset padding rather than a shift in the layout. */
     margin-left: -0.5rem;
     padding: 0.35rem 0.5rem 0.5rem;
     border-radius: 8px;
     background: transparent;
-    transition: background-color 120ms ease;
 }
 
-/* The one moment a layer draws itself: while the pointer is in it. At rest it is
- * page; on hover it is a band, which is what gives the delete × revealed at its
- * far corner something to belong to. A shade off the page ground, so it registers
- * as an area without becoming a box again. */
-.layer-row:hover {
-    background: #f2f3f4;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .layer-row {
-        transition: none;
-    }
+/* A layer with a card in the air over it. The one moment a band draws itself —
+ * a drop has to say where it will land, and unlike the hover tint removed above
+ * this is momentary and answers a question the person is actively asking. */
+.layer-row--over {
+    background: #eef3fb;
+    box-shadow: inset 0 0 0 1px #4a7bd0;
 }
 
 /* The band's × sits at the top-right of the band, which with the box gone is the
@@ -391,15 +472,40 @@
     font-size: 0.85rem;
 }
 
-/* The row itself: cards spaced evenly, growing with whichever one is open. */
+/* The row itself: cards at their full width, left to right, scrolling sideways
+ * when there are more than fit.
+ *
+ * They used to be spread with `space-evenly` and allowed to shrink, which meant
+ * a layer holding six sequences squeezed all six into unreadable slivers rather
+ * than admitting it had run out of room. Scrolling is the honest answer: the
+ * cards keep their size and the row keeps its place, and the add-sequence button
+ * is outside this box so it stays reachable however far the row has been pushed.
+ *
+ * `overflow-x: auto` forces `overflow-y` to compute to `auto` as well — the CSS
+ * Overflow spec will not leave one axis `visible` while the other is not — so
+ * this row clips on every edge, not just the one meant to scroll. Hence padding
+ * on all four sides: it reserves room for what a card paints outside its own
+ * border box, chiefly the 3px active-card ring, which was otherwise cut off at
+ * the top of every card and at the outer edge of the first and last.
+ *
+ * It does not reserve the scrollbar's height. Nothing here can: a classic
+ * scrollbar takes ~15px and an overlay scrollbar takes none, and
+ * `scrollbar-gutter: stable` is no help — measured, it reserves its gutter on
+ * the inline-end edge, taking 15px off the row's right on classic-scrollbar
+ * platforms even when the row never scrolls, while reserving nothing along the
+ * bottom. So the divider below can still shift a little the first time a row
+ * becomes scrollable on those platforms. Accepted as a small cosmetic wobble
+ * rather than paid for on every row at every width. */
 .layer-row-sequences {
     display: flex;
     align-items: flex-start;
-    justify-content: space-evenly;
+    justify-content: flex-start;
     gap: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0.25rem;
 }
 
 /* -- Inline editable titles ----------------------------------------------- */

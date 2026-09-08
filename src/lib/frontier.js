@@ -60,9 +60,19 @@ const sequenceStatus = (sequence, todos) => {
         : SEQUENCE_STATUS.incomplete;
 };
 
-/** The first to-do still to be done, by position, or null when there is none. */
+/**
+ * The first to-do that can actually be picked up, by position, or null when
+ * there is none.
+ *
+ * Blocked is skipped along with complete. This answers "what do I do next", and
+ * a to-do waiting on something outside the plan is no more an answer than a
+ * finished one — a sequence whose every outstanding item is blocked has nothing
+ * to offer and says so with a null.
+ */
 const nextTodoOf = (sequence, todos) => {
-    const open = todosOf(sequence, todos).filter((todo) => todo.status !== TODO_STATUS.complete);
+    const open = todosOf(sequence, todos).filter(
+        (todo) => todo.status === TODO_STATUS.incomplete
+    );
 
     if (open.length === 0) return null;
 
@@ -70,12 +80,18 @@ const nextTodoOf = (sequence, todos) => {
 };
 
 /**
- * "What can I actually work on right now?" — the sequences that are not complete
- * and whose every parent is, each paired with the next to-do to pick up.
+ * "What can I actually work on right now?" — the sequences that are incomplete
+ * and whose every parent is complete, each paired with the next to-do to pick
+ * up.
  *
- * A sequence with no parents qualifies as soon as it is incomplete. A project
- * whose every sequence is complete has an empty frontier, and so does one with
- * no sequences at all; the two are told apart by the caller, not here.
+ * Incomplete, not merely "not complete": a blocked sequence is held back by hand
+ * and is not something to start, so it is left out along with the finished ones.
+ *
+ * A sequence with no parents qualifies as soon as it is incomplete. An empty
+ * frontier means one of three things now: a project with no sequences at all,
+ * one whose every sequence is complete, and one whose every otherwise-eligible
+ * sequence is blocked. All three collapse to the same `[]` here; telling them
+ * apart is the caller's job, not this function's.
  */
 const readyFrontier = ({ sequences, todos, edges }) => {
     const statusById = new Map(
@@ -92,7 +108,10 @@ const readyFrontier = ({ sequences, todos, edges }) => {
 
     return sequences
         .filter((sequence) => {
-            if (isComplete(sequence.id)) return false;
+            // Incomplete is the only status with anything to start in it:
+            // complete is finished, and blocked is the manual "not this, not
+            // yet" that the whole frontier exists to respect.
+            if (statusById.get(sequence.id) !== SEQUENCE_STATUS.incomplete) return false;
 
             return parentsById.get(sequence.id).every(isComplete);
         })

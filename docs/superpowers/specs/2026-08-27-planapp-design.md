@@ -3,6 +3,12 @@
 **Date:** 2026-08-27
 **Status:** Approved, ready for implementation planning
 
+**Amended by:** `2026-09-07-planapp-ui-changes-design.md`. Its §11 lists every
+statement below that no longer describes the app — in §2, §4.3, §4.4, §4.6, §4.7
+and §4.8 — and is the only copy of that list, so there is one place to keep true
+as the app moves on. The original text here is left as written so the decisions
+it records stay legible.
+
 ---
 
 ## 1. Purpose

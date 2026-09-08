@@ -5,13 +5,24 @@
 // as pure functions rather than inside the drag handler: no React, no DOM, no
 // measurement, and so testable without a layout jsdom cannot provide.
 //
-// The v1 rules, narrower than the library would allow on its own:
+// Two kinds of thing are dragged here, and they answer to different rules. The
+// to-do rules are narrower than the library would allow on its own; the sequence
+// rules are barely rules at all, because every layer takes every sequence.
+//
+// The to-do rules:
 //
 //   - A to-do waiting in the unorganized panel may be filed into any sequence.
 //   - A to-do already in a sequence may only be reordered inside that same
 //     sequence. Dragging one to a different sequence is out of scope (spec 2).
 //   - Nothing may be dragged back to the unorganized panel; that is the per-item
 //     menu action, not a drag (spec 2).
+//
+// The sequence rules:
+//
+//   - A sequence may be dropped into any layer of its project, including its
+//     own, where the drop is a reorder.
+//   - Edges the move invalidates are not a reason to refuse it. They are dropped
+//     with the move, and the cascade reports how many.
 
 import { sortByPosition } from './graph';
 
@@ -26,6 +37,38 @@ export const DROP_TARGET = {
     gap: 'gap',
     /** Another to-do, which the sortable preset registers as a droppable too. */
     item: 'item',
+};
+
+/** The two things this canvas drags. */
+export const DRAG_KIND = { todo: 'todo', sequence: 'sequence' };
+
+/**
+ * What a lift turned out to be, read off the data the draggable carries, or null
+ * when it carries neither.
+ */
+export const dragKindOf = (activeData) => {
+    if (activeData?.todoId !== undefined) return DRAG_KIND.todo;
+    if (activeData?.sequenceId !== undefined) return DRAG_KIND.sequence;
+
+    return null;
+};
+
+/**
+ * Which drag a drop target belongs to, or null when it is not a target at all.
+ *
+ * Both drags share one `DndContext`, and their droppables nest — a to-do row
+ * sits inside the card, which is a droppable in its own right. What keeps the
+ * two apart is that a to-do target names a sequence and a sequence target names
+ * a layer, never both. That is the same distinction `resolveTodoPlacement` and
+ * `resolveSequencePlacement` make of a target after the drop; naming it here
+ * lets collision detection make it before, so a drop cannot land on a target
+ * belonging to the other drag and then resolve to nothing.
+ */
+export const dropTargetKindOf = (target) => {
+    if (target?.sequenceId !== undefined) return DRAG_KIND.todo;
+    if (target?.layerId !== undefined) return DRAG_KIND.sequence;
+
+    return null;
 };
 
 /**
@@ -43,27 +86,27 @@ export const isEligibleDropTarget = (activeTodo, targetSequenceId) => {
     return activeTodo.sequenceId === targetSequenceId;
 };
 
-const listOf = (todos, sequenceId) =>
-    sortByPosition(todos.filter((todo) => todo.sequenceId === sequenceId));
+/** The items of one list, in display order. */
+const listOf = (items, key, value) => sortByPosition(items.filter((item) => item[key] === value));
 
 /**
- * The index a to-do joining a list it is not already in should take.
+ * The index an item joining a list it is not already in should take.
  *
- * The list does not contain it, so a gap index and a to-do's index both mean
- * "go here, and push everything from here down" — the same thing the server's
- * `insertAt` does. Appending puts it after everything already there.
+ * The list does not contain it, so a gap index and another item's index both
+ * mean "go here, and push everything from here down" — the same thing the
+ * server's `insertAt` does. Appending puts it after everything already there.
  */
 const positionJoiningList = (target, list) =>
     target.kind === DROP_TARGET.append ? list.length : target.index;
 
 /**
- * The index a to-do already in the list should end up at, counted the way both
+ * The index an item already in the list should end up at, counted the way both
  * the sortable preset and the server's `moveItem` count it: the index in the
- * list once the to-do has been lifted out of it.
+ * list once the item has been lifted out of it.
  *
- * A gap index is read off the list as displayed, which still holds the to-do, so
- * a gap below where it started is one too high. An index over another to-do
- * already means "take that to-do's place", which needs no adjustment.
+ * A gap index is read off the list as displayed, which still holds the item, so
+ * a gap below where it started is one too high. An index over another item
+ * already means "take that item's place", which needs no adjustment.
  */
 const positionWithinList = (target, list, from) => {
     if (target.kind === DROP_TARGET.append) return list.length - 1;
@@ -84,7 +127,7 @@ const positionWithinList = (target, list, from) => {
 export const resolveTodoPlacement = ({ activeTodo, target, todos }) => {
     if (!target || !isEligibleDropTarget(activeTodo, target.sequenceId)) return null;
 
-    const list = listOf(todos, target.sequenceId);
+    const list = listOf(todos, 'sequenceId', target.sequenceId);
 
     if (activeTodo.sequenceId !== target.sequenceId) {
         return { sequenceId: target.sequenceId, position: positionJoiningList(target, list) };
@@ -96,4 +139,35 @@ export const resolveTodoPlacement = ({ activeTodo, target, todos }) => {
     if (position === from) return null;
 
     return { sequenceId: target.sequenceId, position };
+};
+
+/**
+ * The move a sequence drop asks for, shaped as the body
+ * `PUT /api/sequences/:id/move` takes, or null when it asks for nothing.
+ *
+ * Unlike a to-do, a sequence has no eligibility rule to check: every layer will
+ * take every sequence. What a cross-layer move costs is edges, and that is
+ * settled after the drop by `cascadeSequenceMove` rather than refused before it
+ * (spec decision 2).
+ *
+ * `sequences` is the project's sequences as a plain array — the same shape the
+ * graph hands out. Null rather than a throw, because a card let go where it
+ * already was is an ordinary gesture, not a fault.
+ */
+export const resolveSequencePlacement = ({ activeSequence, target, sequences }) => {
+    if (!activeSequence || !target) return null;
+    if (target.layerId === null || target.layerId === undefined) return null;
+
+    const list = listOf(sequences, 'layerId', target.layerId);
+
+    if (activeSequence.layerId !== target.layerId) {
+        return { layerId: target.layerId, position: positionJoiningList(target, list) };
+    }
+
+    const from = list.findIndex((sequence) => sequence.id === activeSequence.id);
+    const position = positionWithinList(target, list, from);
+
+    if (position === from) return null;
+
+    return { layerId: target.layerId, position };
 };

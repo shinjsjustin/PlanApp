@@ -153,15 +153,14 @@ const dataOf = async (response) => {
 };
 
 /**
- * Registers an account and builds a two-layer plan through the API, then leaves
- * the browser signed in as that user.
+ * Registers a throwaway account through the API and leaves the browser signed
+ * in as it.
  *
- * For tests whose subject is one interaction rather than the whole journey.
- * Clicking through the setup again would only re-assert what the critical flow
- * already covers, and every step of it is another way for an unrelated failure
- * to be blamed on the gesture under test.
+ * Every seed helper below needs the same account and the same bearer headers
+ * to build its graph with — this is the one place that logs in, so the login
+ * call itself is not duplicated in each of them.
  */
-const seedPlan = async (page, credentials, title) => {
+const registerAndLogin = async (page, credentials) => {
     await page.request.post('/api/auth/register', { data: credentials });
 
     const login = await (
@@ -172,45 +171,173 @@ const seedPlan = async (page, credentials, title) => {
 
     if (!login.token) throw new Error(`Seeding failed: no token for ${credentials.email}`);
 
-    const headers = { Authorization: `Bearer ${login.token}` };
+    await page.addInitScript((token) => window.localStorage.setItem('token', token), login.token);
 
-    const project = await dataOf(
-        await page.request.post('/api/projects', { headers, data: { title, description: '' } })
+    return { headers: { Authorization: `Bearer ${login.token}` } };
+};
+
+const createProject = async (page, headers, title) =>
+    dataOf(await page.request.post('/api/projects', { headers, data: { title, description: '' } }));
+
+/** A project's second (or third, ...) layer, appended after every layer it already has. */
+const addLayerBelow = async (page, headers, projectId) =>
+    dataOf(await page.request.post(`/api/projects/${projectId}/layers`, { headers, data: {} }));
+
+const renameLayer = async (page, headers, layerId, title) =>
+    dataOf(await page.request.patch(`/api/layers/${layerId}`, { headers, data: { title } }));
+
+/**
+ * An untitled sequence at the end of `layerId`, immediately named.
+ *
+ * Named apart, because every control on a card is labelled by its title and
+ * two "Untitled sequence"s would make each of those labels ambiguous.
+ */
+const addSequence = async (page, headers, layerId, sequenceTitle) => {
+    const created = await dataOf(
+        await page.request.post(`/api/layers/${layerId}/sequences`, { headers, data: {} })
     );
+
+    return dataOf(
+        await page.request.patch(`/api/sequences/${created.id}`, {
+            headers,
+            data: { title: sequenceTitle },
+        })
+    );
+};
+
+const createEdge = async (page, headers, projectId, parentId, childId) =>
+    dataOf(
+        await page.request.post(`/api/projects/${projectId}/edges`, {
+            headers,
+            data: { parentId, childId },
+        })
+    );
+
+/**
+ * A to-do, either loose in the unorganized panel (`sequenceId` left null) or
+ * already filed in a sequence.
+ *
+ * Seeded rather than typed, for the same reason the sequences are: a test whose
+ * subject is one gesture should not re-assert the composer the critical flow
+ * already covers.
+ */
+const addTodo = async (page, headers, projectId, text, sequenceId = null) =>
+    dataOf(
+        await page.request.post(`/api/projects/${projectId}/todos`, {
+            headers,
+            data: { text, sequenceId },
+        })
+    );
+
+/**
+ * Registers an account and builds a two-layer plan through the API, then leaves
+ * the browser signed in as that user.
+ *
+ * For tests whose subject is one interaction rather than the whole journey.
+ * Clicking through the setup again would only re-assert what the critical flow
+ * already covers, and every step of it is another way for an unrelated failure
+ * to be blamed on the gesture under test.
+ */
+const seedPlan = async (page, credentials, title) => {
+    const { headers } = await registerAndLogin(page, credentials);
+    const project = await createProject(page, headers, title);
 
     // A new project comes with one layer; the second is what makes a connection
     // between layers possible at all.
     const graph = await dataOf(await page.request.get(`/api/projects/${project.id}`, { headers }));
-    const lower = await dataOf(
-        await page.request.post(`/api/projects/${project.id}/layers`, { headers, data: {} })
-    );
+    const lower = await addLayerBelow(page, headers, project.id);
 
-    // Named apart, because every control on a card is labelled by its title and
-    // two "Untitled sequence"s would make each of those labels ambiguous.
-    const addSequence = async (layerId, sequenceTitle) => {
-        const created = await dataOf(
-            await page.request.post(`/api/layers/${layerId}/sequences`, { headers, data: {} })
-        );
+    const parent = await addSequence(page, headers, graph.layers[0].id, 'Aerodynamics');
+    const child = await addSequence(page, headers, lower.id, 'Rotor system');
 
-        return dataOf(
-            await page.request.patch(`/api/sequences/${created.id}`, {
-                headers,
-                data: { title: sequenceTitle },
-            })
-        );
-    };
+    return { projectId: project.id, headers, parent, child };
+};
 
-    const parent = await addSequence(graph.layers[0].id, 'Aerodynamics');
-    const child = await addSequence(lower.id, 'Rotor system');
+/**
+ * Registers an account and builds a two-layer plan with an edge already drawn
+ * between a sequence in each layer, and names both layers so a test can address
+ * one of them by its `region` role rather than by an id it would otherwise have
+ * to thread through.
+ *
+ * For the sequence drag: dragging the parent down into the child's own layer is
+ * what makes the edge invalid (a layer is no longer "above" itself), so the
+ * connection this seeds is exactly the one the drag is expected to cost.
+ */
+const seedConnectedPlan = async (
+    page,
+    credentials,
+    { projectTitle, topLayerTitle, bottomLayerTitle, parentTitle, childTitle }
+) => {
+    const { headers } = await registerAndLogin(page, credentials);
+    const project = await createProject(page, headers, projectTitle);
 
-    await page.addInitScript((token) => window.localStorage.setItem('token', token), login.token);
+    const graph = await dataOf(await page.request.get(`/api/projects/${project.id}`, { headers }));
+    const lower = await addLayerBelow(page, headers, project.id);
 
-    return { projectId: project.id, parent, child };
+    await renameLayer(page, headers, graph.layers[0].id, topLayerTitle);
+    await renameLayer(page, headers, lower.id, bottomLayerTitle);
+
+    const parent = await addSequence(page, headers, graph.layers[0].id, parentTitle);
+    const child = await addSequence(page, headers, lower.id, childTitle);
+
+    await createEdge(page, headers, project.id, parent.id, child.id);
+
+    return { projectId: project.id, headers, parent, child };
+};
+
+/**
+ * How many sequences it takes to force `.layer-row-sequences` past a 1280px
+ * viewport. Each card holds at 25rem (400px) plus a 1rem gap (Task 4), so six
+ * of them (2400px of cards alone) comfortably overflows a row with room to
+ * spare for the canvas gutter and the row's own padding.
+ */
+const CROWDED_SEQUENCE_COUNT = 6;
+
+/**
+ * Registers an account and builds one layer crowded with more sequences than a
+ * 1280px viewport can show at once, plus a second layer below holding one
+ * sequence connected to the first of the crowd.
+ *
+ * The connected sequence is the leftmost of the six on purpose: scrolling the
+ * row all the way to the right is what should carry it out of view and, with
+ * it, the edge that starts there (Task 5).
+ */
+const seedCrowdedPlan = async (page, credentials, title) => {
+    const { headers } = await registerAndLogin(page, credentials);
+    const project = await createProject(page, headers, title);
+
+    const graph = await dataOf(await page.request.get(`/api/projects/${project.id}`, { headers }));
+    const lower = await addLayerBelow(page, headers, project.id);
+
+    const crowd = [];
+    for (let position = 1; position <= CROWDED_SEQUENCE_COUNT; position += 1) {
+        // Sequential on purpose: the server assigns each new sequence's position
+        // from how many the layer already has, so two of these racing each
+        // other could both read the same count and land at the same position.
+        // eslint-disable-next-line no-await-in-loop
+        crowd.push(await addSequence(page, headers, graph.layers[0].id, `Crowded ${position}`));
+    }
+
+    const below = await addSequence(page, headers, lower.id, 'Below the fold');
+
+    await createEdge(page, headers, project.id, crowd[0].id, below.id);
+
+    return { projectId: project.id, crowd, below };
+};
+
+/** Opens a seeded project and waits for its canvas to actually be on screen. */
+const openProject = async (page, projectId) => {
+    await page.goto(`/projects/${projectId}`);
+    await page.locator('.canvas-layer').first().waitFor();
 };
 
 module.exports = {
     attachDiagnostics,
+    addTodo,
     seedPlan,
+    seedConnectedPlan,
+    seedCrowdedPlan,
+    openProject,
     dragOnto,
     expectDrawnEdge,
     newCredentials,

@@ -141,20 +141,28 @@ const isSkip = (parent, child) => child.layerPosition - parent.layerPosition > 1
 /**
  * One `{ id, kind, d }` per edge that can be drawn.
  *
- * `nodes` maps sequence id to `{ dot, top, layerPosition }`. An edge whose ends
- * are not both in it is left out rather than drawn from a guess: on the first
- * paint the layout effect has not measured anything yet, and a sequence removed
- * from the graph can outlive its edges by a render. Neither is a failure — it is
- * simply not knowing yet where to put the line, and inventing coordinates would
- * draw an edge somewhere that means nothing.
+ * `nodes` maps sequence id to `{ dot, top, layerPosition, isClipped }`. An edge
+ * whose ends are not both in it is left out rather than drawn from a guess: on
+ * the first paint the layout effect has not measured anything yet, and a
+ * sequence removed from the graph can outlive its edges by a render. Neither is
+ * a failure — it is simply not knowing yet where to put the line, and inventing
+ * coordinates would draw an edge somewhere that means nothing.
  *
- * Lanes are assigned across the whole set at once, because whether two skip
- * edges collide is a question about the pair, not about either one alone.
+ * An edge with a CLIPPED end is left out for a different reason. Layer rows
+ * scroll sideways, and a card pushed out of its row is still somewhere
+ * geometrically — but this overlay is stretched across the whole canvas, not
+ * clipped per row, so a line drawn to that card would cut across the bands
+ * above and below it. `isClipped` is set by `useNodePositions`, which is the
+ * only thing that can see a scroll position.
+ *
+ * Lanes are assigned after both filters, so an edge nobody can see does not
+ * reserve a gutter lane and push a visible one sideways.
  */
 export const edgePaths = ({ edges, nodes, gutterX }) => {
     const drawable = edges
         .map((edge) => ({ edge, parent: nodes[edge.parentId], child: nodes[edge.childId] }))
-        .filter(({ parent, child }) => parent && child);
+        .filter(({ parent, child }) => parent && child)
+        .filter(({ parent, child }) => !parent.isClipped && !child.isClipped);
 
     const skipSpans = drawable
         .filter(({ parent, child }) => isSkip(parent, child))

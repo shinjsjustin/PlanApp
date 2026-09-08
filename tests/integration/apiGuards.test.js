@@ -80,6 +80,12 @@ const scopedEndpoints = (graph) => [
     ['DELETE /api/layers/:id', 'delete', `/api/layers/${graph.upper.id}`, undefined],
     ['POST /api/layers/:id/sequences', 'post', `/api/layers/${graph.upper.id}/sequences`, {}],
     ['PATCH /api/sequences/:id', 'patch', `/api/sequences/${graph.parent.id}`, { title: 'Taken' }],
+    [
+        'PUT /api/sequences/:id/move',
+        'put',
+        `/api/sequences/${graph.parent.id}/move`,
+        { layerId: graph.child.layer_id, position: 0 },
+    ],
     ['DELETE /api/sequences/:id', 'delete', `/api/sequences/${graph.parent.id}`, undefined],
     ['PATCH /api/todos/:id', 'patch', `/api/todos/${graph.todo.id}`, { text: 'Taken' }],
     [

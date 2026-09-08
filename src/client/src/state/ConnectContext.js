@@ -5,8 +5,8 @@ import React, { createContext, useContext } from 'react';
 // Whether a card is a target depends on the whole selection, not on the card, so
 // each one has to be able to ask. Passing that down would thread connect mode
 // through every layout component between the canvas and the cards; a context
-// keeps the knowledge where it is used, exactly as `DragContext` does for the
-// to-do currently in the air.
+// keeps the knowledge where it is used, exactly as `DragContext` does for
+// whatever is currently in the air.
 //
 // The value is assembled by `Canvas`, which is the one place holding both the
 // selection and the layers the eligibility rule needs.

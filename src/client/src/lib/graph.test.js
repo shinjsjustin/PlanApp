@@ -212,9 +212,9 @@ describe('readyFrontier', () => {
         expect(readyFrontier({ sequences: [], todos: [], edges: [] })).toEqual([]);
     });
 
-    test('keeps a blocked sequence in the frontier, since it is not complete', () => {
-        // Arrange — spec 4.3 defines ready as "status is not complete", so the
-        // manual block surfaces on the card rather than hiding the work.
+    test('leaves a blocked sequence out of the frontier, since spec section 3 keeps blocked work off the home page', () => {
+        // Arrange — a manual block is "not this, not yet", not something to
+        // start, so it no longer surfaces on the card.
         const seq = sequence(1, LEARNING.id, { isBlocked: true });
 
         // Act
@@ -225,10 +225,10 @@ describe('readyFrontier', () => {
         });
 
         // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([1]);
+        expect(frontier.map((entry) => entry.sequence.id)).toEqual([]);
     });
 
-    test('holds a child back behind a blocked parent', () => {
+    test('leaves both a blocked parent and the child it holds back out of the frontier', () => {
         // Arrange
         const parent = sequence(1, LEARNING.id, { isBlocked: true });
         const child = sequence(2, DESIGN.id);
@@ -242,7 +242,7 @@ describe('readyFrontier', () => {
         const frontier = readyFrontier(graph);
 
         // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([1]);
+        expect(frontier.map((entry) => entry.sequence.id)).toEqual([]);
     });
 });
 

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { sortByPosition } from '../lib/graph';
 import {
     cascadeLayerRemoval,
+    cascadeSequenceMove,
     cascadeSequenceRemoval,
     cascadeTodoMove,
     cascadeTodoRemoval,
@@ -33,7 +34,7 @@ const todosIn = (state, sequenceId) =>
     Object.values(state.todos).filter((todo) => todo.sequenceId === sequenceId);
 
 const useProjectMutations = () => {
-    const { state, createEntity, updateEntity, removeEntity } = useProjectContext();
+    const { state, createEntity, updateEntity, removeEntity, raiseNotice } = useProjectContext();
 
     const projectId = state.project?.id;
 
@@ -152,6 +153,42 @@ const useProjectMutations = () => {
         [removeEntity, state]
     );
 
+    /**
+     * Puts a sequence at a position in a layer — the verb behind dragging a card
+     * from one band to another (spec section 9 of the 2026-09-07 changes).
+     *
+     * A move between layers can leave an edge pointing upward, and those edges
+     * go with it. That is not announced before the drop — refusing to move a
+     * connected card would make reorganizing a plan nearly impossible — so it is
+     * reported after, through the notice channel, and only when something was
+     * actually lost.
+     */
+    const moveSequence = useCallback(
+        (sequenceId, placement) => {
+            const also = cascadeSequenceMove(state, sequenceId, placement);
+            const removedEdges = also.filter((action) => action.collection === 'edges').length;
+
+            if (removedEdges > 0) {
+                const sequence = state.sequences[sequenceId];
+
+                raiseNotice(
+                    `Moved “${sequence.title}”. ` +
+                        `${removedEdges} connection${removedEdges === 1 ? '' : 's'} ` +
+                        `${removedEdges === 1 ? 'was' : 'were'} removed.`
+                );
+            }
+
+            return updateEntity('sequences', sequenceId, {
+                path: `/sequences/${sequenceId}/move`,
+                method: 'put',
+                changes: placement,
+                body: placement,
+                also,
+            });
+        },
+        [updateEntity, raiseNotice, state]
+    );
+
     const addTodo = useCallback(
         (text, sequenceId = null) =>
             createEntity('todos', {
@@ -260,6 +297,7 @@ const useProjectMutations = () => {
             setSequenceBlocked,
             setSequenceCollapsed,
             deleteSequence,
+            moveSequence,
             addTodo,
             setTodoStatus,
             moveTodo,
@@ -276,6 +314,7 @@ const useProjectMutations = () => {
             setSequenceBlocked,
             setSequenceCollapsed,
             deleteSequence,
+            moveSequence,
             addTodo,
             setTodoStatus,
             moveTodo,

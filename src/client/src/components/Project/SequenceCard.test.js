@@ -49,6 +49,20 @@ describe('SequenceCard', () => {
         expect(screen.queryByText(baseSequence.description)).not.toBeInTheDocument();
     });
 
+    // A folded card is the default zoomed-out view, and the whole point of it is
+    // reading the canvas without opening anything — which is exactly when
+    // reorganizing a plan by dragging is wanted. The grip has to survive folding
+    // rather than only living in the open header.
+    test('keeps its drag grip when folded', () => {
+        // Act
+        renderCard({ sequence: { ...baseSequence, isCollapsed: true } });
+
+        // Assert
+        expect(
+            screen.getByRole('button', { name: /move learn aerodynamics to another layer/i })
+        ).toBeInTheDocument();
+    });
+
     // Folding is remembered per sequence, so a canvas comes back the way it was
     // left. It travels the same optimistic path as every other patch.
     test('persists the fold on the sequence', async () => {

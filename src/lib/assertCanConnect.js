@@ -36,6 +36,11 @@ const assertCanConnect = async (conn, { parentId, childId, projectId, userId }) 
     const parentLayer = await layersRepo.findById(conn, parent.layer_id);
     const childLayer = await layersRepo.findById(conn, child.layer_id);
 
+    /*
+     * MIRRORED IN SQL: `sequencesRepo.js`'s `DELETE_INVALID_EDGES` encodes this
+     * exact comparison, negated, to delete edges a sequence move invalidates.
+     * Change this condition, change that one too.
+     */
     if (parentLayer.position >= childLayer.position) {
         throw badRequest(
             'parentId: a sequence can only be connected to one in a lower layer — ' +

@@ -4,10 +4,17 @@ const express = require('express');
 const { z } = require('zod');
 
 const asyncRoute = require('../lib/asyncRoute');
+const assertLayerInProject = require('../lib/assertLayerInProject');
 const assertOwnership = require('../middleware/assertOwnership');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
-const { notFound } = require('../lib/httpError');
-const { descriptionSchema, parseId, requireSomeField, titleSchema } = require('../lib/validation');
+const { badRequest, notFound } = require('../lib/httpError');
+const {
+    descriptionSchema,
+    idSchema,
+    parseId,
+    requireSomeField,
+    titleSchema,
+} = require('../lib/validation');
 const { toSequence } = require('../lib/serializers');
 const { withTransaction } = require('../db/unitOfWork');
 
@@ -23,6 +30,10 @@ const { withTransaction } = require('../db/unitOfWork');
  * `isCollapsed` is patched through the same route, which is why the handler is
  * one PATCH rather than a verb per field: folding a card is a change to the
  * sequence like any other, and it travels on the same optimistic path.
+ *
+ * `PUT /:id/move` is the exception to "one PATCH": a placement is not a field
+ * edit. It replaces where the sequence lives outright, touches two ordered lists
+ * and may delete edges, which is more than a partial update should ever mean.
  */
 
 const router = express.Router();
@@ -39,6 +50,35 @@ const updateSequenceSchema = requireSomeField(
     PATCHABLE_FIELDS
 );
 
+/**
+ * `layerId` is required rather than optional: a body that simply left it out
+ * must not be read as "stay where you are", which would turn a mis-sent move
+ * into a silent reorder of a layer the caller never named.
+ */
+const moveSequenceSchema = z.object({
+    layerId: idSchema,
+    position: z
+        .number({ error: 'position must be an integer of 0 or more' })
+        .int('position must be an integer of 0 or more')
+        .min(0, 'position must be an integer of 0 or more'),
+});
+
+/**
+ * `position` is checked against the target layer by the reindexing helpers,
+ * which raise a `RangeError` for an index outside it. That is a caller mistake —
+ * a stale client naming a slot in a layer that has since shrunk — so it answers
+ * 400 here rather than reaching the error handler as a server fault.
+ */
+const moveOrReject = async (conn, id, placement) => {
+    try {
+        return await sequencesRepo.move(conn, id, placement);
+    } catch (err) {
+        if (err instanceof RangeError) throw badRequest(`position: ${err.message}`);
+
+        throw err;
+    }
+};
+
 // PATCH /api/sequences/:id — rename, re-describe, set the blocked override, or
 // fold the card shut.
 router.patch(
@@ -51,6 +91,34 @@ router.patch(
             await assertOwnership(conn, 'sequence', id, req.user.id);
 
             return sequencesRepo.update(conn, id, patch);
+        });
+
+        if (!sequence) throw notFound('Sequence');
+
+        res.sendData(toSequence(sequence));
+    })
+);
+
+// PUT /api/sequences/:id/move — put this sequence at this position in this
+// layer. Reordering a sequence within its band and moving it to another are the
+// same operation over one or two ordered lists, so they are one endpoint.
+//
+// Edges the move leaves pointing upward are deleted with it, inside the same
+// transaction: an edge means "this must finish before that can start", and one
+// running up the canvas would mean nothing. The client derives the same set from
+// the same rule, so nothing about that travels in this response.
+router.put(
+    '/:id/move',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+        const { layerId, position } = moveSequenceSchema.parse(req.body ?? {});
+
+        const sequence = await withTransaction(async (conn) => {
+            const project = await assertOwnership(conn, 'sequence', id, req.user.id);
+
+            await assertLayerInProject(conn, layerId, project.id, req.user.id);
+
+            return moveOrReject(conn, id, { layerId, position });
         });
 
         if (!sequence) throw notFound('Sequence');

@@ -59,3 +59,12 @@ export const rolledBack = (snapshot, error) => ({
 });
 
 export const actionErrorCleared = () => ({ type: PROJECT_ACTIONS.actionErrorCleared });
+
+/**
+ * Something worth saying that is not a failure — the connections a sequence move
+ * cost, say. Deliberately not `actionError`: that one is painted as an error and
+ * announced as an alert, and a successful move is neither.
+ */
+export const noticeRaised = (message) => ({ type: PROJECT_ACTIONS.noticeRaised, message });
+
+export const noticeCleared = () => ({ type: PROJECT_ACTIONS.noticeCleared });

@@ -128,6 +128,21 @@ describe('LayerRow', () => {
         );
     });
 
+    test('renders the add-layer control as a divider rather than a gutter button', () => {
+        // Arrange & Act
+        renderRow();
+
+        // Assert — the two add controls are told apart by class, not by their glyph.
+        const addLayer = screen.getByRole('button', { name: /add a layer below/i });
+        const addSequence = screen.getByRole('button', { name: /add a sequence to/i });
+
+        expect(addLayer).toHaveClass('layer-divider');
+        expect(addSequence).toHaveClass('canvas-gutter-button');
+        expect(addLayer).not.toHaveClass('canvas-gutter-button');
+        expect(addLayer.closest('.canvas-gutter')).toBeNull();
+        expect(addSequence.closest('.canvas-gutter')).not.toBeNull();
+    });
+
     test('patches the layer when its title is edited and committed', () => {
         // Arrange
         jest.useFakeTimers();
@@ -223,12 +238,14 @@ describe('LayerRow', () => {
         expect(screen.queryByRole('button', { name: /^delete layer$/i })).not.toBeInTheDocument();
     });
 
-    test('keeps a permanent gutter column beside the row for the buttons', () => {
+    test('keeps a permanent gutter column beside the row for the add-sequence button', () => {
         // Arrange — phase 7 routes skip-edges down this column, so it is a real
-        // reserved column whether or not anything is in it.
+        // reserved column whether or not anything is in it. The add-layer
+        // control is not in this column at all: it is the full-width divider
+        // below the row (asserted separately above), not a second gutter slice.
         const { container } = renderRow();
 
         // Assert
-        expect(container.querySelectorAll('.canvas-gutter')).toHaveLength(2);
+        expect(container.querySelectorAll('.canvas-gutter')).toHaveLength(1);
     });
 });

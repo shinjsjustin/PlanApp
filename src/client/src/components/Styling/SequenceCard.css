@@ -64,11 +64,13 @@
     --seq-radius-pill: 20px;
 
     position: relative;
-    /* 460px in the mock; on the canvas a card shares a layer row with its
-     * siblings, so it takes the design's floor rather than its width and grows
-     * into whatever the row can spare. */
-    flex: 0 1 25rem;
-    min-width: 0;
+    /* 460px in the mock; on the canvas a card takes the design's floor. It no
+     * longer shrinks to fit its row — the row scrolls sideways instead, so a
+     * layer holding six sequences shows six readable cards rather than six
+     * slivers. `min-width` matches for the same reason: without it a flex item
+     * can still be squeezed below its basis. */
+    flex: 0 0 25rem;
+    min-width: 25rem;
     border: 1px solid var(--seq-border);
     border-radius: var(--seq-radius);
     background: var(--seq-surface);
@@ -614,4 +616,27 @@
     box-shadow:
         0 0 0 2px #4a7dbd,
         0 6px 18px rgba(20, 30, 50, 0.18);
+}
+
+/* The one way to pick a card up. Faint until the card is hovered, like the grips
+ * on the to-do rows inside it, so a canvas of cards is not a canvas of handles. */
+.sequence-card-grip {
+    flex: 0 0 auto;
+    padding: 0 0.25rem;
+    border: 0;
+    background: none;
+    color: #c8c8c8;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: grab;
+}
+
+.sequence-card:hover .sequence-card-grip,
+.sequence-card-grip:focus-visible {
+    color: #7a7a7a;
+}
+
+.sequence-card--dragging {
+    opacity: 0.5;
+    cursor: grabbing;
 }

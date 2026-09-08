@@ -12,6 +12,8 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
+    noticeCleared,
+    noticeRaised,
     rolledBack,
 } from '../state/projectActions';
 
@@ -151,7 +153,23 @@ const useProjectGraph = (projectId) => {
 
     const dismissActionError = useCallback(() => dispatch(actionErrorCleared()), []);
 
-    return { state, reload: load, createEntity, updateEntity, removeEntity, dismissActionError };
+    // Raised by a mutation that succeeded but cost something worth mentioning,
+    // and dismissed by hand like the error above it. No timer: a toast that
+    // vanishes on its own is one more race for the E2E suite and one more thing
+    // to miss.
+    const raiseNotice = useCallback((message) => dispatch(noticeRaised(message)), []);
+    const dismissNotice = useCallback(() => dispatch(noticeCleared()), []);
+
+    return {
+        state,
+        reload: load,
+        createEntity,
+        updateEntity,
+        removeEntity,
+        dismissActionError,
+        raiseNotice,
+        dismissNotice,
+    };
 };
 
 export default useProjectGraph;

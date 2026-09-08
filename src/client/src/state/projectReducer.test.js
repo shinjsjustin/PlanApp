@@ -15,6 +15,8 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
+    noticeCleared,
+    noticeRaised,
     rolledBack,
 } from './projectActions';
 
@@ -343,6 +345,40 @@ describe('projectReducer', () => {
                 projectReducer(initialProjectState, entityAdded('widgets', { id: 1 }))
             ).toThrow(/widgets/);
         });
+    });
+});
+
+describe('the notice channel', () => {
+    test('raises a notice', () => {
+        // Arrange & Act
+        const after = projectReducer(initialProjectState, noticeRaised('2 connections were removed.'));
+
+        // Assert
+        expect(after.notice).toBe('2 connections were removed.');
+    });
+
+    test('clears a notice', () => {
+        // Arrange
+        const raised = projectReducer(initialProjectState, noticeRaised('Something happened.'));
+
+        // Act
+        const after = projectReducer(raised, noticeCleared());
+
+        // Assert
+        expect(after.notice).toBeNull();
+    });
+
+    test('drops a standing notice when a mutation rolls back', () => {
+        // Arrange — the notice describes a change that is about to be undone.
+        const raised = projectReducer(initialProjectState, noticeRaised('2 connections were removed.'));
+        const snapshot = { layers: {}, sequences: {}, todos: {}, edges: {} };
+
+        // Act
+        const after = projectReducer(raised, rolledBack(snapshot, 'Move failed.'));
+
+        // Assert — a notice claiming the edges went would be a lie once they are back.
+        expect(after.notice).toBeNull();
+        expect(after.actionError).toBe('Move failed.');
     });
 });
 

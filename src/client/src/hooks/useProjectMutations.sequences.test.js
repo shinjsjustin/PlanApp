@@ -171,6 +171,70 @@ describe('setSequenceCollapsed', () => {
     });
 });
 
+// The notice a move raises is glue: `cascadeSequenceMove` derives which edges
+// break (tested on its own) and the reducer stores/clears a notice (tested on
+// its own) — what is untested anywhere else is the counting and pluralization
+// in between, so these three cases characterise it directly rather than
+// through the one path `criticalFlow.spec.js` happens to drag through.
+describe('moveSequence', () => {
+    test('raises no notice when the move costs no connections', async () => {
+        // Arrange — a same-layer reorder of a sequence with no edges of its own
+        const { result, raiseNotice } = await renderMutations();
+        api.put.mockResolvedValue({ ...GRAPH.sequences[1], position: 0 });
+
+        // Act
+        await act(async () => {
+            await result.current.moveSequence(101, { layerId: 10, position: 0 });
+        });
+
+        // Assert
+        expect(raiseNotice).not.toHaveBeenCalled();
+    });
+
+    test('raises a singular notice when exactly one connection is removed', async () => {
+        // Arrange — moving "Learn aerodynamics" into Design leaves its one edge
+        // pointing sideways instead of down
+        const { result, raiseNotice } = await renderMutations();
+        api.put.mockResolvedValue({ ...GRAPH.sequences[0], layerId: 20, position: 1 });
+
+        // Act
+        await act(async () => {
+            await result.current.moveSequence(100, { layerId: 20, position: 1 });
+        });
+
+        // Assert
+        expect(raiseNotice).toHaveBeenCalledTimes(1);
+        const [message] = raiseNotice.mock.calls[0];
+        expect(message).toContain('Learn aerodynamics');
+        expect(message).toContain('1 connection was removed');
+        expect(message).not.toContain('1 connections');
+    });
+
+    test('raises a plural notice when two or more connections are removed', async () => {
+        // Arrange — tether "Design rotor system" to both learning sequences,
+        // then move it down where neither can reach it any more
+        const { result, raiseNotice } = await renderMutations();
+        api.post.mockResolvedValue({ id: 501, projectId: 1, parentId: 101, childId: 200 });
+
+        await act(async () => {
+            await result.current.toggleEdge(101, 200);
+        });
+
+        api.put.mockResolvedValue({ ...GRAPH.sequences[2], layerId: 10, position: 2 });
+
+        // Act
+        await act(async () => {
+            await result.current.moveSequence(200, { layerId: 10, position: 2 });
+        });
+
+        // Assert
+        expect(raiseNotice).toHaveBeenCalledTimes(1);
+        const [message] = raiseNotice.mock.calls[0];
+        expect(message).toContain('Design rotor system');
+        expect(message).toContain('2 connections were removed');
+    });
+});
+
 describe('deleteSequence', () => {
     test('returns its to-dos to the unorganized panel and closes the gap', async () => {
         // Arrange
