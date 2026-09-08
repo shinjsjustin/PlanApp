@@ -2,6 +2,7 @@
 
 const {
     toEdge,
+    toFrontierEntry,
     toLayer,
     toProject,
     toSequence,
@@ -151,6 +152,61 @@ describe('serializers', () => {
             expect(toProject({ id: 3, owner_id: 99, title: 'Build a drone' })).not.toHaveProperty(
                 'ownerId'
             );
+        });
+    });
+
+    /**
+     * `readyFrontier` skips a blocked to-do the way it skips a complete one
+     * (spec section 3), so a null `nextTodo` no longer means only "this sequence
+     * is empty". The entry carries which of the two it is, because the home card
+     * says different things about them.
+     */
+    describe('toFrontierEntry', () => {
+        const sequence = { id: 2, title: 'Learn aerodynamics' };
+
+        test('carries the next to-do, narrowed to its id and text', () => {
+            // Arrange
+            const nextTodo = { id: 202, sequenceId: 2, text: 'Read up on lift', position: 0 };
+
+            // Act & Assert — `position` and `status` stay off the wire.
+            expect(toFrontierEntry({ sequence, nextTodo }, [nextTodo])).toEqual({
+                sequenceId: 2,
+                sequenceTitle: 'Learn aerodynamics',
+                nextTodo: { id: 202, text: 'Read up on lift' },
+                isStalled: false,
+            });
+        });
+
+        test('reports a sequence holding no to-dos as not stalled', () => {
+            // Act & Assert — nothing to pick up because there is nothing in it.
+            expect(toFrontierEntry({ sequence, nextTodo: null }, [])).toMatchObject({
+                nextTodo: null,
+                isStalled: false,
+            });
+        });
+
+        test('reports a sequence whose outstanding work is all blocked as stalled', () => {
+            // Arrange — one done, one blocked, so nothing is startable.
+            const todos = [
+                { id: 201, sequenceId: 2, text: 'Read up on lift', status: 'complete' },
+                { id: 202, sequenceId: 2, text: 'Wait on the wind tunnel', status: 'blocked' },
+            ];
+
+            // Act & Assert
+            expect(toFrontierEntry({ sequence, nextTodo: null }, todos)).toMatchObject({
+                nextTodo: null,
+                isStalled: true,
+            });
+        });
+
+        test('ignores to-dos belonging to other sequences', () => {
+            // Arrange — the project's to-dos, none of them this sequence's.
+            const todos = [{ id: 301, sequenceId: 9, text: 'Learn to solder', status: 'blocked' }];
+
+            // Act & Assert
+            expect(toFrontierEntry({ sequence, nextTodo: null }, todos)).toMatchObject({
+                isStalled: false,
+            });
         });
     });
 });

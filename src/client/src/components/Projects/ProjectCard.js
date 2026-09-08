@@ -35,6 +35,23 @@ const EDITING = 'project-card--editing';
 const HAS_BUBBLE = 'has-delete-bubble';
 
 /**
+ * What a frontier line says after the sequence's name.
+ *
+ * A ready sequence without a next to-do is two different situations, and calling
+ * both of them "No to-dos yet" would say something false about the second:
+ *   - it holds nothing at all — an empty sequence, waiting to be filled in;
+ *   - it holds outstanding work and every piece of it is blocked, so there is
+ *     nothing here to pick up even though the sequence itself is ready.
+ * `isStalled` is what tells them apart; see `toFrontierEntry` in
+ * `src/lib/serializers.js`, which is where the distinction is drawn.
+ */
+const nextStepOf = (entry) => {
+    if (entry.nextTodo) return entry.nextTodo.text;
+
+    return entry.isStalled ? 'Everything left here is blocked' : 'No to-dos yet';
+};
+
+/**
  * The body of the card: the ready frontier, or why there is nothing in it.
  *
  * An empty frontier has three quite different meanings, and running them
@@ -81,9 +98,7 @@ const FrontierBlock = ({ project }) => {
                 {project.frontier.map((entry) => (
                     <li key={entry.sequenceId} className="frontier-line">
                         <span className="frontier-sequence">{entry.sequenceTitle}</span>
-                        <span className="frontier-todo">
-                            {entry.nextTodo ? entry.nextTodo.text : 'No to-dos yet'}
-                        </span>
+                        <span className="frontier-todo">{nextStepOf(entry)}</span>
                     </li>
                 ))}
             </ul>
@@ -192,9 +207,25 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
                         throughout — the collapse is visual density, not
                         information hiding, so nothing here is `hidden` and the
                         CSS is careful to keep it that way. Nothing in it is
-                        interactive either, which is what makes it safe to leave
-                        under the card-wide link overlay. */}
+                        interactive, which is what lets the whole panel be part
+                        of the way into the project. */}
                     <div className="project-card-reveal">
+                        {/* The panel is part of the card, so a click on it goes
+                            where a click on the card face goes. The title's
+                            stretched `::after` cannot reach here — it is
+                            `inset: 0` on the card, and the panel hangs below
+                            that box — so the panel carries the same hit area of
+                            its own. Out of the reading order and out of the
+                            accessibility tree: the title link already says where
+                            this goes, and a second link saying it again is noise
+                            to anyone not using a pointer. */}
+                        <Link
+                            className="project-card-reveal-link"
+                            to={`/projects/${project.id}`}
+                            tabIndex={-1}
+                            aria-hidden="true"
+                        />
+
                         <p className="project-card-progress">
                             {`${project.completedTodoCount}/${project.todoCount} to-dos done`}
                         </p>

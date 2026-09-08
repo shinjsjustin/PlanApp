@@ -75,6 +75,11 @@ const deleteBubble = () => screen.getByRole('button', { name: 'Delete “Build a
  * the parts of the card that have not been lifted back above it. The click
  * itself is covered in `tests/e2e/criticalFlow.spec.js`, in a real browser.
  *
+ * The drop-down panel is covered by a stretched link of its own rather than by
+ * the title's, because the title's `::after` is `inset: 0` on the card and the
+ * panel hangs below that box. Resolving a click in the panel to the title's link
+ * here would model a hit test no browser performs.
+ *
  * Returns the stretched link, or null when the click lands on a control of its
  * own instead.
  */
@@ -84,6 +89,9 @@ const stretchedLinkTargetFor = (element) => {
     if (!card || card.classList.contains('project-card--editing')) return null;
     if (element.closest('.project-card-raised, .delete-bubble')) return null;
     if (element.closest('a')) return element.closest('a');
+
+    const reveal = element.closest('.project-card-reveal');
+    if (reveal) return reveal.querySelector('.project-card-reveal-link');
 
     return card.querySelector('.project-card-title a');
 };
@@ -247,11 +255,16 @@ describe('ProjectCard', () => {
         });
 
         test('says so when a ready sequence has no to-dos in it yet', () => {
-            // Arrange & Act — ready, but there is nothing to pick up.
+            // Arrange & Act — ready, and genuinely empty.
             renderCard({
                 project: {
                     frontier: [
-                        { sequenceId: 2, sequenceTitle: 'Learn electronics', nextTodo: null },
+                        {
+                            sequenceId: 2,
+                            sequenceTitle: 'Learn electronics',
+                            nextTodo: null,
+                            isStalled: false,
+                        },
                     ],
                 },
             });
@@ -260,6 +273,34 @@ describe('ProjectCard', () => {
             const [line] = within(frontierList()).getAllByRole('listitem');
             expect(line).toHaveTextContent('Learn electronics');
             expect(line).toHaveTextContent(/no to-dos yet/i);
+        });
+
+        /**
+         * Since blocked to-dos stopped counting as a next step (spec section 3)
+         * a sequence holding nothing but blocked work also arrives with a null
+         * `nextTodo`, and calling that "No to-dos yet" would be false about a
+         * sequence that is full of them.
+         */
+        test('says the work is blocked when a ready sequence has nothing startable', () => {
+            // Arrange & Act
+            renderCard({
+                project: {
+                    frontier: [
+                        {
+                            sequenceId: 2,
+                            sequenceTitle: 'Learn aerodynamics',
+                            nextTodo: null,
+                            isStalled: true,
+                        },
+                    ],
+                },
+            });
+
+            // Assert
+            const [line] = within(frontierList()).getAllByRole('listitem');
+            expect(line).toHaveTextContent('Learn aerodynamics');
+            expect(line).toHaveTextContent(/blocked/i);
+            expect(line).not.toHaveTextContent(/no to-dos yet/i);
         });
 
         test('shows a completed state when nothing is left to start', () => {

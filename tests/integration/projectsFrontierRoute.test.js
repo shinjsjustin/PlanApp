@@ -143,11 +143,13 @@ describe('GET /api/projects — ready frontier', () => {
                 sequenceId: expect.any(Number),
                 sequenceTitle: 'Learn electronics',
                 nextTodo: { id: expect.any(Number), text: 'Understand ESCs' },
+                isStalled: false,
             },
             {
                 sequenceId: expect.any(Number),
                 sequenceTitle: 'Connect drone to wifi',
                 nextTodo: { id: expect.any(Number), text: 'Bring up the radio' },
+                isStalled: false,
             },
         ]);
     });
@@ -163,12 +165,56 @@ describe('GET /api/projects — ready frontier', () => {
         // Act
         const response = await listProjects(ownerId);
 
-        // Assert
+        // Assert — nothing to pick up, but only because it is empty.
         expect(response.body.data[0].frontier).toEqual([
             {
                 sequenceId: expect.any(Number),
                 sequenceTitle: 'Learn aerodynamics',
                 nextTodo: null,
+                isStalled: false,
+            },
+        ]);
+    });
+
+    /**
+     * Since blocked to-dos stopped counting as a next step (spec section 3) a
+     * sequence full of them also reports a null `nextTodo`, and the card must
+     * not read that as "no to-dos yet". `isStalled` is what separates the two.
+     */
+    test('marks a ready sequence whose outstanding work is all blocked as stalled', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const project = await projectsRepo.create(conn, { ownerId, title: 'Build a drone' });
+        const layer = await layersRepo.create(conn, { projectId: project.id });
+        const sequence = await sequencesRepo.create(conn, {
+            layerId: layer.id,
+            title: 'Learn aerodynamics',
+        });
+        await addTodo(conn, {
+            projectId: project.id,
+            sequenceId: sequence.id,
+            text: 'Read up on lift',
+            status: 'complete',
+        });
+        await addTodo(conn, {
+            projectId: project.id,
+            sequenceId: sequence.id,
+            text: 'Wait on the wind tunnel',
+            status: 'blocked',
+        });
+
+        // Act
+        const response = await listProjects(ownerId);
+
+        // Assert — still on the frontier, because the sequence itself is not
+        // blocked by hand; nothing in it can be started, which is what it says.
+        expect(response.body.data[0].frontier).toEqual([
+            {
+                sequenceId: sequence.id,
+                sequenceTitle: 'Learn aerodynamics',
+                nextTodo: null,
+                isStalled: true,
             },
         ]);
     });

@@ -11,7 +11,13 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 
 import useProjectMutations from '../../hooks/useProjectMutations';
-import { resolveSequencePlacement, resolveTodoPlacement } from '../../lib/dragDrop';
+import {
+    DRAG_KIND,
+    dragKindOf,
+    dropTargetKindOf,
+    resolveSequencePlacement,
+    resolveTodoPlacement,
+} from '../../lib/dragDrop';
 import { DragProvider } from '../../state/DragContext';
 import { useProjectContext } from '../../state/ProjectContext';
 
@@ -48,19 +54,33 @@ const POINTER_SENSOR_OPTIONS = {
 // Enter, arrows move, Space or Enter drops, Escape cancels.
 const KEYBOARD_SENSOR_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
 
-/** What a lift turned out to be, decided from the data the draggable carried. */
-const DRAG_KIND = { todo: 'todo', sequence: 'sequence' };
-
 /**
- * Droppables nest here — the gaps between to-dos sit inside the card body that
- * accepts a drop of its own — so the pointer's own position decides first, and
- * only when it is over nothing does the nearest droppable win. That fallback is
- * also what the keyboard sensor runs on, having no pointer to speak of.
+ * Which droppable a drop lands on.
+ *
+ * The droppables of the two drags are interleaved — a to-do row and the gaps
+ * around it sit inside a sequence card that is itself somewhere another card can
+ * be dropped — so the candidates are first narrowed to the ones belonging to the
+ * drag actually in flight. Without that a nested to-do row would win a sequence
+ * drag on distance alone, and the card would swallow a to-do let go on its
+ * header: either drop resolves to a target of the wrong kind, and so to nothing
+ * at all.
+ *
+ * Among what is left the pointer's own position decides first, and only when it
+ * is over nothing does the nearest droppable win. That fallback is also what the
+ * keyboard sensor runs on, having no pointer to speak of.
  */
-const detectCollisions = (args) => {
-    const under = pointerWithin(args);
+export const detectCollisions = (args) => {
+    const kind = dragKindOf(args.active?.data.current);
+    const scoped = {
+        ...args,
+        droppableContainers: args.droppableContainers.filter(
+            (container) => dropTargetKindOf(container.data.current?.dropTarget) === kind
+        ),
+    };
 
-    return under.length > 0 ? under : closestCenter(args);
+    const under = pointerWithin(scoped);
+
+    return under.length > 0 ? under : closestCenter(scoped);
 };
 
 const DragDropArea = ({ children }) => {
@@ -92,17 +112,16 @@ const DragDropArea = ({ children }) => {
     const handleDragStart = useCallback((event) => {
         const data = event.active.data.current;
 
-        if (data?.todoId !== undefined) {
-            setActive({ kind: DRAG_KIND.todo, id: data.todoId });
-            return;
+        switch (dragKindOf(data)) {
+            case DRAG_KIND.todo:
+                setActive({ kind: DRAG_KIND.todo, id: data.todoId });
+                break;
+            case DRAG_KIND.sequence:
+                setActive({ kind: DRAG_KIND.sequence, id: data.sequenceId });
+                break;
+            default:
+                setActive(null);
         }
-
-        if (data?.sequenceId !== undefined) {
-            setActive({ kind: DRAG_KIND.sequence, id: data.sequenceId });
-            return;
-        }
-
-        setActive(null);
     }, []);
 
     /**
@@ -122,7 +141,7 @@ const DragDropArea = ({ children }) => {
             const data = event.active.data.current;
             const target = event.over?.data.current?.dropTarget ?? null;
 
-            if (data?.todoId !== undefined) {
+            if (dragKindOf(data) === DRAG_KIND.todo) {
                 const lifted = state.todos[data.todoId];
                 if (!lifted) return;
 
@@ -136,7 +155,7 @@ const DragDropArea = ({ children }) => {
                 return;
             }
 
-            if (data?.sequenceId !== undefined) {
+            if (dragKindOf(data) === DRAG_KIND.sequence) {
                 const lifted = state.sequences[data.sequenceId];
                 if (!lifted) return;
 

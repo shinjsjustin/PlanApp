@@ -77,7 +77,7 @@ const attachFrontiers = (projects, { sequences, edges, todos }) => {
                 sequences: own,
                 edges: edgesByProject.get(project.id),
                 todos: ownTodos,
-            }).map(toFrontierEntry),
+            }).map((entry) => toFrontierEntry(entry, ownTodos)),
         };
     });
 };

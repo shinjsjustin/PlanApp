@@ -3,9 +3,11 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { ApiError, api } from '../../lib/api';
+import { DROP_TARGET, resolveSequencePlacement, resolveTodoPlacement } from '../../lib/dragDrop';
 import { click } from '../../testUtils/interact';
 
 import ProjectPage from './ProjectPage';
+import { detectCollisions } from './DragDropArea';
 
 // Drag-and-drop as the page wires it up (spec section 4.7).
 //
@@ -362,5 +364,126 @@ describe('while a loose to-do is in flight', () => {
             ])
         );
         expect(cardsMarked('ineligible')).toEqual([]);
+    });
+});
+
+/**
+ * Which droppable a drop lands on, with the two drags sharing one `DndContext`.
+ *
+ * Everything above runs through the keyboard sensor, which steps between the
+ * droppables of one list and so never puts a card and a to-do row in contention.
+ * A pointer does, because the droppables of the two drags are physically nested:
+ * a to-do row sits inside the card that is itself a slot in a layer. `@dnd-kit`
+ * ranks candidates by distance and knows nothing of the difference, so a nested
+ * to-do row would win a sequence drag outright and a card would win a to-do let
+ * go on its header — and either drop then resolves to nothing, silently.
+ *
+ * Rects are supplied here rather than measured, because jsdom reports zero for
+ * all of them; they are the geometry a browser would have given, laid out the
+ * way the card really is. What is asserted is not a coordinate but the placement
+ * the winning droppable resolves to, which is what the drop handler sends.
+ */
+describe('collision detection with both drags in one context', () => {
+    const rectOf = ({ top, left, width, height }) => ({
+        top,
+        left,
+        bottom: top + height,
+        right: left + width,
+        width,
+        height,
+    });
+
+    // One layer holding one open card, laid out the way the card renders: a
+    // header band with no droppable of its own, then the body, then a to-do row
+    // inside it.
+    const LAYER_RECT = rectOf({ top: 0, left: 0, width: 400, height: 300 });
+    const CARD_RECT = rectOf({ top: 0, left: 0, width: 200, height: 200 });
+    const CARD_BODY_RECT = rectOf({ top: 80, left: 0, width: 200, height: 120 });
+    const TODO_ROW_RECT = rectOf({ top: 100, left: 0, width: 200, height: 40 });
+
+    const DROPPABLES = [
+        { id: 'layer-10', dropTarget: { kind: DROP_TARGET.append, layerId: 10 }, rect: LAYER_RECT },
+        {
+            id: 'seq-100',
+            dropTarget: { kind: DROP_TARGET.item, layerId: 10, index: 0 },
+            rect: CARD_RECT,
+        },
+        {
+            id: 'sequence-100',
+            dropTarget: { kind: DROP_TARGET.append, sequenceId: 100 },
+            rect: CARD_BODY_RECT,
+        },
+        {
+            id: 1001,
+            dropTarget: { kind: DROP_TARGET.item, sequenceId: 100, index: 0 },
+            rect: TODO_ROW_RECT,
+        },
+    ];
+
+    const collisionArgs = ({ activeData, pointer }) => ({
+        active: { data: { current: activeData } },
+        collisionRect: rectOf({ top: pointer.y, left: pointer.x, width: 0, height: 0 }),
+        droppableContainers: DROPPABLES.map(({ id, dropTarget }) => ({
+            id,
+            data: { current: { dropTarget } },
+        })),
+        droppableRects: new Map(DROPPABLES.map(({ id, rect }) => [id, rect])),
+        pointerCoordinates: pointer,
+    });
+
+    /** The target the winning droppable carries, which is all the drop reads. */
+    const winningTarget = (args) => {
+        const [winner] = detectCollisions(args);
+
+        return winner ? winner.data.droppableContainer.data.current.dropTarget : null;
+    };
+
+    const SEQUENCES = [
+        { id: 100, layerId: 10, position: 0 },
+        { id: 200, layerId: 20, position: 0 },
+    ];
+    const TODOS = [
+        { id: 1000, sequenceId: null, position: 0 },
+        { id: 1001, sequenceId: 100, position: 0 },
+    ];
+
+    test('lands a sequence dropped over a to-do row on the card holding it', () => {
+        // Arrange — a card from another layer, let go over the to-do row inside
+        // an open card. Cards render open by default, so this is the ordinary
+        // way one card is dropped onto another.
+        const args = collisionArgs({
+            activeData: { sequenceId: 200 },
+            pointer: { x: 100, y: 120 },
+        });
+
+        // Act
+        const target = winningTarget(args);
+
+        // Assert — spec section 9: the card dropped on gives up its place.
+        expect(
+            resolveSequencePlacement({
+                activeSequence: SEQUENCES[1],
+                target,
+                sequences: SEQUENCES,
+            })
+        ).toEqual({ layerId: 10, position: 0 });
+    });
+
+    test('files a to-do dropped on a card header into that card', () => {
+        // Arrange — the header is the one band of an open card that carries no
+        // to-do droppable of its own, so the card's own slot is what a to-do
+        // would otherwise collide with there.
+        const args = collisionArgs({
+            activeData: { todoId: 1000 },
+            pointer: { x: 100, y: 40 },
+        });
+
+        // Act
+        const target = winningTarget(args);
+
+        // Assert
+        expect(
+            resolveTodoPlacement({ activeTodo: TODOS[0], target, todos: TODOS })
+        ).toEqual({ sequenceId: 100, position: 0 });
     });
 });

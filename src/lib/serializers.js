@@ -80,13 +80,20 @@ const toEdge = (row) => ({
  *
  * Deliberately narrow. The home page lists a name and a next step; sending whole
  * sequence and to-do objects for every project would put most of every graph on
- * the wire to render two lines of text. `nextTodo` is null when the ready
- * sequence holds no to-dos yet.
+ * the wire to render two lines of text.
+ *
+ * `nextTodo` is null for two quite different reasons, and the card has to say
+ * different things about them: the sequence holds no to-dos at all, or it holds
+ * outstanding ones and every one of them is blocked — `readyFrontier` skips a
+ * blocked to-do the way it skips a complete one (spec section 3). `isStalled` is
+ * the second of those: ready, but with nothing in it that can be picked up.
+ * `todos` is the project's to-dos, the same array the frontier was derived from.
  */
-const toFrontierEntry = ({ sequence, nextTodo }) => ({
+const toFrontierEntry = ({ sequence, nextTodo }, todos) => ({
     sequenceId: sequence.id,
     sequenceTitle: sequence.title,
     nextTodo: nextTodo ? { id: nextTodo.id, text: nextTodo.text } : null,
+    isStalled: !nextTodo && todos.some((todo) => todo.sequenceId === sequence.id),
 });
 
 module.exports = { toEdge, toFrontierEntry, toLayer, toProject, toSequence, toTodo };

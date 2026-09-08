@@ -39,6 +39,38 @@ export const DROP_TARGET = {
     item: 'item',
 };
 
+/** The two things this canvas drags. */
+export const DRAG_KIND = { todo: 'todo', sequence: 'sequence' };
+
+/**
+ * What a lift turned out to be, read off the data the draggable carries, or null
+ * when it carries neither.
+ */
+export const dragKindOf = (activeData) => {
+    if (activeData?.todoId !== undefined) return DRAG_KIND.todo;
+    if (activeData?.sequenceId !== undefined) return DRAG_KIND.sequence;
+
+    return null;
+};
+
+/**
+ * Which drag a drop target belongs to, or null when it is not a target at all.
+ *
+ * Both drags share one `DndContext`, and their droppables nest — a to-do row
+ * sits inside the card, which is a droppable in its own right. What keeps the
+ * two apart is that a to-do target names a sequence and a sequence target names
+ * a layer, never both. That is the same distinction `resolveTodoPlacement` and
+ * `resolveSequencePlacement` make of a target after the drop; naming it here
+ * lets collision detection make it before, so a drop cannot land on a target
+ * belonging to the other drag and then resolve to nothing.
+ */
+export const dropTargetKindOf = (target) => {
+    if (target?.sequenceId !== undefined) return DRAG_KIND.todo;
+    if (target?.layerId !== undefined) return DRAG_KIND.sequence;
+
+    return null;
+};
+
 /**
  * Whether `activeTodo` may be dropped into the list named by `targetSequenceId`,
  * where null is the unorganized panel.

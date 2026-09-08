@@ -287,6 +287,24 @@
 }
 
 /*
+ * The panel's own share of the card-wide link. The title's `::after` is
+ * `inset: 0` on `.project-card`, and the panel hangs below that box at
+ * `top: 100%`, so the overlay over the card face stops at the panel's top edge.
+ * Without this the drop-down would be the one part of a revealed card where a
+ * click did nothing — and, sitting above the grid row below it, a click that
+ * reached nothing else either.
+ *
+ * Positioned, so it paints over the panel's text without needing a `z-index`.
+ * `pointer-events` is deliberately left unset: it inherits the panel's, which is
+ * `none` until the panel opens.
+ */
+.project-card-reveal-link {
+    position: absolute;
+    inset: 0;
+    border-radius: 0 0 8px 8px;
+}
+
+/*
  * Two ways in, like the delete bubble: hovering is the pointer's, and
  * `:focus-within` is the keyboard's — the title link already stretches over the
  * whole card, so tabbing to it opens the panel with no extra control.
