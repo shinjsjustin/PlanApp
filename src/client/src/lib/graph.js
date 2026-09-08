@@ -168,6 +168,19 @@ export const activeSequenceId = ({ sequences, todos, edges, layers }) => {
  *
  * Anything it cannot resolve — a missing sequence, a layer not in the list — is
  * a no, never a throw: this runs on every card during connect mode.
+ *
+ * MIRRORED SERVER-SIDE, TWICE: `src/lib/assertCanConnect.js` enforces this same
+ * comparison (negated — `parentLayer.position >= childLayer.position` is the
+ * rejection) when an edge is created, and `sequencesRepo.js`'s
+ * `DELETE_INVALID_EDGES` encodes it a third time in SQL, to drop edges a
+ * sequence move invalidates. Change this comparison, change both of those too.
+ *
+ * This copy is not the one that decides — the server's is, because the client's
+ * can be bypassed — but it is the one `cascades.js`'s `edgesInvalidatedBy` calls
+ * to tell the user how many connections a drag is about to cost. If it drifts
+ * from the other two, that count, and the edges the canvas still shows, quietly
+ * stop matching what the database did. No test here or in `cascades.js` will
+ * fail when that happens.
  */
 export const canConnect = (parent, child, layers) => {
     if (!parent || !child) return false;

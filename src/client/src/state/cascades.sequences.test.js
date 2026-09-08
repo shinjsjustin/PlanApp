@@ -1,4 +1,5 @@
 import {
+    cascadeSequenceMove,
     cascadeSequenceRemoval,
 } from './cascades';
 import { entityAdded, entityRemoved, entityUpdated } from './projectActions';
@@ -150,5 +151,113 @@ describe('deleting a sequence', () => {
 
         // Assert
         expect(next.edges).toEqual({});
+    });
+});
+
+describe('cascadeSequenceMove', () => {
+    /**
+     * Three layers with two sequences in each of the first two, and one edge
+     * from the top layer's first card down to the middle layer's first card.
+     */
+    const stateWith = (overrides = {}) => ({
+        layers: {
+            10: { id: 10, position: 0 },
+            20: { id: 20, position: 1 },
+            30: { id: 30, position: 2 },
+        },
+        sequences: {
+            1: { id: 1, layerId: 10, position: 0 },
+            2: { id: 2, layerId: 10, position: 1 },
+            3: { id: 3, layerId: 20, position: 0 },
+            4: { id: 4, layerId: 20, position: 1 },
+        },
+        edges: {
+            100: { id: 100, parentId: 1, childId: 3 },
+        },
+        todos: {},
+        ...overrides,
+    });
+
+    test('closes the old layer and opens a slot in the new one', () => {
+        // Arrange
+        const state = stateWith({ edges: {} });
+
+        // Act — sequence 1 leaves layer 10 for the front of layer 20.
+        const actions = cascadeSequenceMove(state, 1, { layerId: 20, position: 0 });
+
+        // Assert — 2 moves up behind it; 3 and 4 move down to make room.
+        expect(actions).toEqual([
+            entityUpdated('sequences', 2, { position: 0 }),
+            entityUpdated('sequences', 3, { position: 1 }),
+            entityUpdated('sequences', 4, { position: 2 }),
+        ]);
+    });
+
+    test('shifts only the cards passed over in a same-layer reorder', () => {
+        // Arrange — a layer-only move, so this also covers the pure-reorder case
+        // where `edgesInvalidatedBy` must find nothing to remove.
+        const state = stateWith({ edges: {} });
+
+        // Act — sequence 1 moves to the end of layer 10.
+        const actions = cascadeSequenceMove(state, 1, { layerId: 10, position: 1 });
+
+        // Assert
+        expect(actions).toEqual([entityUpdated('sequences', 2, { position: 0 })]);
+    });
+
+    test('removes an edge the move leaves pointing upward', () => {
+        // Arrange — 1 is the parent of 3, which sits in layer 20.
+        const state = stateWith();
+
+        // Act — 1 drops to layer 30, below its own child.
+        const actions = cascadeSequenceMove(state, 1, { layerId: 30, position: 0 });
+
+        // Assert
+        expect(actions).toContainEqual(entityRemoved('edges', 100));
+    });
+
+    test('removes an edge the move leaves inside one layer', () => {
+        // Arrange
+        const state = stateWith();
+
+        // Act — 1 joins its own child's layer; parallel work gates nothing.
+        const actions = cascadeSequenceMove(state, 1, { layerId: 20, position: 0 });
+
+        // Assert
+        expect(actions).toContainEqual(entityRemoved('edges', 100));
+    });
+
+    test('keeps an edge that still points downward after the move', () => {
+        // Arrange — 1 parents 4, which is in layer 20; 1 moves within layer 10.
+        const state = stateWith({ edges: { 100: { id: 100, parentId: 1, childId: 4 } } });
+
+        // Act
+        const actions = cascadeSequenceMove(state, 1, { layerId: 10, position: 1 });
+
+        // Assert
+        expect(actions).not.toContainEqual(entityRemoved('edges', 100));
+    });
+
+    test('leaves the state it was handed untouched', () => {
+        // Arrange
+        const state = stateWith();
+        const snapshot = JSON.stringify(state);
+
+        // Act
+        cascadeSequenceMove(state, 1, { layerId: 30, position: 0 });
+
+        // Assert
+        expect(JSON.stringify(state)).toBe(snapshot);
+    });
+
+    test('removes an edge the move leaves pointing upward when the moving sequence is the child', () => {
+        // Arrange — 3 is the child of 1, which stays in layer 10.
+        const state = stateWith();
+
+        // Act — 3 jumps above its own parent's layer.
+        const actions = cascadeSequenceMove(state, 3, { layerId: 10, position: 0 });
+
+        // Assert
+        expect(actions).toContainEqual(entityRemoved('edges', 100));
     });
 });
