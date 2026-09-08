@@ -27,7 +27,7 @@ import '../Styling/Todos.css';
 const ProjectPage = () => {
     const { id } = useParams();
     const graph = useProjectGraph(id);
-    const { state, reload, dismissActionError } = graph;
+    const { state, reload, dismissActionError, dismissNotice } = graph;
 
     return (
         <main className="project-page">
@@ -39,14 +39,27 @@ const ProjectPage = () => {
                 )}
             </header>
 
-            {state.actionError && (
-                <div className="project-toast" role="alert">
-                    <p>{state.actionError}</p>
-                    <button type="button" onClick={dismissActionError}>
-                        Dismiss
-                    </button>
-                </div>
-            )}
+            {/* Both toasts stay mounted and toggle `hidden` rather than being
+                conditionally rendered. A live region inserted into the DOM
+                already holding its message is not reliably announced; one that
+                is already there when the text changes is. */}
+            <div className="project-toast" role="alert" hidden={!state.actionError}>
+                <p>{state.actionError}</p>
+                <button type="button" onClick={dismissActionError} aria-label="Dismiss error">
+                    Dismiss
+                </button>
+            </div>
+
+            <div
+                className="project-toast project-toast--notice"
+                role="status"
+                hidden={!state.notice}
+            >
+                <p>{state.notice}</p>
+                <button type="button" onClick={dismissNotice} aria-label="Dismiss notice">
+                    Dismiss
+                </button>
+            </div>
 
             {(state.status === PROJECT_STATUS.idle ||
                 state.status === PROJECT_STATUS.loading) && (

@@ -79,8 +79,28 @@
     color: #b00020;
 }
 
+/* Both toasts are permanently mounted now (see `ProjectPage.js`) and toggle
+ * `hidden` rather than being removed from the DOM. The UA stylesheet's
+ * `[hidden] { display: none }` has the same specificity as the class rule
+ * above, and an author rule beats a user-agent rule at equal specificity — so
+ * without this, the `display: flex` above would win and a "hidden" toast
+ * would still take up space and paint. */
+.project-toast[hidden] {
+    display: none;
+}
+
 .project-toast p {
     margin: 0;
+}
+
+/* The same box as the error toast, in a colour that is not an emergency: this
+ * reports what a change cost, not that something went wrong. Only the three
+ * colour declarations are overridden — the shape is shared on purpose, so the
+ * two read as one channel with two temperatures. */
+.project-toast--notice {
+    border-color: #d3d9e2;
+    background: #f4f7fb;
+    color: #2c3e56;
 }
 
 /* The drag-and-drop area, and nothing else: the panel inside it is taken out of
