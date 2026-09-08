@@ -214,6 +214,22 @@ const createEdge = async (page, headers, projectId, parentId, childId) =>
     );
 
 /**
+ * A to-do, either loose in the unorganized panel (`sequenceId` left null) or
+ * already filed in a sequence.
+ *
+ * Seeded rather than typed, for the same reason the sequences are: a test whose
+ * subject is one gesture should not re-assert the composer the critical flow
+ * already covers.
+ */
+const addTodo = async (page, headers, projectId, text, sequenceId = null) =>
+    dataOf(
+        await page.request.post(`/api/projects/${projectId}/todos`, {
+            headers,
+            data: { text, sequenceId },
+        })
+    );
+
+/**
  * Registers an account and builds a two-layer plan through the API, then leaves
  * the browser signed in as that user.
  *
@@ -234,7 +250,7 @@ const seedPlan = async (page, credentials, title) => {
     const parent = await addSequence(page, headers, graph.layers[0].id, 'Aerodynamics');
     const child = await addSequence(page, headers, lower.id, 'Rotor system');
 
-    return { projectId: project.id, parent, child };
+    return { projectId: project.id, headers, parent, child };
 };
 
 /**
@@ -266,7 +282,7 @@ const seedConnectedPlan = async (
 
     await createEdge(page, headers, project.id, parent.id, child.id);
 
-    return { projectId: project.id, parent, child };
+    return { projectId: project.id, headers, parent, child };
 };
 
 /**
@@ -317,6 +333,7 @@ const openProject = async (page, projectId) => {
 
 module.exports = {
     attachDiagnostics,
+    addTodo,
     seedPlan,
     seedConnectedPlan,
     seedCrowdedPlan,

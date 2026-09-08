@@ -274,9 +274,13 @@ dropped, and the reveal is instant.
 Content stays in the accessibility tree throughout. The collapse is visual
 density, not information hiding, so nothing is `hidden` or `aria-hidden`.
 
-Nothing in the panel is interactive, so the card-wide link overlay covering it is
-correct rather than a problem. `Rename`, the confirm dialog and the inline error
-stay outside the panel and keep `project-card-raised`.
+Nothing in the panel is interactive, so the whole panel can be part of the way
+into the project. The card-wide overlay does not reach it, though:
+`.project-card-title a::after` is `inset: 0` on `.project-card`, and the panel
+hangs below that box at `top: 100%`. So the panel carries a stretched
+`.project-card-reveal-link` of its own, `aria-hidden` and out of the tab order —
+the title link already says where it goes. `Rename`, the confirm dialog and the
+inline error stay outside the panel and keep `project-card-raised`.
 
 ## 9. Sequences can be dragged between layers
 
@@ -444,7 +448,9 @@ asserted anywhere but a real browser.
 
 ## 11. Amendments to the 2026-08-27 spec
 
-Three statements in `2026-08-27-planapp-design.md` no longer describe the app:
+These statements in `2026-08-27-planapp-design.md` no longer describe the app.
+This list is the only copy: that document carries a short note pointing here
+rather than an edited body, so the original decisions stay legible.
 
 - **§2, out of scope**: "Pan/zoom on the canvas. It is a plain scrolling
   container. Horizontal crowding when a layer holds many sequences is a known,
@@ -453,8 +459,26 @@ Three statements in `2026-08-27-planapp-design.md` no longer describe the app:
 - **§2, out of scope**: "Dragging sequence cards to reposition or reorder them.
   Sequences are spaced evenly across their layer in creation order." —
   Superseded by section 9.
+- **§4.3**, `readyFrontier`: "ready sequences = those where sequenceStatus !=
+  'complete'" — Superseded by section 3. The status must now *be* `incomplete`,
+  which drops blocked sequences alongside finished ones. With it goes the
+  section's closing note that an empty frontier means every sequence is
+  complete: it now also means every otherwise-eligible sequence is blocked.
+- **§4.4**, the endpoint list — Superseded by section 9, which adds
+  `PUT /api/sequences/:id/move  { layerId, position }`, the sequence twin of
+  `PUT /api/todos/:id/move`.
+- **§4.6**: "Sequence cards are spaced evenly with `justify-content`" —
+  Superseded by section 7. Cards hold a fixed width and pack from the left; the
+  row scrolls sideways when they overflow it.
+- **§4.6**: "the add-layer button sits below it in the same right-hand gutter" —
+  Superseded by section 6. It is a full-width divider spanning the canvas. The
+  add-sequence button is still in the gutter, and the gutter is still 3rem.
 - **§4.6**: the canvas "has no scrolling of its own" — still true of the canvas;
-  the layer rows inside it now do.
-
-A short amendment note pointing here will be added to that document rather than
-editing its body, so the original decisions stay legible.
+  the layer rows inside it now do (section 7).
+- **§4.7**, drag-and-drop: "Draggables: unorganized to-dos, and to-dos inside an
+  expanded sequence." — Superseded by section 9. Sequence cards are draggable
+  too, by a grip handle, and a layer row body and a sequence card are droppables
+  for them.
+- **§4.8**: the project card's "title block … and a body block listing the ready
+  frontier" — Superseded by section 8. At rest the card is the title alone; the
+  progress line, description and frontier live in a hover drop-down.
