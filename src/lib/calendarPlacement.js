@@ -15,6 +15,12 @@
  * connection. Each returns a human-readable message, or null when there is no
  * problem — null meaning "nothing wrong" reads oddly for one call and very well
  * for a chain of them.
+ *
+ * `dayId` and `todoId` must already be uniform numbers when they arrive here —
+ * the route's schema owes that, through `idSchema` in `./validation`, the same
+ * way `./assertTodosOwned` is owed clean ids. Days are grouped and to-dos
+ * deduplicated by raw value, so `4` and `'4'` would read as two different days,
+ * and two bookings that genuinely collide would be compared against nothing.
  */
 
 const DAY_MINUTES = 1440;
@@ -68,13 +74,24 @@ const findDuplicateTodo = (placements) => {
     return null;
 };
 
-const groupByDay = (placements) =>
-    placements.reduce((byDay, placement) => {
-        const bucket = byDay.get(placement.dayId) ?? [];
-        byDay.set(placement.dayId, [...bucket, placement]);
+/**
+ * Buckets by day, pushing into arrays this function owns and no caller ever
+ * sees — rebuilding each bucket per placement would make grouping quadratic in
+ * the number of bookings sharing a day. Matches `groupByProject` in
+ * `./projectsFrontier`.
+ */
+const groupByDay = (placements) => {
+    const byDay = new Map();
 
-        return byDay;
-    }, new Map());
+    placements.forEach((placement) => {
+        const bucket = byDay.get(placement.dayId);
+
+        if (bucket) bucket.push(placement);
+        else byDay.set(placement.dayId, [placement]);
+    });
+
+    return byDay;
+};
 
 /**
  * Two bookings occupying the same minute of the same day.
@@ -103,8 +120,17 @@ const findOverlap = (placements) => {
     return null;
 };
 
-/** The first problem with a resolved placement set, or null. */
+/**
+ * The first problem with a resolved placement set, or null.
+ *
+ * First, not every: checks run in tiers — duplicates, then arithmetic, then
+ * overlap — and within a tier the earliest offender in array order wins. This
+ * is a backstop against a client that computed badly, not the form validation
+ * the user reads, so one true sentence beats an exhaustive list.
+ */
 const findPlacementProblem = (placements) => {
+    if (!Array.isArray(placements)) return 'placements must be an array';
+
     const duplicate = findDuplicateTodo(placements);
     if (duplicate) return duplicate;
 

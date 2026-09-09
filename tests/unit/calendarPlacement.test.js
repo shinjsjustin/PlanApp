@@ -25,6 +25,15 @@ describe('findPlacementProblem', () => {
         expect(findPlacementProblem([])).toBeNull();
     });
 
+    test.each([[null], [undefined], [{}]])(
+        'reports a problem rather than throwing for %p',
+        (notASet) => {
+            // A rule that throws would surface as a 500 where every other rule
+            // here surfaces as a 400.
+            expect(findPlacementProblem(notASet)).toMatch(/placements must be an array/);
+        }
+    );
+
     test('accepts a booking that ends exactly at midnight', () => {
         expect(
             findPlacementProblem([placement({ startMinutes: 1380, durationMinutes: 60 })])
