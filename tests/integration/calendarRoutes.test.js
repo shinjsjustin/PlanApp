@@ -156,6 +156,25 @@ describe('POST /api/calendar/days', () => {
         expect(response.body.data.position).toBe(2);
         expect(response.body.data).not.toHaveProperty('ownerId');
     });
+
+    test('appends to the caller’s own strip, not to anyone else’s', async () => {
+        // Arrange — the one route with no cross-boundary assertion of its own,
+        // and the one the bulk endpoint's `appendDays` will reuse.
+        const conn = getConn();
+        const theirs = await createWorld(conn, { dayCount: 1 });
+        const { ownerId } = await createWorld(conn, { dayCount: 1 });
+
+        // Act
+        const response = await request(app)
+            .post('/api/calendar/days')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({});
+
+        // Assert
+        expect(response.body.data.position).toBe(1);
+        expect(await calendarDaysRepo.listByOwner(conn, ownerId)).toHaveLength(2);
+        expect(await calendarDaysRepo.listByOwner(conn, theirs.ownerId)).toHaveLength(1);
+    });
 });
 
 describe('DELETE /api/calendar/days/:id', () => {
