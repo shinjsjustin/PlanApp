@@ -256,3 +256,395 @@ describe('DELETE /api/calendar/days/:id', () => {
         expect(response.status).toBe(404);
     });
 });
+
+describe('PUT /api/calendar/items', () => {
+    test('books to-dos into an existing day', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        // Act
+        const response = await request(app)
+            .put('/api/calendar/items')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({
+                placements: [
+                    { todoId: todos[0].id, dayId: days[0].id, startMinutes: 540, durationMinutes: 60 },
+                    { todoId: todos[1].id, dayId: days[0].id, startMinutes: 600, durationMinutes: 30 },
+                ],
+            });
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(response.body.data.items).toHaveLength(2);
+        expect(response.body.data.items.map((item) => item.startMinutes)).toEqual([540, 600]);
+    });
+
+    test('creates the days a spill needed and resolves dayIndex against them', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn, { dayCount: 1 });
+
+        // Act — one item stays in day 0, one lands in the day this call creates
+        const response = await request(app)
+            .put('/api/calendar/items')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({
+                appendDays: 1,
+                placements: [
+                    { todoId: todos[0].id, dayId: days[0].id, startMinutes: 1380, durationMinutes: 60 },
+                    { todoId: todos[1].id, dayIndex: 1, startMinutes: 0, durationMinutes: 60 },
+                ],
+            });
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(response.body.data.days).toHaveLength(2);
+
+        const created = response.body.data.days[1];
+        const spilled = response.body.data.items.find((item) => item.todoId === todos[1].id);
+        expect(spilled.dayId).toBe(created.id);
+        expect(spilled.startMinutes).toBe(0);
+    });
+
+    test('moves an existing booking rather than duplicating it', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[0].id,
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+
+        // Act
+        const response = await request(app)
+            .put('/api/calendar/items')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({
+                placements: [
+                    { todoId: todos[0].id, dayId: days[1].id, startMinutes: 0, durationMinutes: 30 },
+                ],
+            });
+
+        // Assert
+        expect(response.body.data.items).toHaveLength(1);
+        expect(response.body.data.items[0]).toMatchObject({
+            dayId: days[1].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+    });
+
+    test('unschedules in the same call that places', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[0].id,
+            startMinutes: 0,
+            durationMinutes: 60,
+        });
+
+        // Act
+        const response = await request(app)
+            .put('/api/calendar/items')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({
+                unschedule: [todos[0].id],
+                placements: [
+                    { todoId: todos[1].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 60 },
+                ],
+            });
+
+        // Assert
+        expect(response.body.data.items).toHaveLength(1);
+        expect(response.body.data.items[0].todoId).toBe(todos[1].id);
+    });
+
+    test('accepts an empty request as a no-op', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId } = await createWorld(conn);
+
+        // Act
+        const response = await request(app)
+            .put('/api/calendar/items')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({});
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(response.body.data.items).toEqual([]);
+    });
+});
+
+describe('PUT /api/calendar/items — refusals', () => {
+    /** Sends one bulk body and returns the response. */
+    const put = (ownerId, body) =>
+        request(app)
+            .put('/api/calendar/items')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send(body);
+
+    test('refuses a start off the 30-minute grid', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 545, durationMinutes: 60 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/multiple of 30/);
+    });
+
+    test('refuses a duration below one slot', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 0 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/at least 30/);
+    });
+
+    test('refuses a booking running past the end of its day', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 1410, durationMinutes: 60 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/past the end of its day/);
+    });
+
+    test('refuses two placements that overlap', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 540, durationMinutes: 60 },
+                { todoId: todos[1].id, dayId: days[0].id, startMinutes: 570, durationMinutes: 30 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/overlap/);
+    });
+
+    test('refuses a placement landing on a booking the request never mentioned', async () => {
+        // Arrange — the payload alone looks legal; only the stored day is wrong
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[2].id,
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+
+        // Act
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 570, durationMinutes: 30 },
+            ],
+        });
+
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/overlap/);
+        const stored = await calendarItemsRepo.listByOwner(conn, ownerId);
+        expect(stored.map((item) => item.todo_id)).toEqual([todos[2].id]);
+    });
+
+    test('refuses a placement naming both dayId and dayIndex', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                {
+                    todoId: todos[0].id,
+                    dayId: days[0].id,
+                    dayIndex: 0,
+                    startMinutes: 0,
+                    durationMinutes: 30,
+                },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/exactly one of dayId or dayIndex/);
+    });
+
+    test('refuses more appended days than there are placements', async () => {
+        const conn = getConn();
+        const { ownerId } = await createWorld(conn);
+
+        const response = await put(ownerId, { appendDays: 3, placements: [] });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/appendDays may not exceed/);
+    });
+
+    test('refuses a dayIndex beyond the end of the calendar', async () => {
+        const conn = getConn();
+        const { ownerId, todos } = await createWorld(conn, { dayCount: 1 });
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayIndex: 9, startMinutes: 0, durationMinutes: 30 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/beyond the end of the calendar/);
+    });
+
+    test('refuses the same to-do placed twice', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 30 },
+                { todoId: todos[0].id, dayId: days[1].id, startMinutes: 0, durationMinutes: 30 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/more than one placement/);
+    });
+
+    test('forbids booking someone else’s to-do', async () => {
+        const conn = getConn();
+        const mine = await createWorld(conn);
+        const theirs = await createWorld(conn);
+
+        const response = await put(mine.ownerId, {
+            placements: [
+                {
+                    todoId: theirs.todos[0].id,
+                    dayId: mine.days[0].id,
+                    startMinutes: 0,
+                    durationMinutes: 30,
+                },
+            ],
+        });
+
+        expect(response.status).toBe(403);
+    });
+
+    test('forbids booking into someone else’s day', async () => {
+        const conn = getConn();
+        const mine = await createWorld(conn);
+        const theirs = await createWorld(conn);
+
+        const response = await put(mine.ownerId, {
+            placements: [
+                {
+                    todoId: mine.todos[0].id,
+                    dayId: theirs.days[0].id,
+                    startMinutes: 0,
+                    durationMinutes: 30,
+                },
+            ],
+        });
+
+        expect(response.status).toBe(403);
+    });
+
+    test('leaves no day behind when the call is rejected', async () => {
+        // Arrange — this is the atomicity guarantee the whole endpoint exists for
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn, { dayCount: 1 });
+
+        // Act — the append is legal, the placement is not
+        const response = await put(ownerId, {
+            appendDays: 1,
+            placements: [
+                { todoId: todos[0].id, dayIndex: 1, startMinutes: 545, durationMinutes: 60 },
+            ],
+        });
+
+        // Assert
+        expect(response.status).toBe(400);
+        const remaining = await calendarDaysRepo.listByOwner(conn, ownerId);
+        expect(remaining.map((day) => day.id)).toEqual([days[0].id]);
+    });
+});
+
+describe('DELETE /api/calendar/items/:todoId', () => {
+    test('unschedules the booking and leaves the to-do', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[0].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+
+        // Act
+        const response = await request(app)
+            .delete(`/api/calendar/items/${todos[0].id}`)
+            .set('Authorization', authHeaderFor(ownerId));
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(response.body.data).toEqual({ todoId: todos[0].id });
+        expect(await calendarItemsRepo.listByOwner(conn, ownerId)).toEqual([]);
+        expect(await todosRepo.findById(conn, todos[0].id)).not.toBeNull();
+    });
+
+    test('reports 404 when the to-do is not booked', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos } = await createWorld(conn);
+
+        // Act
+        const response = await request(app)
+            .delete(`/api/calendar/items/${todos[0].id}`)
+            .set('Authorization', authHeaderFor(ownerId));
+
+        // Assert
+        expect(response.status).toBe(404);
+    });
+
+    test('forbids unscheduling someone else’s booking', async () => {
+        // Arrange
+        const conn = getConn();
+        const mine = await createTestUser(conn);
+        const theirs = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: theirs.days[0].id,
+            todoId: theirs.todos[0].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+
+        // Act
+        const response = await request(app)
+            .delete(`/api/calendar/items/${theirs.todos[0].id}`)
+            .set('Authorization', authHeaderFor(mine));
+
+        // Assert
+        expect(response.status).toBe(403);
+        expect(await calendarItemsRepo.listByOwner(conn, theirs.ownerId)).toHaveLength(1);
+    });
+});

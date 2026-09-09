@@ -171,4 +171,112 @@ router.delete(
     })
 );
 
+/**
+ * A stored row in the shape the validator reads. The overlap check runs on what
+ * the database now holds rather than on what the request carried, so the two
+ * shapes have to meet somewhere.
+ */
+const toPlacement = (row) => ({
+    todoId: row.todo_id,
+    dayId: row.day_id,
+    startMinutes: row.start_minutes,
+    durationMinutes: row.duration_minutes,
+});
+
+/** Turns a `dayIndex` into a real day id, now that the appends have happened. */
+const resolveDay = ({ todoId, dayId, dayIndex, startMinutes, durationMinutes }, days) => {
+    if (dayId !== undefined) return { todoId, dayId, startMinutes, durationMinutes };
+
+    const day = days[dayIndex];
+
+    if (!day) throw badRequest(`dayIndex ${dayIndex} is beyond the end of the calendar`);
+
+    return { todoId, dayId: day.id, startMinutes, durationMinutes };
+};
+
+// PUT /api/calendar/items — the settled result of one gesture, applied at once.
+//
+// A single drag can move a dozen bookings across three days and create a day
+// that did not exist. Sent as separate requests that could half-apply, leaving a
+// stray empty column or a schedule the user never asked for; one transaction
+// cannot.
+router.put(
+    '/items',
+    asyncRoute(async (req, res) => {
+        const { appendDays, placements, unschedule } = bulkSchema.parse(req.body ?? {});
+        const ownerId = req.user.id;
+
+        const calendar = await withTransaction(async (conn) => {
+            await assertTodosOwned(
+                conn,
+                [...placements.map((placement) => placement.todoId), ...unschedule],
+                ownerId
+            );
+
+            for (const placement of placements) {
+                if (placement.dayId === undefined) continue;
+
+                // Sequential: one mysql2 connection runs one statement at a time.
+                // eslint-disable-next-line no-await-in-loop
+                await assertOwnership(conn, 'calendarDay', placement.dayId, ownerId);
+            }
+
+            for (let index = 0; index < appendDays; index += 1) {
+                // eslint-disable-next-line no-await-in-loop
+                await calendarDaysRepo.create(conn, { ownerId });
+            }
+
+            const days = await calendarDaysRepo.listByOwner(conn, ownerId);
+            const resolved = placements.map((placement) => resolveDay(placement, days));
+
+            const problem = findPlacementProblem(resolved);
+            if (problem) throw badRequest(problem);
+
+            await calendarItemsRepo.removeByTodoIds(conn, unschedule);
+
+            for (const placement of resolved) {
+                // eslint-disable-next-line no-await-in-loop
+                await calendarItemsRepo.upsert(conn, placement);
+            }
+
+            // The overlap check that counts runs on what is now stored, not on
+            // what was sent. A day can hold bookings this request never mentioned
+            // — everything the gesture did not move — and an item dropped on top
+            // of one of those would sail through a check that only read the
+            // payload. Throwing here rolls the whole call back, appended days
+            // included.
+            const affectedDayIds = [...new Set(resolved.map((placement) => placement.dayId))];
+            const stored = await calendarItemsRepo.listByDayIds(conn, affectedDayIds);
+
+            const overlap = findOverlap(stored.map(toPlacement));
+            if (overlap) throw badRequest(overlap);
+
+            return readCalendar(conn, ownerId);
+        });
+
+        res.sendData(calendar);
+    })
+);
+
+// DELETE /api/calendar/items/:todoId — dragging a booking back to the pool.
+// Addressed by to-do rather than by booking id because that is what the client
+// holds: a to-do has at most one booking, so the two are interchangeable, and
+// the to-do id is the one the pool already knows.
+router.delete(
+    '/items/:todoId',
+    asyncRoute(async (req, res) => {
+        const todoId = parseId(req.params.todoId);
+
+        const released = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'todo', todoId, req.user.id);
+
+            return calendarItemsRepo.removeByTodoIds(conn, [todoId]);
+        });
+
+        if (released === 0) throw notFound('Booking');
+
+        res.sendData({ todoId });
+    })
+);
+
 module.exports = router;
