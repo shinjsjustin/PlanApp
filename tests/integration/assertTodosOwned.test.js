@@ -66,4 +66,39 @@ describe('assertTodosOwned', () => {
             assertTodosOwned(conn, [todos[0].id, 999999], ownerId)
         ).rejects.toMatchObject({ status: 404 });
     });
+
+    test('ignores a to-do the caller did not name', async () => {
+        // Arrange — every test runs in a transaction that is rolled back, so the
+        // table holds only what this test put there. Without a row the request
+        // leaves out, a guard that dropped its `WHERE ... IN` and read the whole
+        // table would still count and own correctly, and pass.
+        const conn = getConn();
+        const { ownerId, todos } = await createTodos(conn, 2);
+        await createTodos(conn, 1);
+
+        // Act + Assert
+        await expect(
+            assertTodosOwned(conn, [todos[0].id], ownerId)
+        ).resolves.toBeUndefined();
+    });
+
+    test('cannot be padded past the count check by repeating an owned id', async () => {
+        // Arrange — the dedupe is what stops a foreign id hiding behind repeats
+        // of one the caller does own.
+        const conn = getConn();
+        const mine = await createTodos(conn, 1);
+        const theirs = await createTodos(conn, 1);
+
+        // Act + Assert
+        await expect(
+            assertTodosOwned(conn, [mine.todos[0].id, mine.todos[0].id], mine.ownerId)
+        ).resolves.toBeUndefined();
+        await expect(
+            assertTodosOwned(
+                conn,
+                [mine.todos[0].id, mine.todos[0].id, theirs.todos[0].id],
+                mine.ownerId
+            )
+        ).rejects.toMatchObject({ status: 403 });
+    });
 });

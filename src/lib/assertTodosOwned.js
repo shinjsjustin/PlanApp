@@ -18,6 +18,11 @@ const { forbidden, notFound } = require('./httpError');
  *
  * Resolves to undefined when every id checks out. Never returns rows: callers
  * that want the to-dos read them separately.
+ *
+ * Ids must already be coerced to numbers by the route's schema — see `idSchema`
+ * in `./validation`. The dedupe is by SameValueZero, so a list holding both `5`
+ * and `'5'` counts as two ids that the database answers with one row, and the
+ * count check below reports a 404 for a to-do the caller genuinely owns.
  */
 const assertTodosOwned = async (conn, todoIds, userId) => {
     const unique = [...new Set(todoIds)];
