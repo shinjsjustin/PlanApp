@@ -99,6 +99,7 @@ mysql -u root -p planapp_test < src/db/schema.sql
 | `src/client/src/state/CalendarContext.js` | Provider + `useCalendarContext` |
 | `src/client/src/hooks/useCalendar.js` | Load + optimistic mutations |
 | `src/client/src/hooks/usePool.js` | Loads `/projects` and derives the pool |
+| `src/client/src/hooks/useCalendarDrag.js` | `usePoolDrag` / `useBookingDrag`; kept out of the component tree to avoid a cycle |
 | `src/client/src/hooks/useResizeEdge.js` | Raw pointer gesture on a card's edges |
 | `src/client/src/hooks/useSequenceSpotlight.js` | Reads `?sequence=` and flashes the card |
 | `src/client/src/components/Calendar/CalendarPage.js` | Page shell: load, error, ready |
@@ -138,7 +139,7 @@ Tests live beside each client module as `<name>.test.js`, matching the existing 
 **Files:**
 - Modify: `src/db/schema.sql`
 
-- [ ] **Step 1: Add the two tables**
+- [x] **Step 1: Add the two tables**
 
 Append these after the `sequence_edges` block at the end of the file:
 
@@ -191,7 +192,7 @@ CREATE TABLE `calendar_items` (
 ) ENGINE=InnoDB;
 ```
 
-- [ ] **Step 2: Extend the teardown block**
+- [x] **Step 2: Extend the teardown block**
 
 The teardown at the top of the file drops in reverse dependency order. Add the
 two new tables as its first two lines, so they go before `todos` and `users`:
@@ -207,7 +208,7 @@ DROP TABLE IF EXISTS `projects`;
 DROP TABLE IF EXISTS `users`;
 ```
 
-- [ ] **Step 3: Add the in-place migration note**
+- [x] **Step 3: Add the in-place migration note**
 
 The file's header comment already carries an "add these by hand" note for the
 sequence-card redesign. Add a second one below it, so an existing install is
@@ -220,7 +221,7 @@ never asked to re-run this destructive file:
 -- those alone.
 ```
 
-- [ ] **Step 4: Load the schema into the test database**
+- [x] **Step 4: Load the schema into the test database**
 
 Run:
 
@@ -231,12 +232,12 @@ mysql -u root -p planapp_test -e "SHOW TABLES LIKE 'calendar%'"
 
 Expected: two rows, `calendar_days` and `calendar_items`.
 
-- [ ] **Step 5: Verify nothing else broke**
+- [x] **Step 5: Verify nothing else broke**
 
 Run: `DB_NAME=planapp_test npm test`
 Expected: the existing suite passes, unchanged.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/db/schema.sql
@@ -255,7 +256,7 @@ git commit -m "feat(calendar): add calendar_days and calendar_items tables"
 security boundary: the table name is the one thing interpolated into SQL rather
 than bound. `calendar_days` has a dense `position`, so it belongs there.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/applyPositions.test.js`:
 
@@ -311,12 +312,12 @@ describe('applyPositions', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/unit/applyPositions.test.js`
 Expected: FAIL — `Table "calendar_days" has no dense position column`.
 
-- [ ] **Step 3: Add the table to the allow-list**
+- [x] **Step 3: Add the table to the allow-list**
 
 In `src/db/repositories/sql.js`, extend `POSITIONED_TABLES`:
 
@@ -324,12 +325,12 @@ In `src/db/repositories/sql.js`, extend `POSITIONED_TABLES`:
 const POSITIONED_TABLES = new Set(['layers', 'sequences', 'todos', 'calendar_days']);
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/unit/applyPositions.test.js`
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/db/repositories/sql.js tests/unit/applyPositions.test.js
@@ -344,7 +345,7 @@ git commit -m "feat(calendar): allow dense position reindexing on calendar_days"
 - Create: `src/db/repositories/calendarDaysRepo.js`
 - Test: `tests/integration/calendarDaysRepo.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/integration/calendarDaysRepo.test.js`:
 
@@ -466,12 +467,12 @@ describe('calendarDaysRepo.listByOwner', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarDaysRepo.test.js`
 Expected: FAIL — `Cannot find module '../../src/db/repositories/calendarDaysRepo'`.
 
-- [ ] **Step 3: Write the repository**
+- [x] **Step 3: Write the repository**
 
 Create `src/db/repositories/calendarDaysRepo.js`:
 
@@ -568,12 +569,12 @@ const remove = async (conn, id) => {
 module.exports = { create, findById, listByOwner, listIds, remove };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarDaysRepo.test.js`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/db/repositories/calendarDaysRepo.js tests/integration/calendarDaysRepo.test.js
@@ -592,7 +593,7 @@ A booked item carries its own display data — text, status, project and sequenc
 — because the calendar must render an item that has left the frontier, which is
 exactly what ticking its bubble does (design section 5).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/unit/serializers.test.js`:
 
@@ -686,12 +687,12 @@ describe('toCalendarItem', () => {
 Add `toCalendarDay` and `toCalendarItem` to the `require` destructuring at the
 top of that test file.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/unit/serializers.test.js`
 Expected: FAIL — `toCalendarDay is not a function`.
 
-- [ ] **Step 3: Add the serializers**
+- [x] **Step 3: Add the serializers**
 
 In `src/lib/serializers.js`, before `module.exports`:
 
@@ -755,12 +756,12 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/unit/serializers.test.js`
 Expected: PASS, including the 3 new tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/serializers.js tests/unit/serializers.test.js
@@ -779,7 +780,7 @@ Every existing resource type reduces to "does this resource's project belong to
 this user?". A calendar day has no project — it hangs off `users` directly — so
 this adds the first resource type that answers the question one join shorter.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/integration/assertOwnership.test.js`:
 
@@ -828,12 +829,12 @@ describe('assertOwnership(calendarDay)', () => {
 Add `const calendarDaysRepo = require('../../src/db/repositories/calendarDaysRepo');`
 to that file's requires.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/assertOwnership.test.js`
 Expected: FAIL — `Unknown resource type "calendarDay"`.
 
-- [ ] **Step 3: Add the resource type**
+- [x] **Step 3: Add the resource type**
 
 In `src/middleware/assertOwnership.js`, add to `OWNER_QUERIES`:
 
@@ -864,12 +865,12 @@ reduces to a project:
  * it.
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/assertOwnership.test.js`
 Expected: PASS, including the 3 new tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/middleware/assertOwnership.js tests/integration/assertOwnership.test.js
@@ -888,7 +889,7 @@ The bulk endpoint names many to-dos at once. Calling `assertOwnership` once per
 id would be one query per to-do; this is one query for the whole set, following
 the shape of the existing `assertSequenceInProject` guard.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/integration/assertTodosOwned.test.js`:
 
@@ -964,12 +965,12 @@ describe('assertTodosOwned', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/assertTodosOwned.test.js`
 Expected: FAIL — `Cannot find module '../../src/lib/assertTodosOwned'`.
 
-- [ ] **Step 3: Write the guard**
+- [x] **Step 3: Write the guard**
 
 Create `src/lib/assertTodosOwned.js`:
 
@@ -1021,12 +1022,12 @@ const assertTodosOwned = async (conn, todoIds, userId) => {
 module.exports = assertTodosOwned;
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/assertTodosOwned.test.js`
 Expected: PASS, 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/assertTodosOwned.js tests/integration/assertTodosOwned.test.js
@@ -1044,7 +1045,7 @@ git commit -m "feat(calendar): add set-wise to-do ownership guard"
 This is the server's half of design decision 8. It does not recompute the
 cascade; it decides whether a layout is *legal*.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/calendarPlacement.test.js`:
 
@@ -1173,12 +1174,12 @@ describe('findOverlap', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/unit/calendarPlacement.test.js`
 Expected: FAIL — `Cannot find module '../../src/lib/calendarPlacement'`.
 
-- [ ] **Step 3: Write the validator**
+- [x] **Step 3: Write the validator**
 
 Create `src/lib/calendarPlacement.js`:
 
@@ -1311,12 +1312,12 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/unit/calendarPlacement.test.js`
 Expected: PASS, 15 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/calendarPlacement.js tests/unit/calendarPlacement.test.js
@@ -1331,7 +1332,7 @@ git commit -m "feat(calendar): validate that a placement set is a legal calendar
 - Create: `src/db/repositories/calendarItemsRepo.js`
 - Test: `tests/integration/calendarItemsRepo.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/integration/calendarItemsRepo.test.js`:
 
@@ -1583,12 +1584,12 @@ describe('deleting a day', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarItemsRepo.test.js`
 Expected: FAIL — `Cannot find module '../../src/db/repositories/calendarItemsRepo'`.
 
-- [ ] **Step 3: Write the repository**
+- [x] **Step 3: Write the repository**
 
 Create `src/db/repositories/calendarItemsRepo.js`:
 
@@ -1698,12 +1699,12 @@ const removeByTodoIds = async (conn, todoIds) => {
 module.exports = { listByDayIds, listByOwner, removeByTodoIds, upsert };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarItemsRepo.test.js`
 Expected: PASS, 9 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/db/repositories/calendarItemsRepo.js tests/integration/calendarItemsRepo.test.js
@@ -1722,7 +1723,7 @@ git commit -m "feat(calendar): add calendarItemsRepo with self-describing bookin
 The largest server task. Build it in two commits: the three simple endpoints
 first, then the bulk one.
 
-- [ ] **Step 1: Write the failing test for the three simple endpoints**
+- [x] **Step 1: Write the failing test for the three simple endpoints**
 
 Create `tests/integration/calendarRoutes.test.js`:
 
@@ -1968,13 +1969,13 @@ describe('DELETE /api/calendar/days/:id', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarRoutes.test.js`
 Expected: FAIL — every request answers 404 with the React shell, because
 `/api/calendar` is not mounted.
 
-- [ ] **Step 3: Write the router with the three simple endpoints**
+- [x] **Step 3: Write the router with the three simple endpoints**
 
 Create `src/routes/calendar.js`:
 
@@ -2123,7 +2124,7 @@ router.delete(
 module.exports = router;
 ```
 
-- [ ] **Step 4: Mount the router**
+- [x] **Step 4: Mount the router**
 
 In `src/server.js`, add the require beside the others:
 
@@ -2139,19 +2140,19 @@ shell and would otherwise swallow it:
 app.use('/api/calendar', isAuth, respond, calendarRoutes);
 ```
 
-- [ ] **Step 5: Run it and watch it pass**
+- [x] **Step 5: Run it and watch it pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarRoutes.test.js`
 Expected: PASS, 11 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/routes/calendar.js src/server.js tests/integration/calendarRoutes.test.js
 git commit -m "feat(calendar): add read, append-day and delete-day endpoints"
 ```
 
-- [ ] **Step 7: Write the failing tests for the bulk endpoint**
+- [x] **Step 7: Write the failing tests for the bulk endpoint**
 
 Append to `tests/integration/calendarRoutes.test.js`:
 
@@ -2549,13 +2550,13 @@ describe('DELETE /api/calendar/items/:todoId', () => {
 });
 ```
 
-- [ ] **Step 8: Run them and watch them fail**
+- [x] **Step 8: Run them and watch them fail**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarRoutes.test.js`
 Expected: FAIL — the `PUT /items` and `DELETE /items/:todoId` requests answer
 404, the other 11 still pass.
 
-- [ ] **Step 9: Add the bulk and unschedule endpoints**
+- [x] **Step 9: Add the bulk and unschedule endpoints**
 
 In `src/routes/calendar.js`, add these above `module.exports`:
 
@@ -2669,17 +2670,17 @@ router.delete(
 );
 ```
 
-- [ ] **Step 10: Run them and watch them pass**
+- [x] **Step 10: Run them and watch them pass**
 
 Run: `DB_NAME=planapp_test npx jest tests/integration/calendarRoutes.test.js`
 Expected: PASS, 29 tests.
 
-- [ ] **Step 11: Run the whole server suite**
+- [x] **Step 11: Run the whole server suite**
 
 Run: `DB_NAME=planapp_test npm test`
 Expected: PASS. Nothing in the existing suite should have moved.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add src/routes/calendar.js tests/integration/calendarRoutes.test.js
@@ -3065,22 +3066,41 @@ export const DEFAULT_DURATION = 60;
 const endOf = (item) => item.startMinutes + item.durationMinutes;
 
 /**
- * Display order within a day, with the anchors winning a tie.
+ * Display order within a day: by start time, with two rules for the anchors.
  *
- * That tie-break is what makes "drop between two items" work: releasing exactly
- * on an existing item's start puts the anchor above it, and the fold below then
- * pushes it down. Without it the drop would land under the item the pointer was
- * over, which is the opposite of what the gesture looked like.
+ * *Anchors win a tie.* Releasing exactly on an existing item's start puts the
+ * anchor above it, and the fold below then pushes that item down. Without this
+ * the drop would land *under* the item the pointer was over, which is the
+ * opposite of what the gesture looked like.
+ *
+ * *Anchors sort as one block.* Every anchor is keyed by the group's earliest
+ * start rather than its own, so a group stays together instead of the day's own
+ * items interleaving with it. This is what a spill needs: the overflow arrives
+ * rebased to 00:00 and must land on top of the receiving day as a unit. Keying
+ * each anchor by its own start would let an existing item at 00:00 slot into the
+ * middle of the arriving group — see the multi-anchor case in the tests.
+ *
+ * Ordering only. Neither rule moves anything; the fold below does that.
  */
-const byStart = (anchors) => (a, b) => {
-    if (a.startMinutes !== b.startMinutes) return a.startMinutes - b.startMinutes;
+const orderFor = (items, anchors) => {
+    const anchorStarts = items
+        .filter((item) => anchors.has(item.todoId))
+        .map((item) => item.startMinutes);
 
-    const aIsAnchor = anchors.has(a.todoId);
-    const bIsAnchor = anchors.has(b.todoId);
+    const groupStart = anchorStarts.length > 0 ? Math.min(...anchorStarts) : 0;
 
-    if (aIsAnchor === bIsAnchor) return 0;
+    const keyOf = (item) => (anchors.has(item.todoId) ? groupStart : item.startMinutes);
 
-    return aIsAnchor ? -1 : 1;
+    return [...items].sort((a, b) => {
+        if (keyOf(a) !== keyOf(b)) return keyOf(a) - keyOf(b);
+
+        const aIsAnchor = anchors.has(a.todoId);
+        const bIsAnchor = anchors.has(b.todoId);
+
+        if (aIsAnchor !== bIsAnchor) return aIsAnchor ? -1 : 1;
+
+        return a.startMinutes - b.startMinutes;
+    });
 };
 
 /**
@@ -3102,11 +3122,10 @@ const byStart = (anchors) => (a, b) => {
  */
 export const settleDay = (items, anchorTodoIds = []) => {
     const anchors = new Set([].concat(anchorTodoIds));
-    const ordered = [...items].sort(byStart(anchors));
 
     let cursor = 0;
 
-    return ordered.map((item) => {
+    return orderFor(items, anchors).map((item) => {
         const startMinutes = Math.max(item.startMinutes, cursor);
         cursor = startMinutes + item.durationMinutes;
 
@@ -3224,12 +3243,16 @@ describe('spillFrom', () => {
         expect(dayLayout(next, 2)).toEqual([[3, 0, 120]]);
     });
 
-    test('spills a group and keeps its relative gaps', () => {
-        // Arrange — items 2 and 3 are pushed past midnight with 30 minutes
-        // between them, and that spacing should survive the move.
+    test('spills a whole group to the top of the next day', () => {
+        // Arrange — item 1 grows to fill the end of the day, so 2 and 3 are both
+        // pushed past midnight and must travel together.
+        //
+        // They arrive touching, and that is not an accident of this fixture: the
+        // push makes each spilled item start exactly where the one above it ends,
+        // so a spilled tail is always contiguous below its first member.
         const state = {
             days: days(2),
-            items: [item(1, 1, 1320, 120), item(2, 1, 1380), item(3, 1, 1470)],
+            items: [item(1, 1, 1320, 120), item(2, 1, 1380), item(3, 1, 1410)],
         };
 
         // Act
@@ -3239,7 +3262,7 @@ describe('spillFrom', () => {
         expect(dayLayout(next, 1)).toEqual([[1, 1320, 120]]);
         expect(dayLayout(next, 2)).toEqual([
             [2, 0, 60],
-            [3, 90, 60],
+            [3, 60, 60],
         ]);
     });
 
@@ -3276,10 +3299,13 @@ describe('spillFrom', () => {
     });
 
     test('cascades across three days, creating what it needs', () => {
-        // Arrange — a full day, resized so everything below is forced onward
+        // Arrange — day 1 is filled edge to edge, and the two items below it are
+        // long enough that day 2 cannot hold both either. Two *full-day* items
+        // are what genuinely forces a third day; a pair of one-hour ones would
+        // both fit in day 2 and only two days would be created.
         const state = {
             days: days(1),
-            items: [item(1, 1, 0, 1440), item(2, 1, 60), item(3, 1, 120)],
+            items: [item(1, 1, 0, 1440), item(2, 1, 60, 1440), item(3, 1, 120, 60)],
         };
 
         // Act
@@ -3288,11 +3314,8 @@ describe('spillFrom', () => {
         // Assert
         expect(next.days).toHaveLength(3);
         expect(dayLayout(next, next.days[0].id)).toEqual([[1, 0, 1440]]);
-        expect(dayLayout(next, next.days[1].id)).toEqual([
-            [2, 0, 60],
-            [3, 60, 60],
-        ]);
-        expect(dayLayout(next, next.days[2].id)).toEqual([]);
+        expect(dayLayout(next, next.days[1].id)).toEqual([[2, 0, 1440]]);
+        expect(dayLayout(next, next.days[2].id)).toEqual([[3, 0, 60]]);
     });
 
     test('never mutates the state it is given', () => {
@@ -3317,44 +3340,12 @@ describe('spillFrom', () => {
 });
 ```
 
-Note the third-day expectation in the cascade case: day 2 receives items 2 and 3
-and they fit, so the third day is created but stays empty only if a further
-overflow occurred. Run the test and confirm the actual behaviour matches — if
-day 2 absorbs both, the assertion should be `next.days).toHaveLength(2)` and the
-third block removed. Fix the test to match the implementation's *correct*
-behaviour, not the other way round: two days is right here, because 60+60 fits.
-
-- [ ] **Step 2: Correct that test case before running**
-
-Replace the "cascades across three days" case with this, which genuinely needs
-three:
-
-```js
-    test('cascades across three days, creating what it needs', () => {
-        // Arrange — day 1 is filled edge to edge, and the two items below it are
-        // long enough that day 2 cannot hold both either.
-        const state = {
-            days: days(1),
-            items: [item(1, 1, 0, 1440), item(2, 1, 60, 1440), item(3, 1, 120, 60)],
-        };
-
-        // Act
-        const next = spillFrom(state, 1, [1]);
-
-        // Assert
-        expect(next.days).toHaveLength(3);
-        expect(dayLayout(next, next.days[0].id)).toEqual([[1, 0, 1440]]);
-        expect(dayLayout(next, next.days[1].id)).toEqual([[2, 0, 1440]]);
-        expect(dayLayout(next, next.days[2].id)).toEqual([[3, 0, 60]]);
-    });
-```
-
-- [ ] **Step 3: Run it and watch it fail**
+- [ ] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=schedule.spill`
 Expected: FAIL — `spillFrom is not a function`.
 
-- [ ] **Step 4: Write the spill**
+- [ ] **Step 3: Write the spill**
 
 Append to `src/client/src/lib/schedule.js`, after `settleDay`:
 
@@ -3375,9 +3366,14 @@ const partitionOverflow = (settled) => {
 };
 
 /**
- * Slides a group so its first item starts at 00:00, keeping the spacing between
- * its members. A group that was touching stays touching; one with a gap in it
- * keeps the gap, because the user put it there.
+ * Slides a group so its first item starts at 00:00, preserving the spacing
+ * between its members.
+ *
+ * In practice a spilled group is always contiguous — the push sets each item's
+ * start to the previous item's end — so the offset arithmetic is uniform rather
+ * than gap-preserving in any interesting way. It is written as a shift of the
+ * whole group anyway, because that is the honest description of the operation
+ * and it does not depend on the caller having settled first.
  */
 const rebaseToTop = (group) => {
     const offset = group[0].startMinutes;
@@ -3443,12 +3439,12 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 };
 ```
 
-- [ ] **Step 5: Run it and watch it pass**
+- [ ] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=schedule.spill`
 Expected: PASS, 10 tests.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/client/src/lib/schedule.js src/client/src/lib/schedule.spill.test.js
@@ -3812,7 +3808,7 @@ export const topEdgeFloor = (state, todoId) => {
 - [ ] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=schedule.gestures`
-Expected: PASS, 14 tests.
+Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Check the file size**
 
@@ -5453,7 +5449,29 @@ style, asserting `/calendar` is present and wrapped in `ProtectedRoute`.
 Run: `npm run test:client -- --testPathPattern="CalendarPage|routes"`
 Expected: FAIL — `Cannot find module './CalendarPage'`.
 
-- [ ] **Step 3: Write the page**
+- [ ] **Step 3: Stub the two panels**
+
+`CalendarPage` imports both, so they have to exist before it will even parse.
+Create them as one-line placeholders; Task 23 replaces `DayStrip` and Task 24
+replaces `ProjectPanel`.
+
+`src/client/src/components/Calendar/DayStrip.js`:
+
+```js
+// Temporary — replaced in Task 23.
+const DayStrip = () => <section className="calendar-strip" aria-label="Days" />;
+export default DayStrip;
+```
+
+`src/client/src/components/Calendar/ProjectPanel.js`:
+
+```js
+// Temporary — replaced in Task 24.
+const ProjectPanel = () => <section className="calendar-panel" aria-label="Projects" />;
+export default ProjectPanel;
+```
+
+- [ ] **Step 4: Write the page**
 
 Create `src/client/src/components/Calendar/CalendarPage.js`:
 
@@ -5539,7 +5557,7 @@ export default CalendarPage;
 
 Task 25 wraps `calendar-body` in `CalendarDragArea`; leave it as it is for now.
 
-- [ ] **Step 4: Add the route**
+- [ ] **Step 5: Add the route**
 
 In `src/client/src/routes.js`, import the page and add it beside the other
 protected routes:
@@ -5552,7 +5570,7 @@ import CalendarPage from './components/Calendar/CalendarPage';
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
 ```
 
-- [ ] **Step 5: Add the nav link**
+- [ ] **Step 6: Add the nav link**
 
 In `src/client/src/components/Navbar.js`, add a Calendar button to the profile
 panel, above the Dashboard one:
@@ -5566,7 +5584,7 @@ panel, above the Dashboard one:
                         </button>
 ```
 
-- [ ] **Step 6: Write the stylesheet**
+- [ ] **Step 7: Write the stylesheet**
 
 Create `src/client/src/components/Styling/Calendar.css`. Every value comes from
 the `:root` tokens in `index.css` — no hardcoded colours, spacing or radii. The
@@ -5634,28 +5652,13 @@ Add the rest — hour lines, gutter labels, the bubble, the drag handle, the
 accordion card, the resize edges — in the same idiom as `Project.css` and
 `SequenceCard.css`, referencing tokens only.
 
-- [ ] **Step 7: Run the tests**
-
-The two-panel test will still fail until Tasks 21–24 exist. Write `DayStrip` and
-`ProjectPanel` as one-line placeholders returning a `<section aria-label>` so the
-page test passes now, then replace them in the next tasks:
-
-```js
-// Temporary — replaced in Task 22.
-const DayStrip = () => <section className="calendar-strip" aria-label="Days" />;
-export default DayStrip;
-```
-
-```js
-// Temporary — replaced in Task 24.
-const ProjectPanel = () => <section className="calendar-panel" aria-label="Projects" />;
-export default ProjectPanel;
-```
+- [ ] **Step 8: Run the tests**
 
 Run: `npm run test:client -- --testPathPattern="CalendarPage|routes"`
-Expected: PASS.
+Expected: PASS. The two panels are still the Step 3 stubs; Tasks 21–24 fill them
+in.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/client/src/components/Calendar src/client/src/components/Styling/Calendar.css src/client/src/routes.js src/client/src/routes.test.js src/client/src/components/Navbar.js
@@ -5886,8 +5889,10 @@ describe('DayItemCard', () => {
         const onOpenSource = jest.fn();
         renderCard({}, { onOpenSource });
 
-        // Act
-        await userEvent.click(screen.getByRole('button', { name: /Wire up the token refresh/ }));
+        // Act — an exact string, not a regex: the bubble's accessible name is
+        // `Complete “Wire up the token refresh”` and a substring match would
+        // find both buttons.
+        await userEvent.click(screen.getByRole('button', { name: 'Wire up the token refresh' }));
 
         // Assert
         expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ todoId: 12 }));
@@ -5925,6 +5930,8 @@ import { formatTime, minutesToPx } from '../../lib/scheduleGeometry';
 
 const TODO_COMPLETE = 'complete';
 
+// `resize` is `{ top, bottom }`, each the return of `useResizeEdge` (Task 26).
+// Null until then, which is why the edges are absent in this task's tests.
 const DayItemCard = ({ item, onComplete, onOpenSource, drag = null, resize = null }) => {
     const isComplete = item.status === TODO_COMPLETE;
 
@@ -5941,7 +5948,14 @@ const DayItemCard = ({ item, onComplete, onOpenSource, drag = null, resize = nul
             }}
             ref={drag?.setNodeRef}
         >
-            {resize?.topHandle}
+            {resize && (
+                <span
+                    className="day-item-edge day-item-edge--top"
+                    role="separator"
+                    aria-label={`Change when “${item.text}” starts`}
+                    {...resize.top.handleProps}
+                />
+            )}
 
             <div className="day-item-row">
                 {isComplete ? (
@@ -5990,7 +6004,14 @@ const DayItemCard = ({ item, onComplete, onOpenSource, drag = null, resize = nul
                 {formatTime(item.startMinutes + item.durationMinutes)}
             </span>
 
-            {resize?.bottomHandle}
+            {resize && (
+                <span
+                    className="day-item-edge day-item-edge--bottom"
+                    role="separator"
+                    aria-label={`Change how long “${item.text}” takes`}
+                    {...resize.bottom.handleProps}
+                />
+            )}
         </div>
     );
 };
@@ -6050,6 +6071,7 @@ const renderColumn = (items = [], calendar = {}) => {
     const value = {
         deleteDay: jest.fn(),
         completeTodo: jest.fn(),
+        isUnsavedDay: () => false,
         state: { days: [day], items },
         ...calendar,
     };
@@ -6072,13 +6094,32 @@ describe('DayColumn', () => {
     });
 
     test('opens scrolled to 06:00', () => {
-        // Arrange + Act
-        const { container } = renderColumn();
-
-        // Assert
-        expect(container.querySelector('.day-column-scroll').scrollTop).toBe(
-            minutesToPx(INITIAL_SCROLL_MINUTES)
+        // Arrange — jsdom has no layout, so an element never grows a scrolling
+        // box and reading `scrollTop` back always answers 0 however it was set.
+        // Spy on the assignment instead: what is under test is that the column
+        // scrolls itself to 06:00 on mount, not that jsdom models scrolling.
+        const scrolled = [];
+        const descriptor = Object.getOwnPropertyDescriptor(
+            window.HTMLElement.prototype,
+            'scrollTop'
         );
+        Object.defineProperty(window.HTMLElement.prototype, 'scrollTop', {
+            configurable: true,
+            get: () => 0,
+            set(value) {
+                scrolled.push(value);
+            },
+        });
+
+        try {
+            // Act
+            renderColumn();
+
+            // Assert
+            expect(scrolled).toContain(minutesToPx(INITIAL_SCROLL_MINUTES));
+        } finally {
+            Object.defineProperty(window.HTMLElement.prototype, 'scrollTop', descriptor);
+        }
     });
 
     test('renders its bookings', () => {
@@ -6108,6 +6149,14 @@ describe('DayColumn', () => {
         // Assert
         expect(screen.getByText(/1 booking/)).toBeInTheDocument();
         expect(value.deleteDay).not.toHaveBeenCalled();
+    });
+
+    test('offers no delete on a day the server has not stored yet', () => {
+        // Arrange + Act
+        renderColumn([], { isUnsavedDay: () => true });
+
+        // Assert
+        expect(screen.queryByRole('button', { name: 'Delete Day 1' })).not.toBeInTheDocument();
     });
 
     test('confirming the prompt deletes it', async () => {
@@ -6159,7 +6208,7 @@ import { useCalendarContext } from '../../state/CalendarContext';
 // what a day *is* here — an ordered container, not a date (design decision 2).
 
 const DayColumn = ({ day, index, items, onOpenSource, droppable = null, children }) => {
-    const { deleteDay, completeTodo } = useCalendarContext();
+    const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const scrollRef = useRef(null);
 
@@ -6203,7 +6252,13 @@ const DayColumn = ({ day, index, items, onOpenSource, droppable = null, children
                 </time>
             </header>
 
-            <DeleteBubble label={`Delete ${label}`} onDelete={requestDelete} />
+            {/* A day the server has not stored yet has no id to address, so
+                `DELETE /calendar/days/-1` would come back a 400 and roll the
+                column back into existence. The × appears once the save lands,
+                which for a day the + created is the very next tick. */}
+            {!isUnsavedDay(day.id) && (
+                <DeleteBubble label={`Delete ${label}`} onDelete={requestDelete} />
+            )}
 
             <div className="day-column-scroll" ref={scrollRef}>
                 <div ref={droppable?.setNodeRef} className={droppable?.className}>
@@ -6693,7 +6748,12 @@ drags cannot be simulated meaningfully in jsdom, so this covers the pure seams �
 the exported helpers — and leaves the gesture itself to the E2E suite:
 
 ```js
-import { dragKindOf, minutesAtRect, previewFor } from './CalendarDragArea';
+import {
+    dragKindOf,
+    minutesAtRect,
+    previewFor,
+    withStableTempDays,
+} from './CalendarDragArea';
 
 const day = (id, position) => ({ id, position, createdAt: '2026-09-09T08:00:00.000Z' });
 
@@ -6783,6 +6843,38 @@ describe('previewFor', () => {
         expect(previewFor(schedule, null)).toBe(schedule);
     });
 });
+
+describe('withStableTempDays', () => {
+    test('keeps the previous frame’s id for a day the spill re-created', () => {
+        // Arrange — two frames of the same drag, each spilling into a new day
+        const previous = { days: [day(1, 0), day(-1, 1)], items: [booking(7, -1, 0)] };
+        const next = { days: [day(1, 0), day(-2, 1)], items: [booking(7, -2, 0)] };
+
+        // Act
+        const stable = withStableTempDays(previous, next);
+
+        // Assert — the React key does not change between frames
+        expect(stable.days[1].id).toBe(-1);
+        expect(stable.items[0].dayId).toBe(-1);
+    });
+
+    test('leaves saved days alone', () => {
+        // Arrange
+        const previous = { days: [day(1, 0)], items: [] };
+        const next = { days: [day(1, 0)], items: [booking(7, 1, 540)] };
+
+        // Act + Assert
+        expect(withStableTempDays(previous, next)).toBe(next);
+    });
+
+    test('passes the first frame straight through', () => {
+        // Arrange
+        const next = { days: [day(1, 0), day(-1, 1)], items: [] };
+
+        // Act + Assert
+        expect(withStableTempDays(null, next)).toBe(next);
+    });
+});
 ```
 
 - [ ] **Step 3: Run it and watch it fail**
@@ -6812,6 +6904,7 @@ import ProjectPanel from './ProjectPanel';
 import RemoveOverlay from './RemoveOverlay';
 import { DEFAULT_DURATION, moveItem, placeFromPool } from '../../lib/schedule';
 import { clampStart, pxToMinutes } from '../../lib/scheduleGeometry';
+import { isTempId } from '../../lib/tempIds';
 import { scheduleOf } from '../../state/calendarReducer';
 import { useCalendarContext } from '../../state/CalendarContext';
 
@@ -6882,24 +6975,39 @@ export const previewFor = (schedule, target) => {
         : moveItem(schedule, { todoId: todo.todoId, dayId, startMinutes });
 };
 
-/** A pool row's draggable wiring. */
-const usePoolDrag = (todo) => {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: `pool-${todo.todoId}`,
-        data: { poolTodo: todo },
-    });
+/**
+ * Re-uses the previous frame's temporary day ids for this frame's.
+ *
+ * A preview is recomputed from scratch on every pointer move, and a drag near
+ * the bottom of the last day spills — so `spillFrom` mints a *fresh* negative id
+ * each time. Those ids are React keys: without this, the appended column would
+ * unmount and remount on every frame of the drag, losing its scroll position and
+ * flickering, and the id counter would run away for the length of the gesture.
+ *
+ * Temporary days are only ever appended, in order, so matching them up by
+ * position is exact. Days the server has already saved are left alone.
+ */
+export const withStableTempDays = (previousPreview, next) => {
+    if (!previousPreview) return next;
 
-    return { setNodeRef, handleProps: { ...attributes, ...listeners }, isDragging };
-};
+    const before = previousPreview.days.filter((day) => isTempId(day.id)).map((day) => day.id);
+    const after = next.days.filter((day) => isTempId(day.id)).map((day) => day.id);
 
-/** A booking's drag-handle wiring. */
-const useBookingDrag = (todoId) => {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: `booking-${todoId}`,
-        data: { bookingTodoId: todoId },
-    });
+    const remap = new Map(
+        after.slice(0, before.length).map((id, index) => [id, before[index]])
+    );
 
-    return { setNodeRef, handleProps: { ...attributes, ...listeners }, isDragging };
+    if (remap.size === 0) return next;
+
+    return {
+        ...next,
+        days: next.days.map((day) =>
+            remap.has(day.id) ? { ...day, id: remap.get(day.id) } : day
+        ),
+        items: next.items.map((item) =>
+            remap.has(item.dayId) ? { ...item, dayId: remap.get(item.dayId) } : item
+        ),
+    };
 };
 
 /** A day column's droppable wiring, plus the ref the geometry is measured from. */
@@ -6985,11 +7093,29 @@ const CalendarDragArea = ({ pool, onOpenSource }) => {
         setActive({ kind: dragKindOf(data), data });
     }, []);
 
+    // A gesture aimed at something impossible — a pool row for a to-do that is
+    // somehow already booked — makes `lib/schedule` throw, by design. On a
+    // pointer-move handler that would tear down the whole page mid-drag, so it is
+    // reported and the last good preview is held instead. Not swallowed: it
+    // reaches the console with its cause, and the drop below re-runs the same
+    // call, where a genuine failure surfaces as a rolled-back mutation.
     const handleDragMove = useCallback(
         (event) => {
             const target = targetFrom(event);
 
-            setPreview(target ? previewFor(scheduleOf(state), target) : null);
+            if (!target) {
+                setPreview(null);
+                return;
+            }
+
+            setPreview((current) => {
+                try {
+                    return withStableTempDays(current, previewFor(scheduleOf(state), target));
+                } catch (err) {
+                    console.error('Could not preview this drop:', err);
+                    return current;
+                }
+            });
         },
         [state, targetFrom]
     );
@@ -7015,6 +7141,9 @@ const CalendarDragArea = ({ pool, onOpenSource }) => {
             const target = targetFrom(event);
             if (!target) return;
 
+            // Unguarded on purpose, unlike the move handler: a drop is a single
+            // event, and a gesture that cannot be computed is a wiring bug that
+            // should be loud rather than silently doing nothing.
             commit(previewFor(scheduleOf(state), target));
         },
         [commit, state, targetFrom, unschedule]
@@ -7089,27 +7218,70 @@ const labelOf = (active) =>
     active.kind === DRAG_KIND.pool ? active.data.poolTodo.text : 'Moving…';
 
 export default CalendarDragArea;
-export { useBookingDrag, usePoolDrag };
 ```
 
-- [ ] **Step 5: Wire the handles**
+- [ ] **Step 5: Put the two draggable hooks in their own module**
 
-`PanelTodoRow`'s `drag` prop and `DayItemCard`'s `drag` prop are already in place
-from Phase D. Give `ProjectAccordionCard`'s `dragFor` the real hook by changing
-the `dragFor` passed from `CalendarDragArea` to build one:
+They cannot live in `CalendarDragArea.js`. That file imports `ProjectPanel`,
+which imports `ProjectAccordionCard`, which imports `PanelTodoRow` — so a
+`PanelTodoRow` that imported back from `CalendarDragArea` would close a require
+cycle and get `undefined` for the hook. Create
+`src/client/src/hooks/useCalendarDrag.js`, which imports nothing of the
+component tree:
 
 ```js
-                    dragFor={(todo) =>
-                        scheduledByTodoId.has(todo.todoId) ? null : { todo }
-                    }
+import { useDraggable } from '@dnd-kit/core';
+
+// The draggable wiring for the two things this page can lift: a pool row, which
+// has no booking yet, and a booking already in a day. `data` is what
+// `dragKindOf` reads to tell them apart on drop.
+//
+// They live here rather than beside `CalendarDragArea` because the components
+// that call them are imported *by* that file, and importing back would be a
+// cycle.
+
+export const usePoolDrag = (todo) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `pool-${todo.todoId}`,
+        data: { poolTodo: todo },
+    });
+
+    return { setNodeRef, handleProps: { ...attributes, ...listeners }, isDragging };
+};
+
+export const useBookingDrag = (todoId) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `booking-${todoId}`,
+        data: { bookingTodoId: todoId },
+    });
+
+    return { setNodeRef, handleProps: { ...attributes, ...listeners }, isDragging };
+};
 ```
 
-and have `PanelTodoRow` call `usePoolDrag(drag.todo)` itself — a hook cannot be
-called from inside a render prop. Do the same in `DayItemCard` with
-`useBookingDrag(item.todoId)`, guarded by a `isDraggable` prop so the Phase D
-tests that render it bare keep working.
+- [ ] **Step 6: Wire the handles**
 
-- [ ] **Step 6: Point the page at the drag area**
+A hook cannot be called from inside a render prop, so the row and the card each
+call their own — `dragFor` only says *whether* a row is draggable.
+
+In `CalendarDragArea`, pass a predicate:
+
+```js
+                    dragFor={(todo) => !scheduledByTodoId.has(todo.todoId)}
+```
+
+`ProjectAccordionCard` forwards it as `isDraggable` to each `PanelTodoRow`, and
+`PanelTodoRow` calls `usePoolDrag(todo)` itself. Do the same in `DayItemCard`
+with `useBookingDrag(item.todoId)`.
+
+Both hooks must be called unconditionally — `isDraggable` decides what is
+*rendered*, never whether the hook runs, or React reports "rendered more hooks
+than during the previous render". Outside a `DndContext` `useDraggable` is inert
+rather than throwing, so the Phase D tests that render these components bare
+keep working; leave `isDraggable` defaulting to `false` so they render the inert
+graphic they already assert on.
+
+- [ ] **Step 7: Point the page at the drag area**
 
 In `CalendarPage.js`, replace the bare `calendar-body` div with:
 
@@ -7122,15 +7294,15 @@ In `CalendarPage.js`, replace the bare `calendar-body` div with:
 and delete the `scheduledByTodoId` computed there — it moved into the drag area,
 which is the only place that knows about the preview.
 
-- [ ] **Step 7: Run the tests**
+- [ ] **Step 8: Run the tests**
 
 Run: `npm run test:client`
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add src/client/src/components/Calendar
+git add src/client/src/components/Calendar src/client/src/hooks/useCalendarDrag.js
 git commit -m "feat(calendar): drag from the pool and between days, with a live preview"
 ```
 
@@ -7332,27 +7504,21 @@ const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => 
 export default useResizeEdge;
 ```
 
-- [ ] **Step 4: Render the edges**
+- [ ] **Step 4: Feed the edges the card already renders**
 
-In `DayItemCard`, when a `resize` prop is supplied, render the two handles it
-carries at the top and bottom of the card:
+`DayItemCard` renders both handles from a `resize` prop of `{ top, bottom }`
+(Task 22). Build that prop in `CalendarDragArea`, where the schedule and
+`commit` live, calling `useResizeEdge` once per edge with:
 
-```jsx
-            {resize && (
-                <span
-                    className="day-item-edge day-item-edge--top"
-                    role="separator"
-                    aria-label={`Change when “${item.text}” starts`}
-                    {...resize.top.handleProps}
-                />
-            )}
-```
+- `floor`: `topEdgeFloor(schedule, item.todoId)` for the top edge, `0` for the
+  bottom, which has no floor.
+- `onPreview`: `setPreview(resizeItem(scheduleOf(state), { todoId, ...rect }))`.
+  `resizeItem` already runs `spillFrom` itself — do not call it again.
+- `onCommit`: the same call, handed to `commit`.
+- `onCancel`: `setPreview(null)`.
 
-and the matching `--bottom` one with `Change how long “…” takes`. Build both in
-`CalendarDragArea`, where the schedule and `commit` live, calling
-`topEdgeFloor(schedule, item.todoId)` for the top edge's floor and
-`resizeItem` + `spillFrom` for the preview and the commit — the same
-preview-then-commit shape the drag uses.
+The same preview-then-commit shape the drag uses, so a resize that runs past
+midnight spills live and is saved as one bulk request.
 
 - [ ] **Step 5: Run the tests**
 
@@ -7771,16 +7937,30 @@ git commit -m "feat(calendar): open a booking's sequence and flash it on arrival
 
 - [ ] **Step 1: Read the existing suite first**
 
-Read `tests/e2e/criticalFlow.spec.js`, `tests/e2e/helpers.js` and
-`tests/e2e/database.js`. Reuse their sign-in and seeding helpers rather than
-writing new ones; match their locator style.
+Read `tests/e2e/helpers.js`, `tests/e2e/database.js` and
+`tests/e2e/criticalFlow.spec.js`. What it actually exports is
+`newCredentials`, `seedPlan`, `addTodo`, `openProject`, `dragOnto`,
+`attachDiagnostics` — there is no `signIn` and no `seedProjectWithTodos`, so do
+not write against those names.
+
+Two of these matter here:
+
+- **`dragOnto(page, source, target)`** — use it for every drag. dnd-kit's
+  pointer sensor tracks *movement*, not endpoints, so Playwright's `dragTo`
+  does nothing at all: the helper exists because of that, and already does the
+  nudge, the stepped move and the settle before release.
+- **`seedPlan(page, credentials, title)`** — registers an account, builds a
+  two-layer plan through the API and leaves the browser signed in. It returns
+  `{ projectId, headers, parent, child }`; `addTodo(page, headers, projectId,
+  text, sequenceId)` files a to-do into one of those sequences, which is what
+  puts it on the frontier and therefore in the calendar's pool.
 
 - [ ] **Step 2: Write the spec**
 
 ```js
 const { test, expect } = require('@playwright/test');
 
-const { signIn, seedProjectWithTodos } = require('./helpers');
+const { newCredentials, seedPlan, addTodo, dragOnto } = require('./helpers');
 
 // One flow, chosen because it is the only one that exercises the whole feature
 // at once: the cascade, the spill, and the day it creates.
@@ -7790,90 +7970,100 @@ const { signIn, seedProjectWithTodos } = require('./helpers');
 // none of those can prove is that a pointer dragged across a real layout produces
 // the schedule the arithmetic says it should.
 
+/** A signed-in account whose frontier offers exactly `Refresh tokens`. */
+const seedCalendarWork = async (page) => {
+    const { projectId, headers, parent } = await seedPlan(page, newCredentials(), 'Auth rewrite');
+
+    await addTodo(page, headers, projectId, 'Refresh tokens', parent.id);
+
+    return { projectId };
+};
+
+/** Opens the calendar with one empty day ready to receive work. */
+const openCalendarWithADay = async (page) => {
+    await page.goto('/calendar');
+    await page.getByRole('button', { name: 'Add the first day' }).click();
+    await expect(page.getByRole('region', { name: 'Day 1' })).toBeVisible();
+};
+
 test.describe('Calendar', () => {
-    test('books work from the pool, resizes it, and spills it into a new day', async ({
+    test('books work from the pool, grows it past midnight, and spills it into a new day', async ({
         page,
     }) => {
         // Arrange
-        await seedProjectWithTodos(page, {
-            title: 'Auth rewrite',
-            todos: ['Refresh tokens', 'Rotate keys'],
-        });
-        await signIn(page);
-        await page.goto('/calendar');
+        await seedCalendarWork(page);
+        await openCalendarWithADay(page);
 
-        await page.getByRole('button', { name: 'Add the first day' }).click();
-        await expect(page.getByRole('region', { name: 'Day 1' })).toBeVisible();
+        const column = page.getByRole('region', { name: 'Day 1' });
 
         // Act — open the project card and drag its next step into the day
         await page.getByRole('button', { name: /Auth rewrite/ }).click();
-
-        const row = page.getByText('Refresh tokens');
-        const column = page.getByRole('region', { name: 'Day 1' });
-
-        await row.dragTo(column);
+        await dragOnto(page, page.getByText('Refresh tokens'), column);
 
         // Assert — booked, and gone from the pool's count
         await expect(column.getByText('Refresh tokens')).toBeVisible();
         await expect(page.getByRole('button', { name: /Auth rewrite/ })).toContainText('0');
 
-        // Act — drag the booking to the very bottom of the day, then grow it past
-        // midnight so it has to spill
-        const card = column.getByText('Refresh tokens');
-        const bottomEdge = column.getByRole('separator', {
-            name: /Change how long .* takes/,
-        });
-
+        // Act — grow the bottom edge far enough that the booking cannot fit in
+        // the day it is in. The raw mouse moves are deliberate: this is the one
+        // gesture that is not a dnd-kit drag (Task 26).
+        const bottomEdge = column.getByRole('separator', { name: /Change how long/ });
         const box = await bottomEdge.boundingBox();
+
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
         await page.mouse.move(box.x + box.width / 2, box.y + 2000, { steps: 20 });
+        await page.mouse.move(box.x + box.width / 2, box.y + 2000);
         await page.mouse.up();
 
-        // Assert — a second day was created and the work is in it
+        // Assert — a second day was created and the work moved into it
         await expect(page.getByRole('region', { name: 'Day 2' })).toBeVisible();
+        await expect(
+            page.getByRole('region', { name: 'Day 2' }).getByText('Refresh tokens')
+        ).toBeVisible();
 
         // Act — reload, to prove it was saved rather than only drawn
         await page.reload();
 
         // Assert
-        await expect(page.getByRole('region', { name: 'Day 2' })).toBeVisible();
-        await expect(card).toBeVisible();
+        await expect(
+            page.getByRole('region', { name: 'Day 2' }).getByText('Refresh tokens')
+        ).toBeVisible();
     });
 
     test('dragging a booking back to the panel unschedules it', async ({ page }) => {
         // Arrange
-        await seedProjectWithTodos(page, { title: 'Auth rewrite', todos: ['Refresh tokens'] });
-        await signIn(page);
-        await page.goto('/calendar');
-        await page.getByRole('button', { name: 'Add the first day' }).click();
+        await seedCalendarWork(page);
+        await openCalendarWithADay(page);
+
+        const column = page.getByRole('region', { name: 'Day 1' });
+
         await page.getByRole('button', { name: /Auth rewrite/ }).click();
-        await page.getByText('Refresh tokens').dragTo(
-            page.getByRole('region', { name: 'Day 1' })
-        );
+        await dragOnto(page, page.getByText('Refresh tokens'), column);
+        await expect(column.getByText('Refresh tokens')).toBeVisible();
 
         // Act
-        const handle = page.getByRole('button', { name: 'Move “Refresh tokens”' });
-        await handle.dragTo(page.getByRole('region', { name: 'Projects' }));
+        await dragOnto(
+            page,
+            page.getByRole('button', { name: 'Move “Refresh tokens”' }),
+            page.getByRole('region', { name: 'Projects' })
+        );
 
         // Assert — back in the pool, and the count restored
-        await expect(
-            page.getByRole('region', { name: 'Day 1' }).getByText('Refresh tokens')
-        ).toHaveCount(0);
+        await expect(column.getByText('Refresh tokens')).toHaveCount(0);
         await expect(page.getByRole('button', { name: /Auth rewrite/ })).toContainText('1');
     });
 });
 ```
 
-Adjust the seeding helper's name and signature to whatever `tests/e2e/helpers.js`
-actually exports — do not add a second seeding path.
-
 - [ ] **Step 3: Run it**
 
 Run: `npm run test:e2e -- calendar.spec.js`
 Expected: PASS. Playwright drags are timing-sensitive; if the resize proves
-flaky, replace the raw mouse moves with a step count high enough that every
-intermediate `pointermove` is delivered, rather than adding a sleep.
+flaky, raise the step count so every intermediate `pointermove` is delivered,
+rather than adding a sleep. If a *drag* proves flaky, the fault is in
+`dragOnto`'s constants and should be fixed there for every spec at once, not
+worked around here.
 
 - [ ] **Step 4: Run everything**
 
@@ -7907,19 +8097,39 @@ with one consumer. The file table above has been corrected to match, and
 `hooks/useResizeEdge.js` and `hooks/useSequenceSpotlight.js` — which the spec's
 list did not anticipate — added to it.
 
-**Two things to watch during implementation**, flagged because they are where the
-plan is most likely to be wrong:
+**Known gaps, deliberately left open.** Each is a real limit of this design, not
+an oversight; none blocks the first pass, and each has a cheap fix if it bites.
 
-1. **Task 12's three-day cascade case.** The first version of that test asserted a
-   third day for items that in fact fit in the second. The corrected case uses two
-   full-day items to force it. If it still disagrees with the implementation, trust
-   the arithmetic in §6 and fix the test — but check by hand first, because this is
-   exactly where an off-by-one in `partitionOverflow` would hide.
-2. **Task 25, step 5.** Hooks cannot be called from inside a render prop, so
-   `PanelTodoRow` and `DayItemCard` must call `usePoolDrag`/`useBookingDrag`
-   themselves rather than receiving the result. The step says so; it is easy to
-   miss and produces a confusing "rendered more hooks than during the previous
-   render" error if it is.
+1. **A second gesture during an unsaved spill can double-append a day.**
+   `toBulkRequest` derives `appendDays` from the temporary days in the state it
+   is given. If a spill creates one and the user starts another gesture before
+   that `PUT` answers, the second request counts the same temporary day again and
+   the server appends a duplicate. Rare in practice — the request is one round
+   trip and the strip is not usually dragged that fast — and the honest fix is to
+   refuse a `commit` while one is in flight. If you would rather close it now, add
+   a `isSaving` ref to `useCalendar` and have `commit` queue behind it.
+
+2. **A failed bulk save rolls back the whole schedule, not just the gesture.**
+   That is the intended behaviour — the request is atomic, so the state must be
+   too — but it means an unrelated concurrent change made in another tab is lost
+   on rollback. The calendar has no live sync, so this is consistent with the rest
+   of the app.
+
+3. **`unschedule` from the pool overlay and the `unschedule` array in the bulk
+   body are two paths to the same outcome.** The overlay uses
+   `DELETE /calendar/items/:todoId` because it is a single, self-contained act;
+   the bulk field exists because a settled gesture can drop a booking as a side
+   effect. They are not redundant, but they do need to stay in agreement — if you
+   change what unscheduling means, change both.
+
+**Verified before hand-off.** The push-down fold and the spill were extracted and
+run against every case in Tasks 11 and 12 — 13 `settleDay` cases and 8
+`spillFrom` cases — and the ordering in Task 11 was corrected as a result: keying
+each anchor by its own start let a receiving day's item interleave with an
+arriving spill group, which the multi-anchor case catches. Anchors are now keyed
+by the group's earliest start. `rebaseToTop`'s claim to preserve gaps was also
+softened: a settled overflow tail is always contiguous below its first member, so
+there is never a gap to preserve.
 
 **No placeholders.** Every step carries the code or the exact command it needs.
 
