@@ -9,7 +9,12 @@ const assertTodosOwned = require('../lib/assertTodosOwned');
 const calendarDaysRepo = require('../db/repositories/calendarDaysRepo');
 const calendarItemsRepo = require('../db/repositories/calendarItemsRepo');
 const { badRequest, notFound } = require('../lib/httpError');
-const { findOverlap, findPlacementProblem } = require('../lib/calendarPlacement');
+const {
+    DAY_MINUTES,
+    SLOT_MINUTES,
+    findOverlap,
+    findPlacementProblem,
+} = require('../lib/calendarPlacement');
 const { toCalendarDay, toCalendarItem } = require('../lib/serializers');
 const { idSchema, parseId } = require('../lib/validation');
 const { withConnection, withTransaction } = require('../db/unitOfWork');
@@ -61,6 +66,15 @@ const placementSchema = z
     );
 
 /**
+ * A day is 24 hours of half-hour slots, and a gesture reaches at most the days
+ * on screen — a week of them, filled edge to edge, is already far past anything
+ * the cascade produces. The cap is what stops one request costing an unbounded
+ * amount of sorting and an unbounded `IN (...)`; without it the only bound is
+ * the body parser's byte limit, which is a limit on a different thing.
+ */
+const MAX_BULK_ITEMS = (DAY_MINUTES / SLOT_MINUTES) * 7;
+
+/**
  * `appendDays` is capped at the number of placements because a day is only ever
  * created to receive something. Without the cap a single request could append
  * arbitrarily many empty columns.
@@ -72,8 +86,14 @@ const bulkSchema = z
             .int('appendDays must be an integer of 0 or more')
             .min(0, 'appendDays must be an integer of 0 or more')
             .default(0),
-        placements: z.array(placementSchema).default([]),
-        unschedule: z.array(idSchema).default([]),
+        placements: z
+            .array(placementSchema)
+            .max(MAX_BULK_ITEMS, `no more than ${MAX_BULK_ITEMS} placements in one request`)
+            .default([]),
+        unschedule: z
+            .array(idSchema)
+            .max(MAX_BULK_ITEMS, `no more than ${MAX_BULK_ITEMS} to-dos unscheduled at once`)
+            .default([]),
     })
     .refine((body) => body.appendDays <= body.placements.length, {
         message: 'appendDays may not exceed the number of placements',
@@ -84,7 +104,16 @@ const bulkSchema = z
 // it through unexamined.
 const createDaySchema = z.object({});
 
-/** The whole calendar in the shape the page loads: one request, one failure state. */
+/**
+ * The whole calendar in the shape the page loads: one request, one failure state.
+ *
+ * That is one failure state, not one instant. The two reads are not snapshotted
+ * against each other, so a day deleted between them leaves its items in the
+ * payload pointing at a day that is no longer there. The client draws items into
+ * the columns it was given and an item with no column simply does not appear,
+ * which is what the next load shows anyway — so this is left as a race that
+ * settles itself rather than paid for with a transaction on a read.
+ */
 const readCalendar = async (conn, ownerId) => {
     const days = await calendarDaysRepo.listByOwner(conn, ownerId);
     const items = await calendarItemsRepo.listByOwner(conn, ownerId);
@@ -133,6 +162,9 @@ router.delete(
             return calendarDaysRepo.remove(conn, id);
         });
 
+        // Unreachable today: `assertOwnership` has already answered 404 for a
+        // day that is not there, and nothing else can delete it inside this
+        // transaction. Kept for the day someone moves that check outside.
         if (!deleted) throw notFound('Day');
 
         res.sendData({ id });
