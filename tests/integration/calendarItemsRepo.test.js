@@ -187,6 +187,66 @@ describe('calendarItemsRepo.listByOwner', () => {
     });
 });
 
+describe('calendarItemsRepo.listByDayIds', () => {
+    test('returns only the bookings in the named days', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, day } = await createWorld(conn);
+        const other = await calendarDaysRepo.create(conn, { ownerId });
+        await calendarItemsRepo.upsert(conn, {
+            dayId: day.id,
+            todoId: todos[0].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+        await calendarItemsRepo.upsert(conn, {
+            dayId: other.id,
+            todoId: todos[1].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+
+        // Act
+        const items = await calendarItemsRepo.listByDayIds(conn, [day.id]);
+
+        // Assert
+        expect(items.map((item) => item.todo_id)).toEqual([todos[0].id]);
+    });
+
+    test('carries the same display data listByOwner does', async () => {
+        // Arrange — the bulk endpoint reads the layout back through this, so a
+        // row it returns has to be able to draw itself too.
+        const conn = getConn();
+        const { project, sequence, todos, day } = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: day.id,
+            todoId: todos[0].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+
+        // Act
+        const [item] = await calendarItemsRepo.listByDayIds(conn, [day.id]);
+
+        // Assert
+        expect(item).toMatchObject({
+            text: 'Step 0',
+            project_id: project.id,
+            project_title: 'Auth rewrite',
+            sequence_id: sequence.id,
+            sequence_title: 'Session handling',
+        });
+    });
+
+    test('returns an empty array for an empty list', async () => {
+        // Arrange
+        const conn = getConn();
+
+        // Act + Assert
+        await expect(calendarItemsRepo.listByDayIds(conn, [])).resolves.toEqual([]);
+    });
+});
+
 describe('calendarItemsRepo.removeByTodoIds', () => {
     test('unschedules the named to-dos and leaves the rest', async () => {
         // Arrange

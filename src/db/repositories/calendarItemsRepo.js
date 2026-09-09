@@ -17,6 +17,15 @@
  *
  * There is no `position` on a booking and so no reindexing: a day is ordered by
  * `start_minutes`, which is a real quantity rather than an index.
+ *
+ * `listByOwner` is the only function here that scopes anything. `upsert`,
+ * `removeByTodoIds` and `listByDayIds` trust their caller on ownership: the
+ * route owes them a `todoId` already cleared by `assertTodosOwned` and a
+ * `dayId` already cleared by `assertOwnership(conn, 'calendarDay', ...)`, both
+ * against the same signed-in user. `upsert` names two ids from different trees
+ * — a to-do is owned through its project, a day through `owner_id` — so a route
+ * that clears only one of them will happily book one user's work into another
+ * user's day.
  */
 
 const SELECT_COLUMNS = `ci.id, ci.day_id, ci.todo_id, ci.start_minutes, ci.duration_minutes,
