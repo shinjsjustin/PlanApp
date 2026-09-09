@@ -42,7 +42,7 @@ const buildAssignments = (patch, columns) => {
  * Tables whose rows carry a dense `position` column. The set doubles as the
  * allow-list for the only place a table name is interpolated into SQL.
  */
-const POSITIONED_TABLES = new Set(['layers', 'sequences', 'todos']);
+const POSITIONED_TABLES = new Set(['layers', 'sequences', 'todos', 'calendar_days']);
 
 /**
  * Rewrites `position` for an ordering so it is dense 0..n-1 again.
