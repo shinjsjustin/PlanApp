@@ -389,6 +389,34 @@ describe('PUT /api/calendar/items — refusals', () => {
             .set('Authorization', authHeaderFor(ownerId))
             .send(body);
 
+    test('refuses a to-do that is both unscheduled and placed', async () => {
+        // The delete runs before the upserts, so this would otherwise resolve
+        // quietly in favour of the placement — an order of instructions rather
+        // than an answer to a request that asks for two contradictory things.
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[0].id,
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+
+        const response = await put(ownerId, {
+            unschedule: [todos[0].id],
+            placements: [
+                { todoId: todos[0].id, dayId: days[1].id, startMinutes: 540, durationMinutes: 60 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/both unscheduled and placed/);
+
+        // Refused means nothing moved.
+        const [item] = await calendarItemsRepo.listByOwner(conn, ownerId);
+        expect(item).toMatchObject({ day_id: days[0].id, start_minutes: 0 });
+    });
+
     test('refuses a start off the 30-minute grid', async () => {
         const conn = getConn();
         const { ownerId, todos, days } = await createWorld(conn);

@@ -97,7 +97,22 @@ const bulkSchema = z
     })
     .refine((body) => body.appendDays <= body.placements.length, {
         message: 'appendDays may not exceed the number of placements',
-    });
+    })
+    .refine(
+        (body) => {
+            const dropped = new Set(body.unschedule);
+
+            return !body.placements.some((placement) => dropped.has(placement.todoId));
+        },
+        {
+            // Unscheduling and placing the same to-do resolves quietly in favour
+            // of the placement, because the delete runs before the upserts. That
+            // is an order of instructions, not a decision anyone made, and the
+            // request means two contradictory things — so refuse it, the way a
+            // to-do named twice in `placements` is refused.
+            message: 'a to-do may not be both unscheduled and placed in one request',
+        }
+    );
 
 // The endpoint takes no input — a new day is untitled and goes at the end.
 // Parsing an empty shape drops anything else the caller sent rather than letting
@@ -114,8 +129,11 @@ const createDaySchema = z.object({});
  * which is what the next load shows anyway — so this is left as a race that
  * settles itself rather than paid for with a transaction on a read.
  */
-const readCalendar = async (conn, ownerId) => {
-    const days = await calendarDaysRepo.listByOwner(conn, ownerId);
+const readCalendar = async (conn, ownerId, knownDays = null) => {
+    // The bulk endpoint has already read the strip in order to resolve
+    // `dayIndex`, and nothing touches `calendar_days` after that, so it hands
+    // that list back rather than asking again.
+    const days = knownDays ?? (await calendarDaysRepo.listByOwner(conn, ownerId));
     const items = await calendarItemsRepo.listByOwner(conn, ownerId);
 
     return { days: days.map(toCalendarDay), items: items.map(toCalendarItem) };
@@ -213,12 +231,20 @@ router.put(
                 ownerId
             );
 
-            for (const placement of placements) {
-                if (placement.dayId === undefined) continue;
+            // Deduped first: a gesture that fills one day names it once per item,
+            // and the answer is the same every time.
+            const namedDayIds = [
+                ...new Set(
+                    placements
+                        .map((placement) => placement.dayId)
+                        .filter((dayId) => dayId !== undefined)
+                ),
+            ];
 
+            for (const dayId of namedDayIds) {
                 // Sequential: one mysql2 connection runs one statement at a time.
                 // eslint-disable-next-line no-await-in-loop
-                await assertOwnership(conn, 'calendarDay', placement.dayId, ownerId);
+                await assertOwnership(conn, 'calendarDay', dayId, ownerId);
             }
 
             for (let index = 0; index < appendDays; index += 1) {
@@ -251,7 +277,7 @@ router.put(
             const overlap = findOverlap(stored.map(toPlacement));
             if (overlap) throw badRequest(overlap);
 
-            return readCalendar(conn, ownerId);
+            return readCalendar(conn, ownerId, days);
         });
 
         res.sendData(calendar);
