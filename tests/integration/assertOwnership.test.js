@@ -106,8 +106,12 @@ describe('assertOwnership', () => {
 
 describe('assertOwnership(calendarDay)', () => {
     test('returns the day row for its owner', async () => {
-        // Arrange
+        // Arrange — someone else's day goes in first, so a query that forgot to
+        // filter by id would hand back theirs and fail here rather than pass by
+        // accident on a table this test happens to be alone in.
         const conn = getConn();
+        const intruderId = await createTestUser(conn);
+        await calendarDaysRepo.create(conn, { ownerId: intruderId });
         const ownerId = await createTestUser(conn);
         const day = await calendarDaysRepo.create(conn, { ownerId });
 
@@ -139,7 +143,7 @@ describe('assertOwnership(calendarDay)', () => {
 
         // Act + Assert
         await expect(
-            assertOwnership(conn, 'calendarDay', 999999, ownerId)
+            assertOwnership(conn, 'calendarDay', 987654321, ownerId)
         ).rejects.toMatchObject({ status: 404, message: 'Day not found' });
     });
 });

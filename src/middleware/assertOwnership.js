@@ -75,17 +75,17 @@ const assertOwnership = async (conn, resourceType, id, userId) => {
     }
 
     const [rows] = await conn.execute(query.sql, [id]);
-    const project = firstRow(rows);
+    const owned = firstRow(rows);
 
-    if (!project) {
+    if (!owned) {
         throw notFound(query.label);
     }
 
-    if (project.owner_id !== userId) {
+    if (owned.owner_id !== userId) {
         throw forbidden();
     }
 
-    return project;
+    return owned;
 };
 
 module.exports = assertOwnership;
