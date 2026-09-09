@@ -294,6 +294,36 @@ describe('serializers', () => {
             expect(item.sequenceId).toBeNull();
             expect(item.sequenceTitle).toBeNull();
             expect(item.text).toBe('Unfiled but still booked');
+            // Midnight is the one time a careless `|| fallback` would swallow.
+            expect(item.startMinutes).toBe(0);
+        });
+
+        test('still names itself once the to-do is ticked complete', () => {
+            // Arrange — the case the folded-in display data exists for: a
+            // completed to-do has left the pool, so the card can only draw its
+            // own name from the booking row.
+            const row = {
+                id: 7,
+                day_id: 4,
+                todo_id: 12,
+                start_minutes: 540,
+                duration_minutes: 60,
+                text: 'Wire up the token refresh',
+                status: 'complete',
+                project_id: 2,
+                project_title: 'Auth rewrite',
+                sequence_id: 9,
+                sequence_title: 'Session handling',
+            };
+
+            // Act
+            const item = toCalendarItem(row);
+
+            // Assert
+            expect(item.status).toBe('complete');
+            expect(item.text).toBe('Wire up the token refresh');
+            expect(item.projectTitle).toBe('Auth rewrite');
+            expect(item.sequenceTitle).toBe('Session handling');
         });
     });
 });
