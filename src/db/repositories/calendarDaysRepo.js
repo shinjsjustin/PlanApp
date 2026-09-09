@@ -52,6 +52,8 @@ const listIds = async (conn, ownerId) => {
  * Appends a day at the end of the owner's strip. There is no "insert before"
  * form: days are only ever added at the end, by the + at the right of the strip
  * or by an overflow that ran out of room (design section 6).
+ *
+ * Rewrites more than one row, so callers run it inside a transaction.
  */
 const create = async (conn, { ownerId }) => {
     const ordering = await listIds(conn, ownerId);
