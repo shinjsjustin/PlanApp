@@ -4391,7 +4391,7 @@ keyed object throws away; and every gesture is computed by `lib/schedule`, which
 speaks arrays — normalising here would mean converting both ways on every pointer
 move for a collection that is at most a few hundred rows.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/state/calendarReducer.test.js`:
 
@@ -4505,12 +4505,12 @@ describe('calendarReducer', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=calendarReducer`
 Expected: FAIL — `Cannot find module './calendarReducer'`.
 
-- [ ] **Step 3: Write the reducer**
+- [x] **Step 3: Write the reducer**
 
 Create `src/client/src/state/calendarReducer.js`:
 
@@ -4606,7 +4606,7 @@ export const calendarReducer = (state, action) => {
 };
 ```
 
-- [ ] **Step 4: Write the action creators**
+- [x] **Step 4: Write the action creators**
 
 Create `src/client/src/state/calendarActions.js`:
 
@@ -4640,7 +4640,7 @@ export const rolledBack = (snapshot, error) => ({
 export const actionErrorCleared = () => ({ type: CALENDAR_ACTIONS.actionErrorCleared });
 ```
 
-- [ ] **Step 5: Write the context**
+- [x] **Step 5: Write the context**
 
 Create `src/client/src/state/CalendarContext.js`:
 
@@ -4676,7 +4676,7 @@ export const useCalendarContext = () => {
 export default CalendarContext;
 ```
 
-- [ ] **Step 5b: Close the gap `schedule.js` left open for this reducer**
+- [x] **Step 5b: Close the gap `schedule.js` left open for this reducer**
 
 `schedule.js:344-364` names this reducer as the place three invariants get
 established, and sketches the guard it wants:
@@ -4716,7 +4716,7 @@ with a `NaN` start is refused, and a `scheduleReplaced` carrying a booking
 longer than a day is refused. Assert on the guards' own messages so the test
 fails if the reducer starts defining its own.
 
-- [ ] **Step 5c: Make the two schedule tests load-bearing**
+- [x] **Step 5c: Make the two schedule tests load-bearing**
 
 Step 1's `replacing the schedule swaps both collections at once` and `a
 rollback restores the snapshot and raises the message` never assert on
@@ -4727,12 +4727,12 @@ would pass both — and the test names both claim to cover days.
 Give each fixture a `days` array that actually differs from the state it acts
 on, and assert on it. This is the dead-assertion shape `6a017dd` and `5f50b2c`
 already corrected twice in this plan; do not add a third.
-- [ ] **Step 6: Run it and watch it pass**
+- [x] **Step 6: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=calendarReducer`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/client/src/state/calendarReducer.js src/client/src/state/calendarActions.js src/client/src/state/CalendarContext.js src/client/src/state/calendarReducer.test.js
