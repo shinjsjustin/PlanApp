@@ -487,3 +487,37 @@ export const topEdgeFloor = (state, todoId) => {
 
     return above.length === 0 ? 0 : endOf(above[above.length - 1]);
 };
+
+/**
+ * Adds a day to the end of the strip — the + at its right-hand edge.
+ *
+ * The day is unsaved, like one the spill creates: it is drawn under a negative
+ * id and re-keyed when the server answers. The two paths produce the same shape
+ * on purpose, so nothing downstream has to know which made it.
+ */
+export const appendDay = (state) => ({
+    ...state,
+    days: [...state.days, newDay(state.days.length)],
+});
+
+/**
+ * Deletes a day and releases the bookings in it.
+ *
+ * The to-dos themselves are untouched — this returns them to the pool, the way
+ * deleting a sequence returns its to-dos to the unorganized panel (decision 6).
+ * Positions close up behind it so they stay dense, matching what the server does
+ * to the same ordering.
+ */
+export const removeDay = (state, dayId) => {
+    if (!state.days.some((day) => day.id === dayId)) {
+        throw new Error(`No day with id ${dayId} to remove`);
+    }
+
+    return {
+        ...state,
+        days: state.days
+            .filter((day) => day.id !== dayId)
+            .map((day, position) => ({ ...day, position })),
+        items: state.items.filter((item) => item.dayId !== dayId),
+    };
+};
