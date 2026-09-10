@@ -4234,7 +4234,7 @@ all. Every remaining task is wiring this to a screen.
 The strip's + and its × are structural changes to the same state the gestures
 operate on, so they belong beside them rather than inside a component.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/schedule.days.test.js`:
 
@@ -4318,12 +4318,12 @@ describe('removeDay', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=schedule.days`
 Expected: FAIL — `appendDay is not a function`.
 
-- [ ] **Step 3: Write the two functions**
+- [x] **Step 3: Write the two functions**
 
 Append to `src/client/src/lib/schedule.js`:
 
@@ -4363,12 +4363,12 @@ export const removeDay = (state, dayId) => {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=schedule.days`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/lib/schedule.js src/client/src/lib/schedule.days.test.js
@@ -4695,6 +4695,45 @@ git commit -m "feat(calendar): add the calendar reducer, actions and context"
 **Files:**
 - Create: `src/client/src/hooks/useCalendar.js`
 - Test: `src/client/src/hooks/useCalendar.test.js`
+
+**Two defects the Task 16 review found in this task's code. Fix them as you
+write it — do not transcribe the blocks below as they stand.**
+
+*Both were unreachable until Task 16 landed, because `spillFrom` was the only
+producer of a temp day and its temp day is created and reconciled by the same
+round trip. `appendDay` gives a temp day a round trip of its own, with no
+commit attached, and that opens two interleavings.*
+
+**1. `+` widens the unreconciled-`previous` window `toBulkRequest` throws on.**
+
+`toBulkRequest` (`lib/calendarRequest.js:63`) deliberately throws when
+`previous` still holds a temp day — see commit `6a017dd` for why that beats
+scoping the count. But `commit` calls it straight out of a drop handler. Click
+`+`, then drag a booking before the POST lands, and it throws where React's
+error boundary cannot catch it (this module's own header at `schedule.js:331`
+records that event handlers are outside the boundary): the drag dies with
+nothing on screen to explain it.
+
+Either gate the gesture — disable `+` and the drop targets while
+`state.days.some((day) => isTempId(day.id))` — or have `commit` defer instead
+of calling `toBulkRequest`. Gating is the smaller change and matches how
+`DayColumn` already hides the × on an unsaved day. Whichever you pick, write
+the test first: a drop dispatched against a state holding a temp day.
+
+**2. `mutate`'s `onSuccess` closes over a stale `optimistic`.**
+
+`const optimistic = apply(previous)` is captured, then handed to `onSuccess`
+after the await. Click `+`, delete a *real* day before the POST resolves — the
+× stays live during an `addDay` — and `reconcileDay` runs against the
+pre-delete snapshot. The deleted column comes back on screen while it is gone
+from the server, and stays diverged until a reload. Quiet, and green: the same
+shape as the four defects Phase B closed.
+
+Rebase `onSuccess` onto `stateRef.current` rather than the captured
+`optimistic`, or serialize mutations so the second cannot start mid-flight.
+Note that `reconcileDay` maps over `schedule.days` by id, so rebasing is
+sufficient — it will simply find no temp day to swap if the state moved on.
+Pin it with a test that interleaves `deleteDay` inside a pending `addDay`.
 
 - [ ] **Step 1: Write the failing test**
 
