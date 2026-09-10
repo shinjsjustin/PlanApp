@@ -190,11 +190,14 @@ const partitionOverflow = (settled) => {
  * Slides a group so its first item starts at 00:00, preserving the spacing
  * between its members.
  *
- * In practice a spilled group is always contiguous — the push sets each item's
- * start to the previous item's end — so the offset arithmetic is uniform rather
- * than gap-preserving in any interesting way. It is written as a shift of the
- * whole group anyway, because that is the honest description of the operation
- * and it does not depend on the caller having settled first.
+ * A spilled group is contiguous whenever every start handed to the fold sat
+ * inside the day: the first overflowing item ends past 24:00, so the cursor is
+ * already beyond any later item's own start and each one is pushed flush against
+ * the one above. A start past 24:00 — which the fold permits and no gesture
+ * produces — is not raised, and its gap survives: `1300/200` and `1600/60` spill
+ * to `0/200` and `300/60`, still a legal day. Shifting the whole group is what
+ * makes that degrade gracefully, and it does not depend on the caller having
+ * settled first.
  */
 const rebaseToTop = (group) => {
     const offset = group[0].startMinutes;
@@ -214,6 +217,21 @@ const newDay = (position) => ({
 });
 
 /**
+ * A booking longer than a day spills forever: rebased to 00:00 it still ends
+ * past midnight, so every pass moves it on and appends another day. The fold
+ * does not care — `settleDay` settles a 2000-minute item correctly — so this is
+ * the spill's precondition, not the fold's, and it is checked here.
+ */
+const assertFitsInADay = (item) => {
+    if (item.durationMinutes > MAX_DURATION) {
+        throw new Error(
+            `Item ${item.todoId} has a duration of ${item.durationMinutes}; ` +
+                `it must be at most ${MAX_DURATION}`
+        );
+    }
+};
+
+/**
  * Settles one day and carries whatever no longer fits into the next, over and
  * over until everything has a home — appending days when it runs out.
  *
@@ -221,16 +239,22 @@ const newDay = (position) => ({
  * why the overflow group arrives at the top of the next day and pushes that
  * day's contents down rather than weaving into them.
  *
- * This terminates, in at most one pass per item. Each pass places at least one
- * item for good: the first overflowing item is rebased to 00:00 and sorts to the
- * top of the receiving day, so it settles at 00:00 there and ends at its own
- * duration — which does not overflow, as long as no duration exceeds
- * `MAX_DURATION`. That last part is a precondition, not something checked here:
- * `assertSchedulable` refuses only what would corrupt the fold's arithmetic, and
- * the gesture and the server are what hold a booking to a single day. A longer
- * duration reaching this function would spill forever, appending a day a pass.
+ * This terminates. Every pass but the first places at least one item for good:
+ * the first overflowing item is rebased to 00:00 and sorts to the top of the
+ * receiving day, so it settles at 00:00 there and ends at its own duration,
+ * which `assertFitsInADay` holds to a day. The first pass can place nothing —
+ * the caller's anchor is wherever the gesture put it, not rebased — so the bound
+ * is one pass per item plus one, and the loop states it. Left unstated, a change
+ * that breaks the proof would hang the tab on a pointer move instead of failing
+ * where someone can see it.
  *
- * Returns a new `{ days, items }`; the input is untouched.
+ * Returns a new `{ days, items }`; the input is untouched. Pure but for one
+ * thing: an appended day stamps `createdAt` from the clock. Nothing in the
+ * client reads that field — no component, no test, no sort, since day order is
+ * `position` then `id` on both sides — and the server overwrites it on
+ * reconcile, so threading a `now` through four gestures to reach a field nobody
+ * consumes would buy nothing. The first thing that asserts on, sorts by, or
+ * renders `createdAt` makes that false and turns it into a parameter.
  */
 export const spillFrom = (state, dayId, anchorTodoIds = []) => {
     let days = state.days;
@@ -240,12 +264,13 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 
     if (index === -1) throw new Error(`No day with id ${dayId} to settle`);
 
-    for (;;) {
+    for (let pass = 0; pass <= state.items.length; pass += 1) {
         const day = days[index];
-        const settled = settleDay(
-            items.filter((item) => item.dayId === day.id),
-            anchors
-        );
+        const onThisDay = items.filter((item) => item.dayId === day.id);
+
+        onThisDay.forEach(assertFitsInADay);
+
+        const settled = settleDay(onThisDay, anchors);
         const { keep, overflow } = partitionOverflow(settled);
 
         items = [...items.filter((item) => item.dayId !== day.id), ...keep];
@@ -261,4 +286,6 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
         anchors = moved.map((item) => item.todoId);
         index += 1;
     }
+
+    throw new Error('spillFrom failed to settle; an item is longer than a day');
 };
