@@ -4846,7 +4846,7 @@ window and never closes it: `apply` still reads shared current state, and a
 render-assigned ref still lags the dispatch that just happened, whether or not
 another mutation is in flight.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/hooks/useCalendar.test.js`:
 
@@ -5049,12 +5049,12 @@ describe('useCalendar.completeTodo', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=useCalendar`
 Expected: FAIL — `Cannot find module './useCalendar'`.
 
-- [ ] **Step 3: Write the hook**
+- [x] **Step 3: Write the hook**
 
 Create `src/client/src/hooks/useCalendar.js`:
 
@@ -5267,12 +5267,12 @@ const useCalendar = () => {
 export default useCalendar;
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=useCalendar`
 Expected: PASS, 10 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/hooks/useCalendar.js src/client/src/hooks/useCalendar.test.js
