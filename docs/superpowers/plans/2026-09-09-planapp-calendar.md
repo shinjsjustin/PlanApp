@@ -5529,6 +5529,20 @@ be added and deleted, bookings only draw.
 - Test: `src/client/src/components/Calendar/CalendarPage.test.js`
 - Test: `src/client/src/routes.test.js`
 
+**A finding from the Task 19 review — fix it as you write this.**
+
+Step 4's page renders `ProjectPanel` inside the calendar's `ready` branch, so a
+failed `/calendar` load blanks the pool too, even when `/projects` returned
+fine. That contradicts design section 10 — "Either can fail alone, and each
+reports its own failure in its own panel rather than failing the whole page" —
+and `usePool`'s own header comment, which says a pool you cannot drag from is
+still worth seeing. `ProjectPanel` already has its own loading, error and ready
+branches; it is only the page that takes them away.
+
+Half the bargain currently holds: the calendar survives a pool failure. Lift
+`ProjectPanel` out of the ready branch so the other half does too. The strip
+stays behind the calendar's status, since there is nothing to draw without it.
+
 - [ ] **Step 1: Write the failing tests**
 
 Create `src/client/src/components/Calendar/CalendarPage.test.js`:
