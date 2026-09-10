@@ -1,0 +1,548 @@
+/* The calendar page: a strip of day columns on the left, the pool of startable
+ * work on the right.
+ *
+ * Two things make this layout unlike the project page's. The strip scrolls
+ * sideways and the pool does not, so the page itself must not scroll sideways
+ * with them — the overflow is owned by the strip alone. And a day column is a
+ * fixed slab of time, so its height is a decision rather than a consequence of
+ * its contents: the 24 hours scroll *inside* the column, which is what keeps a
+ * booking at 23:00 from making the page a mile long.
+ *
+ * Every colour, space and radius below comes from the `:root` tokens in
+ * index.css. The handful of numbers that are the calendar's own — how wide a
+ * column is, how tall it may grow — are named here and used by role, the way
+ * `.project-page` names its own page padding and `.sequence-card` its palette.
+ */
+
+.calendar-page {
+    /* Matches `.project-page`: the ground runs to the physical edges, and the
+     * content is held off them by this and no more. */
+    --page-pad: 0.75rem;
+
+    /* The pool is a rail of a fixed width — wide enough for a to-do's text and
+     * the sequence it came from, and no wider, because every pixel it takes is
+     * one the strip does not have. */
+    --cal-panel-width: 320px;
+
+    /* A day column is narrow on purpose: the strip is meant to hold several
+     * days at once, and a day is read as a shape rather than in detail. */
+    --cal-column-width: 220px;
+    /* How tall a column may grow before its 24 hours start scrolling inside it.
+     * The inner scroll only exists because this is bounded. */
+    --cal-column-max-height: 70vh;
+
+    /* The gutter down the left of a day, holding the hour labels. Bookings
+     * start where it ends, so the two are the same number by definition. */
+    --cal-gutter-width: var(--space-xl);
+
+    /* The stripe that colours a booking by its edge rather than its fill, so a
+     * struck-through card still reads as the same object. */
+    --cal-item-edge-width: 3px;
+    /* The grab strip along a booking's top and bottom. Tall enough to hit,
+     * short enough not to eat a half-hour booking's body. */
+    --cal-resize-depth: 6px;
+
+    padding: var(--page-pad) var(--page-pad) var(--space-xl);
+    padding-right: max(var(--page-pad), env(safe-area-inset-right));
+    padding-left: max(var(--page-pad), env(safe-area-inset-left));
+}
+
+.calendar-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.calendar-header h1 {
+    margin: 0;
+    font-size: var(--font-xl);
+}
+
+.calendar-header a {
+    color: var(--color-accent);
+}
+
+/* ─── Page-level states ──────────────────────────────────────────────────── */
+
+.calendar-toast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--color-danger);
+}
+
+.calendar-toast p {
+    margin: 0;
+}
+
+.calendar-toast button {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: var(--color-danger);
+    color: var(--text-white);
+    font-size: var(--font-sm);
+}
+
+/* The calendar's own status stands where the strip would, so the pool keeps its
+ * rail while the days are still loading or have failed — the two panels report
+ * separately and neither blanks the other. */
+.calendar-loading,
+.calendar-error {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-xl) 0;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.calendar-error p {
+    margin: 0 0 var(--space-md);
+    color: var(--color-danger);
+}
+
+.calendar-error button {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent);
+    color: var(--text-white);
+}
+
+/* ─── The two columns ────────────────────────────────────────────────────── */
+
+/* The page is two columns: the day strip takes the room that is left, and the
+   pool is a fixed rail. Only the strip scrolls sideways. */
+.calendar-body {
+    display: flex;
+    gap: var(--space-md);
+    align-items: stretch;
+    min-height: 0;
+}
+
+.calendar-strip {
+    flex: 1;
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.calendar-panel {
+    flex: 0 0 var(--cal-panel-width);
+    position: relative; /* the remove overlay pins to this */
+    overflow-y: auto;
+}
+
+/* A calendar with no days at all is a prompt, not an empty row: the + on its
+ * own would be a button floating in nothing, with no clue what it makes. */
+.calendar-strip--empty {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+}
+
+.calendar-strip--empty p {
+    margin: 0;
+}
+
+.calendar-strip--empty button,
+.calendar-strip-add {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+}
+
+/* The + sits at the end of the strip and stays the same height as a column head
+ * rather than the column itself — it adds a day, it is not one. */
+.calendar-strip-add {
+    flex: 0 0 auto;
+    font-size: var(--font-lg);
+    line-height: 1;
+}
+
+.calendar-strip-add:hover:not(:disabled),
+.calendar-strip--empty button:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.calendar-strip-add:disabled {
+    color: var(--text-muted);
+    cursor: default;
+}
+
+/* ─── A day column ───────────────────────────────────────────────────────── */
+
+/* A day column is a fixed-width card whose 24 hours scroll inside it. The fixed
+   height is what makes the inner scroll exist at all. */
+.day-column {
+    flex: 0 0 var(--cal-column-width);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    max-height: var(--cal-column-max-height);
+}
+
+.day-column-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border);
+}
+
+.day-column-title {
+    margin: 0;
+    font-size: var(--font-md);
+}
+
+.day-column-stamp {
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+}
+
+.day-column-scroll {
+    overflow-y: auto;
+    position: relative;
+}
+
+/* The whole column is one drop target, so the feedback has to be the column
+ * rather than a slot: a tinted ground says "this day" without pretending to
+ * know the minute, which the preview is already showing. */
+.day-column-drop--over {
+    background: var(--color-warning-light);
+}
+
+/* ─── The 24-hour grid ───────────────────────────────────────────────────── */
+
+/* Decorative and absolutely-positioned-over: the height is set inline from
+ * `scheduleGeometry`, so the hours and the bookings are laid out by the same
+ * arithmetic and cannot drift apart. */
+.day-grid {
+    position: relative;
+}
+
+.day-grid-gutter {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--cal-gutter-width);
+    border-right: 1px solid var(--border);
+}
+
+.day-grid-hour {
+    position: absolute;
+    right: var(--space-xs);
+    /* The label names the line it sits on, so it is lifted to straddle it
+     * rather than hanging below. */
+    transform: translateY(-50%);
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+/* The rules divide the day into equal slots by flexing, so the count comes from
+ * `SLOTS_PER_DAY` and this file never has to know it. */
+.day-grid-rules {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-left: var(--cal-gutter-width);
+}
+
+.day-grid-slot {
+    flex: 1;
+    border-top: 1px dotted var(--border);
+}
+
+/* The hour reads louder than the half-hour, which is the only way an eye finds
+ * 14:00 in a stack of 48 identical lines. */
+.day-grid-slot--hour {
+    border-top-style: solid;
+    border-top-color: var(--border-alt);
+}
+
+/* ─── A booking ──────────────────────────────────────────────────────────── */
+
+.day-item-card {
+    position: absolute;
+    left: var(--cal-gutter-width);
+    right: var(--space-xs);
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    border-left: var(--cal-item-edge-width) solid var(--color-accent);
+}
+
+/* Ticked work stays exactly where it was — the point of a calendar is what the
+ * day actually looked like — so "done" is a change of weight, not of place. */
+.day-item-card--complete {
+    border-left-color: var(--color-primary);
+    color: var(--text-muted);
+}
+
+.day-item-card--complete .day-item-name {
+    text-decoration: line-through;
+}
+
+.day-item-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+}
+
+.day-item-bubble {
+    flex: 0 0 auto;
+    width: var(--space-md);
+    height: var(--space-md);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg-card);
+}
+
+.day-item-bubble:hover:not(:disabled) {
+    border-color: var(--color-primary);
+}
+
+.day-item-bubble--done {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    cursor: default;
+}
+
+.day-item-handle {
+    flex: 0 0 auto;
+    padding: 0;
+    background: none;
+    color: var(--text-muted);
+    line-height: 1;
+    cursor: grab;
+}
+
+.day-item-name {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: var(--font-base);
+    text-align: left;
+    /* One line, clipped: the card's height is the booking's duration, and a
+     * long name must not be able to argue with it. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.day-item-name:hover {
+    color: var(--color-accent);
+}
+
+.day-item-time {
+    display: block;
+    padding: 0 var(--space-xs) var(--space-xs);
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+/* The edges are grab strips rather than visible handles: the card's top and
+ * bottom *are* its start and end, so the cursor is the affordance. */
+.day-item-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--cal-resize-depth);
+    cursor: ns-resize;
+}
+
+.day-item-edge--top {
+    top: 0;
+}
+
+.day-item-edge--bottom {
+    bottom: 0;
+}
+
+.day-item-edge:hover {
+    background: var(--color-accent);
+    opacity: 0.2;
+}
+
+/* ─── The pool ───────────────────────────────────────────────────────────── */
+
+.pool-loading,
+.pool-empty {
+    padding: var(--space-lg) 0;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.pool-error {
+    padding: var(--space-lg) 0;
+    text-align: center;
+}
+
+.pool-error p {
+    margin: 0 0 var(--space-sm);
+    color: var(--color-danger);
+}
+
+.pool-error button {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent);
+    color: var(--text-white);
+}
+
+.pool-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pool-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.pool-card--expanded {
+    border-color: var(--border-alt);
+    box-shadow: var(--shadow-md);
+}
+
+/* The whole header is the toggle, so it is a button styled as a row rather than
+ * a row with a button in it — there is one target and it is the obvious one. */
+.pool-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    background: none;
+    color: inherit;
+    text-align: left;
+}
+
+.pool-card-title {
+    font-size: var(--font-base);
+    font-weight: 600;
+}
+
+/* The count is unscheduled work left, so it is a quantity rather than a status:
+ * a quiet pill that ticks down as the days fill. */
+.pool-card-count {
+    flex: 0 0 auto;
+    min-width: var(--space-lg);
+    padding: 0 var(--space-xs);
+    border-radius: var(--radius-pill);
+    background: var(--bg-alt);
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    text-align: center;
+}
+
+.pool-card-empty {
+    margin: 0;
+    padding: 0 var(--space-md) var(--space-sm);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+}
+
+.pool-card-todos {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin: 0;
+    padding: 0 var(--space-sm) var(--space-sm);
+    list-style: none;
+}
+
+/* ─── A row in the pool ──────────────────────────────────────────────────── */
+
+.panel-todo-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    font-size: var(--font-base);
+}
+
+/* Booked work stays listed — the panel is still the answer to "where did this
+ * go" — but it is no longer a drag source, and has to look it. */
+.panel-todo-row--scheduled {
+    background: var(--bg-alt);
+    color: var(--text-muted);
+}
+
+.panel-todo-grip {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    line-height: 1;
+    cursor: grab;
+}
+
+.panel-todo-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.panel-todo-sequence,
+.panel-todo-badge {
+    flex: 0 0 auto;
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+}
+
+.panel-todo-badge {
+    padding: 0 var(--space-xs);
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+/* ─── The thing under the pointer ────────────────────────────────────────── */
+
+/* Deliberately slight. The preview in the day says where the drop lands; this
+ * only has to say what is in the hand, and a full-sized card would cover the
+ * very grid the drop is being aimed at. */
+.calendar-drag-ghost {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--color-accent);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-sm);
+    white-space: nowrap;
+    cursor: grabbing;
+}

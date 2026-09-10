@@ -15,4 +15,14 @@ describe('routes', () => {
             expect(routeFor(path).element.type).toBe(ProtectedRoute);
         });
     });
+
+    test('mounts the calendar page at /calendar', () => {
+        expect(routeFor('/calendar')).toBeDefined();
+    });
+
+    test('keeps the calendar behind ProtectedRoute', () => {
+        // The calendar is a second view onto the same private plan, so it is no
+        // more public than the project pages it schedules work from.
+        expect(routeFor('/calendar').element.type).toBe(ProtectedRoute);
+    });
 });

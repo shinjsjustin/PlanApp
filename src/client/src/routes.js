@@ -6,6 +6,7 @@ import PostRegisterPage from './components/Authentication/PostRegisterPage';
 import Dashboard from './components/Dashboard/Dashboard';
 import ProjectsHome from './components/Projects/ProjectsHome';
 import ProjectPage from './components/Project/ProjectPage';
+import CalendarPage from './components/Calendar/CalendarPage';
 
 import ProtectedRoute from './config/ProtectedRoute';
 import UnprotectedRoute from './config/UnprotectedRoute';
@@ -32,6 +33,7 @@ const routes = [
     // requiredAccessLevel defaults to 1 (approved user)
     { path: '/projects',     element: <ProtectedRoute><ProjectsHome /></ProtectedRoute> },
     { path: '/projects/:id', element: <ProtectedRoute><ProjectPage /></ProtectedRoute> },
+    { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
 
     // The template's dashboard is left mounted but unused; login now lands on
     // /projects instead.
