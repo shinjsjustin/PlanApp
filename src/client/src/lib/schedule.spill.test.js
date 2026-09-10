@@ -1,5 +1,5 @@
 import { isTempId } from './tempIds';
-import { DAY_MINUTES, spillFrom } from './schedule';
+import { DAY_MINUTES, MAX_DURATION, spillFrom } from './schedule';
 
 /** A calendar of `count` empty days, ids 1..count. */
 const days = (count) =>
@@ -157,6 +157,44 @@ describe('spillFrom', () => {
         expect(dayLayout(next, next.days[2].id)).toEqual([[3, 0, 60]]);
     });
 
+    test('makes the receiving day’s own items the next pass’s anchor group', () => {
+        // Arrange — three days, so a spill has to re-anchor twice. Item 1 leaves
+        // day 1 and fills day 2 alongside item 2, which pushes item 3 onward.
+        //
+        // Item 3 is the case: it is native to day 2 and is *not* an anchor in
+        // the pass that moves it, so the pass after it has to anchor what it
+        // just carried rather than what the caller named. Day 3 has an item of
+        // its own at 00:00 to make that visible — the arrival and the incumbent
+        // tie, and only an anchor wins a tie, so an arrival that lost its anchor
+        // would sort under item 8 instead of over it.
+        const state = {
+            days: days(3),
+            items: [
+                item(1, 1, 1410, 60),
+                item(2, 2, 60, 1380),
+                item(3, 2, 120, 60),
+                item(8, 3, 0, 60),
+                item(9, 3, 600, 60),
+            ],
+        };
+
+        // Act
+        const next = spillFrom(state, 1, [1]);
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([]);
+        expect(dayLayout(next, 2)).toEqual([
+            [1, 0, 60],
+            [2, 60, 1380],
+        ]);
+        expect(dayLayout(next, 3)).toEqual([
+            [3, 0, 60],
+            [8, 60, 60],
+            [9, 600, 60],
+        ]);
+        expect(next.days).toHaveLength(3);
+    });
+
     test('never mutates the state it is given', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 1410, 60)] };
@@ -244,10 +282,12 @@ describe('spillFrom', () => {
     test('throws for a booking longer than a day rather than spilling forever', () => {
         // Arrange — rebased to 00:00 it would still end past midnight, so it
         // would move on and append a day every pass, for ever.
-        const state = { days: days(1), items: [item(1, 1, 0, DAY_MINUTES + 1)] };
+        const state = { days: days(1), items: [item(1, 1, 0, MAX_DURATION + 1)] };
 
         // Act + Assert
-        expect(() => spillFrom(state, 1, [1])).toThrow('it must be at most 1440');
+        expect(() => spillFrom(state, 1, [1])).toThrow(
+            `it must be at most ${MAX_DURATION}`
+        );
     });
 
     test('accepts a booking of exactly one day', () => {

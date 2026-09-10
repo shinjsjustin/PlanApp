@@ -39,6 +39,27 @@ export const MAX_DURATION = DAY_MINUTES;
 /** What a drop from the pool books, before any resizing. */
 export const DEFAULT_DURATION = 60;
 
+/**
+ * A duration held to what a booking may legally be: at least one slot, at most
+ * one day.
+ *
+ * Both bounds are load-bearing rather than cosmetic. `settleDay` refuses a
+ * non-positive duration and `spillFrom` refuses one longer than a day, because
+ * either breaks the arithmetic underneath them. Clamping is what stops a gesture
+ * being the thing that violates them — see the note above the gestures for why a
+ * gesture in particular must not.
+ *
+ * It bounds; it does not validate. Refusing a duration that is not a real number
+ * stays with `settleDay`, one guard in one place, and a gesture reaches it: a
+ * duration that never arrived is a wiring bug, not a value to round.
+ *
+ * `lib/scheduleGeometry` needs the same rule to size a resize ghost while the
+ * pointer is still down. It is the same rule, so it is defined once here beside
+ * the bounds rather than twice.
+ */
+export const clampDuration = (durationMinutes) =>
+    Math.min(Math.max(durationMinutes, MIN_DURATION), MAX_DURATION);
+
 const endOf = (item) => item.startMinutes + item.durationMinutes;
 
 /**
@@ -287,5 +308,149 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
         index += 1;
     }
 
-    throw new Error('spillFrom failed to settle; an item is longer than a day');
+    throw new Error(
+        'spillFrom exceeded one pass per item; the placement rule no longer settles'
+    );
+};
+
+// The four gestures the page calls. Everything above is the arithmetic they run
+// on; this is the API the calendar actually reaches for.
+//
+// They run on every pointer move, and the arithmetic below them asserts:
+// `settleDay` refuses an item without a real start and length, `spillFrom` one
+// longer than a day. A React error boundary will not catch either — boundaries
+// do not catch what an event handler throws — so a throw in a `pointermove`
+// reaches `window.onerror` with the tree still mounted, and the drag stops dead
+// with nothing on screen saying why. A `try`/`catch` per gesture would be worse
+// still: a programmer error swallowed on every frame of a drag.
+//
+// So the gestures narrow what can reach the assertions instead of catching them.
+// `durationMinutes` is the one field with bounds a gesture can enforce — a start
+// has none, because running off the end of a day is exactly what the spill is
+// for — so it is clamped here, and no gesture introduces a booking longer than
+// a day.
+//
+// Everything else is an invariant rather than a clamp: every item already in the
+// state tree carries a finite start and a length that fits in a day. That has no
+// sensible per-frame repair — a `NaN` start is a bug in whatever computed it, not
+// a number to round — so it belongs where items enter the tree, in the reducer
+// that ingests a server response or builds an optimistic row. Checked once
+// there, these assertions can only fire in development, on a state that was
+// already broken before any pointer moved.
+
+/**
+ * The booking for a to-do. Throws when there is none — a gesture aimed at
+ * something unbooked is a wiring mistake in the caller, not a state to quietly
+ * produce no change for, which would look like a drag that silently did nothing.
+ */
+const bookingOf = (state, todoId) => {
+    const booking = state.items.find((item) => item.todoId === todoId);
+
+    if (!booking) throw new Error(`To-do ${todoId} is not booked`);
+
+    return booking;
+};
+
+/**
+ * Books a to-do dragged out of the pool. Everything beyond the four scheduling
+ * fields — text, status, project and sequence — is carried through untouched, so
+ * the new card can draw itself before the save lands.
+ *
+ * A to-do already booked is refused rather than moved. Moving is `moveItem`, and
+ * a second booking is impossible by design (decision 4) — the pool makes a
+ * scheduled row inert precisely so this cannot be reached.
+ *
+ * The duration is clamped because this is where one is decided: the default
+ * covers the ordinary drop, and a caller that overrides it has no geometry step
+ * in front of it to have clamped first.
+ */
+export const placeFromPool = (
+    state,
+    { todoId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display }
+) => {
+    if (state.items.some((item) => item.todoId === todoId)) {
+        throw new Error(`To-do ${todoId} is already booked`);
+    }
+
+    const booking = {
+        ...display,
+        todoId,
+        dayId,
+        startMinutes,
+        durationMinutes: clampDuration(durationMinutes),
+    };
+
+    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [todoId]);
+};
+
+/**
+ * Moves a booking, within its day or to another one.
+ *
+ * Only the destination day is settled. The source keeps the gap the departure
+ * leaves, which is the same asymmetry a shrink has: positions are what they are
+ * drawn as, and nothing rearranges itself behind the user's back (decision 7).
+ */
+export const moveItem = (state, { todoId, dayId, startMinutes }) => {
+    bookingOf(state, todoId);
+
+    const items = state.items.map((item) =>
+        item.todoId === todoId ? { ...item, dayId, startMinutes } : item
+    );
+
+    return spillFrom({ ...state, items }, dayId, [todoId]);
+};
+
+/**
+ * Resizes a booking. Both edges arrive here as one rectangle — which edge was
+ * dragged, and where the top edge may stop, is the caller's business
+ * (`lib/scheduleGeometry` and `topEdgeFloor` below).
+ *
+ * The duration is clamped again here even though the geometry already clamped it
+ * to draw the ghost. That is not distrust of the caller so much as what the two
+ * clamps answer to: the geometry's serves the rectangle on screen, and this one
+ * is the last thing between a pointer and the state tree.
+ */
+export const resizeItem = (state, { todoId, startMinutes, durationMinutes }) => {
+    const existing = bookingOf(state, todoId);
+    const clamped = clampDuration(durationMinutes);
+
+    const items = state.items.map((item) =>
+        item.todoId === todoId ? { ...item, startMinutes, durationMinutes: clamped } : item
+    );
+
+    return spillFrom({ ...state, items }, existing.dayId, [todoId]);
+};
+
+/**
+ * Releases a booking — the drop on the pool's remove overlay. Nothing is
+ * settled: the day keeps the gap, for the same reason a move does.
+ */
+export const unscheduleItem = (state, todoId) => {
+    bookingOf(state, todoId);
+
+    return { ...state, items: state.items.filter((item) => item.todoId !== todoId) };
+};
+
+/**
+ * The earliest a top-edge drag may pull a booking's start: the end of the item
+ * above it, or midnight when it is the first of its day.
+ *
+ * The top edge clamps rather than pushes, because the cascade only ever runs
+ * downward. Letting it push upward would be a second, opposite rule for one
+ * gesture, and would make the item above move when the user was dragging the one
+ * below.
+ */
+export const topEdgeFloor = (state, todoId) => {
+    const booking = bookingOf(state, todoId);
+
+    const above = state.items
+        .filter(
+            (other) =>
+                other.dayId === booking.dayId &&
+                other.todoId !== todoId &&
+                other.startMinutes < booking.startMinutes
+        )
+        .sort((a, b) => a.startMinutes - b.startMinutes);
+
+    return above.length === 0 ? 0 : endOf(above[above.length - 1]);
 };
