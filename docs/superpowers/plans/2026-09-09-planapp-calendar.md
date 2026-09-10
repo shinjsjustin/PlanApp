@@ -2710,7 +2710,7 @@ does — a day created by a spill exists on screen before the server has one —
 `projectActions.js` already has the generator. Move it somewhere both can reach
 rather than writing a second counter.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/tempIds.test.js`:
 
@@ -2737,12 +2737,12 @@ describe('tempIds', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=tempIds`
 Expected: FAIL — `Cannot find module './tempIds'`.
 
-- [ ] **Step 3: Create the module**
+- [x] **Step 3: Create the module**
 
 Create `src/client/src/lib/tempIds.js`:
 
@@ -2771,7 +2771,7 @@ export const createTempId = () => {
 export const isTempId = (id) => id < 0;
 ```
 
-- [ ] **Step 4: Point `projectActions` at it**
+- [x] **Step 4: Point `projectActions` at it**
 
 In `src/client/src/state/projectActions.js`, delete the `lastTempId` variable and
 both function definitions, and replace them with an import and a re-export so
@@ -2786,13 +2786,13 @@ import { createTempId, isTempId } from '../lib/tempIds';
 export { createTempId, isTempId };
 ```
 
-- [ ] **Step 5: Run the client suite**
+- [x] **Step 5: Run the client suite**
 
 Run: `npm run test:client`
 Expected: PASS. Nothing should have moved — this is a pure relocation, and the
 existing `projectActions` consumers prove it.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/client/src/lib/tempIds.js src/client/src/lib/tempIds.test.js src/client/src/state/projectActions.js
@@ -2809,7 +2809,7 @@ git commit -m "refactor: extract temp-id generator for reuse by the calendar"
 
 The single fold that implements the whole push-down rule.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/schedule.settle.test.js`:
 
@@ -3012,12 +3012,12 @@ describe('settleDay', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=schedule.settle`
 Expected: FAIL — `Cannot find module './schedule'`.
 
-- [ ] **Step 3: Write the constants and `settleDay`**
+- [x] **Step 3: Write the constants and `settleDay`**
 
 Create `src/client/src/lib/schedule.js`:
 
@@ -3134,12 +3134,12 @@ export const settleDay = (items, anchorTodoIds = []) => {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=schedule.settle`
 Expected: PASS, 14 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/lib/schedule.js src/client/src/lib/schedule.settle.test.js
@@ -3154,7 +3154,7 @@ git commit -m "feat(calendar): add the downward-only push-down fold"
 - Modify: `src/client/src/lib/schedule.js`
 - Test: `src/client/src/lib/schedule.spill.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/schedule.spill.test.js`:
 
@@ -3340,12 +3340,12 @@ describe('spillFrom', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=schedule.spill`
 Expected: FAIL — `spillFrom is not a function`.
 
-- [ ] **Step 3: Write the spill**
+- [x] **Step 3: Write the spill**
 
 Append to `src/client/src/lib/schedule.js`, after `settleDay`:
 
@@ -3439,12 +3439,12 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=schedule.spill`
 Expected: PASS, 10 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/lib/schedule.js src/client/src/lib/schedule.spill.test.js
@@ -3459,7 +3459,7 @@ git commit -m "feat(calendar): spill overflowing bookings into the next day"
 - Modify: `src/client/src/lib/schedule.js`
 - Test: `src/client/src/lib/schedule.gestures.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/schedule.gestures.test.js`:
 
@@ -3693,12 +3693,12 @@ describe('unscheduleItem', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=schedule.gestures`
 Expected: FAIL — `placeFromPool is not a function`.
 
-- [ ] **Step 3: Write the gestures**
+- [x] **Step 3: Write the gestures**
 
 Append to `src/client/src/lib/schedule.js`:
 
@@ -3805,18 +3805,18 @@ export const topEdgeFloor = (state, todoId) => {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=schedule.gestures`
 Expected: PASS, 15 tests.
 
-- [ ] **Step 5: Check the file size**
+- [x] **Step 5: Check the file size**
 
 Run: `wc -l src/client/src/lib/schedule.js`
 Expected: roughly 230–260 lines — comfortably inside the 400-line target. If it
 has grown past 400, split the gestures into `lib/scheduleGestures.js`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/client/src/lib/schedule.js src/client/src/lib/schedule.gestures.test.js
@@ -3831,7 +3831,7 @@ git commit -m "feat(calendar): add place, move, resize and unschedule gestures"
 - Create: `src/client/src/lib/scheduleGeometry.js`
 - Test: `src/client/src/lib/scheduleGeometry.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/scheduleGeometry.test.js`:
 
@@ -3930,12 +3930,12 @@ describe('hourLabels', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=scheduleGeometry`
 Expected: FAIL — `Cannot find module './scheduleGeometry'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `src/client/src/lib/scheduleGeometry.js`:
 
@@ -4017,12 +4017,12 @@ export const hourLabels = () =>
     });
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=scheduleGeometry`
 Expected: PASS, 11 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/lib/scheduleGeometry.js src/client/src/lib/scheduleGeometry.test.js
@@ -4040,7 +4040,7 @@ git commit -m "feat(calendar): add the minutes-to-pixels geometry"
 The bridge between a settled state and the bulk endpoint: what changed, and how
 to name a day that does not exist yet.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/lib/calendarRequest.test.js`:
 
@@ -4138,12 +4138,12 @@ describe('toBulkRequest', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=calendarRequest`
 Expected: FAIL — `Cannot find module './calendarRequest'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `src/client/src/lib/calendarRequest.js`:
 
@@ -4201,17 +4201,17 @@ export const toBulkRequest = (previous, next) => {
 };
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=calendarRequest`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Run the whole client suite**
+- [x] **Step 5: Run the whole client suite**
 
 Run: `npm run test:client`
 Expected: PASS, including everything that already existed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/client/src/lib/calendarRequest.js src/client/src/lib/calendarRequest.test.js
