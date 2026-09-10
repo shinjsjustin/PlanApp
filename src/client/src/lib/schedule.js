@@ -90,6 +90,10 @@ const orderFor = (items, anchors) => {
     });
 };
 
+/** `JSON.stringify(NaN)` is the string "null"; a number should say what it is. */
+const describeValue = (value) =>
+    typeof value === 'number' ? String(value) : JSON.stringify(value);
+
 /**
  * Every item must carry a real start and a real length, because the fold below
  * is a running sum: one `undefined` or `'60'` makes the cursor `NaN`, and from
@@ -103,13 +107,18 @@ const orderFor = (items, anchors) => {
  * cursor backwards. Either breaks the ordered, non-overlapping result that the
  * spill relies on. The floor here is "positive", not `MIN_DURATION` — a resize
  * in flight is clamped to `MIN_DURATION` by the gesture, not by this fold.
+ *
+ * That division of labour makes this guard deliberately narrower than "a legal
+ * booking": grid alignment is nobody's business here either, so `37.5` passes.
+ * The fold only refuses what would corrupt its own arithmetic; the gesture snaps
+ * to `SLOT_MINUTES` and the server rejects anything that still arrives off-grid.
  */
 const assertSchedulable = (item) => {
     if (!Number.isFinite(item.startMinutes) || !Number.isFinite(item.durationMinutes)) {
         throw new Error(
             `Item ${item.todoId} needs a number for both startMinutes and ` +
-                `durationMinutes, got ${JSON.stringify(item.startMinutes)} ` +
-                `and ${JSON.stringify(item.durationMinutes)}`
+                `durationMinutes, got ${describeValue(item.startMinutes)} ` +
+                `and ${describeValue(item.durationMinutes)}`
         );
     }
 
@@ -160,4 +169,96 @@ export const settleDay = (items, anchorTodoIds = []) => {
 
         return startMinutes === item.startMinutes ? item : { ...item, startMinutes };
     });
+};
+
+/**
+ * Splits a settled day into what stays and what has been pushed past midnight.
+ *
+ * The overflow is always a contiguous tail, which is why a single index is
+ * enough: the list is ordered and non-overlapping, so if one item ends past
+ * 24:00 then every item after it starts past 24:00 too.
+ */
+const partitionOverflow = (settled) => {
+    const index = settled.findIndex((item) => endOf(item) > DAY_MINUTES);
+
+    if (index === -1) return { keep: settled, overflow: [] };
+
+    return { keep: settled.slice(0, index), overflow: settled.slice(index) };
+};
+
+/**
+ * Slides a group so its first item starts at 00:00, preserving the spacing
+ * between its members.
+ *
+ * In practice a spilled group is always contiguous — the push sets each item's
+ * start to the previous item's end — so the offset arithmetic is uniform rather
+ * than gap-preserving in any interesting way. It is written as a shift of the
+ * whole group anyway, because that is the honest description of the operation
+ * and it does not depend on the caller having settled first.
+ */
+const rebaseToTop = (group) => {
+    const offset = group[0].startMinutes;
+
+    return group.map((item) => ({ ...item, startMinutes: item.startMinutes - offset }));
+};
+
+/**
+ * A day that does not exist on the server yet. Negative id, like every other
+ * optimistic row in this app; `createdAt` is stamped now so the column header
+ * has something to show before the save lands.
+ */
+const newDay = (position) => ({
+    id: createTempId(),
+    position,
+    createdAt: new Date().toISOString(),
+});
+
+/**
+ * Settles one day and carries whatever no longer fits into the next, over and
+ * over until everything has a home — appending days when it runs out.
+ *
+ * An item is never split across a midnight boundary. It moves whole, which is
+ * why the overflow group arrives at the top of the next day and pushes that
+ * day's contents down rather than weaving into them.
+ *
+ * This terminates, in at most one pass per item. Each pass places at least one
+ * item for good: the first overflowing item is rebased to 00:00 and sorts to the
+ * top of the receiving day, so it settles at 00:00 there and ends at its own
+ * duration — which does not overflow, as long as no duration exceeds
+ * `MAX_DURATION`. That last part is a precondition, not something checked here:
+ * `assertSchedulable` refuses only what would corrupt the fold's arithmetic, and
+ * the gesture and the server are what hold a booking to a single day. A longer
+ * duration reaching this function would spill forever, appending a day a pass.
+ *
+ * Returns a new `{ days, items }`; the input is untouched.
+ */
+export const spillFrom = (state, dayId, anchorTodoIds = []) => {
+    let days = state.days;
+    let items = state.items;
+    let index = days.findIndex((day) => day.id === dayId);
+    let anchors = [].concat(anchorTodoIds);
+
+    if (index === -1) throw new Error(`No day with id ${dayId} to settle`);
+
+    for (;;) {
+        const day = days[index];
+        const settled = settleDay(
+            items.filter((item) => item.dayId === day.id),
+            anchors
+        );
+        const { keep, overflow } = partitionOverflow(settled);
+
+        items = [...items.filter((item) => item.dayId !== day.id), ...keep];
+
+        if (overflow.length === 0) return { ...state, days, items };
+
+        if (index === days.length - 1) days = [...days, newDay(days.length)];
+
+        const next = days[index + 1];
+        const moved = rebaseToTop(overflow).map((item) => ({ ...item, dayId: next.id }));
+
+        items = [...items, ...moved];
+        anchors = moved.map((item) => item.todoId);
+        index += 1;
+    }
 };

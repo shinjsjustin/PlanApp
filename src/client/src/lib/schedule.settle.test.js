@@ -276,6 +276,16 @@ describe('settleDay', () => {
         expect(() => settleDay(items)).toThrow(/number/i);
     });
 
+    test('names NaN in the diagnostic rather than reporting it as null', () => {
+        // Arrange — bad arithmetic upstream is the likeliest way this guard
+        // trips, and `JSON.stringify(NaN)` is the string "null", which sends a
+        // debugger looking for a missing field instead of a broken sum.
+        const items = [{ ...item(1, 540), durationMinutes: NaN }];
+
+        // Act + Assert
+        expect(() => settleDay(items)).toThrow(/NaN/);
+    });
+
     test('throws when a duration is zero or negative', () => {
         // Arrange — neither advances the cursor the way the push-down rule
         // needs, so the result would overlap or run backwards.
