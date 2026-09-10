@@ -161,9 +161,47 @@ describe('useCalendar.addDay', () => {
         // Act
         await act(() => result.current.addDay());
 
-        // Assert
+        // Assert — rolled back in place. The load is the one from `renderReady`
+        // and no other: a rollback that resynced instead would refetch, and this
+        // is what tells the two failure paths apart.
         expect(result.current.state.days).toHaveLength(1);
         expect(result.current.state.actionError).toBe('Nope');
+        expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    test('re-syncs rather than rolling back when the strip moved on beneath it', async () => {
+        // Arrange — the interleaving a snapshot cannot undo: `addDay` in flight,
+        // the real day deleted for good while it is out, and only then the POST
+        // failing. Rolling back to the pre-`addDay` snapshot would put the
+        // deleted day back on screen after the server has dropped it.
+        const { result } = await renderReady();
+        const pending = deferred();
+        api.post.mockReturnValue(pending.promise);
+        api.delete.mockResolvedValue({ id: 1 });
+
+        let addition;
+        act(() => {
+            addition = result.current.addDay();
+        });
+        await act(() => result.current.deleteDay(1));
+
+        const resynced = {
+            days: [{ id: 3, position: 0, createdAt: '2026-09-09T10:00:00.000Z' }],
+            items: [],
+        };
+        api.get.mockResolvedValue(resynced);
+
+        // Act
+        await act(async () => {
+            pending.reject(new ApiError('Nope', 500));
+            await addition;
+        });
+
+        // Assert — the server's own answer replaces the guesswork, and the
+        // message survives the refetch so the failure is still on screen.
+        await waitFor(() => expect(result.current.state.days).toEqual(resynced.days));
+        expect(result.current.state.actionError).toBe('Nope');
+        expect(api.get).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -230,6 +268,36 @@ describe('useCalendar error surface', () => {
     });
 });
 
+describe('useCalendar context value', () => {
+    test('hands back the same object when a render changed nothing', async () => {
+        // Arrange — this object is the context value, so its identity is what
+        // decides whether every calendar consumer re-renders.
+        const { result, rerender } = await renderReady();
+        const before = result.current;
+
+        // Act — a render the calendar had no part in, of the kind the
+        // independently-loaded pool causes on the page above it.
+        rerender();
+
+        // Assert
+        expect(result.current).toBe(before);
+    });
+
+    test('hands back a new object when the schedule actually moves', async () => {
+        // Arrange
+        const { result } = await renderReady();
+        api.patch.mockResolvedValue({ id: 7, status: 'complete' });
+        const before = result.current;
+
+        // Act
+        await act(() => result.current.completeTodo(7));
+
+        // Assert — memoised, not frozen: consumers must see this one.
+        expect(result.current).not.toBe(before);
+        expect(result.current.state.items[0].status).toBe('complete');
+    });
+});
+
 describe('useCalendar unreconciled days', () => {
     test('tells a column whether its own day is still waiting for an id', async () => {
         // Arrange
@@ -266,9 +334,11 @@ describe('useCalendar unreconciled days', () => {
         expect(result.current.hasUnsavedDay).toBe(false);
     });
 
-    test('refuses a drop against an unreconciled strip loudly, in the caller’s own stack', async () => {
-        // Arrange — a day added and not yet answered for, which is exactly the
-        // window `hasUnsavedDay` exists to keep drop targets out of.
+    test('commit throws in the caller’s own frame rather than rejecting a promise nobody awaits', async () => {
+        // Arrange — the backstop behind the gate, not the gate itself: the test
+        // above covers `hasUnsavedDay`. This one pins that `commit` is not
+        // `async`, so `toBulkRequest`'s refusal reaches the drop handler that
+        // called it instead of becoming an unhandled rejection.
         const { result } = await renderReady();
         api.post.mockReturnValue(deferred().promise);
         act(() => {

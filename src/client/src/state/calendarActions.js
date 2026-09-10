@@ -24,4 +24,13 @@ export const rolledBack = (snapshot, error) => ({
     error,
 });
 
+/**
+ * Raises a mutation's failure message without touching the schedule — for a
+ * failure whose rollback would do more harm than the failure did.
+ */
+export const actionErrorRaised = (error) => ({
+    type: CALENDAR_ACTIONS.actionErrorRaised,
+    error,
+});
+
 export const actionErrorCleared = () => ({ type: CALENDAR_ACTIONS.actionErrorCleared });

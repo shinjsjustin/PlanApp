@@ -6,6 +6,7 @@ import {
 } from './calendarReducer';
 import {
     actionErrorCleared,
+    actionErrorRaised,
     loadFailed,
     loadStarted,
     loadSucceeded,
@@ -133,6 +134,24 @@ describe('calendarReducer', () => {
         expect(next.days).toEqual(calendar.days);
         expect(next.items).toEqual(calendar.items);
         expect(next.actionError).toBe('Could not save');
+    });
+
+    test('raising an action error leaves the schedule exactly as it is', () => {
+        // Arrange — the schedule has moved on since the failed mutation applied,
+        // so there is something a rollback would have destroyed.
+        const ready = calendarReducer(initialCalendarState, loadSucceeded(calendar));
+        const moved = calendarReducer(
+            ready,
+            scheduleReplaced({ days: [...calendar.days, secondDay], items: [] })
+        );
+
+        // Act
+        const next = calendarReducer(moved, actionErrorRaised('Could not add the day'));
+
+        // Assert
+        expect(next.actionError).toBe('Could not add the day');
+        expect(next.days).toBe(moved.days);
+        expect(next.items).toBe(moved.items);
     });
 
     test('dismissing the action error leaves the schedule alone', () => {

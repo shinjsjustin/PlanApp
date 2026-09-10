@@ -30,6 +30,7 @@ export const CALENDAR_ACTIONS = {
     loadFailed: 'loadFailed',
     scheduleReplaced: 'scheduleReplaced',
     rolledBack: 'rolledBack',
+    actionErrorRaised: 'actionErrorRaised',
     actionErrorCleared: 'actionErrorCleared',
 };
 
@@ -91,6 +92,15 @@ const handlers = {
     [CALENDAR_ACTIONS.rolledBack]: (state, { snapshot, error }) => ({
         ...state,
         ...snapshot,
+        actionError: error,
+    }),
+
+    // A failure that must not roll back: the schedule moved on beneath the
+    // mutation that failed, so the snapshot it took is no longer an undo — it is
+    // a stale copy that would resurrect whatever settled in the meantime. The
+    // message is raised; putting the schedule right is the caller's business.
+    [CALENDAR_ACTIONS.actionErrorRaised]: (state, { error }) => ({
+        ...state,
         actionError: error,
     }),
 

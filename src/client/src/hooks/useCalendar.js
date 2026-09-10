@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
 import { api } from '../lib/api';
 import { toBulkRequest } from '../lib/calendarRequest';
@@ -7,6 +7,7 @@ import { isTempId } from '../lib/tempIds';
 import { calendarReducer, initialCalendarState, scheduleOf } from '../state/calendarReducer';
 import {
     actionErrorCleared,
+    actionErrorRaised,
     loadFailed,
     loadStarted,
     loadSucceeded,
@@ -39,6 +40,18 @@ const isNoOp = (request) =>
     request.appendDays === 0 &&
     request.placements.length === 0 &&
     request.unschedule.length === 0;
+
+/**
+ * Whether anything has settled into the state tree since `installed` was put
+ * there — another mutation, or a reload.
+ *
+ * Exact rather than a heuristic, and cheap: `calendarReducer` installs both
+ * collections by reference, so the identity survives for as long as nothing has
+ * replaced them. That is the same reference contract the reducer's own tests
+ * pin, and it is what makes this a fact about the state rather than a guess.
+ */
+const hasSettledSince = (state, installed) =>
+    state.days !== installed.days || state.items !== installed.items;
 
 /**
  * Swaps an optimistic day for the row the server stored, carrying any bookings
@@ -109,6 +122,16 @@ const useCalendar = () => {
     const mutate = useCallback(async ({ apply, send, onSuccess }) => {
         const previous = scheduleOf(stateRef.current);
 
+        // What this mutation put on screen, once the reducer has accepted it.
+        //
+        // Compared by reference at the end and nothing else. It is deliberately
+        // *not* what the server's answer is rebased onto — that reads
+        // `stateRef.current` after the await, and must keep doing so, or the
+        // interleaved-delete defect comes straight back. This is the opposite
+        // question: not "what should the state become" but "is the state still
+        // the one I changed".
+        let installed = null;
+
         try {
             // Both of these are inside the `try`, not in front of it. This
             // function is `async`, so a throw out here would reject the returned
@@ -121,7 +144,10 @@ const useCalendar = () => {
             // console and nothing on screen. Caught here, either one is a
             // rolled-back mutation with a visible `actionError`, and the request
             // is never sent — `send` is downstream of both.
-            dispatch(scheduleReplaced(apply(previous)));
+            const optimistic = apply(previous);
+
+            dispatch(scheduleReplaced(optimistic));
+            installed = optimistic;
 
             const saved = await send();
 
@@ -135,9 +161,32 @@ const useCalendar = () => {
                 dispatch(scheduleReplaced(onSuccess(scheduleOf(stateRef.current), saved)));
             }
         } catch (err) {
+            // `previous` is an undo only while this mutation's change is still
+            // the last thing that happened. Once something else has settled —
+            // the × on a real day during a pending `addDay` — the snapshot has
+            // stopped being an undo and become a stale copy, and restoring it
+            // would put the deleted day back on screen after the server dropped
+            // it. The toast would say "Nope", which is about the add; nothing
+            // would say the calendar is now fiction, and dismissing it would
+            // leave the user working against phantom data until a reload.
+            //
+            // So the message is raised without touching the schedule, and the
+            // server is asked what is actually true. `load` cannot recurse here:
+            // it dispatches only load actions, none of which route back through
+            // `mutate`. It does re-enter the reducer while any *other* mutation
+            // is still in flight — but that one lands on this same check, so a
+            // failure of its own resyncs too rather than writing a stale
+            // snapshot over the refetch.
+            if (installed && hasSettledSince(stateRef.current, installed)) {
+                dispatch(actionErrorRaised(messageOf(err)));
+                load();
+
+                return;
+            }
+
             dispatch(rolledBack(previous, messageOf(err)));
         }
-    }, [dispatch]);
+    }, [dispatch, load]);
 
     /**
      * Saves a settled gesture — a drop, a resize, a reorder.
@@ -254,18 +303,44 @@ const useCalendar = () => {
     // gestures make.
     const hasUnsavedDay = state.days.some((day) => isTempId(day.id));
 
-    return {
-        state,
-        reload: load,
-        commit,
-        addDay,
-        deleteDay,
-        unschedule,
-        completeTodo,
-        dismissActionError,
-        isUnsavedDay,
-        hasUnsavedDay,
-    };
+    // Memoised because this object *is* the context value: `CalendarPage` hands
+    // it straight to `CalendarProvider`, and a fresh literal every render would
+    // change the context's identity on every render of the page — including the
+    // ones the independently-loaded pool causes, which the strip has no stake in.
+    // Every consumer would then re-render whether or not the schedule moved,
+    // throwing away the per-row identity `lib/schedule` and the reducer go to
+    // some trouble to preserve.
+    //
+    // Every callback below is already `useCallback`'d over stable deps, so the
+    // only thing that genuinely varies is `state` — and `hasUnsavedDay`, which is
+    // derived from it and listed because it is read here, not because it can move
+    // independently.
+    return useMemo(
+        () => ({
+            state,
+            reload: load,
+            commit,
+            addDay,
+            deleteDay,
+            unschedule,
+            completeTodo,
+            dismissActionError,
+            isUnsavedDay,
+            hasUnsavedDay,
+        }),
+        [
+            state,
+            load,
+            commit,
+            addDay,
+            deleteDay,
+            unschedule,
+            completeTodo,
+            dismissActionError,
+            isUnsavedDay,
+            hasUnsavedDay,
+        ]
+    );
 };
 
 export default useCalendar;
