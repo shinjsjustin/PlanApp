@@ -29,9 +29,15 @@ const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
 /**
  * A frontier entry with no `nextTodo` is a sequence that is ready but has
- * nothing that can be picked up — empty, or with every outstanding to-do
- * blocked. There is nothing to schedule, so it is left out of both the list and
- * the count.
+ * nothing that can be picked up. That covers two entries the server tells
+ * apart with `isStalled`: one whose outstanding to-dos are all blocked
+ * (`isStalled: true`), and one that is ready but holds no to-dos at all
+ * (`isStalled: false` — `readyFrontier` still lists an empty sequence, since
+ * incomplete is not the same as finished). Both have nothing to schedule, so
+ * the filter below reads `entry.nextTodo` rather than `!entry.isStalled`: the
+ * latter lets the empty-sequence entry through, and the map after it
+ * dereferences `nextTodo.id` unconditionally, so that would throw instead of
+ * skipping it.
  *
  * A project with no startable work at all is kept, because the panel still has
  * to show its name and a count of zero rather than silently vanishing.
@@ -57,6 +63,17 @@ const usePool = () => {
     const [status, setStatus] = useState(POOL_STATUS.loading);
     const [loadError, setLoadError] = useState('');
 
+    /**
+     * Every call — the mount and the manual "Try again" alike — resets to
+     * loading rather than refetching quietly behind the rows already on
+     * screen. That is deliberate for both callers this hook has today: the
+     * mount has nothing to preserve, and `reload` is only ever wired to the
+     * retry button on the error screen, which has nothing rendered either.
+     * `useCalendar` splits its `load` from a silent `fetchCalendar` because a
+     * mutation there can resync a schedule that is still on screen; `usePool`
+     * has no such caller yet, and does not need the split until something
+     * calls `reload` from a `ready` pool.
+     */
     const load = useCallback(async () => {
         setStatus(POOL_STATUS.loading);
         setLoadError('');

@@ -46,6 +46,16 @@ const renderReady = async () => {
     return view;
 };
 
+/** A promise the test settles by hand, so mid-flight state can be asserted. */
+const deferred = () => {
+    let settle;
+    const promise = new Promise((resolve, reject) => {
+        settle = { resolve, reject };
+    });
+
+    return { promise, ...settle };
+};
+
 beforeEach(() => {
     jest.clearAllMocks();
 });
@@ -102,6 +112,36 @@ describe('usePool', () => {
         expect(result.current.projects[0].todos).toEqual([]);
     });
 
+    test('leaves out a ready sequence with no to-dos at all, which is startable but empty', async () => {
+        // Arrange — `nextTodo: null` with `isStalled: false`: `readyFrontier`
+        // lists an incomplete sequence with zero to-dos as ready, same as any
+        // other. A filter reading `!entry.isStalled` instead of `entry.nextTodo`
+        // would let this entry through and then crash dereferencing `nextTodo.id`
+        // on `null` — this is the case that substitution cannot see, since
+        // nothing about it is stalled.
+        api.get.mockResolvedValue([
+            {
+                id: 7,
+                title: 'Nothing planned yet',
+                frontier: [
+                    {
+                        sequenceId: 30,
+                        sequenceTitle: 'Untouched',
+                        nextTodo: null,
+                        isStalled: false,
+                    },
+                ],
+            },
+        ]);
+
+        // Act
+        const { result } = renderHook(() => usePool());
+        await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
+
+        // Assert
+        expect(result.current.projects[0].todos).toEqual([]);
+    });
+
     test('keeps a project with nothing startable, so it can say so', async () => {
         // Arrange + Act
         const { result } = await renderReady();
@@ -139,7 +179,7 @@ describe('usePool', () => {
         expect(result.current.projects).toEqual([]);
     });
 
-    test('reload re-fetches and can recover from a prior error', async () => {
+    test('reload re-fetches, clearing the prior error along with the rows it left behind', async () => {
         // Arrange
         api.get.mockRejectedValueOnce(new Error('Could not reach the server.'));
         const { result } = renderHook(() => usePool());
@@ -152,5 +192,31 @@ describe('usePool', () => {
         // Assert
         await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
         expect(result.current.projects[1].title).toBe('Empty project');
+        expect(result.current.loadError).toBe('');
+    });
+
+    test('reload passes back through loading, since it only ever runs from the error screen', async () => {
+        // Arrange — the retry button is the only thing that calls `reload`
+        // today, and it is only reachable from the error screen, which has no
+        // rows on it to preserve while the retry is in flight.
+        const { promise, resolve } = deferred();
+        api.get.mockRejectedValueOnce(new Error('Could not reach the server.'));
+        const { result } = renderHook(() => usePool());
+        await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.error));
+        api.get.mockReturnValueOnce(promise);
+
+        // Act
+        act(() => {
+            result.current.reload();
+        });
+
+        // Assert
+        expect(result.current.status).toBe(POOL_STATUS.loading);
+
+        await act(async () => {
+            resolve(projects);
+            await promise;
+        });
+        await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
     });
 });
