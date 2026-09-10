@@ -50,6 +50,12 @@ const NON_NUMBERS = [...COERCIBLE_NON_NUMBERS, ...NOT_A_NUMBER];
  * nothing was substituted. Each function asserts it under its own heading, so a
  * refactor that deletes one block cannot quietly leave another's contract
  * defended somewhere else.
+ *
+ * The first assertion is implied by the second for every value in the tables, so
+ * it cannot fail on any input we currently pass. It is kept because it guards the
+ * *tables* rather than the functions: a finite number added to either list by
+ * mistake would sail through `toBe` and be silently pointless, and this is what
+ * catches that.
  */
 const expectPassedThrough = (actual, value) => {
     expect(Number.isFinite(actual)).toBe(false);
@@ -62,8 +68,9 @@ describe('scheduleGeometry constants', () => {
         // cannot fail for any scale, and every other assertion in this file is
         // expressed in terms of the scale itself — so the whole calendar could be
         // drawn at the wrong size with the suite green. These are also the two
-        // numbers the module's own comments claim (48px an hour, a 1152px column)
-        // and that Phase C's CSS has to agree with.
+        // numbers the module's own comments claim (48px an hour, a 1152px
+        // column), and Task 16 hardcodes the same 24 in its own rect fixtures —
+        // where a scale change would surface as a drag bug rather than as this.
         expect(SLOTS_PER_DAY).toBe(48);
         expect(PX_PER_SLOT).toBe(24);
         expect(DAY_HEIGHT_PX).toBe(1152);

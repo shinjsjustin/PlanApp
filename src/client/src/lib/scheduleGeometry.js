@@ -12,16 +12,25 @@
 // The scheduling constants are imported from `lib/schedule` rather than restated,
 // so there is one definition of what a day and a slot are.
 //
-// WHERE THE GUARDS GO. At a parameter fed from a source that can supply a
-// non-number — not at every operator that coerces. `/`, `Math.min` and `Math.max`
-// all run `ToNumber`, but an operator only tells you a boundary *exists*; the
-// call sites tell you whether a non-number can *reach* it. A parameter fed a
-// field read off an object — a drag payload, an API response, `dataTransfer` —
-// is open, and that is where the guard belongs. A parameter fed the result of
-// arithmetic is already closed over `number` and needs none. So `snapToSlot` and
-// `clampStart` are guarded and `minutesToPx`/`pxToMinutes` are not; if a later
-// gesture ever hands one of those a raw field instead of a subtraction, that is
-// the moment it needs a guard, and this rule is what says so.
+// WHERE THE GUARDS GO. At a parameter a non-number can actually reach — not at
+// every operator that coerces. `/`, `Math.min` and `Math.max` all run `ToNumber`,
+// but an operator only says a boundary *exists*; the call sites say whether
+// anything can arrive at it.
+//
+// A parameter fed a field read off an object — a drag payload, an API response,
+// `dataTransfer` — is open, and is guarded. A parameter fed the result of
+// arithmetic is closed *only if that arithmetic's own operands are*. The second
+// half of that clause is the one that matters, because `+` and `-` launder a bad
+// field into a plausible number before anything downstream can refuse it:
+// `item.durationMinutes + 30` is still open, since `null + 30` is `30`.
+//
+// So `pxToMinutes(activeRect.top - gridRect.top)` needs nothing — both operands
+// are measured numbers. `snapToSlot` and `clampStart` are guarded, because the
+// gestures also hand them values that came off a payload, and there the guard is
+// the difference between a refusal and a saved booking. And where the operands
+// of the sum are themselves open, no guard *here* can help: the `+` ran first, so
+// the check belongs upstream on the object, not on the parameter that receives
+// the total.
 //
 // Not to be confused with `lib/geometry.js`, which routes graph edges around the
 // project canvas. Different feature, different axis, no shared arithmetic.
@@ -51,10 +60,11 @@ const MINUTES_PER_HOUR = 60;
 /**
  * The two unguarded functions in the file, and the header's rule says why: both
  * are fed the result of arithmetic — a rect subtraction, a pointer delta — never
- * a field read off a payload. Subtraction in JavaScript either returns a `number`
- * or throws, so it cannot hand back a non-number for the `*` or `/` here to
- * coerce; the worst it produces is `NaN`, which propagates safely into a clamp
- * that refuses it. A `Number.isFinite` ternary here would be unreachable.
+ * a field read off a payload. Subtraction never returns a *coercible* non-number:
+ * it yields a number, or a bigint that throws at the next arithmetic op, or it
+ * throws outright. So nothing plausible can be manufactured at the `*` or `/`
+ * here — the worst case is `NaN`, which propagates safely into a clamp that
+ * refuses it. A `Number.isFinite` ternary here would be unreachable.
  */
 export const minutesToPx = (minutes) => minutes * PX_PER_MINUTE;
 
