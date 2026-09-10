@@ -99,11 +99,24 @@ const useCalendar = () => {
         rawDispatch(action);
     }, []);
 
+    // Counts the loads that have replaced the schedule wholesale.
+    //
+    // The same guard `useProjectGraph` puts on a response for a project the page
+    // has already left, pointed the other way: there a load checks whether it is
+    // still wanted, here a mutation checks whether a load has overtaken it. A
+    // mutation in flight across one is answering about a strip the server has
+    // since described in full, and its answer is the older of the two.
+    //
+    // Only a *successful* load bumps it. A failed one leaves `days` and `items`
+    // untouched, so nothing has overtaken anybody.
+    const loadGenerationRef = useRef(0);
+
     const load = useCallback(async () => {
         dispatch(loadStarted());
 
         try {
             dispatch(loadSucceeded(await api.get('/calendar')));
+            loadGenerationRef.current += 1;
         } catch (err) {
             dispatch(loadFailed(messageOf(err)));
         }
@@ -121,6 +134,7 @@ const useCalendar = () => {
      */
     const mutate = useCallback(async ({ apply, send, onSuccess }) => {
         const previous = scheduleOf(stateRef.current);
+        const generation = loadGenerationRef.current;
 
         // What this mutation put on screen, once the reducer has accepted it.
         //
@@ -151,6 +165,15 @@ const useCalendar = () => {
 
             const saved = await send();
 
+            // A load landed while this was out, so the server has already said
+            // what the whole schedule is and this answer is the older of the
+            // two. Saying nothing is the point: `commit` would otherwise install
+            // its `PUT`'s answer over the refetch and quietly wind the calendar
+            // back, and `addDay`'s reconcile would rewrite a strip it can no
+            // longer find its own day in. The write happened either way — the
+            // refetch reflects it, or the next one will.
+            if (loadGenerationRef.current !== generation) return;
+
             // Rebased on the schedule as it is *now*, not on the optimistic one
             // this mutation applied before the await. The two differ whenever
             // something settled in between — deleting a real day while an
@@ -177,6 +200,11 @@ const useCalendar = () => {
             // is still in flight — but that one lands on this same check, so a
             // failure of its own resyncs too rather than writing a stale
             // snapshot over the refetch.
+            //
+            // No generation check here, unlike the success path above: a load
+            // replaces both collections, so `hasSettledSince` already sees it
+            // and this takes the resync branch. The refetch that follows is one
+            // more request than strictly needed and never a wrong answer.
             if (installed && hasSettledSince(stateRef.current, installed)) {
                 dispatch(actionErrorRaised(messageOf(err)));
                 load();

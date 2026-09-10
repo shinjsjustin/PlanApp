@@ -382,6 +382,47 @@ describe('useCalendar unreconciled days', () => {
     });
 });
 
+describe('useCalendar loads overtaking mutations', () => {
+    test('does not write a mutation’s answer over a load that landed while it was in flight', async () => {
+        // Arrange — a commit out on the wire. Its `PUT` answers with the whole
+        // schedule it stored, which is what makes a late arrival dangerous
+        // rather than merely useless.
+        const { result } = await renderReady();
+        const pendingPut = deferred();
+        api.put.mockReturnValue(pendingPut.promise);
+        const moved = {
+            days: calendar.days,
+            items: [{ ...calendar.items[0], startMinutes: 600 }],
+        };
+
+        let saving;
+        act(() => {
+            saving = result.current.commit(moved);
+        });
+
+        // A load lands first and replaces the strip outright — `reload` here,
+        // the resync after a failed mutation by the other route.
+        const refetched = {
+            days: [{ id: 4, position: 0, createdAt: '2026-09-09T11:00:00.000Z' }],
+            items: [],
+        };
+        api.get.mockResolvedValue(refetched);
+        await act(() => result.current.reload());
+
+        // Act — and only then does the save answer, about the older strip.
+        await act(async () => {
+            pendingPut.resolve(moved);
+            await saving;
+        });
+
+        // Assert — the newer of the two answers stands. Without the guard the
+        // deleted day and its booking come back and the calendar winds back to
+        // a state the server has already moved past.
+        expect(result.current.state.days).toEqual(refetched.days);
+        expect(result.current.state.items).toEqual([]);
+    });
+});
+
 describe('useCalendar refused gestures', () => {
     test('surfaces a gesture the schedule refuses as a rolled-back failure, not a silent rejection', async () => {
         // Arrange — `removeDay` throws for a day that is not in the strip.
