@@ -49,6 +49,12 @@ const isNoOp = (request) =>
  * collections by reference, so the identity survives for as long as nothing has
  * replaced them. That is the same reference contract the reducer's own tests
  * pin, and it is what makes this a fact about the state rather than a guess.
+ *
+ * A landed load is always visible to it for a second reason worth keeping in
+ * mind: the arrays it installs are freshly parsed from the response, so they
+ * can never be the ones a mutation is holding, however alike the contents. The
+ * tests reuse one fixture object across mocks and so do not exercise that;
+ * `api` parsing each response separately is what makes it true in the app.
  */
 const hasSettledSince = (state, installed) =>
     state.days !== installed.days || state.items !== installed.items;
@@ -111,9 +117,19 @@ const useCalendar = () => {
     // untouched, so nothing has overtaken anybody.
     const loadGenerationRef = useRef(0);
 
-    const load = useCallback(async () => {
-        dispatch(loadStarted());
-
+    /**
+     * Reads the calendar and installs it, without saying anything about how the
+     * page should look while that happens. Both outcomes set a terminal status
+     * of their own, so this is the whole of a load bar its opening move.
+     *
+     * The generation is bumped on success only, and the line's position is load
+     * bearing rather than tidy: a `finally` here would count a *failed* load,
+     * which replaced nothing, as having overtaken the mutations in flight across
+     * it. Each would then decline to install its own answer — an `addDay` would
+     * strand its temporary day, and `hasUnsavedDay` would stay true, disabling
+     * the + and every drop target until some later load happened to succeed.
+     */
+    const fetchCalendar = useCallback(async () => {
         try {
             dispatch(loadSucceeded(await api.get('/calendar')));
             loadGenerationRef.current += 1;
@@ -121,6 +137,17 @@ const useCalendar = () => {
             dispatch(loadFailed(messageOf(err)));
         }
     }, [dispatch]);
+
+    /**
+     * The opening load, and the retry button's. This is the one that empties the
+     * page to its loading state first, because on this path there is either
+     * nothing on screen yet or nothing on screen worth keeping.
+     */
+    const load = useCallback(async () => {
+        dispatch(loadStarted());
+
+        await fetchCalendar();
+    }, [dispatch, fetchCalendar]);
 
     useEffect(() => {
         load();
@@ -207,14 +234,22 @@ const useCalendar = () => {
             // more request than strictly needed and never a wrong answer.
             if (installed && hasSettledSince(stateRef.current, installed)) {
                 dispatch(actionErrorRaised(messageOf(err)));
-                load();
+
+                // `fetchCalendar` rather than `load`: nothing about this asked
+                // the user to wait. Emptying the page to its loading state would
+                // unmount the strip and the pool over a mutation that merely
+                // interleaved, taking every day column's scroll position and
+                // every open card with it. A resync that *fails* still lands on
+                // `loadFailed` and the retry screen, which is right — at that
+                // point nothing on screen is trustworthy anyway.
+                fetchCalendar();
 
                 return;
             }
 
             dispatch(rolledBack(previous, messageOf(err)));
         }
-    }, [dispatch, load]);
+    }, [dispatch, fetchCalendar]);
 
     /**
      * Saves a settled gesture — a drop, a resize, a reorder.

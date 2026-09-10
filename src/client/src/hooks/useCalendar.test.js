@@ -423,6 +423,109 @@ describe('useCalendar loads overtaking mutations', () => {
     });
 });
 
+describe('useCalendar resync', () => {
+    test('re-keys the day when the load it raced failed rather than succeeded', async () => {
+        // Arrange — `addDay` out, and a load that fails while it is out. A
+        // failed load replaces nothing, so it has overtaken nobody and the
+        // reconcile below is still the newest word on the strip.
+        const { result } = await renderReady();
+        const pending = deferred();
+        api.post.mockReturnValue(pending.promise);
+
+        let addition;
+        act(() => {
+            addition = result.current.addDay();
+        });
+
+        api.get.mockRejectedValue(new ApiError('Could not reach the server.', 0));
+        await act(() => result.current.reload());
+
+        // Act
+        const saved = { id: 11, position: 1, createdAt: '2026-09-09T12:00:00.000Z' };
+        await act(async () => {
+            pending.resolve(saved);
+            await addition;
+        });
+
+        // Assert — bumping the generation on a failed load too would strand the
+        // temporary day here, and `hasUnsavedDay` with it: the + and every drop
+        // target stay disabled until some later load happens to succeed.
+        expect(result.current.state.days).toEqual([calendar.days[0], saved]);
+        expect(result.current.hasUnsavedDay).toBe(false);
+    });
+
+    test('leaves the calendar on screen instead of flashing its loading state', async () => {
+        // Arrange — the same interleaving that triggers a resync, watched from
+        // inside the render so a status the page only holds briefly is still
+        // observable. `CalendarPage` renders the strip and the pool only while
+        // `ready`, so a flicker through `loading` unmounts them and takes every
+        // scroll position and open card with it.
+        api.get.mockResolvedValue(calendar);
+        const statuses = [];
+        const { result } = renderHook(() => {
+            const current = useCalendar();
+            statuses.push(current.state.status);
+
+            return current;
+        });
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.ready));
+
+        const pending = deferred();
+        api.post.mockReturnValue(pending.promise);
+        api.delete.mockResolvedValue({ id: 1 });
+
+        let addition;
+        act(() => {
+            addition = result.current.addDay();
+        });
+        await act(() => result.current.deleteDay(1));
+
+        api.get.mockResolvedValue({
+            days: [{ id: 12, position: 0, createdAt: '2026-09-09T13:00:00.000Z' }],
+            items: [],
+        });
+        const from = statuses.length;
+
+        // Act
+        await act(async () => {
+            pending.reject(new ApiError('Nope', 500));
+            await addition;
+        });
+        await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+
+        // Assert
+        expect(statuses.slice(from)).not.toContain(CALENDAR_STATUS.loading);
+        expect(result.current.state.status).toBe(CALENDAR_STATUS.ready);
+    });
+
+    test('falls through to the error screen when the resync itself fails', async () => {
+        // Arrange — at that point nothing on screen can be trusted, so the
+        // retry is the honest thing to show.
+        const { result } = await renderReady();
+        const pending = deferred();
+        api.post.mockReturnValue(pending.promise);
+        api.delete.mockResolvedValue({ id: 1 });
+
+        let addition;
+        act(() => {
+            addition = result.current.addDay();
+        });
+        await act(() => result.current.deleteDay(1));
+
+        api.get.mockRejectedValue(new ApiError('Could not reach the server.', 0));
+
+        // Act
+        await act(async () => {
+            pending.reject(new ApiError('Nope', 500));
+            await addition;
+        });
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(result.current.state.loadError).toBe('Could not reach the server.');
+    });
+});
+
 describe('useCalendar refused gestures', () => {
     test('surfaces a gesture the schedule refuses as a rolled-back failure, not a silent rejection', async () => {
         // Arrange — `removeDay` throws for a day that is not in the strip.
