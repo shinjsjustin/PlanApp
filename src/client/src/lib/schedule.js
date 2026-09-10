@@ -517,7 +517,7 @@ export const removeDay = (state, dayId) => {
         ...state,
         days: state.days
             .filter((day) => day.id !== dayId)
-            .map((day, position) => ({ ...day, position })),
+            .map((day, position) => (day.position === position ? day : { ...day, position })),
         items: state.items.filter((item) => item.dayId !== dayId),
     };
 };

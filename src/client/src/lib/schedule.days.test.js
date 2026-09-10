@@ -55,6 +55,45 @@ describe('removeDay', () => {
         ]);
     });
 
+    test('keeps the identity of a day whose position does not change', () => {
+        // Arrange — removing the rightmost day leaves day 1's position
+        // untouched, so a rendered day column can memoize on it.
+        const state = { days: [day(1, 0), day(2, 1)], items: [] };
+
+        // Act
+        const next = removeDay(state, 2);
+
+        // Assert
+        expect(next.days[0]).toBe(state.days[0]);
+    });
+
+    test('never mutates the state it is given', () => {
+        // Arrange
+        const state = {
+            days: [day(1, 0), day(2, 1), day(3, 2)],
+            items: [item(7, 1, 540), item(8, 2, 0), item(9, 3, 0)],
+        };
+        const before = JSON.parse(JSON.stringify(state));
+
+        // Act
+        removeDay(state, 2);
+
+        // Assert
+        expect(state).toEqual(before);
+    });
+
+    test('empties the calendar when the last day is removed', () => {
+        // Arrange
+        const state = { days: [day(1, 0)], items: [item(7, 1, 540)] };
+
+        // Act
+        const next = removeDay(state, 1);
+
+        // Assert
+        expect(next.days).toEqual([]);
+        expect(next.items).toEqual([]);
+    });
+
     test('releases the bookings in it and leaves the others', () => {
         // Arrange — decision 6: the container goes, the work does not
         const state = {
