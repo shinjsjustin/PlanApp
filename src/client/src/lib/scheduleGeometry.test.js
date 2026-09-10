@@ -40,10 +40,33 @@ const NOT_A_NUMBER = [
     ['an object', {}],
 ];
 
+const NON_NUMBERS = [...COERCIBLE_NON_NUMBERS, ...NOT_A_NUMBER];
+
+/**
+ * What every clamp in this module owes a non-number: hand it straight back.
+ *
+ * `toBe` is `Object.is`, so this holds for `NaN` too, and it is a stronger claim
+ * than "the result is not finite" — it says nothing was manufactured *and*
+ * nothing was substituted. Each function asserts it under its own heading, so a
+ * refactor that deletes one block cannot quietly leave another's contract
+ * defended somewhere else.
+ */
+const expectPassedThrough = (actual, value) => {
+    expect(Number.isFinite(actual)).toBe(false);
+    expect(actual).toBe(value);
+};
+
 describe('scheduleGeometry constants', () => {
-    test('a day is 48 slots tall and opens at 06:00', () => {
+    test('a day is 48 slots of 24px, and opens at 06:00', () => {
+        // Literals, not `SLOTS_PER_DAY * PX_PER_SLOT`. Restating the definition
+        // cannot fail for any scale, and every other assertion in this file is
+        // expressed in terms of the scale itself — so the whole calendar could be
+        // drawn at the wrong size with the suite green. These are also the two
+        // numbers the module's own comments claim (48px an hour, a 1152px column)
+        // and that Phase C's CSS has to agree with.
         expect(SLOTS_PER_DAY).toBe(48);
-        expect(DAY_HEIGHT_PX).toBe(SLOTS_PER_DAY * PX_PER_SLOT);
+        expect(PX_PER_SLOT).toBe(24);
+        expect(DAY_HEIGHT_PX).toBe(1152);
         expect(INITIAL_SCROLL_MINUTES).toBe(360);
     });
 });
@@ -70,10 +93,10 @@ describe('snapToSlot', () => {
         expect(snapToSlot(555)).toBe(570);
     });
 
-    test.each([...COERCIBLE_NON_NUMBERS, ...NOT_A_NUMBER])(
+    test.each(NON_NUMBERS)(
         'passes %s through rather than snapping it to a slot',
         (unusedName, value) => {
-            expect(Number.isFinite(snapToSlot(value))).toBe(false);
+            expectPassedThrough(snapToSlot(value), value);
         }
     );
 });
@@ -85,14 +108,14 @@ describe('clampStart', () => {
         expect(clampStart(99999)).toBe(1410);
     });
 
-    test.each([...COERCIBLE_NON_NUMBERS, ...NOT_A_NUMBER])(
+    test.each(NON_NUMBERS)(
         'passes %s through rather than inventing a start from it',
         (unusedName, value) => {
             // `clampStart` bounds with `Math.min`/`Math.max`, which coerce just
             // as `/` does — guarding the snap alone is not enough. Unguarded,
             // `null` lands at midnight and `true` lands at 00:01, a start off the
             // grid that no gesture could ever have produced.
-            expect(Number.isFinite(clampStart(value))).toBe(false);
+            expectPassedThrough(clampStart(value), value);
         }
     );
 });
@@ -121,21 +144,12 @@ describe('clampDuration', () => {
         expect(clampDuration(545)).toBe(540);
     });
 
-    test.each(COERCIBLE_NON_NUMBERS)(
+    test.each(NON_NUMBERS)(
         'passes %s through rather than inventing a duration from it',
         (unusedName, value) => {
-            // Arrange + Act
-            const duration = clampDuration(value);
-
-            // Assert
-            expect(Number.isFinite(duration)).toBe(false);
-            expect(duration).toBe(value);
+            expectPassedThrough(clampDuration(value), value);
         }
     );
-
-    test.each(NOT_A_NUMBER)('leaves %s alone', (unusedName, value) => {
-        expect(Number.isFinite(clampDuration(value))).toBe(false);
-    });
 });
 
 describe('formatTime', () => {

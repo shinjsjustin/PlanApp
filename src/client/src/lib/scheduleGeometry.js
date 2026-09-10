@@ -1,12 +1,27 @@
-// Minutes on one side, pixels on the other (design section 9).
+// Minutes on one side, pixels on the other, and the clock face for both
+// (design section 9).
 //
 // Everything the calendar draws is positioned from a time, and every gesture
 // arrives as a pixel offset. This is the only place that converts between them,
 // so the scale is one number rather than a factor scattered through five
 // components — and every magic number in the layout has a name here instead.
+// Reading a time back out is the same job seen from the other end: `formatTime`
+// and `hourLabels` render the gutter ruler, whose `minutes` feed straight back
+// into `minutesToPx` to position it.
 //
 // The scheduling constants are imported from `lib/schedule` rather than restated,
 // so there is one definition of what a day and a slot are.
+//
+// WHERE THE GUARDS GO. At a parameter fed from a source that can supply a
+// non-number — not at every operator that coerces. `/`, `Math.min` and `Math.max`
+// all run `ToNumber`, but an operator only tells you a boundary *exists*; the
+// call sites tell you whether a non-number can *reach* it. A parameter fed a
+// field read off an object — a drag payload, an API response, `dataTransfer` —
+// is open, and that is where the guard belongs. A parameter fed the result of
+// arithmetic is already closed over `number` and needs none. So `snapToSlot` and
+// `clampStart` are guarded and `minutesToPx`/`pxToMinutes` are not; if a later
+// gesture ever hands one of those a raw field instead of a subtraction, that is
+// the moment it needs a guard, and this rule is what says so.
 //
 // Not to be confused with `lib/geometry.js`, which routes graph edges around the
 // project canvas. Different feature, different axis, no shared arithmetic.
@@ -16,7 +31,8 @@ import { DAY_MINUTES, MIN_DURATION, SLOT_MINUTES, boundDuration } from './schedu
 /** How tall one half-hour slot is drawn. 48px an hour reads comfortably. */
 export const PX_PER_SLOT = 24;
 
-export const PX_PER_MINUTE = PX_PER_SLOT / SLOT_MINUTES;
+/** Not exported: nothing outside converts by the minute, it calls the two below. */
+const PX_PER_MINUTE = PX_PER_SLOT / SLOT_MINUTES;
 
 export const SLOTS_PER_DAY = DAY_MINUTES / SLOT_MINUTES;
 
@@ -32,6 +48,14 @@ export const INITIAL_SCROLL_MINUTES = 360;
 
 const MINUTES_PER_HOUR = 60;
 
+/**
+ * The two unguarded functions in the file, and the header's rule says why: both
+ * are fed the result of arithmetic — a rect subtraction, a pointer delta — never
+ * a field read off a payload. Subtraction in JavaScript either returns a `number`
+ * or throws, so it cannot hand back a non-number for the `*` or `/` here to
+ * coerce; the worst it produces is `NaN`, which propagates safely into a clamp
+ * that refuses it. A `Number.isFinite` ternary here would be unreachable.
+ */
 export const minutesToPx = (minutes) => minutes * PX_PER_MINUTE;
 
 export const pxToMinutes = (px) => px / PX_PER_MINUTE;
