@@ -2,23 +2,11 @@
 // rather than object literals, so the payload shape lives in one place.
 
 import { PROJECT_ACTIONS } from './projectReducer';
+import { createTempId, isTempId } from '../lib/tempIds';
 
-/**
- * Ids for entities that exist optimistically but not yet on the server.
- *
- * They are negative because MySQL auto-increment ids never are, so an
- * unreconciled entity can never be confused with a stored one — and a stale
- * reference to one is a lookup miss rather than a wrong row.
- */
-let lastTempId = 0;
-
-export const createTempId = () => {
-    lastTempId -= 1;
-
-    return lastTempId;
-};
-
-export const isTempId = (id) => id < 0;
+// Re-exported rather than redefined: these moved to `lib/tempIds` when the
+// calendar needed them too, and every existing caller imports them from here.
+export { createTempId, isTempId };
 
 export const loadStarted = () => ({ type: PROJECT_ACTIONS.loadStarted });
 
