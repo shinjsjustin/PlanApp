@@ -50,6 +50,11 @@ describe('calendarReducer', () => {
         expect(next.status).toBe(CALENDAR_STATUS.ready);
         expect(next.days).toEqual(calendar.days);
         expect(next.items).toEqual(calendar.items);
+
+        // Passed through by reference, not cloned — the same contract
+        // `spillFrom` keeps one link up the chain (schedule.spill.test.js).
+        expect(next.days).toBe(calendar.days);
+        expect(next.items).toBe(calendar.items);
     });
 
     test('a failed load keeps the message for the retry screen', () => {
@@ -91,6 +96,10 @@ describe('calendarReducer', () => {
         expect(next.days).toEqual(moved.days);
         expect(next.items[0].startMinutes).toBe(600);
         expect(next.status).toBe(CALENDAR_STATUS.ready);
+
+        // Passed through by reference, not cloned — same contract as above.
+        expect(next.days).toBe(moved.days);
+        expect(next.items).toBe(moved.items);
     });
 
     test('refuses a schedule replacement carrying a booking longer than a day', () => {

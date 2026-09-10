@@ -343,12 +343,16 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 // a day.
 //
 // Everything else is an invariant rather than a bound: every item in the state
-// tree carries a finite start and a length that fits in a day. `assertIngestible`
-// below is what establishes it. `calendarReducer` calls it at the two points
-// where data enters the tree — the serialized server response on load, and a
+// tree carries a finite start and a length that fits in a day. Like the
+// `todoId` case below, neither has a sensible per-frame repair, so both are
+// checked once, at ingest, instead. `assertIngestible` below is what
+// establishes it. `calendarReducer` calls it at the two points where data
+// enters the state tree — the serialized server response on load, and a
 // gesture's settled result on commit, which covers both an optimistic row and
-// the real thing landing after a save. A rollback restores a snapshot that was
-// already checked on its way in, so it needs no second check there.
+// the real thing landing after a save (a pool drag's live preview runs this
+// arithmetic first, guarded separately, and reaches this check only at the
+// drop). A rollback restores a snapshot that was already checked on its way
+// in, so it needs no second check there.
 //
 // Nothing today establishes that a `todoId` arriving from a drag payload is the
 // same type as the ones already in state (see `placeFromPool`) — that has no
