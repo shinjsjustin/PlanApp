@@ -4786,6 +4786,27 @@ Note that `reconcileDay` maps over `schedule.days` by id, so rebasing is
 sufficient — it will simply find no temp day to swap if the state moved on.
 Pin it with a test that interleaves `deleteDay` inside a pending `addDay`.
 
+**3. `mutate` throws into an async gap, and the failure is silent.**
+
+`apply()` and the optimistic `dispatch` sit *outside* the `try`, and `mutate`
+is `async`, so a throw there rejects the returned promise instead of throwing
+synchronously. `handleDragEnd` calls `commit(...)` without awaiting or
+catching. So when the Task 17 ingest guard refuses an item — or `removeDay`
+refuses a missing day in `deleteDay` — the result is: no optimistic state, no
+request, no `rolledBack`, no `actionError`, nothing on screen. Only an
+unhandled-rejection warning in the console.
+
+That is quieter than an uncaught synchronous throw, which at least reaches
+`window.onerror`, and it is the opposite of what `handleDragEnd`'s own comment
+asks for — "a wiring bug that should be loud rather than silently doing
+nothing".
+
+Move `apply()` and the optimistic dispatch inside the `try`, so an ingest
+failure surfaces as a rolled-back mutation with a visible `actionError`. Note
+`toBulkRequest`'s throw in `commit` is *not* affected — `commit` is not async,
+so it escapes synchronously as intended. Only throws reached through `mutate`
+have this problem.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `src/client/src/hooks/useCalendar.test.js`:
@@ -6797,6 +6818,19 @@ bookings created by `curl` show up in the right columns.
 - Modify: `src/client/src/components/Calendar/CalendarPage.js`
 - Modify: `src/client/src/components/Calendar/DayStrip.js`
 - Test: `src/client/src/components/Calendar/CalendarDragArea.test.js`
+
+**A finding from the Task 17 review — fix it as you write this.**
+
+`const shown = preview ?? scheduleOf(state)` followed by
+`useMemo(..., [shown])` never hits when no drag is in flight, which is the
+common case: `scheduleOf` returns a fresh wrapper object on every call, so the
+memo rebuilds the whole `Map` — with a `findIndex` per item, O(items × days) —
+on every render.
+
+`scheduleOf`'s freshness is correct and deliberate: a rollback snapshot must
+not be aliased to future state. The fix is on this side. Depend on
+`[shown.days, shown.items]`, which are the stable references the reducer and
+`lib/schedule` both work to preserve, rather than on the wrapper around them.
 
 Booking from the pool and moving a booking between days are the same operation —
 "put this to-do at this minute of this day" — so they share one code path.
