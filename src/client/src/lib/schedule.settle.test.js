@@ -19,6 +19,12 @@ describe('schedule constants', () => {
         expect(MIN_DURATION).toBe(30);
         expect(DEFAULT_DURATION).toBe(60);
     });
+
+    test('the shortest booking is exactly one slot', () => {
+        // Regridding to 15 minutes must carry the floor with it, so the
+        // relationship is what is pinned here, not the number.
+        expect(MIN_DURATION).toBe(SLOT_MINUTES);
+    });
 });
 
 describe('settleDay', () => {
@@ -188,6 +194,94 @@ describe('settleDay', () => {
             [2, 60, 60],
             [9, 120, 60],
         ]);
+    });
+
+    test('collapses a free hole caught inside a non-contiguous anchor group', () => {
+        // Arrange — anchors 1 and 2 span 00:00 to 11:00, with an unrelated item
+        // loose in the hole between them. Every anchor is keyed by the group's
+        // earliest start, so item 9 sorts after the whole group rather than
+        // between its members.
+        const items = [item(1, 0), item(2, 600), item(9, 300)];
+
+        // Act
+        const settled = settleDay(items, [1, 2]);
+
+        // Assert — item 9 loses the 01:00–10:00 hole it was legally sitting in.
+        // This is the documented cost of keeping a group together; callers are
+        // expected to hand in a contiguous run of anchors.
+        expect(layout(settled)).toEqual([
+            [1, 0, 60],
+            [2, 600, 60],
+            [9, 660, 60],
+        ]);
+    });
+
+    test('passes an item it did not move through by reference', () => {
+        // Arrange
+        const items = [item(1, 540, 120), item(2, 570)];
+
+        // Act
+        const settled = settleDay(items, [1]);
+
+        // Assert — the anchor is the same object, so a memoized row can skip a
+        // re-render; only the item that actually moved is a fresh copy.
+        expect(settled[0]).toBe(items[0]);
+        expect(settled[1]).not.toBe(items[1]);
+    });
+
+    test('lets a push carry an item past the end of the day', () => {
+        // Arrange — 23:00 grows to 2h against an item half an hour below it
+        const items = [item(1, 1380, 120), item(2, 1410)];
+
+        // Act
+        const settled = settleDay(items, [1]);
+
+        // Assert — no clamp: deciding what happens past midnight is the spill's
+        // job, and it needs to see the overrun to find it.
+        expect(layout(settled)).toEqual([
+            [1, 1380, 120],
+            [2, 1500, 60],
+        ]);
+        expect(settled[1].startMinutes).toBeGreaterThan(DAY_MINUTES);
+    });
+
+    test('accepts a single anchor id that is not wrapped in an array', () => {
+        // Arrange — the shape a drag or a resize passes, acting on one item
+        const items = [item(2, 600), item(1, 600)];
+
+        // Act
+        const settled = settleDay(items, 1);
+
+        // Assert
+        expect(layout(settled)).toEqual([
+            [1, 600, 60],
+            [2, 660, 60],
+        ]);
+    });
+
+    test('throws instead of poisoning the day when an item has no duration', () => {
+        // Arrange — an undefined duration would make the cursor NaN, and every
+        // item below it would silently settle to a NaN start.
+        const items = [item(1, 540), { todoId: 2, dayId: 1, startMinutes: 600 }];
+
+        // Act + Assert
+        expect(() => settleDay(items)).toThrow(/2/);
+    });
+
+    test('throws when a start or duration is not a number', () => {
+        // Arrange
+        const items = [{ ...item(1, 540), durationMinutes: '60' }];
+
+        // Act + Assert
+        expect(() => settleDay(items)).toThrow(/number/i);
+    });
+
+    test('throws when a duration is zero or negative', () => {
+        // Arrange — neither advances the cursor the way the push-down rule
+        // needs, so the result would overlap or run backwards.
+        // Act + Assert
+        expect(() => settleDay([item(1, 540, 0)])).toThrow(/duration/i);
+        expect(() => settleDay([item(1, 540, -30)])).toThrow(/duration/i);
     });
 
     test('handles an empty day', () => {

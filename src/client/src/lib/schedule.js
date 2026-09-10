@@ -27,7 +27,7 @@ export const DAY_MINUTES = 1440;
 export const SLOT_MINUTES = 30;
 
 /** One slot. Nothing can be shorter and still carry a readable label. */
-export const MIN_DURATION = 30;
+export const MIN_DURATION = SLOT_MINUTES;
 
 /**
  * A full day. This is what guarantees the spill terminates: an item that has
@@ -56,6 +56,14 @@ const endOf = (item) => item.startMinutes + item.durationMinutes;
  * each anchor by its own start would let an existing item at 00:00 slot into the
  * middle of the arriving group — see the multi-anchor case in the tests.
  *
+ * That second rule assumes the anchors are a *contiguous* run. Keying the group
+ * by its earliest start also keys it past anything caught inside its span, so a
+ * non-anchor sitting in a hole between two anchors sorts after the whole group
+ * and gets pushed down — a legal free hole, thrown away. Callers pass contiguous
+ * anchors: a drag or a resize anchors one item, and a spill rebases its tail to
+ * 00:00 before handing it on. The cost is pinned by the non-contiguous case in
+ * the tests so it stays a decision rather than a surprise.
+ *
  * Ordering only. Neither rule moves anything; the fold below does that.
  */
 const orderFor = (items, anchors) => {
@@ -75,8 +83,42 @@ const orderFor = (items, anchors) => {
 
         if (aIsAnchor !== bIsAnchor) return aIsAnchor ? -1 : 1;
 
+        // Reached only for two anchors: two non-anchors with equal keys have
+        // equal starts, since a non-anchor is keyed by its own start. This is
+        // what keeps anchors in their own relative order within the group.
         return a.startMinutes - b.startMinutes;
     });
+};
+
+/**
+ * Every item must carry a real start and a real length, because the fold below
+ * is a running sum: one `undefined` or `'60'` makes the cursor `NaN`, and from
+ * there every item further down the day settles to a `NaN` start. Nothing
+ * downstream catches that — `endOf(item) > DAY_MINUTES` is false for `NaN`, so
+ * an overflowing item would quietly fail to spill and go to the server as a
+ * broken row. Cheaper to refuse the day than to explain it later.
+ *
+ * A duration must also be positive: a zero-length item does not advance the
+ * cursor, so the next item settles on top of it, and a negative one winds the
+ * cursor backwards. Either breaks the ordered, non-overlapping result that the
+ * spill relies on. The floor here is "positive", not `MIN_DURATION` — a resize
+ * in flight is clamped to `MIN_DURATION` by the gesture, not by this fold.
+ */
+const assertSchedulable = (item) => {
+    if (!Number.isFinite(item.startMinutes) || !Number.isFinite(item.durationMinutes)) {
+        throw new Error(
+            `Item ${item.todoId} needs a number for both startMinutes and ` +
+                `durationMinutes, got ${JSON.stringify(item.startMinutes)} ` +
+                `and ${JSON.stringify(item.durationMinutes)}`
+        );
+    }
+
+    if (item.durationMinutes <= 0) {
+        throw new Error(
+            `Item ${item.todoId} has a duration of ${item.durationMinutes}; ` +
+                'it must be positive'
+        );
+    }
 };
 
 /**
@@ -88,15 +130,26 @@ const orderFor = (items, anchors) => {
  * which the stack pushes. Nothing above the anchor can move, because nothing
  * above it is ever raised past its own start.
  *
+ * A push can carry an item past `DAY_MINUTES`, and deliberately does: there is
+ * no clamp here. Deciding what happens to an item that no longer fits in the day
+ * is the spill's job, and it can only find the overrun if this leaves it in
+ * place. So a returned `startMinutes` of 1500 is a result, not a bug.
+ *
  * `anchorTodoIds` is what the gesture is acting on: one id for a drag or a
  * resize, a whole group for the items a spill has just carried in from the day
- * above. It affects ordering only, never position.
+ * above. A bare id may be passed unwrapped. It affects ordering only, never
+ * position. Ids are matched by identity, so they must be the same type as
+ * `todoId` — `'1'` from a dataset attribute will not match a numeric `1`, and
+ * would silently order the day as though nothing were anchored.
  *
  * Returns a new array, ordered top to bottom. Items whose start did not change
- * are passed through by reference, so a settle that moves nothing allocates
- * nothing.
+ * are passed through by reference — the array and the moved items are new, but
+ * an untouched item keeps its identity, which is what lets a rendered day column
+ * memoize per item and re-render only the rows that actually moved.
  */
 export const settleDay = (items, anchorTodoIds = []) => {
+    items.forEach(assertSchedulable);
+
     const anchors = new Set([].concat(anchorTodoIds));
 
     let cursor = 0;
