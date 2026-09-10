@@ -4676,6 +4676,57 @@ export const useCalendarContext = () => {
 export default CalendarContext;
 ```
 
+- [ ] **Step 5b: Close the gap `schedule.js` left open for this reducer**
+
+`schedule.js:344-364` names this reducer as the place three invariants get
+established, and sketches the guard it wants:
+
+```js
+export const assertIngestible = (item) => {
+    assertSchedulable(item);
+    assertFitsInADay(item);
+};
+```
+
+Step 3's reducer does not call it, and `assertIngestible` does not exist. Left
+as it stands, a `NaN` `startMinutes` in a server payload is ingested silently
+and first surfaces mid-drag, inside a `pointermove`, where no error boundary
+catches it — the exact failure the comment was written to prevent.
+
+Close it now rather than leaving the comment lying about where the check lives:
+
+1. Export `assertIngestible` from `schedule.js`, as the composition above.
+   Both of `spillFrom`'s preconditions must hold for an ingested item, not just
+   the fold's — do not define a third notion of "a legal item".
+2. Call it from the two reducer cases where data enters the tree:
+   `loadSucceeded` (the serialized server response) and `scheduleReplaced` (an
+   optimistic row, and a gesture payload). `rolledBack` restores a snapshot
+   that was validated on its way in, so it needs no check.
+3. Delete the now-stale "That is Task 17's reducer" paragraph's future tense at
+   `schedule.js:344-364` and state what is true: the check lives in
+   `calendarReducer`, so these assertions can only fire on a state that was
+   already broken before any pointer moved.
+
+Cost is per dispatch, not per frame: `scheduleReplaced` fires once when a
+gesture is let go, not on every pointer move — the ghost is drawn from local
+arithmetic that never touches the reducer.
+
+Test first, in `calendarReducer.test.js`: a load whose payload carries an item
+with a `NaN` start is refused, and a `scheduleReplaced` carrying a booking
+longer than a day is refused. Assert on the guards' own messages so the test
+fails if the reducer starts defining its own.
+
+- [ ] **Step 5c: Make the two schedule tests load-bearing**
+
+Step 1's `replacing the schedule swaps both collections at once` and `a
+rollback restores the snapshot and raises the message` never assert on
+`next.days`. In both fixtures the `days` array is reference-identical to what
+is already in state, so a handler that dropped `days` from the merge entirely
+would pass both — and the test names both claim to cover days.
+
+Give each fixture a `days` array that actually differs from the state it acts
+on, and assert on it. This is the dead-assertion shape `6a017dd` and `5f50b2c`
+already corrected twice in this plan; do not add a third.
 - [ ] **Step 6: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=calendarReducer`
