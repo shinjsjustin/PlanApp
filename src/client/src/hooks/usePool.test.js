@@ -70,11 +70,36 @@ describe('usePool', () => {
     });
 
     test('leaves out a stalled sequence, which has nothing to schedule', async () => {
-        // Arrange + Act
-        const { result } = await renderReady();
+        // Arrange — every sequence in this project is stalled, so the
+        // assertion below is about the filter alone: nothing here is a ready
+        // sequence for the first test's fixture to already have pinned.
+        api.get.mockResolvedValue([
+            {
+                id: 6,
+                title: 'Every path blocked',
+                frontier: [
+                    {
+                        sequenceId: 20,
+                        sequenceTitle: 'Waiting on design',
+                        nextTodo: null,
+                        isStalled: true,
+                    },
+                    {
+                        sequenceId: 21,
+                        sequenceTitle: 'Waiting on legal',
+                        nextTodo: null,
+                        isStalled: true,
+                    },
+                ],
+            },
+        ]);
+
+        // Act
+        const { result } = renderHook(() => usePool());
+        await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
 
         // Assert
-        expect(result.current.projects[0].todos.map((todo) => todo.sequenceId)).not.toContain(10);
+        expect(result.current.projects[0].todos).toEqual([]);
     });
 
     test('keeps a project with nothing startable, so it can say so', async () => {
