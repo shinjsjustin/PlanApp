@@ -15,6 +15,8 @@
 // collections, not a set of independent edits. That also makes the rollback a
 // plain assignment of a snapshot taken beforehand.
 
+import { assertIngestible } from '../lib/schedule';
+
 export const CALENDAR_STATUS = {
     idle: 'idle',
     loading: 'loading',
@@ -51,13 +53,21 @@ const handlers = {
         loadError: null,
     }),
 
-    [CALENDAR_ACTIONS.loadSucceeded]: (state, { calendar }) => ({
-        ...state,
-        status: CALENDAR_STATUS.ready,
-        loadError: null,
-        days: calendar.days,
-        items: calendar.items,
-    }),
+    // The serialized server response — one of the two points where data enters
+    // the tree (see `lib/schedule`). Checked before anything is installed, so a
+    // malformed row is refused rather than settled into state where the next
+    // pointer move would be the thing that discovers it.
+    [CALENDAR_ACTIONS.loadSucceeded]: (state, { calendar }) => {
+        calendar.items.forEach(assertIngestible);
+
+        return {
+            ...state,
+            status: CALENDAR_STATUS.ready,
+            loadError: null,
+            days: calendar.days,
+            items: calendar.items,
+        };
+    },
 
     [CALENDAR_ACTIONS.loadFailed]: (state, { error }) => ({
         ...state,
@@ -65,11 +75,18 @@ const handlers = {
         loadError: error,
     }),
 
-    [CALENDAR_ACTIONS.scheduleReplaced]: (state, { schedule }) => ({
-        ...state,
-        days: schedule.days,
-        items: schedule.items,
-    }),
+    // The other point where data enters the tree: a gesture's settled result,
+    // whether that is the optimistic row `useCalendar` applies immediately or
+    // the real thing landing after a save.
+    [CALENDAR_ACTIONS.scheduleReplaced]: (state, { schedule }) => {
+        schedule.items.forEach(assertIngestible);
+
+        return {
+            ...state,
+            days: schedule.days,
+            items: schedule.items,
+        };
+    },
 
     [CALENDAR_ACTIONS.rolledBack]: (state, { snapshot, error }) => ({
         ...state,

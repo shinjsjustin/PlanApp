@@ -342,26 +342,33 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 // for — so it is bounded here, and no gesture introduces a booking longer than
 // a day.
 //
-// Everything else wants to be an invariant rather than a bound, and is not one
-// yet. Nothing today establishes that every item in the state tree carries a
-// finite start and a length that fits in a day, or that a `todoId` arriving from
-// a drag payload is the same type as the ones already in state (see
-// `placeFromPool`). None of the three has a sensible per-frame repair — a `NaN`
-// start is a bug in whatever computed it, not a number to round — so all three
-// belong at the three points where data enters the tree: the serialized server
-// response, an optimistic row, and a gesture payload. That is Task 17's reducer,
-// and the check it needs is a composition of the two guards already in this file
-// rather than a third definition of "a legal item":
+// Everything else is an invariant rather than a bound: every item in the state
+// tree carries a finite start and a length that fits in a day. `assertIngestible`
+// below is what establishes it. `calendarReducer` calls it at the two points
+// where data enters the tree — the serialized server response on load, and a
+// gesture's settled result on commit, which covers both an optimistic row and
+// the real thing landing after a save. A rollback restores a snapshot that was
+// already checked on its way in, so it needs no second check there.
 //
-//     export const assertIngestible = (item) => {
-//         assertSchedulable(item);
-//         assertFitsInADay(item);
-//     };
+// Nothing today establishes that a `todoId` arriving from a drag payload is the
+// same type as the ones already in state (see `placeFromPool`) — that has no
+// sensible per-frame repair either, but is not one of `spillFrom`'s
+// preconditions, so it stays open rather than folded into this guard.
 //
-// Both of `spillFrom`'s preconditions have to hold for an ingested item, not
-// just the fold's. Until that lands, these assertions can still fire in front of
-// a user; once it does, they can only fire on a state that was already broken
-// before any pointer moved.
+// Because the reducer checks on the way in, these assertions can now only fire
+// on a state that was already broken before any pointer moved.
+
+/**
+ * Both of `spillFrom`'s preconditions, composed: a real start and a positive
+ * length, and a length that fits in a day. Not a third definition of "a legal
+ * item" — `calendarReducer` calls this rather than either guard alone because
+ * both have to hold for anything ingested, not just whichever one the fold
+ * happens to reach first.
+ */
+export const assertIngestible = (item) => {
+    assertSchedulable(item);
+    assertFitsInADay(item);
+};
 
 /**
  * The booking for a to-do, or a throw when there is none — a gesture aimed at
