@@ -85,7 +85,7 @@ describe('placeFromPool', () => {
         expect(dayLayout(next, next.days[1].id)).toEqual([[7, 0, 60]]);
     });
 
-    test('clamps a caller-supplied duration down to one day', () => {
+    test('bounds a caller-supplied duration down to one day', () => {
         // Arrange — `spillFrom` refuses a booking longer than a day, and this
         // runs on a pointer move, where a throw is a frozen drag rather than a
         // visible failure. The refusal has to be unreachable from here.
@@ -103,7 +103,7 @@ describe('placeFromPool', () => {
         expect(dayLayout(next, 1)).toEqual([[7, 0, MAX_DURATION]]);
     });
 
-    test('clamps a caller-supplied duration up to one slot', () => {
+    test('bounds a caller-supplied duration up to one slot', () => {
         // Arrange — `settleDay` refuses a duration of zero for the same reason.
         const state = { days: days(1), items: [] };
 
@@ -119,20 +119,24 @@ describe('placeFromPool', () => {
         expect(dayLayout(next, 1)).toEqual([[7, 540, MIN_DURATION]]);
     });
 
-    test('still refuses a duration that is not a number', () => {
-        // Arrange — clamping bounds a duration, it does not validate one. A
-        // duration that never arrived is a wiring bug, and staying loud about it
-        // is the point.
+    // Bounding a duration must not validate one, and `Math.min`/`Math.max` run
+    // `ToNumber`: unguarded they turn every value below into a legal duration —
+    // `null`, `true` and `[]` into 30, `'60'` into 60 — and book it. `null` is
+    // the likeliest of them, an absent field on a drag payload. The bound has to
+    // hand them all to `settleDay` untouched instead.
+    test.each([
+        ['null', null],
+        ['a boolean', true],
+        ['an empty array', []],
+        ['a numeric string', '60'],
+        ['a word', 'an hour'],
+    ])('still refuses a duration that is %s', (unused, durationMinutes) => {
+        // Arrange
         const state = { days: days(1), items: [] };
 
         // Act + Assert
         expect(() =>
-            placeFromPool(state, {
-                todoId: 7,
-                dayId: 1,
-                startMinutes: 0,
-                durationMinutes: 'an hour',
-            })
+            placeFromPool(state, { todoId: 7, dayId: 1, startMinutes: 0, durationMinutes })
         ).toThrow('needs a number for both startMinutes and durationMinutes');
     });
 
@@ -232,7 +236,7 @@ describe('resizeItem', () => {
         expect(dayLayout(next, 2)).toEqual([[2, 0, 60]]);
     });
 
-    test('clamps a grow past midnight to one day', () => {
+    test('bounds a grow past midnight to one day', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 0)] };
 
@@ -248,7 +252,7 @@ describe('resizeItem', () => {
         expect(next.days).toHaveLength(1);
     });
 
-    test('clamps a shrink past one slot to one slot', () => {
+    test('bounds a shrink past one slot to one slot', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 540)] };
 
@@ -283,6 +287,14 @@ describe('topEdgeFloor', () => {
 
         // Act + Assert
         expect(topEdgeFloor(state, 2)).toBe(0);
+    });
+
+    test('throws for a to-do that is not booked', () => {
+        // Arrange
+        const state = { days: days(1), items: [] };
+
+        // Act + Assert
+        expect(() => topEdgeFloor(state, 9)).toThrow('To-do 9 is not booked');
     });
 });
 

@@ -45,20 +45,30 @@ export const DEFAULT_DURATION = 60;
  *
  * Both bounds are load-bearing rather than cosmetic. `settleDay` refuses a
  * non-positive duration and `spillFrom` refuses one longer than a day, because
- * either breaks the arithmetic underneath them. Clamping is what stops a gesture
+ * either breaks the arithmetic underneath them. Bounding is what stops a gesture
  * being the thing that violates them — see the note above the gestures for why a
  * gesture in particular must not.
  *
- * It bounds; it does not validate. Refusing a duration that is not a real number
- * stays with `settleDay`, one guard in one place, and a gesture reaches it: a
- * duration that never arrived is a wiring bug, not a value to round.
+ * It bounds; it does not validate, and the `Number.isFinite` test is what makes
+ * that true rather than merely intended. `Math.max` runs `ToNumber` on its
+ * arguments, so bounding `null` unguarded returns `30` — an absent duration on a
+ * drag payload, the likeliest wiring bug there is, would book half an hour and
+ * save it. Anything that is not already a real number is passed straight through
+ * instead, for `assertSchedulable` to refuse. One guard, in one place.
  *
- * `lib/scheduleGeometry` needs the same rule to size a resize ghost while the
- * pointer is still down. It is the same rule, so it is defined once here beside
- * the bounds rather than twice.
+ * It does not snap, either. `lib/scheduleGeometry` needs a duration that is
+ * bounded *and* on the grid, to size a resize ghost while the pointer is still
+ * down; it composes its `clampDuration` as `boundDuration(snapToSlot(minutes))`.
+ * The bounds are defined once, here beside the constants they read; the snap
+ * belongs with the pointer arithmetic that needs it, and stays there. That
+ * composition is safe in that order because both bounds are themselves multiples
+ * of `SLOT_MINUTES`: bounding a snapped duration returns it, `MIN_DURATION` or
+ * `MAX_DURATION`, and all three are on the grid.
  */
-export const clampDuration = (durationMinutes) =>
-    Math.min(Math.max(durationMinutes, MIN_DURATION), MAX_DURATION);
+export const boundDuration = (durationMinutes) =>
+    Number.isFinite(durationMinutes)
+        ? Math.min(Math.max(durationMinutes, MIN_DURATION), MAX_DURATION)
+        : durationMinutes;
 
 const endOf = (item) => item.startMinutes + item.durationMinutes;
 
@@ -131,8 +141,10 @@ const describeValue = (value) =>
  *
  * That division of labour makes this guard deliberately narrower than "a legal
  * booking": grid alignment is nobody's business here either, so `37.5` passes.
- * The fold only refuses what would corrupt its own arithmetic; the gesture snaps
- * to `SLOT_MINUTES` and the server rejects anything that still arrives off-grid.
+ * The fold only refuses what would corrupt its own arithmetic. Nothing in this
+ * file snaps to `SLOT_MINUTES` — that happens upstream of the gestures, in
+ * `lib/scheduleGeometry`, where a pointer position becomes minutes — and the
+ * server rejects anything that still arrives off-grid.
  */
 const assertSchedulable = (item) => {
     if (!Number.isFinite(item.startMinutes) || !Number.isFinite(item.durationMinutes)) {
@@ -313,8 +325,8 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
     );
 };
 
-// The four gestures the page calls. Everything above is the arithmetic they run
-// on; this is the API the calendar actually reaches for.
+// The four gestures the page calls, and the one query they need. Everything
+// above is the arithmetic they run on; this is the API the calendar reaches for.
 //
 // They run on every pointer move, and the arithmetic below them asserts:
 // `settleDay` refuses an item without a real start and length, `spillFrom` one
@@ -327,23 +339,36 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 // So the gestures narrow what can reach the assertions instead of catching them.
 // `durationMinutes` is the one field with bounds a gesture can enforce — a start
 // has none, because running off the end of a day is exactly what the spill is
-// for — so it is clamped here, and no gesture introduces a booking longer than
+// for — so it is bounded here, and no gesture introduces a booking longer than
 // a day.
 //
-// Everything else is an invariant rather than a clamp: every item already in the
-// state tree carries a finite start and a length that fits in a day. That has no
-// sensible per-frame repair — a `NaN` start is a bug in whatever computed it, not
-// a number to round — so it belongs where items enter the tree, in the reducer
-// that ingests a server response or builds an optimistic row. Checked once
-// there, these assertions can only fire in development, on a state that was
-// already broken before any pointer moved.
+// Everything else wants to be an invariant rather than a bound, and is not one
+// yet. Nothing today establishes that every item in the state tree carries a
+// finite start and a length that fits in a day, or that a `todoId` arriving from
+// a drag payload is the same type as the ones already in state (see
+// `placeFromPool`). None of the three has a sensible per-frame repair — a `NaN`
+// start is a bug in whatever computed it, not a number to round — so all three
+// belong at the three points where data enters the tree: the serialized server
+// response, an optimistic row, and a gesture payload. That is Task 17's reducer,
+// and the check it needs is a composition of the two guards already in this file
+// rather than a third definition of "a legal item":
+//
+//     export const assertIngestible = (item) => {
+//         assertSchedulable(item);
+//         assertFitsInADay(item);
+//     };
+//
+// Both of `spillFrom`'s preconditions have to hold for an ingested item, not
+// just the fold's. Until that lands, these assertions can still fire in front of
+// a user; once it does, they can only fire on a state that was already broken
+// before any pointer moved.
 
 /**
- * The booking for a to-do. Throws when there is none — a gesture aimed at
+ * The booking for a to-do, or a throw when there is none — a gesture aimed at
  * something unbooked is a wiring mistake in the caller, not a state to quietly
  * produce no change for, which would look like a drag that silently did nothing.
  */
-const bookingOf = (state, todoId) => {
+const requireBooking = (state, todoId) => {
     const booking = state.items.find((item) => item.todoId === todoId);
 
     if (!booking) throw new Error(`To-do ${todoId} is not booked`);
@@ -360,9 +385,17 @@ const bookingOf = (state, todoId) => {
  * a second booking is impossible by design (decision 4) — the pool makes a
  * scheduled row inert precisely so this cannot be reached.
  *
- * The duration is clamped because this is where one is decided: the default
+ * That refusal matches on identity, so a `todoId` of the wrong type slips past
+ * it: `'7'` does not equal a stored `7`, and this books a second row for a to-do
+ * that already has one, then hands the string on to the server. `settleDay`
+ * carries the same warning about anchors, but a mis-typed anchor only mis-orders
+ * a day, where this fails silently and persists. Ids arriving from a drag
+ * library or a `dataset` attribute are strings; normalising them belongs at that
+ * boundary, with the ingestion check above.
+ *
+ * The duration is bounded because this is where one is decided: the default
  * covers the ordinary drop, and a caller that overrides it has no geometry step
- * in front of it to have clamped first.
+ * in front of it to have bounded first.
  */
 export const placeFromPool = (
     state,
@@ -377,7 +410,7 @@ export const placeFromPool = (
         todoId,
         dayId,
         startMinutes,
-        durationMinutes: clampDuration(durationMinutes),
+        durationMinutes: boundDuration(durationMinutes),
     };
 
     return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [todoId]);
@@ -391,7 +424,7 @@ export const placeFromPool = (
  * drawn as, and nothing rearranges itself behind the user's back (decision 7).
  */
 export const moveItem = (state, { todoId, dayId, startMinutes }) => {
-    bookingOf(state, todoId);
+    requireBooking(state, todoId);
 
     const items = state.items.map((item) =>
         item.todoId === todoId ? { ...item, dayId, startMinutes } : item
@@ -405,17 +438,17 @@ export const moveItem = (state, { todoId, dayId, startMinutes }) => {
  * dragged, and where the top edge may stop, is the caller's business
  * (`lib/scheduleGeometry` and `topEdgeFloor` below).
  *
- * The duration is clamped again here even though the geometry already clamped it
+ * The duration is bounded again here even though the geometry already clamped it
  * to draw the ghost. That is not distrust of the caller so much as what the two
- * clamps answer to: the geometry's serves the rectangle on screen, and this one
+ * answer to: the geometry's clamp serves the rectangle on screen, and this bound
  * is the last thing between a pointer and the state tree.
  */
 export const resizeItem = (state, { todoId, startMinutes, durationMinutes }) => {
-    const existing = bookingOf(state, todoId);
-    const clamped = clampDuration(durationMinutes);
+    const existing = requireBooking(state, todoId);
+    const bounded = boundDuration(durationMinutes);
 
     const items = state.items.map((item) =>
-        item.todoId === todoId ? { ...item, startMinutes, durationMinutes: clamped } : item
+        item.todoId === todoId ? { ...item, startMinutes, durationMinutes: bounded } : item
     );
 
     return spillFrom({ ...state, items }, existing.dayId, [todoId]);
@@ -426,7 +459,7 @@ export const resizeItem = (state, { todoId, startMinutes, durationMinutes }) => 
  * settled: the day keeps the gap, for the same reason a move does.
  */
 export const unscheduleItem = (state, todoId) => {
-    bookingOf(state, todoId);
+    requireBooking(state, todoId);
 
     return { ...state, items: state.items.filter((item) => item.todoId !== todoId) };
 };
@@ -441,7 +474,7 @@ export const unscheduleItem = (state, todoId) => {
  * below.
  */
 export const topEdgeFloor = (state, todoId) => {
-    const booking = bookingOf(state, todoId);
+    const booking = requireBooking(state, todoId);
 
     const above = state.items
         .filter(
