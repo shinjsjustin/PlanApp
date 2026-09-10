@@ -5511,7 +5511,8 @@ appending `saved` when it is absent from the fresh state, rather than a guard.
 It self-heals on any later load, and reaching it needs the GET issued and served
 strictly inside the POST's commit window. Worth closing here if the page grows a
 refetch users can trigger; not worth it while the only refetch is the one a
-failed mutation issues.
+failed mutation issues. If anything later adds polling or refetch-on-focus,
+concurrent GETs stop being rare and this moves up the list.
 
 # Phase D — Static rendering
 
