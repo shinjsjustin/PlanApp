@@ -36,17 +36,39 @@ export const minutesToPx = (minutes) => minutes * PX_PER_MINUTE;
 
 export const pxToMinutes = (px) => px / PX_PER_MINUTE;
 
-/** The nearest half hour. Everything the user drags lands on the grid. */
-export const snapToSlot = (minutes) => Math.round(minutes / SLOT_MINUTES) * SLOT_MINUTES;
+/**
+ * The nearest half hour. Everything the user drags lands on the grid.
+ *
+ * Anything that is not already a real number is returned untouched, and the
+ * `Number.isFinite` test is what makes that true rather than merely intended.
+ * `/` runs `ToNumber` on its operands, so snapping `null` unguarded returns `0` —
+ * and a `0` is indistinguishable from a real midnight by the time anything
+ * downstream sees it. This is the same boundary `boundDuration` guards one layer
+ * down (see its note in `lib/schedule`); a guard there is worth nothing if this
+ * function has already manufactured a number on the way in.
+ */
+export const snapToSlot = (minutes) =>
+    Number.isFinite(minutes) ? Math.round(minutes / SLOT_MINUTES) * SLOT_MINUTES : minutes;
 
 /**
  * A start time that is on the grid and inside the day.
  *
  * The ceiling is one slot short of midnight, because a booking has to be able to
  * begin somewhere — an item dropped at 23:30 is legal and simply spills.
+ *
+ * Guarded after the snap as well as inside it. `Math.min`/`Math.max` are a
+ * second `ToNumber` boundary, so a snapped-through non-number would be coerced
+ * here instead — `true` would bound to `1`, an off-grid start that no gesture
+ * could have produced. `clampDuration` needs no such guard only because
+ * `boundDuration` already carries one.
  */
-export const clampStart = (minutes) =>
-    Math.min(Math.max(snapToSlot(minutes), 0), DAY_MINUTES - MIN_DURATION);
+export const clampStart = (minutes) => {
+    const snapped = snapToSlot(minutes);
+
+    if (!Number.isFinite(snapped)) return snapped;
+
+    return Math.min(Math.max(snapped, 0), DAY_MINUTES - MIN_DURATION);
+};
 
 /**
  * A duration that is on the grid and between one slot and one day.
@@ -60,10 +82,15 @@ export const clampStart = (minutes) =>
  * a booking is and where it fits are different questions: an item resized past
  * 24:00 is not an error to be prevented, it is the input to the spill.
  *
- * A non-finite input comes back non-finite — `snapToSlot` turns a bad pointer
- * value into `NaN`, and `boundDuration` passes a non-number straight through.
- * That is on purpose: inventing a plausible half hour here would hide the wiring
- * bug, so the refusal happens once, at `settleDay`'s guard.
+ * Anything that is not a real number comes back unchanged: `snapToSlot` passes
+ * it through and `boundDuration` passes it through again. That is on purpose.
+ * Inventing a plausible half hour here would hide the wiring bug that produced
+ * it — a `null` duration on a drag payload would be booked and saved as 30
+ * minutes — so this layer snaps and bounds real numbers and touches nothing
+ * else, and the refusal happens once, downstream. Which guard refuses depends on
+ * the shape: a non-number is refused by `settleDay`'s `assertSchedulable`, while
+ * `Infinity` reaches `spillFrom`'s `assertFitsInADay` first and reports as a
+ * bounds violation rather than a type one.
  */
 export const clampDuration = (minutes) => boundDuration(snapToSlot(minutes));
 

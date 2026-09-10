@@ -12,6 +12,34 @@ import {
     snapToSlot,
 } from './scheduleGeometry';
 
+/**
+ * The shapes that break a `ToNumber` boundary are the ones that coerce
+ * *successfully*, not the ones that produce `NaN`. Every value here becomes a
+ * plausible number under `/`, `Math.min` or `Math.max` — `null` and `''` become
+ * `0`, `true` becomes `1`, `'60'` becomes `60` — so a clamp that lets one
+ * through hands a real-looking booking to the code that saves it. Asserting only
+ * over `NaN` would pass against a completely unguarded function.
+ */
+const COERCIBLE_NON_NUMBERS = [
+    ['null', null],
+    ['true', true],
+    ['false', false],
+    ['an empty string', ''],
+    ['an empty array', []],
+    ['a numeric string', '60'],
+    ['an exponent string', '1e3'],
+    ['a one-number array', [45]],
+    ['Infinity', Infinity],
+];
+
+/** These already fail to coerce. Kept because they must not start coercing. */
+const NOT_A_NUMBER = [
+    ['NaN', NaN],
+    ['undefined', undefined],
+    ['a word', 'an hour'],
+    ['an object', {}],
+];
+
 describe('scheduleGeometry constants', () => {
     test('a day is 48 slots tall and opens at 06:00', () => {
         expect(SLOTS_PER_DAY).toBe(48);
@@ -41,6 +69,13 @@ describe('snapToSlot', () => {
         expect(snapToSlot(545)).toBe(540);
         expect(snapToSlot(555)).toBe(570);
     });
+
+    test.each([...COERCIBLE_NON_NUMBERS, ...NOT_A_NUMBER])(
+        'passes %s through rather than snapping it to a slot',
+        (unusedName, value) => {
+            expect(Number.isFinite(snapToSlot(value))).toBe(false);
+        }
+    );
 });
 
 describe('clampStart', () => {
@@ -49,6 +84,17 @@ describe('clampStart', () => {
         expect(clampStart(545)).toBe(540);
         expect(clampStart(99999)).toBe(1410);
     });
+
+    test.each([...COERCIBLE_NON_NUMBERS, ...NOT_A_NUMBER])(
+        'passes %s through rather than inventing a start from it',
+        (unusedName, value) => {
+            // `clampStart` bounds with `Math.min`/`Math.max`, which coerce just
+            // as `/` does — guarding the snap alone is not enough. Unguarded,
+            // `null` lands at midnight and `true` lands at 00:01, a start off the
+            // grid that no gesture could ever have produced.
+            expect(Number.isFinite(clampStart(value))).toBe(false);
+        }
+    );
 });
 
 describe('clampDuration', () => {
@@ -75,19 +121,20 @@ describe('clampDuration', () => {
         expect(clampDuration(545)).toBe(540);
     });
 
-    test('passes a non-finite duration through rather than inventing a slot', () => {
-        // `snapToSlot` turns a bad pointer value into `NaN`, and `boundDuration`
-        // deliberately returns a non-finite input unchanged rather than coercing
-        // it — a coercing clamp would silently book half an hour. The refusal is
-        // `settleDay`'s `assertSchedulable`, one guard in one place; what this
-        // layer must not do is manufacture a number on the way there.
+    test.each(COERCIBLE_NON_NUMBERS)(
+        'passes %s through rather than inventing a duration from it',
+        (unusedName, value) => {
+            // Arrange + Act
+            const duration = clampDuration(value);
 
-        // Arrange + Act + Assert
-        expect(snapToSlot(NaN)).toBeNaN();
-        expect(snapToSlot(undefined)).toBeNaN();
+            // Assert
+            expect(Number.isFinite(duration)).toBe(false);
+            expect(duration).toBe(value);
+        }
+    );
 
-        expect(clampDuration(NaN)).toBeNaN();
-        expect(clampDuration(undefined)).toBeNaN();
+    test.each(NOT_A_NUMBER)('leaves %s alone', (unusedName, value) => {
+        expect(Number.isFinite(clampDuration(value))).toBe(false);
     });
 });
 
