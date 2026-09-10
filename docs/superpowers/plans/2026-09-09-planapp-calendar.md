@@ -5291,7 +5291,7 @@ The right panel's supply. No new endpoint: `GET /api/projects` already returns
 each project's ready frontier with the next to-do in each sequence, which is
 exactly design decision 3's pool.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/client/src/hooks/usePool.test.js`:
 
@@ -5395,12 +5395,12 @@ describe('usePool', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=usePool`
 Expected: FAIL — `Cannot find module './usePool'`.
 
-- [ ] **Step 3: Write the hook**
+- [x] **Step 3: Write the hook**
 
 Create `src/client/src/hooks/usePool.js`:
 
@@ -5485,12 +5485,12 @@ const usePool = () => {
 export default usePool;
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=usePool`
 Expected: PASS, 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/hooks/usePool.js src/client/src/hooks/usePool.test.js
@@ -5513,6 +5513,10 @@ strictly inside the POST's commit window. Worth closing here if the page grows a
 refetch users can trigger; not worth it while the only refetch is the one a
 failed mutation issues. If anything later adds polling or refetch-on-focus,
 concurrent GETs stop being rare and this moves up the list.
+
+
+**Phase C is complete.** The calendar loads, mutates optimistically and rolls
+back, and the pool derives itself from the project frontier — with no UI at all.
 
 # Phase D — Static rendering
 
