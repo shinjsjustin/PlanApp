@@ -4807,6 +4807,45 @@ failure surfaces as a rolled-back mutation with a visible `actionError`. Note
 so it escapes synchronously as intended. Only throws reached through `mutate`
 have this problem.
 
+**4. `stateRef` must be folded forward eagerly, or fixes 2 and 3 do nothing.**
+
+*Found while implementing this task; the Step 3 block below still shows the
+superseded line, and defect 2 above still says "rebase onto
+`stateRef.current`" without saying how that ref has to be maintained.*
+
+`stateRef.current = state` during render lags any dispatch React has not
+rendered yet, and a response can beat that render. The reconcile then finds no
+temp day and **drops the day it just added** — worse than the defect it was
+meant to fix. Task 18's own `addDay` test catches it: `Expected length: 2 /
+Received length: 1`.
+
+Worse, the ingest guard Task 17 added never reaches `mutate`'s `try`. React
+runs the reducer during the render phase, so the throw's stack is
+
+```
+at calendarReducer (state/calendarReducer.js)
+at updateReducer (react-dom)
+at useCalendar … beginWork … renderRootSync
+```
+
+with `mutate` nowhere in it. Left alone, `assertIngestible` refusing an item
+takes the whole calendar down through the error boundary instead of raising
+`actionError`.
+
+Fold the ref forward through `calendarReducer` at dispatch time, behind a
+wrapper, so "current" means what the reducer has been told rather than what
+React has painted, and keep the raw dispatch to a single call site. Both
+effects follow: the reconcile sees the day it added, and the guard's throw
+lands in the caller's frame where `mutate` catches it. The reducer is pure, so
+running it twice per action is safe; the cost is once per gesture, not per
+frame. Evaluate the fold before the raw dispatch, so a throw leaves neither
+copy advanced.
+
+**Serializing mutations is not a substitute for any of this.** It shrinks the
+window and never closes it: `apply` still reads shared current state, and a
+render-assigned ref still lags the dispatch that just happened, whether or not
+another mutation is in flight.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `src/client/src/hooks/useCalendar.test.js`:
@@ -6152,7 +6191,25 @@ git commit -m "feat(calendar): draw a booking as a card in its day"
 - Test: `src/client/src/components/Calendar/DayColumn.test.js`
 - Test: `src/client/src/components/Calendar/DayStrip.test.js`
 
+**Gate the `+` on `hasUnsavedDay`.** `useCalendar` exposes it so the strip can
+disable the button while a day is still waiting for its id. Clicking `+` twice
+before the first POST lands is the interleaving Task 18's defect 1 describes,
+and the flag is the half of that fix which lives here. Disable the button and
+say why in a `title`, rather than dropping the second click silently.
+
 - [ ] **Step 1: Write the failing tests**
+
+**Gate the `+` on `hasUnsavedDay`.** `useCalendar` exposes it so the strip can
+disable the button while a day is still waiting for its id. Clicking `+` twice
+before the first POST lands is the interleaving Task 18's defect 1 describes,
+and the flag is the half of that fix which lives here. Disable the button and
+say why in a `title`, rather than dropping the second click silently.
+
+**Gate the `+` on `hasUnsavedDay`.** `useCalendar` exposes it so the strip can
+disable the button while a day is still waiting for its id. Clicking `+` twice
+before the first POST lands is the interleaving Task 18's defect 1 describes,
+and the flag is the half of that fix which lives here. Disable the button and
+say why in a `title`, rather than dropping the second click silently.
 
 `DayColumn.test.js`:
 
@@ -6818,6 +6875,12 @@ bookings created by `curl` show up in the right columns.
 - Modify: `src/client/src/components/Calendar/CalendarPage.js`
 - Modify: `src/client/src/components/Calendar/DayStrip.js`
 - Test: `src/client/src/components/Calendar/CalendarDragArea.test.js`
+
+**Wire the gate `useCalendar` exposes.** `hasUnsavedDay` exists precisely so
+this file can disable the drop targets while a day is waiting for its id —
+without it, defect 1 of Task 18 ships with only the backstop throw, which is
+the failure it describes: a drag that dies with nothing on screen. Read it
+from the context and gate the droppables on it.
 
 **A finding from the Task 17 review — fix it as you write this.**
 
