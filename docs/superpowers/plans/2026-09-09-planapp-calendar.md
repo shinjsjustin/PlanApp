@@ -5547,7 +5547,7 @@ Half the bargain currently holds: the calendar survives a pool failure. Lift
 `ProjectPanel` out of the ready branch so the other half does too. The strip
 stays behind the calendar's status, since there is nothing to draw without it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src/client/src/components/Calendar/CalendarPage.test.js`:
 
@@ -5625,12 +5625,12 @@ describe('CalendarPage', () => {
 Append to `src/client/src/routes.test.js` a case matching that file's existing
 style, asserting `/calendar` is present and wrapped in `ProtectedRoute`.
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `npm run test:client -- --testPathPattern="CalendarPage|routes"`
 Expected: FAIL — `Cannot find module './CalendarPage'`.
 
-- [ ] **Step 3: Stub the two panels**
+- [x] **Step 3: Stub the two panels**
 
 `CalendarPage` imports both, so they have to exist before it will even parse.
 Create them as one-line placeholders; Task 23 replaces `DayStrip` and Task 24
@@ -5652,7 +5652,7 @@ const ProjectPanel = () => <section className="calendar-panel" aria-label="Proje
 export default ProjectPanel;
 ```
 
-- [ ] **Step 4: Write the page**
+- [x] **Step 4: Write the page**
 
 Create `src/client/src/components/Calendar/CalendarPage.js`:
 
@@ -5738,7 +5738,7 @@ export default CalendarPage;
 
 Task 25 wraps `calendar-body` in `CalendarDragArea`; leave it as it is for now.
 
-- [ ] **Step 5: Add the route**
+- [x] **Step 5: Add the route**
 
 In `src/client/src/routes.js`, import the page and add it beside the other
 protected routes:
@@ -5751,7 +5751,7 @@ import CalendarPage from './components/Calendar/CalendarPage';
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
 ```
 
-- [ ] **Step 6: Add the nav link**
+- [x] **Step 6: Add the nav link**
 
 In `src/client/src/components/Navbar.js`, add a Calendar button to the profile
 panel, above the Dashboard one:
@@ -5765,7 +5765,7 @@ panel, above the Dashboard one:
                         </button>
 ```
 
-- [ ] **Step 7: Write the stylesheet**
+- [x] **Step 7: Write the stylesheet**
 
 Create `src/client/src/components/Styling/Calendar.css`. Every value comes from
 the `:root` tokens in `index.css` — no hardcoded colours, spacing or radii. The
@@ -5833,13 +5833,13 @@ Add the rest — hour lines, gutter labels, the bubble, the drag handle, the
 accordion card, the resize edges — in the same idiom as `Project.css` and
 `SequenceCard.css`, referencing tokens only.
 
-- [ ] **Step 8: Run the tests**
+- [x] **Step 8: Run the tests**
 
 Run: `npm run test:client -- --testPathPattern="CalendarPage|routes"`
 Expected: PASS. The two panels are still the Step 3 stubs; Tasks 21–24 fill them
 in.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/client/src/components/Calendar src/client/src/components/Styling/Calendar.css src/client/src/routes.js src/client/src/routes.test.js src/client/src/components/Navbar.js
@@ -5854,7 +5854,7 @@ git commit -m "feat(calendar): add the calendar page shell and route"
 - Create: `src/client/src/components/Calendar/DayGrid.js`
 - Test: `src/client/src/components/Calendar/DayGrid.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 import React from 'react';
@@ -5907,12 +5907,12 @@ describe('DayGrid', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=DayGrid`
 Expected: FAIL — `Cannot find module './DayGrid'`.
 
-- [ ] **Step 3: Write the component**
+- [x] **Step 3: Write the component**
 
 ```js
 import React from 'react';
@@ -5960,12 +5960,12 @@ const DayGrid = ({ children }) => (
 export default DayGrid;
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=DayGrid`
 Expected: PASS, 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/components/Calendar/DayGrid.js src/client/src/components/Calendar/DayGrid.test.js
@@ -5983,7 +5983,7 @@ git commit -m "feat(calendar): draw the 24-hour half-hour grid"
 Static for now: bubble, drag graphic, name. The graphic becomes a real handle in
 Task 27 and the resize edges arrive in Task 26.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 import React from 'react';
@@ -6081,12 +6081,12 @@ describe('DayItemCard', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=DayItemCard`
 Expected: FAIL — `Cannot find module './DayItemCard'`.
 
-- [ ] **Step 3: Write the component**
+- [x] **Step 3: Write the component**
 
 ```js
 import React from 'react';
@@ -6200,12 +6200,12 @@ const DayItemCard = ({ item, onComplete, onOpenSource, drag = null, resize = nul
 export default DayItemCard;
 ```
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Run: `npm run test:client -- --testPathPattern=DayItemCard`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/client/src/components/Calendar/DayItemCard.js src/client/src/components/Calendar/DayItemCard.test.js
@@ -6228,7 +6228,7 @@ before the first POST lands is the interleaving Task 18's defect 1 describes,
 and the flag is the half of that fix which lives here. Disable the button and
 say why in a `title`, rather than dropping the second click silently.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 **Gate the `+` on `hasUnsavedDay`.** `useCalendar` exposes it so the strip can
 disable the button while a day is still waiting for its id. Clicking `+` twice
@@ -6375,12 +6375,12 @@ describe('DayColumn', () => {
 `DayStrip.test.js` covers: days render left to right; the + calls `addDay`; an
 empty calendar shows an invitation rather than a bare strip.
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `npm run test:client -- --testPathPattern="DayColumn|DayStrip"`
 Expected: FAIL — `Cannot find module './DayColumn'`.
 
-- [ ] **Step 3: Write `DayColumn`**
+- [x] **Step 3: Write `DayColumn`**
 
 ```js
 import React, { useEffect, useRef, useState } from 'react';
@@ -6493,7 +6493,7 @@ export default DayColumn;
 
 `droppable` and `children` are the seams Task 25 uses; they are null until then.
 
-- [ ] **Step 4: Write `DayStrip`, replacing the placeholder**
+- [x] **Step 4: Write `DayStrip`, replacing the placeholder**
 
 ```js
 import React from 'react';
@@ -6556,12 +6556,12 @@ const DayStrip = ({ onOpenSource, columnFor = null }) => {
 export default DayStrip;
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npm run test:client -- --testPathPattern="DayColumn|DayStrip"`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/client/src/components/Calendar/DayColumn.js src/client/src/components/Calendar/DayStrip.js src/client/src/components/Calendar/DayColumn.test.js src/client/src/components/Calendar/DayStrip.test.js
@@ -6578,7 +6578,7 @@ git commit -m "feat(calendar): render the day strip with add and delete"
 - Replace: `src/client/src/components/Calendar/ProjectPanel.js` (the Task 20 placeholder)
 - Test: `src/client/src/components/Calendar/ProjectPanel.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 import React from 'react';
@@ -6692,12 +6692,12 @@ describe('ProjectPanel', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=ProjectPanel`
 Expected: FAIL — the placeholder renders an empty section.
 
-- [ ] **Step 3: Write `PanelTodoRow`**
+- [x] **Step 3: Write `PanelTodoRow`**
 
 ```js
 import React from 'react';
@@ -6742,7 +6742,7 @@ const PanelTodoRow = ({ todo, scheduled = null, drag = null }) => {
 export default PanelTodoRow;
 ```
 
-- [ ] **Step 4: Write `ProjectAccordionCard`**
+- [x] **Step 4: Write `ProjectAccordionCard`**
 
 ```js
 import React, { useState } from 'react';
@@ -6804,7 +6804,7 @@ const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) =>
 export default ProjectAccordionCard;
 ```
 
-- [ ] **Step 5: Write `ProjectPanel`, replacing the placeholder**
+- [x] **Step 5: Write `ProjectPanel`, replacing the placeholder**
 
 ```js
 import React from 'react';
@@ -6861,7 +6861,7 @@ const ProjectPanel = ({ pool, scheduledByTodoId, dragFor = null, overlay = null 
 export default ProjectPanel;
 ```
 
-- [ ] **Step 6: Feed the panel from the calendar**
+- [x] **Step 6: Feed the panel from the calendar**
 
 In `CalendarPage.js`, build the map and pass it down:
 
@@ -6880,12 +6880,12 @@ In `CalendarPage.js`, build the map and pass it down:
                         <ProjectPanel pool={pool} scheduledByTodoId={scheduledByTodoId} />
 ```
 
-- [ ] **Step 7: Run the tests**
+- [x] **Step 7: Run the tests**
 
 Run: `npm run test:client -- --testPathPattern="ProjectPanel|CalendarPage"`
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/client/src/components/Calendar
