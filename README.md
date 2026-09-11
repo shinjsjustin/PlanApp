@@ -13,6 +13,9 @@ Node/Express + MySQL on the back end, React on the front end.
 - **Canvas** — drag-and-drop sequence cards across layers, with connector edges
 - **Todos** — add, reorder, complete, and move todos between sequence cards
 - **Frontier view** — surfaces the next actionable work across projects
+- **Calendar** — a strip of 24-hour day columns beside a pool of every project's
+  startable to-dos; add and delete days, and see booked work in place
+  (drag-to-schedule arrives in a later pass)
 
 ## Tech Stack
 
@@ -93,7 +96,7 @@ src/
 ├── db/                # MySQL pool, schema, repositories, unit of work
 ├── lib/               # Validation, error helpers, serializers, frontier logic
 ├── middleware/        # JWT auth guard
-├── routes/            # auth, user, projects, sequences, layers, todos
+├── routes/            # auth, user, projects, sequences, layers, todos, calendar
 └── client/            # React app
 tests/
 ├── unit/              # Pure logic

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import { api } from '../lib/api';
+import { createTempId } from '../lib/tempIds';
 import { initialProjectState, projectReducer, snapshotOf } from '../state/projectReducer';
 import {
     actionErrorCleared,
-    createTempId,
     entityAdded,
     entityReconciled,
     entityRemoved,

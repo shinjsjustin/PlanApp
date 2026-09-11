@@ -42,6 +42,12 @@ const Navbar = () => {
                         {/* TODO: Add user name/email from decoded JWT if desired */}
                         <button
                             className="industrial-button"
+                            onClick={() => { navigate('/calendar'); setShowPanel(false); }}
+                        >
+                            Calendar
+                        </button>
+                        <button
+                            className="industrial-button"
                             onClick={() => { navigate('/dashboard'); setShowPanel(false); }}
                         >
                             Dashboard

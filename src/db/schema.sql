@@ -15,10 +15,17 @@
 --   ALTER TABLE `todos`     ADD COLUMN `completed_at` timestamp NULL DEFAULT NULL AFTER `status`;
 --   UPDATE `todos` SET `completed_at` = `updated_at` WHERE `status` = 'complete';
 --
+-- A database created before the calendar page is missing two tables. Add them in
+-- place rather than re-running this file: copy the two CREATE TABLE statements
+-- for `calendar_days` and `calendar_items` from the bottom of this file and run
+-- those alone.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `calendar_items`;
+DROP TABLE IF EXISTS `calendar_days`;
 DROP TABLE IF EXISTS `sequence_edges`;
 DROP TABLE IF EXISTS `todos`;
 DROP TABLE IF EXISTS `sequences`;
@@ -143,4 +150,51 @@ CREATE TABLE `sequence_edges` (
     FOREIGN KEY (`parent_id`) REFERENCES `sequences` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_sequence_edges_child`
     FOREIGN KEY (`child_id`) REFERENCES `sequences` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- calendar_days ---------------------------------------------------------
+-- A day is an ordered container spanning a full 24 hours, not a calendar date
+-- (design 2026-09-09, decision 2). `position` is dense 0..n-1, left to right.
+-- It hangs off the user rather than off a project: the calendar's whole purpose
+-- is drawing work from every project at once.
+CREATE TABLE `calendar_days` (
+  `id`         int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`   int unsigned NOT NULL,
+  `position`   int NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_calendar_days_owner_position` (`owner_id`, `position`),
+  CONSTRAINT `fk_calendar_days_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- calendar_items --------------------------------------------------------
+-- One booking: a to-do placed in a day at a start time for a duration, both in
+-- integer minutes from midnight rather than as clock strings.
+--
+-- `uq_calendar_items_todo` is load-bearing. It makes "a to-do is booked at most
+-- once" a fact of the database rather than a convention the client is trusted to
+-- keep, which is what lets a scheduled row in the pool be inert rather than
+-- needing to reason about N bookings (design decision 4).
+--
+-- Both foreign keys cascade on delete, and each one buys a behaviour:
+--   - day_id  — deleting a day releases its bookings and touches no to-do.
+--   - todo_id — deleting a to-do on the project page unschedules it here, with
+--               no cross-page bookkeeping.
+CREATE TABLE `calendar_items` (
+  `id`               int unsigned NOT NULL AUTO_INCREMENT,
+  `day_id`           int unsigned NOT NULL,
+  `todo_id`          int unsigned NOT NULL,
+  `start_minutes`    int NOT NULL,
+  `duration_minutes` int NOT NULL,
+  `created_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_calendar_items_todo` (`todo_id`),
+  KEY `idx_calendar_items_day_start` (`day_id`, `start_minutes`),
+  CONSTRAINT `fk_calendar_items_day`
+    FOREIGN KEY (`day_id`) REFERENCES `calendar_days` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_calendar_items_todo`
+    FOREIGN KEY (`todo_id`) REFERENCES `todos` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;

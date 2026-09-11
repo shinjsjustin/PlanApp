@@ -1,6 +1,8 @@
 'use strict';
 
 const {
+    toCalendarDay,
+    toCalendarItem,
     toEdge,
     toFrontierEntry,
     toLayer,
@@ -207,6 +209,121 @@ describe('serializers', () => {
             expect(toFrontierEntry({ sequence, nextTodo: null }, todos)).toMatchObject({
                 isStalled: false,
             });
+        });
+    });
+
+    describe('toCalendarDay', () => {
+        test('maps a row and keeps owner_id server-side', () => {
+            // Arrange
+            const row = {
+                id: 4,
+                owner_id: 12,
+                position: 2,
+                created_at: new Date('2026-09-09T08:00:00Z'),
+                updated_at: new Date('2026-09-09T08:00:00Z'),
+            };
+
+            // Act
+            const day = toCalendarDay(row);
+
+            // Assert
+            expect(day).toEqual({
+                id: 4,
+                position: 2,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            });
+            expect(day).not.toHaveProperty('ownerId');
+            expect(day).not.toHaveProperty('owner_id');
+        });
+    });
+
+    describe('toCalendarItem', () => {
+        test('carries the display data a day column needs', () => {
+            // Arrange
+            const row = {
+                id: 7,
+                day_id: 4,
+                todo_id: 12,
+                start_minutes: 540,
+                duration_minutes: 60,
+                text: 'Wire up the token refresh',
+                status: 'incomplete',
+                project_id: 2,
+                project_title: 'Auth rewrite',
+                sequence_id: 9,
+                sequence_title: 'Session handling',
+            };
+
+            // Act + Assert
+            expect(toCalendarItem(row)).toEqual({
+                id: 7,
+                dayId: 4,
+                todoId: 12,
+                text: 'Wire up the token refresh',
+                status: 'incomplete',
+                projectId: 2,
+                projectTitle: 'Auth rewrite',
+                sequenceId: 9,
+                sequenceTitle: 'Session handling',
+                startMinutes: 540,
+                durationMinutes: 60,
+            });
+        });
+
+        test('nulls the sequence for a to-do returned to the unorganized panel', () => {
+            // Arrange — the LEFT JOIN produces nulls rather than dropping the row
+            const row = {
+                id: 7,
+                day_id: 4,
+                todo_id: 12,
+                start_minutes: 0,
+                duration_minutes: 30,
+                text: 'Unfiled but still booked',
+                status: 'incomplete',
+                project_id: 2,
+                project_title: 'Auth rewrite',
+                sequence_id: null,
+                sequence_title: null,
+            };
+
+            // Act
+            const item = toCalendarItem(row);
+
+            // Assert
+            expect(item.sequenceId).toBeNull();
+            expect(item.sequenceTitle).toBeNull();
+            expect(item.text).toBe('Unfiled but still booked');
+            // Midnight is the one time a careless `|| fallback` would swallow.
+            expect(item.startMinutes).toBe(0);
+        });
+
+        test('still names itself once the to-do is ticked complete', () => {
+            // Arrange — the case the folded-in display data exists for: a
+            // completed to-do has left the pool, so the card can only draw its
+            // own name from the booking row.
+            const row = {
+                id: 7,
+                day_id: 4,
+                todo_id: 12,
+                start_minutes: 540,
+                duration_minutes: 60,
+                text: 'Wire up the token refresh',
+                status: 'complete',
+                project_id: 2,
+                project_title: 'Auth rewrite',
+                sequence_id: 9,
+                sequence_title: 'Session handling',
+            };
+
+            // Act
+            const item = toCalendarItem(row);
+
+            // Assert
+            expect(item.status).toBe('complete');
+            expect(item.text).toBe('Wire up the token refresh');
+            expect(item.projectTitle).toBe('Auth rewrite');
+            expect(item.sequenceTitle).toBe('Session handling');
         });
     });
 });

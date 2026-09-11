@@ -1,3 +1,4 @@
+import { createTempId } from '../lib/tempIds';
 import {
     PROJECT_STATUS,
     clientKeyOf,
@@ -7,7 +8,6 @@ import {
 } from './projectReducer';
 import {
     actionErrorCleared,
-    createTempId,
     entityAdded,
     entityReconciled,
     entityRemoved,

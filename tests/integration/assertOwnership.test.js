@@ -1,6 +1,7 @@
 'use strict';
 
 const assertOwnership = require('../../src/middleware/assertOwnership');
+const calendarDaysRepo = require('../../src/db/repositories/calendarDaysRepo');
 const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
@@ -100,5 +101,49 @@ describe('assertOwnership', () => {
 
         // Act + Assert
         await expect(assertOwnership(conn, 'widget', 1, ownerId)).rejects.toThrow(/widget/i);
+    });
+});
+
+describe('assertOwnership(calendarDay)', () => {
+    test('returns the day row for its owner', async () => {
+        // Arrange — someone else's day goes in first, so a query that forgot to
+        // filter by id would hand back theirs and fail here rather than pass by
+        // accident on a table this test happens to be alone in.
+        const conn = getConn();
+        const intruderId = await createTestUser(conn);
+        await calendarDaysRepo.create(conn, { ownerId: intruderId });
+        const ownerId = await createTestUser(conn);
+        const day = await calendarDaysRepo.create(conn, { ownerId });
+
+        // Act
+        const owned = await assertOwnership(conn, 'calendarDay', day.id, ownerId);
+
+        // Assert
+        expect(owned.id).toBe(day.id);
+        expect(owned.owner_id).toBe(ownerId);
+    });
+
+    test('forbids a day belonging to someone else', async () => {
+        // Arrange
+        const conn = getConn();
+        const mine = await createTestUser(conn);
+        const theirs = await createTestUser(conn);
+        const day = await calendarDaysRepo.create(conn, { ownerId: theirs });
+
+        // Act + Assert
+        await expect(assertOwnership(conn, 'calendarDay', day.id, mine)).rejects.toMatchObject({
+            status: 403,
+        });
+    });
+
+    test('reports 404 for a day that does not exist', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+
+        // Act + Assert
+        await expect(
+            assertOwnership(conn, 'calendarDay', 987654321, ownerId)
+        ).rejects.toMatchObject({ status: 404, message: 'Day not found' });
     });
 });
