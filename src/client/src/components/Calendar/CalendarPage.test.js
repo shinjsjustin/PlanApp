@@ -27,8 +27,14 @@ describe('CalendarPage', () => {
     });
 
     test('offers a retry when the calendar fails to load', async () => {
-        // Arrange — an empty strip and a failed load must not look alike
-        api.get.mockRejectedValue(new Error('Could not reach the server.'));
+        // Arrange — an empty strip and a failed load must not look alike.
+        // Only the calendar fails: the pool renders its own alert and retry
+        // button, so a blanket reject would match both panels here.
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.reject(new Error('Could not reach the server.'))
+                : Promise.resolve([])
+        );
 
         // Act
         renderPage();
@@ -39,11 +45,15 @@ describe('CalendarPage', () => {
     });
 
     test('retrying asks again', async () => {
-        // Arrange
-        api.get.mockRejectedValue(new Error('Offline'));
+        // Arrange — again, only the calendar fails, so one retry button exists
+        api.get.mockImplementation((path) =>
+            path === '/calendar' ? Promise.reject(new Error('Offline')) : Promise.resolve([])
+        );
         renderPage();
         await screen.findByRole('button', { name: 'Try again' });
-        api.get.mockResolvedValue({ days: [], items: [] });
+        api.get.mockImplementation((path) =>
+            path === '/calendar' ? Promise.resolve({ days: [], items: [] }) : Promise.resolve([])
+        );
 
         // Act
         await userEvent.click(screen.getByRole('button', { name: 'Try again' }));

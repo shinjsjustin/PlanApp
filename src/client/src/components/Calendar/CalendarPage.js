@@ -31,6 +31,15 @@ const CalendarPage = () => {
     const isLoading =
         state.status === CALENDAR_STATUS.idle || state.status === CALENDAR_STATUS.loading;
 
+    // Where each booked to-do went, for the pool's badges and its count. Built
+    // here because the pool has no idea what a day is.
+    const scheduledByTodoId = new Map(
+        state.items.map((item) => [
+            item.todoId,
+            { dayIndex: state.days.findIndex((day) => day.id === item.dayId) },
+        ])
+    );
+
     return (
         <main className="calendar-page">
             <header className="calendar-header">
@@ -71,7 +80,7 @@ const CalendarPage = () => {
                     </CalendarProvider>
                 )}
 
-                <ProjectPanel pool={pool} />
+                <ProjectPanel pool={pool} scheduledByTodoId={scheduledByTodoId} />
             </div>
         </main>
     );
