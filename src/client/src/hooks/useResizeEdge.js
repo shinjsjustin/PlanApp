@@ -69,7 +69,9 @@ export const rectFor = (item, { edge, deltaMinutes, floor }) => {
  * against — the *committed* booking, read once when the pointer goes down. Every
  * frame's delta is measured from that origin, so re-reading a rectangle the
  * previous frame already moved would read 30 minutes of travel as 60. It returns
- * null for a to-do with no booking to resize, and the press is then ignored.
+ * null when there is nothing this press may do — no booking to resize, or a
+ * strip the caller will not let a gesture commit against — and the press is then
+ * ignored.
  *
  * `onPreview(todoId, rect)` is called on every move — the caller runs the cascade
  * and renders it — and `onCommit(todoId, rect)` once on release. `onCancel` fires
@@ -156,10 +158,7 @@ const useResizeEdge = ({ resolve, onPreview, onCommit, onCancel }) => {
         return () => document.removeEventListener('keydown', onKeyDown);
     }, [gesture, onCancel]);
 
-    return {
-        activeEdge: gesture ? { todoId: gesture.todoId, edge: gesture.edge } : null,
-        startResize,
-    };
+    return { startResize };
 };
 
 export default useResizeEdge;

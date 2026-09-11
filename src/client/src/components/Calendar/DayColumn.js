@@ -21,9 +21,8 @@ import { useCalendarContext } from '../../state/CalendarContext';
 // A day has no name. Its header is where it sits and when it was made, which is
 // what a day *is* here — an ordered container, not a date (design decision 2).
 
-// `droppable` and `isDraggable` arrive together, from the one wrapper that has a
-// `DndContext` around it: a column that can be dropped into is a column whose
-// cards can be picked up. Both default off so the column renders bare in a test.
+// `droppable` comes from the one wrapper that has a `DndContext` around it, and
+// defaults off so the column renders bare in a test.
 //
 // `cardFor` draws one booking, and exists for the same reason `DayStrip`'s
 // `columnFor` does, one level down: a resizable card needs a hook per edge, and
@@ -36,7 +35,6 @@ const DayColumn = ({
     items,
     onOpenSource,
     droppable = null,
-    isDraggable = false,
     cardFor = null,
     children,
 }) => {
@@ -104,7 +102,6 @@ const DayColumn = ({
                                     item={item}
                                     onComplete={completeTodo}
                                     onOpenSource={onOpenSource}
-                                    isDraggable={isDraggable}
                                 />
                             )
                         )}

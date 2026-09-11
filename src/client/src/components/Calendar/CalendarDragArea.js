@@ -140,6 +140,12 @@ export const withStableTempDays = (previousPreview, next) => {
  * then would name an id the server has never heard of, and the save would die
  * mid-gesture with nothing on screen to explain it. The wait is one round trip,
  * the same one the strip's + waits out.
+ *
+ * A day that exists only in *this* drag's preview is the other half of the same
+ * question, and the gate covers both: the spill mints it as the pointer moves,
+ * so the committed schedule every handler settles against has never heard of it
+ * either, and `spillFrom` would throw straight out of the drop handler where no
+ * error boundary can catch it. Temporary ids are what both cases have in common.
  */
 const useDayDroppable = (dayId, registerGrid, isDisabled) => {
     const { isOver, setNodeRef } = useDroppable({
@@ -324,8 +330,17 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     // What the pressed edge is allowed to do, read off the committed schedule at
     // the moment of the press. A to-do with no booking has no rectangle to
     // resize, and the press is ignored.
+    //
+    // So is every press while a day is still waiting for its real id, which is
+    // the same gate the day columns apply to drops. A resize that spills leaves
+    // a temporary day behind it, and `handleResizeCommit` is reached from a raw
+    // `document` pointerup listener: a second edge dragged inside that round trip
+    // would hand `toBulkRequest` a previous state it refuses, and the throw would
+    // land further from a boundary than a drop's does.
     const resolveEdge = useCallback(
         (todoId, edge) => {
+            if (hasUnsavedDay) return null;
+
             const booked = committed.items.find((item) => item.todoId === todoId);
             if (!booked) return null;
 
@@ -334,7 +349,7 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
                 floor: edge === EDGE.top ? topEdgeFloor(committed, todoId) : NO_FLOOR,
             };
         },
-        [committed]
+        [committed, hasUnsavedDay]
     );
 
     const { startResize } = useResizeEdge({
@@ -372,7 +387,7 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
                             items={items}
                             onOpenSource={onOpenSource}
                             registerGrid={registerGrid}
-                            isDropDisabled={hasUnsavedDay}
+                            isDropDisabled={hasUnsavedDay || isTempId(day.id)}
                             resize={resize}
                         />
                     )}
@@ -416,7 +431,6 @@ const DroppableDayColumn = ({
             items={items}
             onOpenSource={onOpenSource}
             droppable={droppable}
-            isDraggable
             cardFor={(item) => (
                 <ResizableDayItemCard
                     key={item.todoId}
