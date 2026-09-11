@@ -30,11 +30,20 @@ const seedCalendarWork = async (page) => {
 const poolGrip = (page, text) =>
     page.locator('.panel-todo-row').filter({ hasText: text }).getByRole('button');
 
-/** Opens the calendar with one empty day ready to receive work. */
+/**
+ * Opens the calendar with one empty day the server has actually stored.
+ *
+ * The column paints from the optimistic dispatch, while `POST /calendar/days` is
+ * still in flight, and a day with no real id yet is not a drop target — so a
+ * drag started on the strength of the column alone lands on nothing. The × is
+ * the reconcile made visible: `DayColumn` renders it only once the day has been
+ * named, which is exactly when the drop targets come back.
+ */
 const openCalendarWithADay = async (page) => {
     await page.goto('/calendar');
     await page.getByRole('button', { name: 'Add the first day' }).click();
     await expect(page.getByRole('region', { name: 'Day 1' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete Day 1' })).toBeAttached();
 };
 
 test.describe('Calendar', () => {
@@ -73,7 +82,11 @@ test.describe('Calendar', () => {
             page.getByRole('region', { name: 'Day 2' }).getByText('Refresh tokens')
         ).toBeVisible();
 
-        // Act — reload, to prove it was saved rather than only drawn
+        // Act — let the save land, then reload to prove it was stored rather
+        // than only drawn. Both assertions above are satisfied by the optimistic
+        // dispatch, so navigating on them alone would tear down the `PUT` they
+        // are meant to be proving; the new day's × says the server has named it.
+        await expect(page.getByRole('button', { name: 'Delete Day 2' })).toBeAttached();
         await page.reload();
 
         // Assert
