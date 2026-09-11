@@ -46,6 +46,22 @@ const renderReady = async () => {
     return view;
 };
 
+/** What the frontier answers once to-do 7 has been ticked off. */
+const nextStepProjects = [
+    {
+        id: 2,
+        title: 'Auth rewrite',
+        frontier: [
+            {
+                sequenceId: 9,
+                sequenceTitle: 'Session handling',
+                nextTodo: { id: 8, text: 'Rotate the signing keys' },
+                isStalled: false,
+            },
+        ],
+    },
+];
+
 /** A promise the test settles by hand, so mid-flight state can be asserted. */
 const deferred = () => {
     let settle;
@@ -331,6 +347,102 @@ describe('usePool', () => {
         // Assert
         expect(result.current.refreshError).toBe('');
         expect(result.current.status).toBe(POOL_STATUS.ready);
+    });
+
+    test('a load answered behind a failing refresh still settles the panel', async () => {
+        // Arrange — the calendar beside the pool stays usable while the pool is
+        // still loading, so a tick can put a second read in the air before the
+        // first is back. `loading` is a state the user cannot leave, so the read
+        // that started it has to end it however the race turns out.
+        const opening = deferred();
+        const refill = deferred();
+        api.get.mockReturnValueOnce(opening.promise).mockReturnValueOnce(refill.promise);
+        const { result } = renderHook(() => usePool());
+        expect(result.current.status).toBe(POOL_STATUS.loading);
+
+        // Act
+        act(() => {
+            result.current.refresh();
+        });
+
+        await act(async () => {
+            opening.resolve(projects);
+            await opening.promise;
+        });
+        await act(async () => {
+            refill.reject(new Error('Could not reach the server.'));
+            await refill.promise.catch(() => {});
+        });
+
+        // Assert — the only answer anybody got is the one on screen, and the
+        // refill says what went wrong from above it.
+        expect(result.current.status).toBe(POOL_STATUS.ready);
+        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(result.current.refreshError).toBe('Could not reach the server.');
+    });
+
+    test('a load answered behind a refresh that won settles on the newer rows', async () => {
+        // Arrange — same race, the other outcome: the refill was asked after the
+        // completion committed, so its answer is the true one.
+        const opening = deferred();
+        const refill = deferred();
+        api.get.mockReturnValueOnce(opening.promise).mockReturnValueOnce(refill.promise);
+        const { result } = renderHook(() => usePool());
+
+        // Act
+        act(() => {
+            result.current.refresh();
+        });
+
+        await act(async () => {
+            refill.resolve(nextStepProjects);
+            await refill.promise;
+        });
+        await act(async () => {
+            opening.resolve(projects);
+            await opening.promise;
+        });
+
+        // Assert
+        expect(result.current.status).toBe(POOL_STATUS.ready);
+        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+        expect(result.current.refreshError).toBe('');
+    });
+
+    test('a first read that fails behind a refresh still reaches the retry', async () => {
+        // Arrange — neither read landed, so there is nothing on screen and the
+        // panel owes the user a way to ask again.
+        const opening = deferred();
+        const refill = deferred();
+        api.get.mockReturnValueOnce(opening.promise).mockReturnValueOnce(refill.promise);
+        const { result } = renderHook(() => usePool());
+
+        // Act
+        act(() => {
+            result.current.refresh();
+        });
+
+        await act(async () => {
+            refill.reject(new Error('Still offline.'));
+            await refill.promise.catch(() => {});
+        });
+        await act(async () => {
+            opening.reject(new Error('Could not reach the server.'));
+            await opening.promise.catch(() => {});
+        });
+
+        // Assert
+        expect(result.current.status).toBe(POOL_STATUS.error);
+        expect(result.current.loadError).toBe('Could not reach the server.');
+
+        // Act — and the retry still works from there.
+        api.get.mockResolvedValueOnce(projects);
+        await act(() => result.current.reload());
+
+        // Assert
+        expect(result.current.status).toBe(POOL_STATUS.ready);
+        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(result.current.refreshError).toBe('');
     });
 
     test('reload passes back through loading, since it only ever runs from the error screen', async () => {
