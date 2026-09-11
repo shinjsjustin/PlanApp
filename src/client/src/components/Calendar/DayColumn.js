@@ -24,6 +24,12 @@ import { useCalendarContext } from '../../state/CalendarContext';
 // `droppable` and `isDraggable` arrive together, from the one wrapper that has a
 // `DndContext` around it: a column that can be dropped into is a column whose
 // cards can be picked up. Both default off so the column renders bare in a test.
+//
+// `cardFor` draws one booking, and exists for the same reason `DayStrip`'s
+// `columnFor` does, one level down: a resizable card needs a hook per edge, and
+// hooks cannot be called from a loop in here. The wrapper that holds the
+// schedule supplies them; absent, the column draws a plain card. A caller that
+// takes the render over owns the key, as `columnFor`'s does.
 const DayColumn = ({
     day,
     index,
@@ -31,6 +37,7 @@ const DayColumn = ({
     onOpenSource,
     droppable = null,
     isDraggable = false,
+    cardFor = null,
     children,
 }) => {
     const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
@@ -88,15 +95,19 @@ const DayColumn = ({
             <div className="day-column-scroll" ref={scrollRef}>
                 <div ref={droppable?.setNodeRef} className={droppable?.className}>
                     <DayGrid>
-                        {items.map((item) => (
-                            <DayItemCard
-                                key={item.todoId}
-                                item={item}
-                                onComplete={completeTodo}
-                                onOpenSource={onOpenSource}
-                                isDraggable={isDraggable}
-                            />
-                        ))}
+                        {items.map((item) =>
+                            cardFor ? (
+                                cardFor(item)
+                            ) : (
+                                <DayItemCard
+                                    key={item.todoId}
+                                    item={item}
+                                    onComplete={completeTodo}
+                                    onOpenSource={onOpenSource}
+                                    isDraggable={isDraggable}
+                                />
+                            )
+                        )}
                         {children}
                     </DayGrid>
                 </div>

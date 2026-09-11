@@ -11,10 +11,18 @@ import {
 } from '@dnd-kit/core';
 
 import DayColumn from './DayColumn';
+import DayItemCard from './DayItemCard';
 import DayStrip from './DayStrip';
 import ProjectPanel from './ProjectPanel';
 import RemoveOverlay from './RemoveOverlay';
-import { DEFAULT_DURATION, moveItem, placeFromPool } from '../../lib/schedule';
+import useResizeEdge, { EDGE } from '../../hooks/useResizeEdge';
+import {
+    DEFAULT_DURATION,
+    moveItem,
+    placeFromPool,
+    resizeItem,
+    topEdgeFloor,
+} from '../../lib/schedule';
 import { clampStart, pxToMinutes } from '../../lib/scheduleGeometry';
 import { isTempId } from '../../lib/tempIds';
 import { scheduleOf } from '../../state/calendarReducer';
@@ -42,6 +50,9 @@ import { useCalendarContext } from '../../state/CalendarContext';
 // nothing, and Escape or a release over nothing leaves the calendar as it was.
 
 const POINTER_ACTIVATION_DISTANCE_PX = 5;
+
+/** The bottom edge has no floor: it may run past midnight, and the spill sorts it. */
+const NO_FLOOR = 0;
 
 const POINTER_SENSOR_OPTIONS = {
     activationConstraint: { distance: POINTER_ACTIVATION_DISTANCE_PX },
@@ -284,6 +295,42 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
         setPreview(null);
     }, []);
 
+    // The three below are the resize gesture's half of the same preview-then-commit
+    // shape. `resizeItem` runs `spillFrom` itself, so a booking dragged past
+    // midnight spills as the user drags and is saved as one bulk request.
+    const handleResizePreview = useCallback(
+        (todoId, rect) => {
+            setPreview((current) =>
+                withStableTempDays(current, resizeItem(scheduleOf(state), { todoId, ...rect }))
+            );
+        },
+        [state]
+    );
+
+    const handleResizeCommit = useCallback(
+        (todoId, rect) => {
+            setPreview(null);
+            commit(resizeItem(scheduleOf(state), { todoId, ...rect }));
+        },
+        [commit, state]
+    );
+
+    const handleResizeCancel = useCallback(() => setPreview(null), []);
+
+    // The schedule as it is *saved*, which is what the edges measure against —
+    // see `ResizableDayItemCard` for why it is not `shown`.
+    const committed = useMemo(() => scheduleOf(state), [state]);
+
+    const resize = useMemo(
+        () => ({
+            schedule: committed,
+            onPreview: handleResizePreview,
+            onCommit: handleResizeCommit,
+            onCancel: handleResizeCancel,
+        }),
+        [committed, handleResizeCancel, handleResizeCommit, handleResizePreview]
+    );
+
     const isDraggingBooking = active?.kind === DRAG_KIND.booking;
 
     return (
@@ -308,6 +355,7 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
                             onOpenSource={onOpenSource}
                             registerGrid={registerGrid}
                             isDropDisabled={hasUnsavedDay}
+                            resize={resize}
                         />
                     )}
                 />
@@ -331,8 +379,16 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     );
 };
 
-/** A day column with its droppable wired in. */
-const DroppableDayColumn = ({ day, index, items, onOpenSource, registerGrid, isDropDisabled }) => {
+/** A day column with its droppable wired in, and cards that can be resized. */
+const DroppableDayColumn = ({
+    day,
+    index,
+    items,
+    onOpenSource,
+    registerGrid,
+    isDropDisabled,
+    resize,
+}) => {
     const droppable = useDayDroppable(day.id, registerGrid, isDropDisabled);
 
     return (
@@ -343,6 +399,67 @@ const DroppableDayColumn = ({ day, index, items, onOpenSource, registerGrid, isD
             onOpenSource={onOpenSource}
             droppable={droppable}
             isDraggable
+            cardFor={(item) => (
+                <ResizableDayItemCard
+                    key={item.todoId}
+                    item={item}
+                    onOpenSource={onOpenSource}
+                    {...resize}
+                />
+            )}
+        />
+    );
+};
+
+/**
+ * One booking with both of its edges wired.
+ *
+ * A component rather than a callback, because each card needs a hook per edge
+ * and a hook cannot be called from a loop inside `DayColumn`.
+ *
+ * The hooks are handed the *committed* booking while the card draws the shown
+ * one, and that split is what keeps a resize from compounding: every frame's
+ * delta is measured from where the pointer went down, so feeding the hook a
+ * rectangle the previous frame already moved would read 30 minutes of travel as
+ * 60. The committed schedule does not change until release, so it is the stable
+ * thing to measure against — the same reason the drag previews from
+ * `scheduleOf(state)` rather than from the last preview.
+ */
+const ResizableDayItemCard = ({ item, schedule, onOpenSource, onPreview, onCommit, onCancel }) => {
+    const { completeTodo } = useCalendarContext();
+
+    // An item on screen that the saved schedule has never heard of is a pool row
+    // inside a drag preview. There is no booking to resize yet, so the edges are
+    // left off rather than pointed at one that does not exist.
+    const booked = schedule.items.find((other) => other.todoId === item.todoId) ?? null;
+
+    const handlePreview = useCallback(
+        (rect) => onPreview(item.todoId, rect),
+        [item.todoId, onPreview]
+    );
+
+    const handleCommit = useCallback(
+        (rect) => onCommit(item.todoId, rect),
+        [item.todoId, onCommit]
+    );
+
+    const edge = { item: booked ?? item, onPreview: handlePreview, onCommit: handleCommit, onCancel };
+
+    const top = useResizeEdge({
+        ...edge,
+        edge: EDGE.top,
+        floor: booked ? topEdgeFloor(schedule, item.todoId) : NO_FLOOR,
+    });
+
+    const bottom = useResizeEdge({ ...edge, edge: EDGE.bottom, floor: NO_FLOOR });
+
+    return (
+        <DayItemCard
+            item={item}
+            onComplete={completeTodo}
+            onOpenSource={onOpenSource}
+            isDraggable
+            resize={booked ? { top, bottom } : null}
         />
     );
 };
