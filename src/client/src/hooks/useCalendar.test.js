@@ -453,6 +453,84 @@ describe('useCalendar loads overtaking mutations', () => {
     });
 });
 
+describe('useCalendar overlapping writes', () => {
+    test('keeps the later gesture when an earlier save answers after it', async () => {
+        // Arrange — two gestures inside one round trip, the second computed from
+        // what the first put on screen. This is the page's own primary flow: a
+        // booking dropped into a day and then resized before the `PUT` lands.
+        const { result } = await renderReady();
+        const firstPut = deferred();
+        const secondPut = deferred();
+
+        api.put.mockReturnValueOnce(firstPut.promise).mockReturnValueOnce(secondPut.promise);
+
+        const moved = {
+            days: calendar.days,
+            items: [{ ...calendar.items[0], startMinutes: 600 }],
+        };
+        const grown = {
+            days: calendar.days,
+            items: [{ ...calendar.items[0], startMinutes: 600, durationMinutes: 180 }],
+        };
+
+        let firstSave;
+        let secondSave;
+
+        act(() => {
+            firstSave = result.current.commit(moved);
+        });
+        act(() => {
+            secondSave = result.current.commit(grown);
+        });
+
+        // Act — the answers come back in the other order, which is what makes
+        // the wind-back durable rather than a flicker.
+        await act(async () => {
+            secondPut.resolve(grown);
+            await secondSave;
+        });
+        await act(async () => {
+            firstPut.resolve(moved);
+            await firstSave;
+        });
+
+        // Assert — the resize stands.
+        expect(result.current.state.items[0].durationMinutes).toBe(180);
+    });
+
+    test('does not put a booking back that was unscheduled while the save was out', async () => {
+        // Arrange — the same window, but the second gesture is a `DELETE` that
+        // installs no answer of its own, so an older `PUT` writing over it would
+        // leave work on screen the server no longer has.
+        const { result } = await renderReady();
+        const pendingPut = deferred();
+
+        api.put.mockReturnValue(pendingPut.promise);
+        api.delete.mockResolvedValue({});
+
+        const moved = {
+            days: calendar.days,
+            items: [{ ...calendar.items[0], startMinutes: 600 }],
+        };
+
+        let saving;
+        act(() => {
+            saving = result.current.commit(moved);
+        });
+
+        await act(() => result.current.unschedule(7));
+
+        // Act
+        await act(async () => {
+            pendingPut.resolve(moved);
+            await saving;
+        });
+
+        // Assert
+        expect(result.current.state.items).toEqual([]);
+    });
+});
+
 describe('useCalendar resync', () => {
     test('re-keys the day when the load it raced failed rather than succeeded', async () => {
         // Arrange — `addDay` out, and a load that fails while it is out. A

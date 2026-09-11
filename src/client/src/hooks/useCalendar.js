@@ -293,7 +293,19 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
                 // The server answers with the whole schedule it stored, which
                 // replaces the optimistic one outright rather than being merged
                 // into it — the request was atomic, so its result is too.
-                onSuccess: (current, saved) => saved,
+                //
+                // But only while this write is still the last thing that
+                // happened. Two gestures inside one round trip — book a row,
+                // then drag its edge, or drag it back to the pool — put a second
+                // write on the wire before the first has answered, and the first
+                // answers about a strip the second has already moved past.
+                // Installing it winds the calendar back, and if the two answers
+                // arrive out of order it stays wound back until a reload. A
+                // whole-schedule answer is the truth only for the schedule it
+                // was asked about, which is the same reason the rollback path
+                // below stops treating its snapshot as an undo.
+                onSuccess: (current, saved) =>
+                    hasSettledSince(current, next) ? current : saved,
             });
         },
         [mutate]
