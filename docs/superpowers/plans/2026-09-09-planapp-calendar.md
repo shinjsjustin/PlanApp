@@ -120,7 +120,7 @@ Tests live beside each client module as `<name>.test.js`, matching the existing 
 
 | File | Change |
 |---|---|
-| `src/client/src/state/projectActions.js` | Import temp-id helpers from `lib/tempIds` and re-export |
+| `src/client/src/state/projectActions.js` | Drop the temp-id helpers; callers import them from `lib/tempIds` (see Task 10) |
 | `src/client/src/routes.js` | `/calendar` route |
 | `src/client/src/components/Navbar.js` | Calendar link |
 | `src/client/src/components/Project/ProjectPage.js` | Read `?sequence=` and pass a highlight down |
@@ -2785,6 +2785,12 @@ import { createTempId, isTempId } from '../lib/tempIds';
 // calendar needed them too, and every existing caller imports them from here.
 export { createTempId, isTempId };
 ```
+
+*Superseded at the review gate: the re-export was removed, so `lib/tempIds.js`
+is the single home for these helpers. The two callers that went through
+`projectActions` — `useProjectGraph.js` and `projectReducer.test.js` — import
+from `lib/tempIds` directly, and `projectActions.js` neither imports nor
+re-exports them.*
 
 - [x] **Step 5: Run the client suite**
 
