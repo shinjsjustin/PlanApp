@@ -571,6 +571,30 @@ button.day-item-name:hover {
     border: 1px solid var(--border);
 }
 
+/* ─── The bin ────────────────────────────────────────────────────────────── */
+
+/* Pins to `.calendar-panel`, which is already positioned. Opaque rather than
+ * translucent: while it is up the rows underneath are not drop targets, and
+ * letting them show through would invite aiming at one. */
+.remove-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--space-lg);
+    border: 2px dashed var(--color-danger);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--color-danger);
+}
+
+.remove-overlay--over {
+    background: var(--color-warning-light);
+}
+
 /* ─── The thing under the pointer ────────────────────────────────────────── */
 
 /* Deliberately slight. The preview in the day says where the drop lands; this
