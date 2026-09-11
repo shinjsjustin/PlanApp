@@ -64,22 +64,22 @@ const usePool = () => {
     const [loadError, setLoadError] = useState('');
 
     /**
-     * Every call — the mount and the manual "Try again" alike — resets to
-     * loading rather than refetching quietly behind the rows already on
-     * screen. That is deliberate for both callers this hook has today: the
-     * mount has nothing to preserve, and `reload` is only ever wired to the
-     * retry button on the error screen, which has nothing rendered either.
-     * `useCalendar` splits its `load` from a silent `fetchCalendar` because a
-     * mutation there can resync a schedule that is still on screen; `usePool`
-     * has no such caller yet, and does not need the split until something
-     * calls `reload` from a `ready` pool.
+     * Reads the frontier and installs it, saying nothing about how the panel
+     * should look while that happens. Both outcomes set a terminal status of
+     * their own, so this is the whole of a load bar its opening move — the same
+     * split `useCalendar` makes between `fetchCalendar` and `load`, and for the
+     * same reason: a refetch behind rows that are already on screen must not
+     * unmount them.
+     *
+     * A failure still lands on the error status, which is the honest answer for
+     * both callers: what is on screen has stopped being what the server says,
+     * and the retry is how it comes back. It is the pool's own panel either way,
+     * so the calendar beside it is untouched.
      */
-    const load = useCallback(async () => {
-        setStatus(POOL_STATUS.loading);
-        setLoadError('');
-
+    const fetchPool = useCallback(async () => {
         try {
             setProjects(toPoolProjects(await api.get('/projects')));
+            setLoadError('');
             setStatus(POOL_STATUS.ready);
         } catch (err) {
             setLoadError(messageOf(err));
@@ -87,11 +87,23 @@ const usePool = () => {
         }
     }, []);
 
+    /**
+     * The opening read, and the retry button's. This is the one that empties the
+     * panel to its loading state first, because on this path there is either
+     * nothing on screen yet or nothing on screen worth keeping.
+     */
+    const load = useCallback(async () => {
+        setStatus(POOL_STATUS.loading);
+        setLoadError('');
+
+        await fetchPool();
+    }, [fetchPool]);
+
     useEffect(() => {
         load();
     }, [load]);
 
-    return { projects, status, loadError, reload: load };
+    return { projects, status, loadError, reload: load, refresh: fetchPool };
 };
 
 export default usePool;

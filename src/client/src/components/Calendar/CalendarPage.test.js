@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -170,6 +170,73 @@ describe('CalendarPage', () => {
             expect(container.querySelector('.pool-card-count')).toHaveTextContent('0')
         );
         expect(container.querySelector('.panel-todo-badge')).toHaveTextContent('Day 1');
+    });
+
+    test('ticking a booking refills the pool with the sequence next step', async () => {
+        // Arrange — design section “The bubble”: completing work is how the pool
+        // refills, because the pool is each ready sequence's next step.
+        const frontierOf = (nextTodo) => [
+            {
+                id: 2,
+                title: 'Auth rewrite',
+                frontier: [
+                    {
+                        sequenceId: 9,
+                        sequenceTitle: 'Session handling',
+                        isStalled: false,
+                        nextTodo,
+                    },
+                ],
+            },
+        ];
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.resolve({
+                      days: [{ id: 1, position: 0 }],
+                      items: [
+                          {
+                              id: 40,
+                              dayId: 1,
+                              todoId: 7,
+                              text: 'Wire up the token refresh',
+                              status: 'incomplete',
+                              projectId: 2,
+                              projectTitle: 'Auth rewrite',
+                              sequenceId: 9,
+                              sequenceTitle: 'Session handling',
+                              startMinutes: 540,
+                              durationMinutes: 60,
+                          },
+                      ],
+                  })
+                : Promise.resolve(frontierOf({ id: 7, text: 'Wire up the token refresh' }))
+        );
+        api.patch.mockResolvedValue({ id: 7, status: 'complete' });
+
+        const { container } = renderPage();
+        await screen.findByRole('region', { name: 'Days' });
+        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
+        expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
+
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.reject(new Error('The calendar is not asked again.'))
+                : Promise.resolve(frontierOf({ id: 8, text: 'Rotate the signing keys' }))
+        );
+
+        // Act
+        await userEvent.click(
+            screen.getByRole('button', { name: 'Complete “Wire up the token refresh”' })
+        );
+
+        // Assert — the finished to-do is gone from the panel, the next step is
+        // there in its place and counted. Reading the rows at all is itself the
+        // check that the card never closed underneath the pointer: a refresh
+        // that dropped the pool to loading would unmount it and fold it back up.
+        const panel = within(screen.getByRole('region', { name: 'Projects' }));
+        expect(await panel.findByText('Rotate the signing keys')).toBeInTheDocument();
+        expect(panel.queryByText('Wire up the token refresh')).not.toBeInTheDocument();
+        expect(container.querySelector('.pool-card-count')).toHaveTextContent('1');
     });
 
     test('a booking whose day is not in the payload reads as unscheduled', async () => {

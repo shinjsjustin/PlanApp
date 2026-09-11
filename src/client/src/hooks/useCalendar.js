@@ -74,7 +74,14 @@ const reconcileDay = (schedule, tempId, saved) => ({
     ),
 });
 
-const useCalendar = () => {
+/**
+ * `onTodoCompleted` is called after a completion the server accepted, and is how
+ * the pool refills: the frontier moves on when work is ticked off, and only the
+ * page above both hooks knows they are on screen together. It is optional
+ * because the hook is complete without it — a calendar with no pool beside it
+ * still ticks bookings off.
+ */
+const useCalendar = ({ onTodoCompleted = null } = {}) => {
     const [state, rawDispatch] = useReducer(calendarReducer, initialCalendarState);
 
     // The state as the reducer has already been told to make it.
@@ -158,6 +165,11 @@ const useCalendar = () => {
      * schedule into what it should look like at once; `onSuccess` turns the
      * server's answer into what it should look like afterwards, and is omitted
      * when the optimistic change was already the final one.
+     *
+     * Resolves to whether the write landed, for the caller that has something to
+     * do about it beyond the schedule itself. A mutation overtaken by a load
+     * counts as landed: it declines to install its own answer, but the server
+     * took the write.
      */
     const mutate = useCallback(async ({ apply, send, onSuccess }) => {
         const previous = scheduleOf(stateRef.current);
@@ -199,7 +211,7 @@ const useCalendar = () => {
             // back, and `addDay`'s reconcile would rewrite a strip it can no
             // longer find its own day in. The write happened either way — the
             // refetch reflects it, or the next one will.
-            if (loadGenerationRef.current !== generation) return;
+            if (loadGenerationRef.current !== generation) return true;
 
             // Rebased on the schedule as it is *now*, not on the optimistic one
             // this mutation applied before the await. The two differ whenever
@@ -210,6 +222,8 @@ const useCalendar = () => {
             if (onSuccess) {
                 dispatch(scheduleReplaced(onSuccess(scheduleOf(stateRef.current), saved)));
             }
+
+            return true;
         } catch (err) {
             // `previous` is an undo only while this mutation's change is still
             // the last thing that happened. Once something else has settled —
@@ -244,10 +258,12 @@ const useCalendar = () => {
                 // point nothing on screen is trustworthy anyway.
                 fetchCalendar();
 
-                return;
+                return false;
             }
 
             dispatch(rolledBack(previous, messageOf(err)));
+
+            return false;
         }
     }, [dispatch, fetchCalendar]);
 
@@ -332,10 +348,15 @@ const useCalendar = () => {
      *
      * The same `PATCH /api/todos/:id` the project page sends, so a to-do
      * completed here is completed everywhere.
+     *
+     * A completion the server took also moves the frontier: the sequence this
+     * to-do belonged to now offers its next step, so the pool is asked to read
+     * itself again (design section “The bubble”). Only on success — a rolled-back
+     * completion changed nothing to refill from.
      */
     const completeTodo = useCallback(
-        (todoId) =>
-            mutate({
+        async (todoId) => {
+            const didComplete = await mutate({
                 apply: (previous) => ({
                     ...previous,
                     items: previous.items.map((item) =>
@@ -343,8 +364,11 @@ const useCalendar = () => {
                     ),
                 }),
                 send: () => api.patch(`/todos/${todoId}`, { status: TODO_COMPLETE }),
-            }),
-        [mutate]
+            });
+
+            if (didComplete) await onTodoCompleted?.();
+        },
+        [mutate, onTodoCompleted]
     );
 
     const dismissActionError = useCallback(() => dispatch(actionErrorCleared()), [dispatch]);

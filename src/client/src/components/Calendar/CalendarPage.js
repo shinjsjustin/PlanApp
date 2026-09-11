@@ -23,8 +23,12 @@ import '../Styling/Calendar.css';
 // strip, which would be indistinguishable from a calendar with no days in it.
 
 const CalendarPage = () => {
-    const calendar = useCalendar();
+    // The two hooks meet here and nowhere else: neither knows the other exists,
+    // and the page is what tells the pool that a booking was ticked off — the
+    // frontier has moved on, so the sequence's next step is what belongs in the
+    // panel now (design section “The bubble”).
     const pool = usePool();
+    const calendar = useCalendar({ onTodoCompleted: pool.refresh });
 
     const { state, reload, dismissActionError } = calendar;
 

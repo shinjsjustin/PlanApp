@@ -49,10 +49,10 @@ const deferred = () => {
 };
 
 /** Renders the hook with the calendar already loaded. */
-const renderReady = async () => {
+const renderReady = async (options) => {
     api.get.mockResolvedValue(calendar);
 
-    const view = renderHook(() => useCalendar());
+    const view = renderHook(() => useCalendar(options));
     await waitFor(() => expect(view.result.current.state.status).toBe(CALENDAR_STATUS.ready));
 
     return view;
@@ -249,6 +249,36 @@ describe('useCalendar.completeTodo', () => {
         expect(api.patch).toHaveBeenCalledWith('/todos/7', { status: 'complete' });
         expect(result.current.state.items[0].status).toBe('complete');
         expect(result.current.state.items[0].startMinutes).toBe(540);
+    });
+
+    test('tells the page to refill the pool once the server has taken it', async () => {
+        // Arrange — the frontier moves on when work is ticked off, so the
+        // sequence's next step is what belongs in the panel afterwards.
+        const onTodoCompleted = jest.fn();
+        const { result } = await renderReady({ onTodoCompleted });
+        api.patch.mockResolvedValue({ id: 7, status: 'complete' });
+
+        // Act
+        await act(() => result.current.completeTodo(7));
+
+        // Assert
+        expect(onTodoCompleted).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not refill the pool when the completion was rolled back', async () => {
+        // Arrange — nothing was completed, so the frontier has not moved and
+        // there is nothing to read again.
+        const onTodoCompleted = jest.fn();
+        const { result } = await renderReady({ onTodoCompleted });
+        api.patch.mockRejectedValue(new ApiError('Could not complete the to-do.', 500));
+
+        // Act
+        await act(() => result.current.completeTodo(7));
+
+        // Assert — the rollback and the message are untouched by the refill.
+        expect(onTodoCompleted).not.toHaveBeenCalled();
+        expect(result.current.state.items[0].status).toBe('incomplete');
+        expect(result.current.state.actionError).toBe('Could not complete the to-do.');
     });
 });
 

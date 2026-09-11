@@ -195,6 +195,60 @@ describe('usePool', () => {
         expect(result.current.loadError).toBe('');
     });
 
+    test('refresh re-reads behind the rows already on screen', async () => {
+        // Arrange — a completed booking refills the pool, and that must not
+        // unmount the rows: dropping to loading would collapse every open
+        // accordion card over a read the user did not ask to wait for.
+        const { promise, resolve } = deferred();
+        const { result } = await renderReady();
+        api.get.mockReturnValueOnce(promise);
+
+        // Act
+        act(() => {
+            result.current.refresh();
+        });
+
+        // Assert — still ready, still listing what it listed, mid-flight.
+        expect(result.current.status).toBe(POOL_STATUS.ready);
+        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+
+        // Act — and the answer replaces the rows without a reload.
+        await act(async () => {
+            resolve([
+                {
+                    id: 2,
+                    title: 'Auth rewrite',
+                    frontier: [
+                        {
+                            sequenceId: 9,
+                            sequenceTitle: 'Session handling',
+                            nextTodo: { id: 8, text: 'Rotate the signing keys' },
+                            isStalled: false,
+                        },
+                    ],
+                },
+            ]);
+            await promise;
+        });
+
+        // Assert
+        expect(result.current.status).toBe(POOL_STATUS.ready);
+        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+    });
+
+    test('a failed refresh surfaces on the pool rather than passing silently', async () => {
+        // Arrange
+        const { result } = await renderReady();
+        api.get.mockRejectedValueOnce(new Error('Could not reach the server.'));
+
+        // Act
+        await act(() => result.current.refresh());
+
+        // Assert
+        await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.error));
+        expect(result.current.loadError).toBe('Could not reach the server.');
+    });
+
     test('reload passes back through loading, since it only ever runs from the error screen', async () => {
         // Arrange — the retry button is the only thing that calls `reload`
         // today, and it is only reachable from the error screen, which has no
