@@ -103,8 +103,21 @@ test.describe('Calendar', () => {
         const column = page.getByRole('region', { name: 'Day 1' });
 
         await page.getByRole('button', { name: /Auth rewrite/ }).click();
+
+        // The card paints from the optimistic dispatch, so it says nothing about
+        // whether the booking exists on the server yet — and the `DELETE` below
+        // would be answered `Booking not found` if it overtook the `PUT` that
+        // creates it. A booking has no × of its own to wait on the way a day
+        // does, so the response itself is the signal.
+        const booked = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'PUT' &&
+                response.url().includes('/calendar/items')
+        );
+
         await dragOnto(page, poolGrip(page, 'Refresh tokens'), column);
         await expect(column.getByText('Refresh tokens')).toBeVisible();
+        await booked;
 
         // Act
         await dragOnto(

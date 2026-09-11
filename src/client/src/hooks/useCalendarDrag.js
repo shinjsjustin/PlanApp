@@ -9,19 +9,19 @@ import { useDraggable } from '@dnd-kit/core';
 // cycle.
 
 export const usePoolDrag = (todo) => {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    const { attributes, listeners, setNodeRef } = useDraggable({
         id: `pool-${todo.todoId}`,
         data: { poolTodo: todo },
     });
 
-    return { setNodeRef, handleProps: { ...attributes, ...listeners }, isDragging };
+    return { setNodeRef, handleProps: { ...attributes, ...listeners } };
 };
 
 export const useBookingDrag = (todoId) => {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    const { attributes, listeners, setNodeRef } = useDraggable({
         id: `booking-${todoId}`,
         data: { bookingTodoId: todoId },
     });
 
-    return { setNodeRef, handleProps: { ...attributes, ...listeners }, isDragging };
+    return { setNodeRef, handleProps: { ...attributes, ...listeners } };
 };

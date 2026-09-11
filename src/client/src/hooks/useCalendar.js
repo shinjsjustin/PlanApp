@@ -75,6 +75,32 @@ const reconcileDay = (schedule, tempId, saved) => ({
 });
 
 /**
+ * The same swap for the days a *spill* invented, which is the one thing a
+ * gesture's answer carries that nothing else can supply.
+ *
+ * A booking dragged past midnight draws its new day at once under a temporary
+ * id, and only the reply to the write that stored it knows the real one. So this
+ * runs even when that reply is otherwise too old to install: dropping it whole
+ * would leave a day in the strip the server has never heard of, and
+ * `hasUnsavedDay` true for good, which disables every gesture on the page.
+ *
+ * Paired from the end of both lists rather than by position across them. A day
+ * is only ever appended — `spillFrom` mints them in order, and the server lists
+ * the rows it just created last — so the trailing ones correspond however many
+ * real days sit in front of them, including any a `deleteDay` removed in the
+ * meantime.
+ */
+const reconcileSpilledDays = (schedule, optimistic, saved) => {
+    const invented = optimistic.days.filter((day) => isTempId(day.id));
+    const created = saved.days.slice(saved.days.length - invented.length);
+
+    return created.reduce(
+        (settled, day, index) => reconcileDay(settled, invented[index].id, day),
+        schedule
+    );
+};
+
+/**
  * `onTodoCompleted` is called after a completion the server accepted, and is how
  * the pool refills: the frontier moves on when work is ticked off, and only the
  * page above both hooks knows they are on screen together. It is optional
@@ -304,8 +330,15 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
                 // whole-schedule answer is the truth only for the schedule it
                 // was asked about, which is the same reason the rollback path
                 // below stops treating its snapshot as an undo.
+                //
+                // Too old to install is not the same as worthless, though. The
+                // ids of the days this write appended exist nowhere else, so
+                // they are carried across onto whatever has settled since rather
+                // than thrown away with the rest of the answer.
                 onSuccess: (current, saved) =>
-                    hasSettledSince(current, next) ? current : saved,
+                    hasSettledSince(current, next)
+                        ? reconcileSpilledDays(current, next, saved)
+                        : saved,
             });
         },
         [mutate]

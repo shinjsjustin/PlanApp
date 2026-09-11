@@ -154,6 +154,7 @@
 .calendar-panel {
     flex: 0 0 var(--cal-panel-width);
     position: relative; /* the remove overlay pins to this */
+    overflow-y: auto;
 }
 
 /* A calendar with no days at all is a prompt, not an empty row: the + on its
