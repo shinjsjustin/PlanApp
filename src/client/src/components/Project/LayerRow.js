@@ -27,8 +27,16 @@ import { useActiveDragSequence } from '../../state/DragContext';
 // does not have to group them first. `activeSequenceId` passes straight through:
 // the row has no opinion about which card is in operation, but it is the only
 // thing standing between the canvas that decides and the card that draws it.
+// `highlightedSequenceId` — the card arrived at from the calendar — rides the
+// same route for the same reason.
 
-const LayerRow = ({ layer, sequences, todos, activeSequenceId = null }) => {
+const LayerRow = ({
+    layer,
+    sequences,
+    todos,
+    activeSequenceId = null,
+    highlightedSequenceId = null,
+}) => {
     const { addLayer, addSequence, deleteLayer, renameLayer } = useProjectMutations();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -112,6 +120,7 @@ const LayerRow = ({ layer, sequences, todos, activeSequenceId = null }) => {
                                         sequence={sequence}
                                         todos={todos}
                                         isActive={sequence.id === activeSequenceId}
+                                        highlightedSequenceId={highlightedSequenceId}
                                         index={index}
                                     />
                                 ))}

@@ -640,3 +640,21 @@
     opacity: 0.5;
     cursor: grabbing;
 }
+
+/* Arriving from the calendar: a card says "here I am" and then stops. Two
+   pulses is enough to catch the eye without becoming decoration. */
+@keyframes sequence-card-spotlight {
+    0%, 100% { box-shadow: var(--shadow-sm); }
+    50%      { box-shadow: 0 0 0 3px var(--color-accent); }
+}
+
+.sequence-card--spotlit {
+    animation: sequence-card-spotlight 1s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sequence-card--spotlit {
+        animation: none;
+        box-shadow: 0 0 0 3px var(--color-accent);
+    }
+}

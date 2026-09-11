@@ -39,7 +39,7 @@ const CONNECT_STATE = {
     dimmed: 'dimmed',
 };
 
-const Canvas = () => {
+const Canvas = ({ highlightedSequenceId = null }) => {
     const { state } = useProjectContext();
     const { addLayer, toggleEdge } = useProjectMutations();
     const { selectedIds, isConnecting, toggleParent, clear } = useConnectSelection();
@@ -205,6 +205,7 @@ const Canvas = () => {
                             sequences={sequences}
                             todos={todos}
                             activeSequenceId={activeId}
+                            highlightedSequenceId={highlightedSequenceId}
                         />
                     ))}
                 </div>

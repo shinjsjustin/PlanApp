@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import CalendarDragArea from './CalendarDragArea';
 import ProjectPanel from './ProjectPanel';
@@ -23,6 +23,8 @@ import '../Styling/Calendar.css';
 // strip, which would be indistinguishable from a calendar with no days in it.
 
 const CalendarPage = () => {
+    const navigate = useNavigate();
+
     // The two hooks meet here and nowhere else: neither knows the other exists,
     // and the page is what tells the pool that a booking was ticked off — the
     // frontier has moved on, so the sequence's next step is what belongs in the
@@ -46,6 +48,26 @@ const CalendarPage = () => {
             return next; // a new Set every time; never mutate the old one
         });
     }, []);
+
+    /**
+     * "Where did this come from?" — the project, and the sequence within it.
+     *
+     * Both are read off the booking itself rather than looked up in the pool: a
+     * completed to-do has left the frontier and is no longer in the pool, and it
+     * is exactly then that a user is most likely to ask.
+     *
+     * A booking whose to-do has since been returned to the unorganized panel has
+     * no sequence to point at, so it simply arrives at the project.
+     */
+    const openSource = useCallback(
+        (item) =>
+            navigate(
+                item.sequenceId
+                    ? `/projects/${item.projectId}?sequence=${item.sequenceId}`
+                    : `/projects/${item.projectId}`
+            ),
+        [navigate]
+    );
 
     const isLoading =
         state.status === CALENDAR_STATUS.idle || state.status === CALENDAR_STATUS.loading;
@@ -83,6 +105,7 @@ const CalendarPage = () => {
                 <CalendarProvider value={calendar}>
                     <CalendarDragArea
                         pool={pool}
+                        onOpenSource={openSource}
                         expandedProjectIds={expandedProjectIds}
                         onToggleProject={toggleProject}
                     />

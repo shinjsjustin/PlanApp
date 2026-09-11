@@ -69,7 +69,13 @@ const INTERACTIVE_WITHIN_CARD = [
     '.confirm-dialog',
 ].join(', ');
 
-const SequenceCard = ({ sequence, todos, isActive = false, index }) => {
+const SequenceCard = ({
+    sequence,
+    todos,
+    isActive = false,
+    highlightedSequenceId = null,
+    index,
+}) => {
     const {
         deleteSequence,
         deleteTodo,
@@ -137,6 +143,11 @@ const SequenceCard = ({ sequence, todos, isActive = false, index }) => {
     const isCollapsed = Boolean(sequence.isCollapsed);
     const isBlocked = Boolean(sequence.isBlocked);
 
+    // A card arrived at from the calendar flashes briefly to say "here I am".
+    // Purely transient and never stored: the page hands it down for a couple of
+    // seconds and then stops, so nothing about the sequence itself changes.
+    const isSpotlit = sequence.id === highlightedSequenceId;
+
     // Deleting an empty sequence orphans nothing, so it does not warrant a prompt.
     const ownTodoCount = model.own.length;
     const wouldOrphanWork = ownTodoCount > 0;
@@ -200,6 +211,7 @@ const SequenceCard = ({ sequence, todos, isActive = false, index }) => {
         isOver ? 'sequence-card--over' : '',
         connectState ? `sequence-card--connect-${connectState}` : '',
         sortable.isDragging ? 'sequence-card--dragging' : '',
+        isSpotlit ? 'sequence-card--spotlit' : '',
     ]
         .filter(Boolean)
         .join(' ');

@@ -24,8 +24,8 @@ const TODO_COMPLETE = 'complete';
 // `resize` is `{ top, bottom }`, each the return of `useResizeEdge` (Task 26).
 // Null until then, which is why the edges are absent in this task's tests.
 //
-// `onOpenSource` is Task 28's, and is absent the same way: until something can
-// be opened the name is plain text rather than a control that does nothing.
+// `onOpenSource` is optional for the same reason: with nowhere to go the name is
+// plain text rather than a control that does nothing.
 const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = false, resize = null }) => {
     // Unconditional, for the same reason `PanelTodoRow`'s is: `isDraggable`
     // decides what is rendered, never whether the hook runs. Inert outside a
