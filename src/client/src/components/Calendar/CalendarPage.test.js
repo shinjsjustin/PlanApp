@@ -239,6 +239,71 @@ describe('CalendarPage', () => {
         expect(container.querySelector('.pool-card-count')).toHaveTextContent('1');
     });
 
+    test('a refill that fails says so and leaves the open pool alone', async () => {
+        // Arrange — the read behind a tick is one nobody asked to wait for, so
+        // losing it must not fold the panel away: the rows on screen are still
+        // the last thing the server actually said.
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.resolve({
+                      days: [{ id: 1, position: 0 }],
+                      items: [
+                          {
+                              id: 40,
+                              dayId: 1,
+                              todoId: 7,
+                              text: 'Wire up the token refresh',
+                              status: 'incomplete',
+                              projectId: 2,
+                              projectTitle: 'Auth rewrite',
+                              sequenceId: 9,
+                              sequenceTitle: 'Session handling',
+                              startMinutes: 540,
+                              durationMinutes: 60,
+                          },
+                      ],
+                  })
+                : Promise.resolve([
+                      {
+                          id: 2,
+                          title: 'Auth rewrite',
+                          frontier: [
+                              {
+                                  sequenceId: 9,
+                                  sequenceTitle: 'Session handling',
+                                  isStalled: false,
+                                  nextTodo: { id: 7, text: 'Wire up the token refresh' },
+                              },
+                          ],
+                      },
+                  ])
+        );
+        api.patch.mockResolvedValue({ id: 7, status: 'complete' });
+
+        const { container } = renderPage();
+        await screen.findByRole('region', { name: 'Days' });
+        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
+
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.resolve({ days: [], items: [] })
+                : Promise.reject(new Error('Could not reach the server.'))
+        );
+
+        // Act
+        await userEvent.click(
+            screen.getByRole('button', { name: 'Complete “Wire up the token refresh”' })
+        );
+
+        // Assert — the panel says what went wrong above rows that are still
+        // there, still expanded, and no retry screen has replaced them.
+        const panel = within(screen.getByRole('region', { name: 'Projects' }));
+        expect(await panel.findByText('Could not reach the server.')).toBeInTheDocument();
+        expect(panel.getByText('Wire up the token refresh')).toBeInTheDocument();
+        expect(panel.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+        expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
+    });
+
     test('a booking whose day is not in the payload reads as unscheduled', async () => {
         // Arrange — the two reads behind GET /calendar are not snapshotted
         // against each other, so an item can name a day the payload does not

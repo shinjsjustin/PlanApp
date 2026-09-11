@@ -410,6 +410,24 @@ button.day-item-name:hover {
     color: var(--text-secondary);
 }
 
+/* A failed re-read sits above the rows rather than replacing them, so the panel
+ * can say what went wrong without folding every open card shut. */
+.pool-notice {
+    margin-bottom: var(--space-sm);
+    padding: var(--space-sm);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--color-danger);
+    font-size: var(--font-sm);
+}
+
+/* Same tie-break as `.calendar-toast[hidden]`: an author rule beats a user-agent
+ * rule at equal specificity, so without this the block above paints empty. */
+.pool-notice[hidden] {
+    display: none;
+}
+
 .pool-error {
     padding: var(--space-lg) 0;
     text-align: center;

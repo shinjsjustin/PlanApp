@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../lib/api';
 
@@ -62,48 +62,98 @@ const usePool = () => {
     const [projects, setProjects] = useState([]);
     const [status, setStatus] = useState(POOL_STATUS.loading);
     const [loadError, setLoadError] = useState('');
+    const [refreshError, setRefreshError] = useState('');
+
+    // Numbers the reads in the order they were *issued*, so a read knows whether
+    // it is still the newest one outstanding by the time it answers.
+    //
+    // The same defence `useCalendar` mounts with `loadGenerationRef`, shaped for
+    // the question this hook has to ask. There the counter tracks loads that
+    // landed, because what a mutation needs to know is whether the state it is
+    // answering about has already been replaced. Here two reads race each other
+    // rather than a read racing a write: whichever was asked last saw the most
+    // writes, so it is the one whose answer is true, whichever order they come
+    // back in. Counting landed reads instead would let an older read that
+    // happened to answer first silence the newer one behind it.
+    //
+    // Reachable because `refresh` is: ticking two bookings in quick succession
+    // puts two reads in the air, and the older one can answer last.
+    const requestRef = useRef(0);
 
     /**
      * Reads the frontier and installs it, saying nothing about how the panel
-     * should look while that happens. Both outcomes set a terminal status of
-     * their own, so this is the whole of a load bar its opening move — the same
-     * split `useCalendar` makes between `fetchCalendar` and `load`, and for the
-     * same reason: a refetch behind rows that are already on screen must not
-     * unmount them.
+     * should look while that happens — the same split `useCalendar` makes
+     * between `fetchCalendar` and `load`, and for the same reason: a refetch
+     * behind rows that are already on screen must not unmount them.
      *
-     * A failure still lands on the error status, which is the honest answer for
-     * both callers: what is on screen has stopped being what the server says,
-     * and the retry is how it comes back. It is the pool's own panel either way,
-     * so the calendar beside it is untouched.
+     * Throws on failure rather than deciding what a failure means, because that
+     * differs by caller: a first read has nothing on screen to lose, a refresh
+     * has everything. An overtaken read says nothing either way — it is neither
+     * an answer nor a failure worth reporting, because a newer read is already
+     * speaking for the same question.
      */
     const fetchPool = useCallback(async () => {
+        const requestId = requestRef.current + 1;
+        requestRef.current = requestId;
+
         try {
-            setProjects(toPoolProjects(await api.get('/projects')));
+            const next = toPoolProjects(await api.get('/projects'));
+
+            if (requestRef.current !== requestId) return;
+
+            setProjects(next);
             setLoadError('');
+            setRefreshError('');
             setStatus(POOL_STATUS.ready);
         } catch (err) {
-            setLoadError(messageOf(err));
-            setStatus(POOL_STATUS.error);
+            if (requestRef.current !== requestId) return;
+
+            throw err;
         }
     }, []);
 
     /**
      * The opening read, and the retry button's. This is the one that empties the
      * panel to its loading state first, because on this path there is either
-     * nothing on screen yet or nothing on screen worth keeping.
+     * nothing on screen yet or nothing on screen worth keeping — so a failure
+     * here is the whole panel's answer, the retry screen included.
      */
     const load = useCallback(async () => {
         setStatus(POOL_STATUS.loading);
         setLoadError('');
+        setRefreshError('');
 
-        await fetchPool();
+        try {
+            await fetchPool();
+        } catch (err) {
+            setLoadError(messageOf(err));
+            setStatus(POOL_STATUS.error);
+        }
+    }, [fetchPool]);
+
+    /**
+     * The quiet re-read behind rows that are already on screen, after work was
+     * ticked off and the frontier moved on.
+     *
+     * A failure here is reported without being acted on: the rows stay, every
+     * open card stays open, and the panel says what went wrong rather than
+     * replacing itself with a retry screen over a read nobody asked to wait for.
+     * What is on screen is the last thing the server actually said, which is
+     * worth more than a blank panel — and the next completion reads again.
+     */
+    const refresh = useCallback(async () => {
+        try {
+            await fetchPool();
+        } catch (err) {
+            setRefreshError(messageOf(err));
+        }
     }, [fetchPool]);
 
     useEffect(() => {
         load();
     }, [load]);
 
-    return { projects, status, loadError, reload: load, refresh: fetchPool };
+    return { projects, status, loadError, refreshError, reload: load, refresh };
 };
 
 export default usePool;

@@ -18,6 +18,16 @@ const ProjectPanel = ({ pool, scheduledByTodoId, dragFor = null, overlay = null 
     <section className="calendar-panel" aria-label="Projects">
         {overlay}
 
+        {/* A re-read that failed behind the rows. Mounted permanently and
+            toggling `hidden` for the same reason the calendar's toast is: a live
+            region inserted into the DOM already holding its message is not
+            reliably announced; one that is already there when the text changes
+            is. The rows below it are the last thing the server actually said,
+            and they stay. */}
+        <div className="pool-notice" role="alert" hidden={!pool.refreshError}>
+            {pool.refreshError}
+        </div>
+
         {pool.status === POOL_STATUS.loading && (
             <p className="pool-loading" role="status" aria-label="Loading projects…">
                 Loading projects…

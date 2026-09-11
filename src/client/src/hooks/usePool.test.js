@@ -236,8 +236,9 @@ describe('usePool', () => {
         expect(result.current.projects[0].todos[0].todoId).toBe(8);
     });
 
-    test('a failed refresh surfaces on the pool rather than passing silently', async () => {
-        // Arrange
+    test('a failed refresh says so without taking the rows down with it', async () => {
+        // Arrange — nobody asked to wait for this read, so what is on screen is
+        // still the last thing the server actually said.
         const { result } = await renderReady();
         api.get.mockRejectedValueOnce(new Error('Could not reach the server.'));
 
@@ -245,8 +246,91 @@ describe('usePool', () => {
         await act(() => result.current.refresh());
 
         // Assert
-        await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.error));
-        expect(result.current.loadError).toBe('Could not reach the server.');
+        expect(result.current.refreshError).toBe('Could not reach the server.');
+        expect(result.current.status).toBe(POOL_STATUS.ready);
+        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(result.current.loadError).toBe('');
+    });
+
+    test('a refresh that lands clears the message the last one left', async () => {
+        // Arrange
+        const { result } = await renderReady();
+        api.get.mockRejectedValueOnce(new Error('Could not reach the server.'));
+        await act(() => result.current.refresh());
+        expect(result.current.refreshError).toBe('Could not reach the server.');
+
+        // Act
+        api.get.mockResolvedValueOnce(projects);
+        await act(() => result.current.refresh());
+
+        // Assert
+        expect(result.current.refreshError).toBe('');
+    });
+
+    test('the newest read wins when two answer out of order', async () => {
+        // Arrange — two bookings ticked in quick succession put two reads in the
+        // air. The second was asked after the first write committed, so it is
+        // the one that saw the truth; the first must not overwrite it when it
+        // straggles in.
+        const stale = deferred();
+        const fresh = deferred();
+        const { result } = await renderReady();
+        api.get.mockReturnValueOnce(stale.promise).mockReturnValueOnce(fresh.promise);
+
+        // Act
+        act(() => {
+            result.current.refresh();
+            result.current.refresh();
+        });
+
+        await act(async () => {
+            fresh.resolve([
+                {
+                    id: 2,
+                    title: 'Auth rewrite',
+                    frontier: [
+                        {
+                            sequenceId: 9,
+                            sequenceTitle: 'Session handling',
+                            nextTodo: { id: 8, text: 'Rotate the signing keys' },
+                            isStalled: false,
+                        },
+                    ],
+                },
+            ]);
+            await fresh.promise;
+        });
+        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+
+        await act(async () => {
+            stale.resolve(projects);
+            await stale.promise;
+        });
+
+        // Assert
+        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+    });
+
+    test('an overtaken read that fails is not reported over the answer that won', async () => {
+        // Arrange — the straggler has nothing to say either way.
+        const stale = deferred();
+        const { result } = await renderReady();
+        api.get.mockReturnValueOnce(stale.promise).mockResolvedValueOnce(projects);
+
+        // Act
+        await act(async () => {
+            result.current.refresh();
+            await result.current.refresh();
+        });
+
+        await act(async () => {
+            stale.reject(new Error('Could not reach the server.'));
+            await stale.promise.catch(() => {});
+        });
+
+        // Assert
+        expect(result.current.refreshError).toBe('');
+        expect(result.current.status).toBe(POOL_STATUS.ready);
     });
 
     test('reload passes back through loading, since it only ever runs from the error screen', async () => {
