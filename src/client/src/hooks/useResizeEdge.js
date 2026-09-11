@@ -7,8 +7,9 @@ import { clampDuration, pxToMinutes, snapToSlot } from '../lib/scheduleGeometry'
 //
 // Not a dnd-kit drag. The sensor's activation distance exists so a click on a
 // button is not swallowed by a drag, and it is exactly wrong for a 6px edge whose
-// first pixel of movement is the gesture. Raw pointer events, captured on the
-// handle, are both simpler and more accurate here.
+// first pixel of movement is the gesture. Raw pointer events, started on the
+// handle and then followed on `document`, are both simpler and more accurate
+// here.
 //
 // The two edges are not symmetric, and that asymmetry is decision 7:
 //
@@ -64,7 +65,6 @@ const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => 
         (event) => {
             event.preventDefault();
             event.stopPropagation();
-            event.currentTarget.setPointerCapture(event.pointerId);
 
             originRef.current = event.clientY;
             latestRef.current = null;
@@ -95,6 +95,26 @@ const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => 
         else onCancel();
     }, [isResizing, onCancel, onCommit]);
 
+    // The pointer listeners live on `document`, not on the edge element, because
+    // a resize that spills unmounts the card it started on: the item moves into
+    // the next day's column mid-gesture and takes its edge span with it. A
+    // listener on that span dies with it and the release is never heard, so the
+    // resize is previewed and never saved. The gesture outlives the node, so the
+    // listeners have to as well.
+    useEffect(() => {
+        if (!isResizing) return undefined;
+
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+        document.addEventListener('pointercancel', handlePointerUp);
+
+        return () => {
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+        };
+    }, [isResizing, handlePointerMove, handlePointerUp]);
+
     // Escape abandons a resize in flight, matching what it does to a drag.
     useEffect(() => {
         if (!isResizing) return undefined;
@@ -116,9 +136,6 @@ const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => 
         isResizing,
         handleProps: {
             onPointerDown: handlePointerDown,
-            onPointerMove: handlePointerMove,
-            onPointerUp: handlePointerUp,
-            onPointerCancel: handlePointerUp,
         },
     };
 };
