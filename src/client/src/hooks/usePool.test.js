@@ -46,8 +46,8 @@ const renderReady = async () => {
     return view;
 };
 
-/** What the frontier answers once to-do 7 has been ticked off. */
-const nextStepProjects = [
+/** One project offering exactly one startable to-do, for telling reads apart. */
+const frontierOf = (todoId, text) => [
     {
         id: 2,
         title: 'Auth rewrite',
@@ -55,10 +55,88 @@ const nextStepProjects = [
             {
                 sequenceId: 9,
                 sequenceTitle: 'Session handling',
-                nextTodo: { id: 8, text: 'Rotate the signing keys' },
+                nextTodo: { id: todoId, text },
                 isStalled: false,
             },
         ],
+    },
+];
+
+/** What the frontier answers once to-do 7 has been ticked off. */
+const nextStepProjects = frontierOf(8, 'Rotate the signing keys');
+
+const OLDER_FAILED = 'The older read could not reach the server.';
+const NEWER_FAILED = 'The newer read could not reach the server.';
+
+const LANDS_OLD = { projects: nextStepProjects };
+const LANDS_NEW = { projects: frontierOf(9, 'Expire the old sessions') };
+
+/**
+ * Two reads in the air, settling in either order with either ending each. One
+ * rule decides the rows, the status and the notice together, so this matrix is
+ * that rule's specification: whichever read settles last among the newest ones
+ * speaks, and an answer a newer read has already overtaken is silence — it
+ * cannot install its rows, set a status, or raise or clear the notice.
+ *
+ * The pool starts ready on to-do 7, so an unchanged `todoId` of 7 means neither
+ * read installed anything.
+ */
+const RACE_CASES = [
+    {
+        name: 'both land, oldest answering first',
+        settleOrder: ['older', 'newer'],
+        older: LANDS_OLD,
+        newer: LANDS_NEW,
+        expected: { todoId: 9, refreshError: '' },
+    },
+    {
+        name: 'both land, newest answering first',
+        settleOrder: ['newer', 'older'],
+        older: LANDS_OLD,
+        newer: LANDS_NEW,
+        expected: { todoId: 9, refreshError: '' },
+    },
+    {
+        name: 'the older lands and the newer fails, oldest answering first',
+        settleOrder: ['older', 'newer'],
+        older: LANDS_OLD,
+        newer: { error: NEWER_FAILED },
+        expected: { todoId: 8, refreshError: NEWER_FAILED },
+    },
+    {
+        name: 'the older lands and the newer fails, newest answering first',
+        settleOrder: ['newer', 'older'],
+        older: LANDS_OLD,
+        newer: { error: NEWER_FAILED },
+        expected: { todoId: 7, refreshError: NEWER_FAILED },
+    },
+    {
+        name: 'the older fails and the newer lands, oldest answering first',
+        settleOrder: ['older', 'newer'],
+        older: { error: OLDER_FAILED },
+        newer: LANDS_NEW,
+        expected: { todoId: 9, refreshError: '' },
+    },
+    {
+        name: 'the older fails and the newer lands, newest answering first',
+        settleOrder: ['newer', 'older'],
+        older: { error: OLDER_FAILED },
+        newer: LANDS_NEW,
+        expected: { todoId: 9, refreshError: '' },
+    },
+    {
+        name: 'both fail, oldest answering first',
+        settleOrder: ['older', 'newer'],
+        older: { error: OLDER_FAILED },
+        newer: { error: NEWER_FAILED },
+        expected: { todoId: 7, refreshError: NEWER_FAILED },
+    },
+    {
+        name: 'both fail, newest answering first',
+        settleOrder: ['newer', 'older'],
+        older: { error: OLDER_FAILED },
+        newer: { error: NEWER_FAILED },
+        expected: { todoId: 7, refreshError: NEWER_FAILED },
     },
 ];
 
@@ -70,6 +148,19 @@ const deferred = () => {
     });
 
     return { promise, ...settle };
+};
+
+/** Settles one of the pending reads with the ending the case calls for. */
+const settleWith = async (pending, outcome) => {
+    await act(async () => {
+        if (outcome.error) {
+            pending.reject(new Error(outcome.error));
+            await pending.promise.catch(() => {});
+        } else {
+            pending.resolve(outcome.projects);
+            await pending.promise;
+        }
+    });
 };
 
 beforeEach(() => {
@@ -349,6 +440,33 @@ describe('usePool', () => {
         expect(result.current.status).toBe(POOL_STATUS.ready);
     });
 
+    RACE_CASES.forEach(({ name, settleOrder, older, newer, expected }) => {
+        test(`two overlapping reads: ${name}`, async () => {
+            // Arrange — ticking two bookings in quick succession puts two reads
+            // in the air, and either can answer first.
+            const reads = { older: deferred(), newer: deferred() };
+            const { result } = await renderReady();
+            api.get
+                .mockReturnValueOnce(reads.older.promise)
+                .mockReturnValueOnce(reads.newer.promise);
+
+            act(() => {
+                result.current.refresh();
+                result.current.refresh();
+            });
+
+            // Act
+            for (const which of settleOrder) {
+                await settleWith(reads[which], which === 'older' ? older : newer);
+            }
+
+            // Assert
+            expect(result.current.projects[0].todos[0].todoId).toBe(expected.todoId);
+            expect(result.current.refreshError).toBe(expected.refreshError);
+            expect(result.current.status).toBe(POOL_STATUS.ready);
+        });
+    });
+
     test('a load answered behind a failing refresh still settles the panel', async () => {
         // Arrange — the calendar beside the pool stays usable while the pool is
         // still loading, so a tick can put a second read in the air before the
@@ -431,9 +549,10 @@ describe('usePool', () => {
             await opening.promise.catch(() => {});
         });
 
-        // Assert
+        // Assert — the newest read to settle is the one that speaks, and the
+        // first read's later failure is not reported over it.
         expect(result.current.status).toBe(POOL_STATUS.error);
-        expect(result.current.loadError).toBe('Could not reach the server.');
+        expect(result.current.loadError).toBe('Still offline.');
 
         // Act — and the retry still works from there.
         api.get.mockResolvedValueOnce(projects);

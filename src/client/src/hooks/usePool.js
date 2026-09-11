@@ -58,112 +58,108 @@ const toPoolProjects = (projects) =>
             })),
     }));
 
+/**
+ * The panel's whole read-derived state, written in one place and only ever from
+ * the outcome of a read.
+ *
+ * INVARIANT: the newest read that has SETTLED is the only thing that may write
+ * any of this — the rows, the status and the notice alike. A read is numbered
+ * when it is issued and the counter advances the moment one settles, whether it
+ * answered or failed, so a read that answers after a newer one has already
+ * settled says nothing at all: it cannot install its rows, cannot set a status,
+ * and cannot raise or clear the notice.
+ *
+ * That is one rule for three pieces of state on purpose. Deciding the rows by
+ * one test, the status by another and the notice by a third is what left an
+ * older read able to wipe a newer read's failure off the screen, and it is what
+ * makes every new ordering a new defect. Change the rule here, deliberately,
+ * rather than adding a condition to one of the writes below.
+ *
+ * Two reads are in the air whenever bookings are ticked in quick succession, so
+ * the orderings are reachable rather than theoretical.
+ */
+const settledFrom = (current, outcome) => {
+    if (!outcome.error) {
+        return {
+            status: POOL_STATUS.ready,
+            projects: outcome.projects,
+            loadError: '',
+            refreshError: '',
+        };
+    }
+
+    // Rows on screen are the last thing the server actually said, and they are
+    // worth more than a blank panel: the failure is reported from above them
+    // rather than in place of them, so no open card is folded shut over a read
+    // nobody asked to wait for. With nothing on screen there is nothing to
+    // preserve, so the failure is the panel's whole answer, retry included.
+    return current.status === POOL_STATUS.ready
+        ? { ...current, refreshError: outcome.error }
+        : { ...current, status: POOL_STATUS.error, loadError: outcome.error, refreshError: '' };
+};
+
+const INITIAL_POOL = {
+    status: POOL_STATUS.loading,
+    projects: [],
+    loadError: '',
+    refreshError: '',
+};
+
+/** Reads the frontier, turning either ending into a value rather than a throw. */
+const readFrontier = async () => {
+    try {
+        return { projects: toPoolProjects(await api.get('/projects')) };
+    } catch (err) {
+        return { error: messageOf(err) };
+    }
+};
+
 const usePool = () => {
-    const [projects, setProjects] = useState([]);
-    const [status, setStatus] = useState(POOL_STATUS.loading);
-    const [loadError, setLoadError] = useState('');
-    const [refreshError, setRefreshError] = useState('');
+    const [pool, setPool] = useState(INITIAL_POOL);
 
-    // Numbers the reads in the order they were issued. Reachable because
-    // `refresh` is: ticking two bookings in quick succession puts two reads in
-    // the air, and the older one can answer last.
+    // Numbers the reads as they are issued, and remembers the newest to settle.
+    // See `settledFrom` for what that buys and why both callers go through it.
     const requestRef = useRef(0);
+    const settledRef = useRef(0);
 
-    // The id of the read whose rows are on screen. Whichever read was asked last
-    // saw the most writes, so it is the one whose answer is true — but only once
-    // it has actually answered. A read is superseded by a newer one that
-    // *landed*, never by one that was merely issued: a newer read that fails, or
-    // that has not come back yet, has said nothing, and discarding an answer in
-    // favour of that is discarding the only answer there is.
-    //
-    // The distinction is what keeps this to one job. Deciding whose rows install
-    // is all it decides; whether the caller that asked gets to settle the panel
-    // is `load`'s business, below, and the two must not be the same question or
-    // an overtaken load leaves the panel loading forever.
-    const installedRef = useRef(0);
-
-    /**
-     * Reads the frontier and installs it, saying nothing about how the panel
-     * should look while that happens — the same split `useCalendar` makes
-     * between `fetchCalendar` and `load`, and for the same reason: a refetch
-     * behind rows that are already on screen must not unmount them.
-     *
-     * Throws on failure rather than deciding what a failure means, because that
-     * differs by caller: a first read has nothing on screen to lose, a refresh
-     * has everything. A read a newer one has already answered says nothing
-     * either way — its rows are stale, and its failure is a complaint about a
-     * question somebody else has since answered.
-     */
-    const fetchPool = useCallback(async () => {
+    const read = useCallback(async () => {
         const requestId = requestRef.current + 1;
         requestRef.current = requestId;
 
-        try {
-            const next = toPoolProjects(await api.get('/projects'));
+        const outcome = await readFrontier();
 
-            if (requestId < installedRef.current) return;
+        if (requestId < settledRef.current) return;
 
-            installedRef.current = requestId;
-            setProjects(next);
-            setLoadError('');
-            setRefreshError('');
-            setStatus(POOL_STATUS.ready);
-        } catch (err) {
-            if (requestId < installedRef.current) return;
-
-            throw err;
-        }
+        settledRef.current = requestId;
+        setPool((current) => settledFrom(current, outcome));
     }, []);
 
     /**
-     * The opening read, and the retry button's. This is the one that empties the
-     * panel to its loading state first, because on this path there is either
-     * nothing on screen yet or nothing on screen worth keeping — so a failure
-     * here is the whole panel's answer, the retry screen included.
-     *
-     * It settles the panel either way, and that is the point: `loading` is a
-     * state the user cannot leave, so nothing that starts it may end without
-     * ending it. Resolving without installing means a newer read already put its
-     * rows on screen, so `ready` is the truth in that case as much as in the
-     * ordinary one.
+     * The opening read, and the retry button's. Only this one empties the panel
+     * to its loading state first, because on this path there is either nothing
+     * on screen yet or nothing on screen worth keeping. Everything after that
+     * opening move is the same read every caller makes.
      */
     const load = useCallback(async () => {
-        setStatus(POOL_STATUS.loading);
-        setLoadError('');
-        setRefreshError('');
+        setPool((current) => ({
+            ...current,
+            status: POOL_STATUS.loading,
+            loadError: '',
+            refreshError: '',
+        }));
 
-        try {
-            await fetchPool();
-            setStatus(POOL_STATUS.ready);
-        } catch (err) {
-            setLoadError(messageOf(err));
-            setStatus(POOL_STATUS.error);
-        }
-    }, [fetchPool]);
-
-    /**
-     * The quiet re-read behind rows that are already on screen, after work was
-     * ticked off and the frontier moved on.
-     *
-     * A failure here is reported without being acted on: the rows stay, every
-     * open card stays open, and the panel says what went wrong rather than
-     * replacing itself with a retry screen over a read nobody asked to wait for.
-     * What is on screen is the last thing the server actually said, which is
-     * worth more than a blank panel — and the next completion reads again.
-     */
-    const refresh = useCallback(async () => {
-        try {
-            await fetchPool();
-        } catch (err) {
-            setRefreshError(messageOf(err));
-        }
-    }, [fetchPool]);
+        await read();
+    }, [read]);
 
     useEffect(() => {
         load();
     }, [load]);
 
-    return { projects, status, loadError, refreshError, reload: load, refresh };
+    // The quiet re-read behind rows already on screen, after work was ticked off
+    // and the frontier moved on. It is the bare read: what a failure means is
+    // `settledFrom`'s decision, taken from what is on screen rather than from
+    // which caller asked.
+    return { ...pool, reload: load, refresh: read };
 };
 
 export default usePool;
