@@ -21,7 +21,18 @@ import { useCalendarContext } from '../../state/CalendarContext';
 // A day has no name. Its header is where it sits and when it was made, which is
 // what a day *is* here — an ordered container, not a date (design decision 2).
 
-const DayColumn = ({ day, index, items, onOpenSource, droppable = null, children }) => {
+// `droppable` and `isDraggable` arrive together, from the one wrapper that has a
+// `DndContext` around it: a column that can be dropped into is a column whose
+// cards can be picked up. Both default off so the column renders bare in a test.
+const DayColumn = ({
+    day,
+    index,
+    items,
+    onOpenSource,
+    droppable = null,
+    isDraggable = false,
+    children,
+}) => {
     const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const scrollRef = useRef(null);
@@ -83,6 +94,7 @@ const DayColumn = ({ day, index, items, onOpenSource, droppable = null, children
                                 item={item}
                                 onComplete={completeTodo}
                                 onOpenSource={onOpenSource}
+                                isDraggable={isDraggable}
                             />
                         ))}
                         {children}

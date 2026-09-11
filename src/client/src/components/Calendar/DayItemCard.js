@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { formatTime, minutesToPx } from '../../lib/scheduleGeometry';
+import { useBookingDrag } from '../../hooks/useCalendarDrag';
 
 // One booking, drawn over the grid at the minute it starts and as tall as it
 // lasts (design section 8).
@@ -25,7 +26,12 @@ const TODO_COMPLETE = 'complete';
 //
 // `onOpenSource` is Task 28's, and is absent the same way: until something can
 // be opened the name is plain text rather than a control that does nothing.
-const DayItemCard = ({ item, onComplete, onOpenSource = null, drag = null, resize = null }) => {
+const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = false, resize = null }) => {
+    // Unconditional, for the same reason `PanelTodoRow`'s is: `isDraggable`
+    // decides what is rendered, never whether the hook runs. Inert outside a
+    // `DndContext`, so a card rendered bare in a test is the graphic below.
+    const drag = useBookingDrag(item.todoId);
+
     const isComplete = item.status === TODO_COMPLETE;
 
     const className = ['day-item-card', isComplete ? 'day-item-card--complete' : '']
@@ -39,7 +45,7 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, drag = null, resiz
                 top: `${minutesToPx(item.startMinutes)}px`,
                 height: `${minutesToPx(item.durationMinutes)}px`,
             }}
-            ref={drag?.setNodeRef}
+            ref={isDraggable ? drag.setNodeRef : undefined}
         >
             {resize && (
                 <span
@@ -68,7 +74,7 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, drag = null, resiz
                     />
                 )}
 
-                {drag ? (
+                {isDraggable ? (
                     <button
                         type="button"
                         className="day-item-handle"
