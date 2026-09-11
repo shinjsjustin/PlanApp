@@ -51,58 +51,82 @@ export const rectFor = (item, { edge, deltaMinutes, floor }) => {
 };
 
 /**
- * Wires one edge. `onPreview` is called on every move with the rectangle so far
- * — the caller runs the cascade and renders it — and `onCommit` once on release.
- * `onCancel` fires on Escape, so a resize can be abandoned the same way a drag
- * can.
+ * The one resize gesture the calendar can have in flight, wired once above every
+ * column.
+ *
+ * Above, and not on the card, because a bottom edge dragged past midnight moves
+ * its own booking into the next day *during* the gesture: React unmounts the
+ * card from one column's subtree and mounts a fresh one in the next column's.
+ * Anything the card owned — which edge is held, where the pointer went down, the
+ * `document` listeners — dies with it, and the release is never heard, so the
+ * resize is previewed and never saved. Moving the listeners off the edge span was
+ * not enough; the component itself is what goes. The gesture outlives the card,
+ * so it has to live somewhere the spill cannot reach.
+ *
+ * One at a time is not a simplification: there is one pointer.
+ *
+ * `resolve(todoId, edge)` returns the `{ item, floor }` the gesture measures
+ * against — the *committed* booking, read once when the pointer goes down. Every
+ * frame's delta is measured from that origin, so re-reading a rectangle the
+ * previous frame already moved would read 30 minutes of travel as 60. It returns
+ * null for a to-do with no booking to resize, and the press is then ignored.
+ *
+ * `onPreview(todoId, rect)` is called on every move — the caller runs the cascade
+ * and renders it — and `onCommit(todoId, rect)` once on release. `onCancel` fires
+ * on Escape, so a resize can be abandoned the same way a drag can.
  */
-const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => {
-    const [isResizing, setIsResizing] = useState(false);
-    const originRef = useRef(0);
+const useResizeEdge = ({ resolve, onPreview, onCommit, onCancel }) => {
+    const [gesture, setGesture] = useState(null);
     const latestRef = useRef(null);
 
-    const handlePointerDown = useCallback(
-        (event) => {
+    const startResize = useCallback(
+        (todoId, edge, event) => {
             event.preventDefault();
             event.stopPropagation();
 
-            originRef.current = event.clientY;
+            const resolved = resolve(todoId, edge);
+            if (!resolved) return;
+
             latestRef.current = null;
-            setIsResizing(true);
+            setGesture({ todoId, edge, ...resolved, originY: event.clientY });
         },
-        []
+        [resolve]
     );
 
     const handlePointerMove = useCallback(
         (event) => {
-            if (!isResizing) return;
+            if (!gesture) return;
 
-            const deltaMinutes = snapToSlot(pxToMinutes(event.clientY - originRef.current));
-            const rect = rectFor(item, { edge, deltaMinutes, floor });
+            const deltaMinutes = snapToSlot(pxToMinutes(event.clientY - gesture.originY));
+            const rect = rectFor(gesture.item, {
+                edge: gesture.edge,
+                deltaMinutes,
+                floor: gesture.floor,
+            });
 
             latestRef.current = rect;
-            onPreview(rect);
+            onPreview(gesture.todoId, rect);
         },
-        [edge, floor, isResizing, item, onPreview]
+        [gesture, onPreview]
     );
 
     const handlePointerUp = useCallback(() => {
-        if (!isResizing) return;
+        if (!gesture) return;
 
-        setIsResizing(false);
+        const rect = latestRef.current;
 
-        if (latestRef.current) onCommit(latestRef.current);
+        latestRef.current = null;
+        setGesture(null);
+
+        if (rect) onCommit(gesture.todoId, rect);
         else onCancel();
-    }, [isResizing, onCancel, onCommit]);
+    }, [gesture, onCancel, onCommit]);
 
-    // The pointer listeners live on `document`, not on the edge element, because
-    // a resize that spills unmounts the card it started on: the item moves into
-    // the next day's column mid-gesture and takes its edge span with it. A
-    // listener on that span dies with it and the release is never heard, so the
-    // resize is previewed and never saved. The gesture outlives the node, so the
-    // listeners have to as well.
+    // On `document` rather than on the edge span, which is the other half of the
+    // same problem: the span the press landed on is gone once the booking spills,
+    // and a pointer that has left a 6px handle is still resizing either way.
     useEffect(() => {
-        if (!isResizing) return undefined;
+        if (!gesture) return undefined;
 
         document.addEventListener('pointermove', handlePointerMove);
         document.addEventListener('pointerup', handlePointerUp);
@@ -113,30 +137,28 @@ const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => 
             document.removeEventListener('pointerup', handlePointerUp);
             document.removeEventListener('pointercancel', handlePointerUp);
         };
-    }, [isResizing, handlePointerMove, handlePointerUp]);
+    }, [gesture, handlePointerMove, handlePointerUp]);
 
     // Escape abandons a resize in flight, matching what it does to a drag.
     useEffect(() => {
-        if (!isResizing) return undefined;
+        if (!gesture) return undefined;
 
         const onKeyDown = (event) => {
             if (event.key !== 'Escape') return;
 
-            setIsResizing(false);
             latestRef.current = null;
+            setGesture(null);
             onCancel();
         };
 
         document.addEventListener('keydown', onKeyDown);
 
         return () => document.removeEventListener('keydown', onKeyDown);
-    }, [isResizing, onCancel]);
+    }, [gesture, onCancel]);
 
     return {
-        isResizing,
-        handleProps: {
-            onPointerDown: handlePointerDown,
-        },
+        activeEdge: gesture ? { todoId: gesture.todoId, edge: gesture.edge } : null,
+        startResize,
     };
 };
 

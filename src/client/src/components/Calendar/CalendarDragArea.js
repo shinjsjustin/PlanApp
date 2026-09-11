@@ -321,14 +321,32 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     // see `ResizableDayItemCard` for why it is not `shown`.
     const committed = useMemo(() => scheduleOf(state), [state]);
 
+    // What the pressed edge is allowed to do, read off the committed schedule at
+    // the moment of the press. A to-do with no booking has no rectangle to
+    // resize, and the press is ignored.
+    const resolveEdge = useCallback(
+        (todoId, edge) => {
+            const booked = committed.items.find((item) => item.todoId === todoId);
+            if (!booked) return null;
+
+            return {
+                item: booked,
+                floor: edge === EDGE.top ? topEdgeFloor(committed, todoId) : NO_FLOOR,
+            };
+        },
+        [committed]
+    );
+
+    const { startResize } = useResizeEdge({
+        resolve: resolveEdge,
+        onPreview: handleResizePreview,
+        onCommit: handleResizeCommit,
+        onCancel: handleResizeCancel,
+    });
+
     const resize = useMemo(
-        () => ({
-            schedule: committed,
-            onPreview: handleResizePreview,
-            onCommit: handleResizeCommit,
-            onCancel: handleResizeCancel,
-        }),
-        [committed, handleResizeCancel, handleResizeCommit, handleResizePreview]
+        () => ({ schedule: committed, startResize }),
+        [committed, startResize]
     );
 
     const isDraggingBooking = active?.kind === DRAG_KIND.booking;
@@ -414,44 +432,31 @@ const DroppableDayColumn = ({
 /**
  * One booking with both of its edges wired.
  *
- * A component rather than a callback, because each card needs a hook per edge
- * and a hook cannot be called from a loop inside `DayColumn`.
+ * The edges only *report* the press — the gesture itself belongs to
+ * `CalendarDragArea`, because a resize that spills unmounts this card mid-drag
+ * and would take its own gesture down with it (see `useResizeEdge`).
  *
- * The hooks are handed the *committed* booking while the card draws the shown
- * one, and that split is what keeps a resize from compounding: every frame's
- * delta is measured from where the pointer went down, so feeding the hook a
+ * The edges measure against the *committed* booking while the card draws the
+ * shown one, and that split is what keeps a resize from compounding: every
+ * frame's delta is measured from where the pointer went down, so feeding back a
  * rectangle the previous frame already moved would read 30 minutes of travel as
  * 60. The committed schedule does not change until release, so it is the stable
  * thing to measure against — the same reason the drag previews from
  * `scheduleOf(state)` rather than from the last preview.
  */
-const ResizableDayItemCard = ({ item, schedule, onOpenSource, onPreview, onCommit, onCancel }) => {
+const ResizableDayItemCard = ({ item, schedule, onOpenSource, startResize }) => {
     const { completeTodo } = useCalendarContext();
 
     // An item on screen that the saved schedule has never heard of is a pool row
     // inside a drag preview. There is no booking to resize yet, so the edges are
     // left off rather than pointed at one that does not exist.
-    const booked = schedule.items.find((other) => other.todoId === item.todoId) ?? null;
+    const isBooked = schedule.items.some((other) => other.todoId === item.todoId);
 
-    const handlePreview = useCallback(
-        (rect) => onPreview(item.todoId, rect),
-        [item.todoId, onPreview]
-    );
-
-    const handleCommit = useCallback(
-        (rect) => onCommit(item.todoId, rect),
-        [item.todoId, onCommit]
-    );
-
-    const edge = { item: booked ?? item, onPreview: handlePreview, onCommit: handleCommit, onCancel };
-
-    const top = useResizeEdge({
-        ...edge,
-        edge: EDGE.top,
-        floor: booked ? topEdgeFloor(schedule, item.todoId) : NO_FLOOR,
+    const edgeProps = (edge) => ({
+        handleProps: {
+            onPointerDown: (event) => startResize(item.todoId, edge, event),
+        },
     });
-
-    const bottom = useResizeEdge({ ...edge, edge: EDGE.bottom, floor: NO_FLOOR });
 
     return (
         <DayItemCard
@@ -459,7 +464,7 @@ const ResizableDayItemCard = ({ item, schedule, onOpenSource, onPreview, onCommi
             onComplete={completeTodo}
             onOpenSource={onOpenSource}
             isDraggable
-            resize={booked ? { top, bottom } : null}
+            resize={isBooked ? { top: edgeProps(EDGE.top), bottom: edgeProps(EDGE.bottom) } : null}
         />
     );
 };
