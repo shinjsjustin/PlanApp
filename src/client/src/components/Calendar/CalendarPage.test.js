@@ -104,6 +104,74 @@ describe('CalendarPage', () => {
         expect(screen.getByRole('region', { name: 'Projects' })).toBeInTheDocument();
     });
 
+    test('a failed calendar leaves the pool listed but with no count to claim', async () => {
+        // Arrange — the panels fail independently (design section 10), so a
+        // calendar that will not load still leaves the pool on screen. What it
+        // cannot leave behind is an answer: with no calendar, every booked to-do
+        // would otherwise be counted as unscheduled and the pill would read a
+        // number that is simply wrong.
+        const projects = [
+            {
+                id: 2,
+                title: 'Auth rewrite',
+                frontier: [
+                    {
+                        sequenceId: 9,
+                        sequenceTitle: 'Session handling',
+                        isStalled: false,
+                        nextTodo: { id: 7, text: 'Wire up the token refresh' },
+                    },
+                ],
+            },
+        ];
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.reject(new Error('Could not reach the server.'))
+                : Promise.resolve(projects)
+        );
+
+        // Act
+        const { container } = renderPage();
+        await screen.findByText('Could not reach the server.');
+        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
+
+        // Assert — the row is still listed, but nothing claims where it went.
+        expect(screen.getByText('Wire up the token refresh')).toBeInTheDocument();
+        expect(container.querySelector('.pool-card-count')).not.toBeInTheDocument();
+        expect(container.querySelector('.panel-todo-badge')).not.toBeInTheDocument();
+
+        // Act — and a retry that succeeds restores both, without a reload.
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.resolve({
+                      days: [{ id: 1, position: 0 }],
+                      items: [
+                          {
+                              id: 40,
+                              dayId: 1,
+                              todoId: 7,
+                              text: 'Wire up the token refresh',
+                              status: 'incomplete',
+                              projectId: 2,
+                              projectTitle: 'Auth rewrite',
+                              sequenceId: 9,
+                              sequenceTitle: 'Session handling',
+                              startMinutes: 540,
+                              durationMinutes: 60,
+                          },
+                      ],
+                  })
+                : Promise.resolve(projects)
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+        // Assert
+        await waitFor(() =>
+            expect(container.querySelector('.pool-card-count')).toHaveTextContent('0')
+        );
+        expect(container.querySelector('.panel-todo-badge')).toHaveTextContent('Day 1');
+    });
+
     test('a booking whose day is not in the payload reads as unscheduled', async () => {
         // Arrange — the two reads behind GET /calendar are not snapshotted
         // against each other, so an item can name a day the payload does not

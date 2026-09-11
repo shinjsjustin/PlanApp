@@ -10,7 +10,9 @@ import { POOL_STATUS } from '../../hooks/usePool';
 // schedule into is still worth reading (design section 10).
 //
 // `scheduledByTodoId` maps a to-do id to where it was booked. It comes from the
-// calendar rather than from here, because the pool has no idea what a day is.
+// calendar rather than from here, because the pool has no idea what a day is —
+// and is `null` while the calendar has not loaded, meaning unknown rather than
+// none.
 
 const ProjectPanel = ({ pool, scheduledByTodoId, dragFor = null, overlay = null }) => (
     <section className="calendar-panel" aria-label="Projects">

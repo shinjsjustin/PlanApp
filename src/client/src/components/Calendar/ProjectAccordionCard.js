@@ -11,6 +11,8 @@ import PanelTodoRow from './PanelTodoRow';
 //
 // The count is unscheduled work only. It measures planning progress — how much
 // startable work is still unbooked — and ticks down as days fill (decision 5).
+// It is left off entirely when the calendar has not loaded, because then there is
+// no answer to give rather than an answer of zero.
 //
 // Whether a card is open is browser-local and not persisted. Unlike a sequence
 // card's `is_collapsed`, nothing here is worth a column: the pool is rebuilt from
@@ -19,9 +21,9 @@ import PanelTodoRow from './PanelTodoRow';
 const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const unscheduledCount = project.todos.filter(
-        (todo) => !scheduledByTodoId.has(todo.todoId)
-    ).length;
+    const unscheduledCount = scheduledByTodoId
+        ? project.todos.filter((todo) => !scheduledByTodoId.has(todo.todoId)).length
+        : null;
 
     return (
         <li className={`pool-card${isExpanded ? ' pool-card--expanded' : ''}`}>
@@ -32,7 +34,9 @@ const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) =>
                 onClick={() => setIsExpanded((current) => !current)}
             >
                 <span className="pool-card-title">{project.title}</span>
-                <span className="pool-card-count">{unscheduledCount}</span>
+                {unscheduledCount !== null && (
+                    <span className="pool-card-count">{unscheduledCount}</span>
+                )}
             </button>
 
             {isExpanded &&
@@ -44,7 +48,7 @@ const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) =>
                             <PanelTodoRow
                                 key={todo.todoId}
                                 todo={todo}
-                                scheduled={scheduledByTodoId.get(todo.todoId) ?? null}
+                                scheduled={scheduledByTodoId?.get(todo.todoId) ?? null}
                                 drag={dragFor ? dragFor(todo) : null}
                             />
                         ))}

@@ -2,11 +2,6 @@
 // rather than object literals, so the payload shape lives in one place.
 
 import { PROJECT_ACTIONS } from './projectReducer';
-import { createTempId, isTempId } from '../lib/tempIds';
-
-// Re-exported rather than redefined: these moved to `lib/tempIds` when the
-// calendar needed them too, and every existing caller imports them from here.
-export { createTempId, isTempId };
 
 export const loadStarted = () => ({ type: PROJECT_ACTIONS.loadStarted });
 

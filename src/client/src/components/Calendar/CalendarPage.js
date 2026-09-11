@@ -39,13 +39,22 @@ const CalendarPage = () => {
     // such item, so the pool must not claim it is booked either: it is left out
     // of the map and its to-do reads as unscheduled, which is what the next load
     // shows anyway.
-    const scheduledByTodoId = new Map(
-        state.items.flatMap((item) => {
-            const dayIndex = state.days.findIndex((day) => day.id === item.dayId);
+    //
+    // `null` until the calendar is ready: it means nothing is known about where
+    // the work went, which is not the same as knowing none of it is booked. The
+    // panel stays up either way (design section 10), but with no calendar behind
+    // it, it drops the badges and the count rather than reporting every booked
+    // to-do as unscheduled. A successful retry brings both back.
+    const scheduledByTodoId =
+        state.status === CALENDAR_STATUS.ready
+            ? new Map(
+                  state.items.flatMap((item) => {
+                      const dayIndex = state.days.findIndex((day) => day.id === item.dayId);
 
-            return dayIndex === -1 ? [] : [[item.todoId, { dayIndex }]];
-        })
-    );
+                      return dayIndex === -1 ? [] : [[item.todoId, { dayIndex }]];
+                  })
+              )
+            : null;
 
     return (
         <main className="calendar-page">

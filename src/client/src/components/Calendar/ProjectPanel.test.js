@@ -42,6 +42,20 @@ describe('ProjectPanel', () => {
         expect(screen.getByRole('button', { name: /Auth rewrite/ })).toHaveTextContent('1');
     });
 
+    test('there is no count while the calendar has not loaded', async () => {
+        // Arrange — `null` means the calendar cannot say where the work went,
+        // which is not the same as saying none of it is booked.
+        const { container } = render(<ProjectPanel pool={pool} scheduledByTodoId={null} />);
+
+        // Act — the rows are still listed; only the claim about them is gone.
+        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
+
+        // Assert
+        expect(screen.getByText('Refresh tokens')).toBeInTheDocument();
+        expect(container.querySelector('.pool-card-count')).not.toBeInTheDocument();
+        expect(container.querySelector('.panel-todo-badge')).not.toBeInTheDocument();
+    });
+
     test('a click anywhere on the card expands it', async () => {
         // Arrange
         renderPanel();
