@@ -32,8 +32,15 @@
     --cal-column-max-height: 70vh;
 
     /* The gutter down the left of a day, holding the hour labels. Bookings
-     * start where it ends, so the two are the same number by definition. */
-    --cal-gutter-width: var(--space-xl);
+     * start where it ends, so the two are the same number by definition.
+     *
+     * It is the calendar's own number rather than a spacing token because it is
+     * sized by what it has to hold: an `HH:MM` label measures ~34px at
+     * `--font-sm`, and `.day-grid-hour` insets it by `--space-xs` from the
+     * right, so anything under 38px clips the leading digit off every hour and
+     * `10:00` reads as `0:00`. The nearest token, `--space-xl`, is 32px and did
+     * exactly that. */
+    --cal-gutter-width: 48px;
 
     /* The stripe that colours a booking by its edge rather than its fill, so a
      * struck-through card still reads as the same object. */
