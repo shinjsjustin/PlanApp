@@ -591,6 +591,15 @@ button.day-item-name:hover {
     color: var(--color-danger);
 }
 
+/* Same tie-break as `.calendar-toast[hidden]`: an author rule beats a user-agent
+ * rule at equal specificity. The overlay is mounted for the whole session so
+ * dnd-kit can register it before a drag starts, so without this the `display:
+ * flex` above wins and it covers — and swallows every click on — the panel it is
+ * stretched over, whether or not anything is in the air. */
+.remove-overlay[hidden] {
+    display: none;
+}
+
 .remove-overlay--over {
     background: var(--color-warning-light);
 }
