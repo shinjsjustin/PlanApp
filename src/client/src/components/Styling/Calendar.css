@@ -78,6 +78,16 @@
     color: var(--color-danger);
 }
 
+/* The toast is permanently mounted and toggles `hidden` rather than leaving the
+ * DOM, so the UA stylesheet's `[hidden] { display: none }` is what has to win.
+ * It has the same specificity as the class rule above, and an author rule beats
+ * a user-agent rule at equal specificity — so without this the `display: flex`
+ * wins and an empty alert box paints on every load. `Project.css` carries the
+ * same override for the same reason. */
+.calendar-toast[hidden] {
+    display: none;
+}
+
 .calendar-toast p {
     margin: 0;
 }
@@ -192,6 +202,11 @@
     flex: 0 0 var(--cal-column-width);
     display: flex;
     flex-direction: column;
+    /* The host half of the `has-delete-bubble` contract (see `DeleteBubble.css`):
+     * the x is absolutely positioned, so without a positioning context here it
+     * pins to the page instead and every column stacks its x in the same
+     * top-right corner, outside the column that owns it. */
+    position: relative;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

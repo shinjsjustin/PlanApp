@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import DayColumn from './DayColumn';
 import { CalendarProvider } from '../../state/CalendarContext';
 import { INITIAL_SCROLL_MINUTES, minutesToPx } from '../../lib/scheduleGeometry';
+import { loadStylesheets, containingBlockOf } from '../../testUtils/stylesheet';
 
 const day = { id: 4, position: 0, createdAt: '2026-09-09T08:30:00.000Z' };
 
@@ -38,6 +39,29 @@ const renderColumn = (items = [], calendar = {}) => {
 };
 
 describe('DayColumn', () => {
+    test('pins its delete bubble to the column rather than the page', () => {
+        // Arrange — DeleteBubble.css absolutely positions the x and states the
+        // host contract it relies on: the host carries `has-delete-bubble` AND
+        // is a positioning context. Without the latter the x escapes to the
+        // nearest one that is — the page — where all three columns stack their
+        // x in the same corner, outside the column that owns it. Only a real
+        // cascade shows that, so both sheets are loaded.
+        const unload = loadStylesheets('Calendar.css', 'DeleteBubble.css');
+
+        try {
+            renderColumn();
+
+            // Act
+            const bubble = screen.getByRole('button', { name: 'Delete Day 1' });
+
+            // Assert
+            expect(getComputedStyle(bubble).position).toBe('absolute');
+            expect(containingBlockOf(bubble)).toBe(screen.getByRole('region', { name: 'Day 1' }));
+        } finally {
+            unload();
+        }
+    });
+
     test('names itself by its place in the strip and stamps when it was made', () => {
         renderColumn();
 

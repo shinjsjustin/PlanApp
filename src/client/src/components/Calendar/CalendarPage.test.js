@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 import CalendarPage from './CalendarPage';
 import { api } from '../../lib/api';
+import { loadStylesheets } from '../../testUtils/stylesheet';
 
 jest.mock('../../lib/api');
 
@@ -15,6 +16,33 @@ beforeEach(() => {
 });
 
 describe('CalendarPage', () => {
+    test('keeps the action toast out of the page until there is something to say', async () => {
+        // Arrange — the toast is permanently mounted and toggles `hidden`, so
+        // the UA's `[hidden] { display: none }` is what has to win. It has the
+        // same specificity as a bare class rule and loses to it, which left an
+        // empty red alert box on screen for every load. Project.css already
+        // carries the override this asserts; only a loaded cascade sees it.
+        const unload = loadStylesheets('Calendar.css');
+
+        try {
+            api.get.mockImplementation((path) =>
+                path === '/calendar' ? Promise.resolve({ days: [], items: [] }) : Promise.resolve([])
+            );
+
+            // Act
+            renderPage();
+            await screen.findByRole('region', { name: 'Days' });
+
+            // Assert — `hidden` alone would satisfy an is-it-in-the-DOM check,
+            // so read what it actually resolves to.
+            const toast = document.querySelector('.calendar-toast');
+            expect(toast).toHaveAttribute('hidden');
+            expect(getComputedStyle(toast).display).toBe('none');
+        } finally {
+            unload();
+        }
+    });
+
     test('shows a loading state before anything arrives', () => {
         // Arrange
         api.get.mockReturnValue(new Promise(() => {}));
