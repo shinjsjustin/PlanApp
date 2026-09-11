@@ -22,7 +22,10 @@ const TODO_COMPLETE = 'complete';
 
 // `resize` is `{ top, bottom }`, each the return of `useResizeEdge` (Task 26).
 // Null until then, which is why the edges are absent in this task's tests.
-const DayItemCard = ({ item, onComplete, onOpenSource, drag = null, resize = null }) => {
+//
+// `onOpenSource` is Task 28's, and is absent the same way: until something can
+// be opened the name is plain text rather than a control that does nothing.
+const DayItemCard = ({ item, onComplete, onOpenSource = null, drag = null, resize = null }) => {
     const isComplete = item.status === TODO_COMPLETE;
 
     const className = ['day-item-card', isComplete ? 'day-item-card--complete' : '']
@@ -80,13 +83,17 @@ const DayItemCard = ({ item, onComplete, onOpenSource, drag = null, resize = nul
                     </span>
                 )}
 
-                <button
-                    type="button"
-                    className="day-item-name"
-                    onClick={() => onOpenSource(item)}
-                >
-                    {item.text}
-                </button>
+                {onOpenSource ? (
+                    <button
+                        type="button"
+                        className="day-item-name"
+                        onClick={() => onOpenSource(item)}
+                    >
+                        {item.text}
+                    </button>
+                ) : (
+                    <span className="day-item-name">{item.text}</span>
+                )}
             </div>
 
             <span className="day-item-time">

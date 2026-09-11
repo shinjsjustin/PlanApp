@@ -90,4 +90,19 @@ describe('DayItemCard', () => {
         // Assert
         expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ todoId: 12 }));
     });
+
+    test('the name is plain text while nothing can open the source', async () => {
+        // Arrange — no `onOpenSource`: opening the source is Task 28's, so the
+        // production page passes none today.
+        render(<DayItemCard item={item()} onComplete={jest.fn()} />);
+
+        // Act — clicking the name must do nothing rather than throw.
+        await userEvent.click(screen.getByText('Wire up the token refresh'));
+
+        // Assert
+        expect(
+            screen.queryByRole('button', { name: 'Wire up the token refresh' })
+        ).not.toBeInTheDocument();
+        expect(screen.getByText('Wire up the token refresh')).toBeInTheDocument();
+    });
 });

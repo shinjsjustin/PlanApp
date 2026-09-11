@@ -352,7 +352,7 @@
     white-space: nowrap;
 }
 
-.day-item-name:hover {
+button.day-item-name:hover {
     color: var(--color-accent);
 }
 

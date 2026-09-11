@@ -75,4 +75,55 @@ describe('CalendarPage', () => {
         expect(await screen.findByRole('region', { name: 'Days' })).toBeInTheDocument();
         expect(screen.getByRole('region', { name: 'Projects' })).toBeInTheDocument();
     });
+
+    test('a booking whose day is not in the payload reads as unscheduled', async () => {
+        // Arrange — the two reads behind GET /calendar are not snapshotted
+        // against each other, so an item can name a day the payload does not
+        // carry. The strip draws no such item; the pool must agree with it.
+        api.get.mockImplementation((path) =>
+            path === '/calendar'
+                ? Promise.resolve({
+                      days: [{ id: 1, position: 0 }],
+                      items: [
+                          {
+                              id: 40,
+                              dayId: 99,
+                              todoId: 7,
+                              text: 'Wire up the token refresh',
+                              status: 'incomplete',
+                              projectId: 2,
+                              projectTitle: 'Auth rewrite',
+                              sequenceId: 9,
+                              sequenceTitle: 'Session handling',
+                              startMinutes: 540,
+                              durationMinutes: 60,
+                          },
+                      ],
+                  })
+                : Promise.resolve([
+                      {
+                          id: 2,
+                          title: 'Auth rewrite',
+                          frontier: [
+                              {
+                                  sequenceId: 9,
+                                  sequenceTitle: 'Session handling',
+                                  isStalled: false,
+                                  nextTodo: { id: 7, text: 'Wire up the token refresh' },
+                              },
+                          ],
+                      },
+                  ])
+        );
+
+        // Act
+        const { container } = renderPage();
+        await userEvent.click(await screen.findByRole('button', { name: /Auth rewrite/ }));
+
+        // Assert — no phantom "Day 0" badge, the row is still draggable work,
+        // and the count of unscheduled to-dos is not one short.
+        expect(screen.queryByText('Day 0')).not.toBeInTheDocument();
+        expect(container.querySelector('.panel-todo-row--scheduled')).not.toBeInTheDocument();
+        expect(container.querySelector('.pool-card-count')).toHaveTextContent('1');
+    });
 });

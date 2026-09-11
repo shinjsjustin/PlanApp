@@ -1,7 +1,7 @@
 'use strict';
 
 const { firstRow, applyPositions } = require('./sql');
-const { insertAt, removeItem } = require('./positions');
+const { removeItem } = require('./positions');
 
 /**
  * Data access for `calendar_days` — the ordered 24-hour containers of the
@@ -48,24 +48,34 @@ const listIds = async (conn, ownerId) => {
     return days.map((day) => day.id);
 };
 
+/** How many days the owner's strip holds — and so the next dense position. */
+const countByOwner = async (conn, ownerId) => {
+    const [rows] = await conn.execute(
+        'SELECT COUNT(*) AS total FROM calendar_days WHERE owner_id = ?',
+        [ownerId]
+    );
+
+    return firstRow(rows).total;
+};
+
 /**
  * Appends a day at the end of the owner's strip. There is no "insert before"
  * form: days are only ever added at the end, by the + at the right of the strip
  * or by an overflow that ran out of room (design section 6).
  *
- * Rewrites more than one row, so callers run it inside a transaction.
+ * Positions stay dense without a reindex here. The strip is 0..n-1 before the
+ * insert, so n is free and appending at n leaves it 0..n. Unlike `layersRepo`,
+ * which this otherwise follows, nothing is ever inserted mid-strip, so there is
+ * no ordering for an append to disturb — and the bulk endpoint appends in a
+ * loop, where a reindex per append would rewrite the whole strip each time.
  */
 const create = async (conn, { ownerId }) => {
-    const ordering = await listIds(conn, ownerId);
+    const position = await countByOwner(conn, ownerId);
 
-    // Insert at the end first and let the reindex place it, so the new row can
-    // never collide with an existing position.
     const [result] = await conn.execute(
         'INSERT INTO calendar_days (owner_id, position) VALUES (?, ?)',
-        [ownerId, ordering.length]
+        [ownerId, position]
     );
-
-    await applyPositions(conn, TABLE, insertAt(ordering, result.insertId, ordering.length));
 
     return findById(conn, result.insertId);
 };

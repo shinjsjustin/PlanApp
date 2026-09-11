@@ -33,11 +33,18 @@ const CalendarPage = () => {
 
     // Where each booked to-do went, for the pool's badges and its count. Built
     // here because the pool has no idea what a day is.
+    //
+    // An item can name a day the payload does not carry — the two reads behind
+    // /api/calendar are not snapshotted against each other. The strip draws no
+    // such item, so the pool must not claim it is booked either: it is left out
+    // of the map and its to-do reads as unscheduled, which is what the next load
+    // shows anyway.
     const scheduledByTodoId = new Map(
-        state.items.map((item) => [
-            item.todoId,
-            { dayIndex: state.days.findIndex((day) => day.id === item.dayId) },
-        ])
+        state.items.flatMap((item) => {
+            const dayIndex = state.days.findIndex((day) => day.id === item.dayId);
+
+            return dayIndex === -1 ? [] : [[item.todoId, { dayIndex }]];
+        })
     );
 
     return (
