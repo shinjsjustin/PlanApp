@@ -8444,7 +8444,7 @@ test.describe('Calendar', () => {
 });
 ```
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
 
 **First, correct the spec's drag source.** Step 2 aims `dragOnto` at
 `page.getByText('Refresh tokens')`, but `PanelTodoRow` spreads the dnd-kit
@@ -8465,12 +8465,12 @@ If the spilling resize still does not persist after a reload, stop: that is the
 defect Task 26 Step 7 exists to fix, and it means that step did not take. Do not
 narrow the spec to avoid it.
 
-- [ ] **Step 4: Run everything**
+- [x] **Step 4: Run everything**
 
 Run: `npm run test:all`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/e2e/calendar.spec.js
