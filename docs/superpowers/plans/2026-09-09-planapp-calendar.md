@@ -6905,6 +6905,124 @@ bookings created by `curl` show up in the right columns.
 
 # Phase E — Interactions
 
+> **Reordered 2026-09-11.** This task keeps its original number but now
+> runs first in Phase E. Task 25 Step 4 imports `./RemoveOverlay`, which is
+> created here — a forward dependency that stopped the first run of Task 25 at
+> module resolution. Nothing else about the task changed.
+
+## Task 27: The remove overlay
+
+**Files:**
+- Create: `src/client/src/components/Calendar/RemoveOverlay.js`
+- Test: `src/client/src/components/Calendar/RemoveOverlay.test.js`
+
+- [x] **Step 1: Write the failing test**
+
+```js
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+
+import RemoveOverlay from './RemoveOverlay';
+
+describe('RemoveOverlay', () => {
+    test('is hidden when nothing is being dragged out of a day', () => {
+        // Arrange + Act
+        render(<RemoveOverlay isActive={false} />);
+
+        // Assert
+        expect(screen.getByText('Drag here to remove from day')).not.toBeVisible();
+    });
+
+    test('covers the panel while a booking is in the air', () => {
+        // Arrange + Act
+        render(<RemoveOverlay isActive />);
+
+        // Assert
+        expect(screen.getByText('Drag here to remove from day')).toBeVisible();
+    });
+});
+```
+
+- [x] **Step 2: Run it and watch it fail**
+
+Run: `npm run test:client -- --testPathPattern=RemoveOverlay`
+Expected: FAIL — `Cannot find module './RemoveOverlay'`.
+
+- [x] **Step 3: Write the component**
+
+```js
+import React from 'react';
+import { useDroppable } from '@dnd-kit/core';
+
+// The pool, turned into a bin for the duration of a drag.
+//
+// It appears only while a booking that came *from a day* is in the air. A row
+// being dragged out of the pool has nowhere to be removed from, and covering the
+// panel then would hide the very list the user was dragging out of.
+//
+// Rendered always and toggled with `hidden` rather than mounted on demand: it is
+// a droppable, and dnd-kit has to have registered it before the pointer arrives.
+// A droppable that mounts mid-drag is not reliably part of that drag.
+
+const RemoveOverlay = ({ isActive }) => {
+    const { isOver, setNodeRef } = useDroppable({
+        id: 'remove-from-day',
+        disabled: !isActive,
+        data: { dropTarget: { remove: true } },
+    });
+
+    const className = ['remove-overlay', isOver ? 'remove-overlay--over' : '']
+        .filter(Boolean)
+        .join(' ');
+
+    return (
+        <div ref={setNodeRef} className={className} hidden={!isActive}>
+            <p>Drag here to remove from day</p>
+        </div>
+    );
+};
+
+export default RemoveOverlay;
+```
+
+Add to `Calendar.css`, using tokens only — the overlay pins to the panel, which
+Task 20 already gave `position: relative`:
+
+```css
+.remove-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--space-lg);
+    border: 2px dashed var(--color-danger);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--color-danger);
+}
+
+.remove-overlay--over {
+    background: var(--color-warning-light);
+}
+```
+
+- [x] **Step 4: Run it and watch it pass**
+
+Run: `npm run test:client -- --testPathPattern=RemoveOverlay`
+Expected: PASS, 2 tests.
+
+- [x] **Step 5: Commit**
+
+```bash
+git add src/client/src/components/Calendar/RemoveOverlay.js src/client/src/components/Calendar/RemoveOverlay.test.js src/client/src/components/Styling/Calendar.css
+git commit -m "feat(calendar): drop a booking on the pool to unschedule it"
+```
+
+---
+
 ## Task 25: Dragging — pool into a day, and between days
 
 **Files:**
@@ -6949,7 +7067,7 @@ settled schedule and renders from that instead of from state. So what the user
 sees during a drag is produced by exactly the function that will be saved on
 release — not an approximation of it.
 
-- [ ] **Step 1: Give `DayStrip` a schedule to render from**
+- [x] **Step 1: Give `DayStrip` a schedule to render from**
 
 Change its signature so a drag can hand it a preview:
 
@@ -6965,7 +7083,7 @@ and replace `state.days` with `shown.days` in the empty check and the map. Run
 `npm run test:client -- --testPathPattern=DayStrip` — it should still pass, since
 `schedule` defaults to the context.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `src/client/src/components/Calendar/CalendarDragArea.test.js`. Pointer
 drags cannot be simulated meaningfully in jsdom, so this covers the pure seams —
@@ -7101,12 +7219,12 @@ describe('withStableTempDays', () => {
 });
 ```
 
-- [ ] **Step 3: Run it and watch it fail**
+- [x] **Step 3: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=CalendarDragArea`
 Expected: FAIL — `Cannot find module './CalendarDragArea'`.
 
-- [ ] **Step 4: Write the drag area**
+- [x] **Step 4: Write the drag area**
 
 ```js
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -7444,7 +7562,7 @@ const labelOf = (active) =>
 export default CalendarDragArea;
 ```
 
-- [ ] **Step 5: Put the two draggable hooks in their own module**
+- [x] **Step 5: Put the two draggable hooks in their own module**
 
 They cannot live in `CalendarDragArea.js`. That file imports `ProjectPanel`,
 which imports `ProjectAccordionCard`, which imports `PanelTodoRow` — so a
@@ -7483,7 +7601,7 @@ export const useBookingDrag = (todoId) => {
 };
 ```
 
-- [ ] **Step 6: Wire the handles**
+- [x] **Step 6: Wire the handles**
 
 A hook cannot be called from inside a render prop, so the row and the card each
 call their own — `dragFor` only says *whether* a row is draggable.
@@ -7505,7 +7623,7 @@ rather than throwing, so the Phase D tests that render these components bare
 keep working; leave `isDraggable` defaulting to `false` so they render the inert
 graphic they already assert on.
 
-- [ ] **Step 7: Point the page at the drag area**
+- [x] **Step 7: Point the page at the drag area**
 
 In `CalendarPage.js`, replace the bare `calendar-body` div with:
 
@@ -7518,12 +7636,102 @@ In `CalendarPage.js`, replace the bare `calendar-body` div with:
 and delete the `scheduledByTodoId` computed there — it moved into the drag area,
 which is the only place that knows about the preview.
 
-- [ ] **Step 8: Run the tests**
+- [x] **Step 8: Three corrections the first full test run turned up**
+
+Steps 4 and 7 are ticked and their code is written, but the suite run at Step 9
+fails two `CalendarPage` tests that passed before this task started. Both are
+defects in what those steps dictated, not in the work that followed them, and
+Step 4 also skipped something the task preamble asked for. Settle all three
+here, before running the suite.
+
+**8a — restore the `-1` guard on `scheduledByTodoId`.** Step 4 builds the map
+with a plain `.map()`, which keeps every item and lets `findIndex` record a
+`dayIndex` of `-1` for an item whose day is not in the payload. The code Step 7
+deleted from `CalendarPage.js` used `flatMap` to drop exactly those, and its
+comment said why: the two reads behind `/api/calendar` are not snapshotted
+against each other, so an item can name a day the strip never draws. Without the
+guard that item renders a phantom "Day 0" badge. In `CalendarDragArea.js`:
+
+```js
+    const scheduledByTodoId = useMemo(
+        () =>
+            new Map(
+                shown.items.flatMap((item) => {
+                    const dayIndex = shown.days.findIndex((day) => day.id === item.dayId);
+
+                    // An item can name a day this payload never drew. As far as
+                    // anything on screen is concerned it is not scheduled.
+                    return dayIndex === -1 ? [] : [[item.todoId, { dayIndex }]];
+                })
+            ),
+        [shown.days, shown.items]
+    );
+```
+
+Keep the dependency list exactly as it is — `[shown.days, shown.items]` is the
+Task 17 finding this task already fixed, and reverting it to `[shown]` undoes
+that work.
+
+**8b — keep one `ProjectPanel` mounted across the branch.** Step 7 moved
+`ProjectPanel` inside `CalendarDragArea`, which renders only in the ready
+branch, while the loading/error branch renders a second one. Crossing from error
+to ready unmounts one and mounts the other, and `isExpanded` in
+`ProjectAccordionCard` is local `useState` — so a successful retry silently
+folds every card the user had opened.
+
+Lift that state to the one component the branch does not remount. In
+`CalendarPage.js` (add `useCallback` and `useState` to the React import):
+
+```js
+    // Which cards are open has to outlive the ready/error branch: the panel is
+    // rendered on both sides of it, so a retry remounts it. Held here, where
+    // nothing remounts, a failed load that succeeds on retry comes back with the
+    // same cards the user left open.
+    const [expandedProjectIds, setExpandedProjectIds] = useState(() => new Set());
+
+    const toggleProject = useCallback((projectId) => {
+        setExpandedProjectIds((open) => {
+            const next = new Set(open);
+            if (next.has(projectId)) next.delete(projectId);
+            else next.add(projectId);
+            return next;                      // a new Set every time; never mutate the old one
+        });
+    }, []);
+```
+
+Pass `expandedProjectIds` and `onToggleProject={toggleProject}` to
+`ProjectPanel` in *both* branches — the ready branch forwards them through
+`CalendarDragArea` — and have `ProjectPanel` hand each `ProjectAccordionCard`
+its own `isExpanded` and `onToggle`. Delete the `useState` in
+`ProjectAccordionCard`: it is a controlled component now.
+
+**8c — gate the drop targets on `hasUnsavedDay`.** The task preamble asks for
+this and Step 4 did not do it, so it is still open. `DayStrip` reads
+`hasUnsavedDay` for the add-day button, but no droppable is gated, which is
+defect 1 of Task 18 shipping with only the backstop throw behind it — a drag
+that dies with nothing on screen. Read it from the calendar context in
+`CalendarDragArea` and pass it into `useDayDroppable`:
+
+```js
+const useDayDroppable = (dayId, registerGrid, isDisabled) => {
+    const { isOver, setNodeRef } = useDroppable({
+        id: `day-${dayId}`,
+        disabled: isDisabled,
+        data: { dropTarget: { dayId } },
+    });
+```
+
+A day still waiting for its real id cannot take a booking, because the booking
+would name an id the server has never heard of.
+
+- [x] **Step 9: Run the tests**
 
 Run: `npm run test:client`
-Expected: PASS.
+Expected: PASS. `./RemoveOverlay` resolves because Task 27 now runs ahead of
+this task.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 10: Commit**
+
 
 ```bash
 git add src/client/src/components/Calendar src/client/src/hooks/useCalendarDrag.js
@@ -7543,7 +7751,7 @@ Resizing is **not** a dnd-kit drag. It is a raw pointer gesture on a 6px edge,
 and routing it through the drag library would mean fighting the sensor's
 activation distance for a gesture whose first pixel matters.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 import { rectFor } from './useResizeEdge';
@@ -7598,12 +7806,12 @@ describe('rectFor', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=useResizeEdge`
 Expected: FAIL — `Cannot find module './useResizeEdge'`.
 
-- [ ] **Step 3: Write the hook**
+- [x] **Step 3: Write the hook**
 
 ```js
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -7728,7 +7936,7 @@ const useResizeEdge = ({ item, edge, floor, onPreview, onCommit, onCancel }) => 
 export default useResizeEdge;
 ```
 
-- [ ] **Step 4: Feed the edges the card already renders**
+- [x] **Step 4: Feed the edges the card already renders**
 
 `DayItemCard` renders both handles from a `resize` prop of `{ top, bottom }`
 (Task 22). Build that prop in `CalendarDragArea`, where the schedule and
@@ -7744,129 +7952,85 @@ export default useResizeEdge;
 The same preview-then-commit shape the drag uses, so a resize that runs past
 midnight spills live and is saved as one bulk request.
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npm run test:client`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/client/src/hooks/useResizeEdge.js src/client/src/hooks/useResizeEdge.test.js src/client/src/components/Calendar
 git commit -m "feat(calendar): resize a booking by its top or bottom edge"
 ```
 
----
 
-## Task 27: The remove overlay
+- [x] **Step 7: Keep the gesture alive when the card moves under it**
 
-**Files:**
-- Create: `src/client/src/components/Calendar/RemoveOverlay.js`
-- Test: `src/client/src/components/Calendar/RemoveOverlay.test.js`
+Found by Task 29's end-to-end run, which is the first thing to resize an item
+far enough to spill it. Steps 1–6 are correct for a resize that stays inside its
+day; this is the case they do not cover.
 
-- [ ] **Step 1: Write the failing test**
+`handlePointerDown` captures the pointer on `event.currentTarget` — the edge
+`<span>` inside the card — and `handleProps` puts `onPointerUp` on that same
+span. The moment a resize grows an item past midnight the preview spills it, the
+card unmounts from its old day column and remounts inside the next one, and that
+span is destroyed mid-gesture. The release is never heard, `onCommit` never
+runs, and nothing is saved. It is invisible in the browser because the preview
+stays on screen; only a reload shows the resize was lost.
 
-```js
-import React from 'react';
-import { render, screen } from '@testing-library/react';
+Nothing is wrong with the spill. The listeners are simply on the wrong element:
+they belong to the *gesture*, which outlives any card, not to the node the
+gesture started on.
 
-import RemoveOverlay from './RemoveOverlay';
-
-describe('RemoveOverlay', () => {
-    test('is hidden when nothing is being dragged out of a day', () => {
-        // Arrange + Act
-        render(<RemoveOverlay isActive={false} />);
-
-        // Assert
-        expect(screen.getByText('Drag here to remove from day')).not.toBeVisible();
-    });
-
-    test('covers the panel while a booking is in the air', () => {
-        // Arrange + Act
-        render(<RemoveOverlay isActive />);
-
-        // Assert
-        expect(screen.getByText('Drag here to remove from day')).toBeVisible();
-    });
-});
-```
-
-- [ ] **Step 2: Run it and watch it fail**
-
-Run: `npm run test:client -- --testPathPattern=RemoveOverlay`
-Expected: FAIL — `Cannot find module './RemoveOverlay'`.
-
-- [ ] **Step 3: Write the component**
+Move them to `document` for the duration, which is what the Escape handler two
+blocks down already does — follow its shape, including the cleanup:
 
 ```js
-import React from 'react';
-import { useDroppable } from '@dnd-kit/core';
+    // The pointer listeners live on `document`, not on the edge element, because
+    // a resize that spills unmounts the card it started on: the item moves into
+    // the next day's column mid-gesture and takes its edge span with it. A
+    // listener on that span dies with it and the release is never heard, so the
+    // resize is previewed and never saved. The gesture outlives the node, so the
+    // listeners have to as well.
+    useEffect(() => {
+        if (!isResizing) return undefined;
 
-// The pool, turned into a bin for the duration of a drag.
-//
-// It appears only while a booking that came *from a day* is in the air. A row
-// being dragged out of the pool has nowhere to be removed from, and covering the
-// panel then would hide the very list the user was dragging out of.
-//
-// Rendered always and toggled with `hidden` rather than mounted on demand: it is
-// a droppable, and dnd-kit has to have registered it before the pointer arrives.
-// A droppable that mounts mid-drag is not reliably part of that drag.
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+        document.addEventListener('pointercancel', handlePointerUp);
 
-const RemoveOverlay = ({ isActive }) => {
-    const { isOver, setNodeRef } = useDroppable({
-        id: 'remove-from-day',
-        disabled: !isActive,
-        data: { dropTarget: { remove: true } },
-    });
-
-    const className = ['remove-overlay', isOver ? 'remove-overlay--over' : '']
-        .filter(Boolean)
-        .join(' ');
-
-    return (
-        <div ref={setNodeRef} className={className} hidden={!isActive}>
-            <p>Drag here to remove from day</p>
-        </div>
-    );
-};
-
-export default RemoveOverlay;
+        return () => {
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+        };
+    }, [isResizing, handlePointerMove, handlePointerUp]);
 ```
 
-Add to `Calendar.css`, using tokens only — the overlay pins to the panel, which
-Task 20 already gave `position: relative`:
+`handleProps` keeps only `onPointerDown` — that one is genuinely the edge's, and
+it is what starts the gesture. Drop `setPointerCapture` with the rest: capturing
+to a node that is about to be unmounted is the bug, and `document` listeners do
+not need it.
 
-```css
-.remove-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: var(--space-lg);
-    border: 2px dashed var(--color-danger);
-    border-radius: var(--radius-md);
-    background: var(--bg-card);
-    color: var(--color-danger);
-}
+`handlePointerMove` and `handlePointerUp` both guard on `isResizing` already, so
+they stay as they are.
 
-.remove-overlay--over {
-    background: var(--color-warning-light);
-}
-```
+- [x] **Step 8: Run the tests**
 
-- [ ] **Step 4: Run it and watch it pass**
+Run: `npm run test:client -- --testPathPattern='useResizeEdge|DayItemCard'`
+Expected: PASS. `useResizeEdge.test.js` drives the handlers directly, so if a
+test dispatches its `pointermove`/`pointerup` at the edge element it now has to
+dispatch them on `document` instead. Update those tests — the assertions about
+what `onPreview` and `onCommit` receive do not change.
 
-Run: `npm run test:client -- --testPathPattern=RemoveOverlay`
-Expected: PASS, 2 tests.
+Then run `npm run test:client` in full and expect PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
-git add src/client/src/components/Calendar/RemoveOverlay.js src/client/src/components/Calendar/RemoveOverlay.test.js src/client/src/components/Styling/Calendar.css
-git commit -m "feat(calendar): drop a booking on the pool to unschedule it"
+git add src/client/src/hooks/useResizeEdge.js src/client/src/hooks/useResizeEdge.test.js
+git commit -m "fix(calendar): save a resize that spills into the next day"
 ```
 
 ---
@@ -7885,7 +8049,7 @@ git commit -m "feat(calendar): drop a booking on the pool to unschedule it"
 
 The one change outside the Calendar folder.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 import { act, renderHook } from '@testing-library/react';
@@ -7987,12 +8151,12 @@ describe('useSequenceSpotlight', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `npm run test:client -- --testPathPattern=useSequenceSpotlight`
 Expected: FAIL — `Cannot find module './useSequenceSpotlight'`.
 
-- [ ] **Step 3: Write the hook**
+- [x] **Step 3: Write the hook**
 
 ```js
 import { useEffect, useState } from 'react';
@@ -8061,7 +8225,7 @@ const useSequenceSpotlight = (isReady) => {
 export default useSequenceSpotlight;
 ```
 
-- [ ] **Step 4: Send the user from the calendar**
+- [x] **Step 4: Send the user from the calendar**
 
 In `CalendarPage.js`:
 
@@ -8089,7 +8253,7 @@ In `CalendarPage.js`:
     );
 ```
 
-- [ ] **Step 5: Thread the highlight through the project page**
+- [x] **Step 5: Thread the highlight through the project page**
 
 In `ProjectPage.js`:
 
@@ -8113,7 +8277,7 @@ In `SequenceCard.js`, add it to the card's class list:
 
 where `isSpotlit = sequence.id === highlightedSequenceId`.
 
-- [ ] **Step 6: Add the flash**
+- [x] **Step 6: Add the flash**
 
 In `SequenceCard.css`, tokens only:
 
@@ -8137,13 +8301,13 @@ In `SequenceCard.css`, tokens only:
 }
 ```
 
-- [ ] **Step 7: Run the whole client suite**
+- [x] **Step 7: Run the whole client suite**
 
 Run: `npm run test:client`
 Expected: PASS, including every existing project-page test — the four files you
 touched all take one new optional prop and nothing else.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/client/src/hooks/useSequenceSpotlight.js src/client/src/hooks/useSequenceSpotlight.test.js src/client/src/components/Calendar/CalendarPage.js src/client/src/components/Project src/client/src/components/Styling/SequenceCard.css
@@ -8159,7 +8323,7 @@ git commit -m "feat(calendar): open a booking's sequence and flash it on arrival
 **Files:**
 - Create: `tests/e2e/calendar.spec.js`
 
-- [ ] **Step 1: Read the existing suite first**
+- [x] **Step 1: Read the existing suite first**
 
 Read `tests/e2e/helpers.js`, `tests/e2e/database.js` and
 `tests/e2e/criticalFlow.spec.js`. What it actually exports is
@@ -8179,7 +8343,7 @@ Two of these matter here:
   text, sequenceId)` files a to-do into one of those sequences, which is what
   puts it on the frontier and therefore in the calendar's pool.
 
-- [ ] **Step 2: Write the spec**
+- [x] **Step 2: Write the spec**
 
 ```js
 const { test, expect } = require('@playwright/test');
@@ -8280,7 +8444,15 @@ test.describe('Calendar', () => {
 });
 ```
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
+
+**First, correct the spec's drag source.** Step 2 aims `dragOnto` at
+`page.getByText('Refresh tokens')`, but `PanelTodoRow` spreads the dnd-kit
+listeners onto `.panel-todo-grip` only — the text span gets none, so a
+pointerdown on it starts no drag and the booking never lands. Every other spec
+in the suite drags the grip (`criticalFlow.spec.js:150,343`,
+`dragPartitioning.spec.js:97,139`); match them. The row is the accessible
+handle, so scope from it rather than by class alone where you can.
 
 Run: `npm run test:e2e -- calendar.spec.js`
 Expected: PASS. Playwright drags are timing-sensitive; if the resize proves
@@ -8289,12 +8461,16 @@ rather than adding a sleep. If a *drag* proves flaky, the fault is in
 `dragOnto`'s constants and should be fixed there for every spec at once, not
 worked around here.
 
-- [ ] **Step 4: Run everything**
+If the spilling resize still does not persist after a reload, stop: that is the
+defect Task 26 Step 7 exists to fix, and it means that step did not take. Do not
+narrow the spec to avoid it.
+
+- [x] **Step 4: Run everything**
 
 Run: `npm run test:all`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/e2e/calendar.spec.js

@@ -5,6 +5,7 @@ import Canvas from './Canvas';
 import DragDropArea from './DragDropArea';
 import UnorganizedPanel from './UnorganizedPanel';
 import useProjectGraph from '../../hooks/useProjectGraph';
+import useSequenceSpotlight from '../../hooks/useSequenceSpotlight';
 import { PROJECT_STATUS } from '../../state/projectReducer';
 import { ProjectProvider } from '../../state/ProjectContext';
 import '../Styling/Project.css';
@@ -28,6 +29,12 @@ const ProjectPage = () => {
     const { id } = useParams();
     const graph = useProjectGraph(id);
     const { state, reload, dismissActionError, dismissNotice } = graph;
+
+    // Arriving from the calendar's "where did this come from?". The wait starts
+    // from the graph being ready, because there is no card to flash before then.
+    const highlightedSequenceId = useSequenceSpotlight(
+        state.status === PROJECT_STATUS.ready
+    );
 
     return (
         <main className="project-page">
@@ -82,7 +89,7 @@ const ProjectPage = () => {
                     <DragDropArea>
                         <div className="project-body">
                             <UnorganizedPanel />
-                            <Canvas />
+                            <Canvas highlightedSequenceId={highlightedSequenceId} />
                         </div>
                     </DragDropArea>
                 </ProjectProvider>

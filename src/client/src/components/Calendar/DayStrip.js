@@ -13,12 +13,18 @@ import { useCalendarContext } from '../../state/CalendarContext';
 const ADD_WHILE_SAVING_TITLE =
     'The day you just added is still saving. The + comes back when it lands.';
 
-const DayStrip = ({ onOpenSource, columnFor = null }) => {
+// `schedule` is what a drag in flight is previewing — the settled result of the
+// gesture as it stands, computed by `lib/schedule`. It is rendered instead of the
+// state so the strip shows what a release would actually save. Absent, the strip
+// draws the calendar as it is, which is every render but a drag.
+const DayStrip = ({ schedule = null, onOpenSource, columnFor = null }) => {
     const { state, addDay, hasUnsavedDay } = useCalendarContext();
 
-    const itemsOf = (dayId) => state.items.filter((item) => item.dayId === dayId);
+    const shown = schedule ?? state;
 
-    if (state.days.length === 0) {
+    const itemsOf = (dayId) => shown.items.filter((item) => item.dayId === dayId);
+
+    if (shown.days.length === 0) {
         return (
             <section className="calendar-strip calendar-strip--empty" aria-label="Days">
                 <p>No days yet.</p>
@@ -32,7 +38,7 @@ const DayStrip = ({ onOpenSource, columnFor = null }) => {
 
     return (
         <section className="calendar-strip" aria-label="Days">
-            {state.days.map((day, index) =>
+            {shown.days.map((day, index) =>
                 columnFor ? (
                     columnFor(day, index, itemsOf(day.id))
                 ) : (

@@ -21,7 +21,23 @@ import { useCalendarContext } from '../../state/CalendarContext';
 // A day has no name. Its header is where it sits and when it was made, which is
 // what a day *is* here — an ordered container, not a date (design decision 2).
 
-const DayColumn = ({ day, index, items, onOpenSource, droppable = null, children }) => {
+// `droppable` comes from the one wrapper that has a `DndContext` around it, and
+// defaults off so the column renders bare in a test.
+//
+// `cardFor` draws one booking, and exists for the same reason `DayStrip`'s
+// `columnFor` does, one level down: a resizable card needs a hook per edge, and
+// hooks cannot be called from a loop in here. The wrapper that holds the
+// schedule supplies them; absent, the column draws a plain card. A caller that
+// takes the render over owns the key, as `columnFor`'s does.
+const DayColumn = ({
+    day,
+    index,
+    items,
+    onOpenSource,
+    droppable = null,
+    cardFor = null,
+    children,
+}) => {
     const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const scrollRef = useRef(null);
@@ -77,14 +93,18 @@ const DayColumn = ({ day, index, items, onOpenSource, droppable = null, children
             <div className="day-column-scroll" ref={scrollRef}>
                 <div ref={droppable?.setNodeRef} className={droppable?.className}>
                     <DayGrid>
-                        {items.map((item) => (
-                            <DayItemCard
-                                key={item.todoId}
-                                item={item}
-                                onComplete={completeTodo}
-                                onOpenSource={onOpenSource}
-                            />
-                        ))}
+                        {items.map((item) =>
+                            cardFor ? (
+                                cardFor(item)
+                            ) : (
+                                <DayItemCard
+                                    key={item.todoId}
+                                    item={item}
+                                    onComplete={completeTodo}
+                                    onOpenSource={onOpenSource}
+                                />
+                            )
+                        )}
                         {children}
                     </DayGrid>
                 </div>

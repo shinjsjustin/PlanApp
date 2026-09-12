@@ -13,8 +13,20 @@ import { POOL_STATUS } from '../../hooks/usePool';
 // calendar rather than from here, because the pool has no idea what a day is —
 // and is `null` while the calendar has not loaded, meaning unknown rather than
 // none.
+//
+// Which cards are open is held above this panel, not in it. The page renders one
+// panel while the calendar is loading or failed and another once it is ready, so
+// state kept here — or in a card — would be thrown away by a retry that
+// succeeded, folding every card the user had opened.
 
-const ProjectPanel = ({ pool, scheduledByTodoId, dragFor = null, overlay = null }) => (
+const ProjectPanel = ({
+    pool,
+    scheduledByTodoId,
+    dragFor = null,
+    overlay = null,
+    expandedProjectIds,
+    onToggleProject,
+}) => (
     <section className="calendar-panel" aria-label="Projects">
         {overlay}
 
@@ -54,6 +66,8 @@ const ProjectPanel = ({ pool, scheduledByTodoId, dragFor = null, overlay = null 
                             project={project}
                             scheduledByTodoId={scheduledByTodoId}
                             dragFor={dragFor}
+                            isExpanded={expandedProjectIds.has(project.id)}
+                            onToggle={() => onToggleProject(project.id)}
                         />
                     ))}
                 </ul>

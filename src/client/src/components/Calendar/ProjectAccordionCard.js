@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 import PanelTodoRow from './PanelTodoRow';
 
@@ -16,11 +16,17 @@ import PanelTodoRow from './PanelTodoRow';
 //
 // Whether a card is open is browser-local and not persisted. Unlike a sequence
 // card's `is_collapsed`, nothing here is worth a column: the pool is rebuilt from
-// the frontier on every visit anyway.
+// the frontier on every visit anyway. It is held by the page rather than here,
+// though: this card is remounted whenever the calendar crosses between its failed
+// and ready branches, and state held here would not survive a retry.
 
-const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-
+const ProjectAccordionCard = ({
+    project,
+    scheduledByTodoId,
+    dragFor = null,
+    isExpanded,
+    onToggle,
+}) => {
     const unscheduledCount = scheduledByTodoId
         ? project.todos.filter((todo) => !scheduledByTodoId.has(todo.todoId)).length
         : null;
@@ -31,7 +37,7 @@ const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) =>
                 type="button"
                 className="pool-card-header"
                 aria-expanded={isExpanded}
-                onClick={() => setIsExpanded((current) => !current)}
+                onClick={onToggle}
             >
                 <span className="pool-card-title">{project.title}</span>
                 {unscheduledCount !== null && (
@@ -49,7 +55,7 @@ const ProjectAccordionCard = ({ project, scheduledByTodoId, dragFor = null }) =>
                                 key={todo.todoId}
                                 todo={todo}
                                 scheduled={scheduledByTodoId?.get(todo.todoId) ?? null}
-                                drag={dragFor ? dragFor(todo) : null}
+                                isDraggable={dragFor ? dragFor(todo) : false}
                             />
                         ))}
                     </ul>

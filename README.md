@@ -14,8 +14,9 @@ Node/Express + MySQL on the back end, React on the front end.
 - **Todos** — add, reorder, complete, and move todos between sequence cards
 - **Frontier view** — surfaces the next actionable work across projects
 - **Calendar** — a strip of 24-hour day columns beside a pool of every project's
-  startable to-dos; add and delete days, and see booked work in place
-  (drag-to-schedule arrives in a later pass)
+  startable to-dos; add and delete days, drag a to-do into a day or between days,
+  resize a booking by its top or bottom edge, drop it back on the pool to
+  unschedule it, and open the sequence a booking came from on the project page
 
 ## Tech Stack
 

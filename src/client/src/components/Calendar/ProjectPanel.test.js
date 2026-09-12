@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -24,8 +24,30 @@ const pool = {
     ],
 };
 
+// Which cards are open lives above the panel — the page holds it so a retry that
+// remounts the panel does not fold every card. The tests stand in for the page.
+const PanelHost = (props) => {
+    const [expandedProjectIds, setExpandedProjectIds] = useState(() => new Set());
+
+    const toggleProject = (projectId) =>
+        setExpandedProjectIds((open) => {
+            const next = new Set(open);
+            if (next.has(projectId)) next.delete(projectId);
+            else next.add(projectId);
+            return next;
+        });
+
+    return (
+        <ProjectPanel
+            {...props}
+            expandedProjectIds={expandedProjectIds}
+            onToggleProject={toggleProject}
+        />
+    );
+};
+
 const renderPanel = (scheduled = []) =>
-    render(<ProjectPanel pool={pool} scheduledByTodoId={new Map(scheduled)} />);
+    render(<PanelHost pool={pool} scheduledByTodoId={new Map(scheduled)} />);
 
 describe('ProjectPanel', () => {
     test('a collapsed card shows the project and its unscheduled count', () => {
@@ -45,7 +67,7 @@ describe('ProjectPanel', () => {
     test('there is no count while the calendar has not loaded', async () => {
         // Arrange — `null` means the calendar cannot say where the work went,
         // which is not the same as saying none of it is booked.
-        const { container } = render(<ProjectPanel pool={pool} scheduledByTodoId={null} />);
+        const { container } = render(<PanelHost pool={pool} scheduledByTodoId={null} />);
 
         // Act — the rows are still listed; only the claim about them is gone.
         await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
@@ -110,7 +132,7 @@ describe('ProjectPanel', () => {
     test('a failed pool load offers a retry inside the panel', () => {
         // Arrange + Act
         render(
-            <ProjectPanel
+            <PanelHost
                 pool={{ ...pool, status: POOL_STATUS.error, loadError: 'Offline', projects: [] }}
                 scheduledByTodoId={new Map()}
             />

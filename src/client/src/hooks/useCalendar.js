@@ -75,6 +75,32 @@ const reconcileDay = (schedule, tempId, saved) => ({
 });
 
 /**
+ * The same swap for the days a *spill* invented, which is the one thing a
+ * gesture's answer carries that nothing else can supply.
+ *
+ * A booking dragged past midnight draws its new day at once under a temporary
+ * id, and only the reply to the write that stored it knows the real one. So this
+ * runs even when that reply is otherwise too old to install: dropping it whole
+ * would leave a day in the strip the server has never heard of, and
+ * `hasUnsavedDay` true for good, which disables every gesture on the page.
+ *
+ * Paired from the end of both lists rather than by position across them. A day
+ * is only ever appended — `spillFrom` mints them in order, and the server lists
+ * the rows it just created last — so the trailing ones correspond however many
+ * real days sit in front of them, including any a `deleteDay` removed in the
+ * meantime.
+ */
+const reconcileSpilledDays = (schedule, optimistic, saved) => {
+    const invented = optimistic.days.filter((day) => isTempId(day.id));
+    const created = saved.days.slice(saved.days.length - invented.length);
+
+    return created.reduce(
+        (settled, day, index) => reconcileDay(settled, invented[index].id, day),
+        schedule
+    );
+};
+
+/**
  * `onTodoCompleted` is called after a completion the server accepted, and is how
  * the pool refills: the frontier moves on when work is ticked off, and only the
  * page above both hooks knows they are on screen together. It is optional
@@ -293,7 +319,26 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
                 // The server answers with the whole schedule it stored, which
                 // replaces the optimistic one outright rather than being merged
                 // into it — the request was atomic, so its result is too.
-                onSuccess: (current, saved) => saved,
+                //
+                // But only while this write is still the last thing that
+                // happened. Two gestures inside one round trip — book a row,
+                // then drag its edge, or drag it back to the pool — put a second
+                // write on the wire before the first has answered, and the first
+                // answers about a strip the second has already moved past.
+                // Installing it winds the calendar back, and if the two answers
+                // arrive out of order it stays wound back until a reload. A
+                // whole-schedule answer is the truth only for the schedule it
+                // was asked about, which is the same reason the rollback path
+                // below stops treating its snapshot as an undo.
+                //
+                // Too old to install is not the same as worthless, though. The
+                // ids of the days this write appended exist nowhere else, so
+                // they are carried across onto whatever has settled since rather
+                // than thrown away with the rest of the answer.
+                onSuccess: (current, saved) =>
+                    hasSettledSince(current, next)
+                        ? reconcileSpilledDays(current, next, saved)
+                        : saved,
             });
         },
         [mutate]

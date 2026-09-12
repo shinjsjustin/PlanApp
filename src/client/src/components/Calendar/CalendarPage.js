@@ -1,7 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-import DayStrip from './DayStrip';
+import CalendarDragArea from './CalendarDragArea';
 import ProjectPanel from './ProjectPanel';
 import useCalendar from '../../hooks/useCalendar';
 import usePool from '../../hooks/usePool';
@@ -23,6 +23,8 @@ import '../Styling/Calendar.css';
 // strip, which would be indistinguishable from a calendar with no days in it.
 
 const CalendarPage = () => {
+    const navigate = useNavigate();
+
     // The two hooks meet here and nowhere else: neither knows the other exists,
     // and the page is what tells the pool that a booking was ticked off — the
     // frontier has moved on, so the sequence's next step is what belongs in the
@@ -32,33 +34,43 @@ const CalendarPage = () => {
 
     const { state, reload, dismissActionError } = calendar;
 
+    // Which cards are open has to outlive the ready/error branch: the panel is
+    // rendered on both sides of it, so a retry remounts it. Held here, where
+    // nothing remounts, a failed load that succeeds on retry comes back with the
+    // same cards the user left open.
+    const [expandedProjectIds, setExpandedProjectIds] = useState(() => new Set());
+
+    const toggleProject = useCallback((projectId) => {
+        setExpandedProjectIds((open) => {
+            const next = new Set(open);
+            if (next.has(projectId)) next.delete(projectId);
+            else next.add(projectId);
+            return next; // a new Set every time; never mutate the old one
+        });
+    }, []);
+
+    /**
+     * "Where did this come from?" — the project, and the sequence within it.
+     *
+     * Both are read off the booking itself rather than looked up in the pool: a
+     * completed to-do has left the frontier and is no longer in the pool, and it
+     * is exactly then that a user is most likely to ask.
+     *
+     * A booking whose to-do has since been returned to the unorganized panel has
+     * no sequence to point at, so it simply arrives at the project.
+     */
+    const openSource = useCallback(
+        (item) =>
+            navigate(
+                item.sequenceId
+                    ? `/projects/${item.projectId}?sequence=${item.sequenceId}`
+                    : `/projects/${item.projectId}`
+            ),
+        [navigate]
+    );
+
     const isLoading =
         state.status === CALENDAR_STATUS.idle || state.status === CALENDAR_STATUS.loading;
-
-    // Where each booked to-do went, for the pool's badges and its count. Built
-    // here because the pool has no idea what a day is.
-    //
-    // An item can name a day the payload does not carry — the two reads behind
-    // /api/calendar are not snapshotted against each other. The strip draws no
-    // such item, so the pool must not claim it is booked either: it is left out
-    // of the map and its to-do reads as unscheduled, which is what the next load
-    // shows anyway.
-    //
-    // `null` until the calendar is ready: it means nothing is known about where
-    // the work went, which is not the same as knowing none of it is booked. The
-    // panel stays up either way (design section 10), but with no calendar behind
-    // it, it drops the badges and the count rather than reporting every booked
-    // to-do as unscheduled. A successful retry brings both back.
-    const scheduledByTodoId =
-        state.status === CALENDAR_STATUS.ready
-            ? new Map(
-                  state.items.flatMap((item) => {
-                      const dayIndex = state.days.findIndex((day) => day.id === item.dayId);
-
-                      return dayIndex === -1 ? [] : [[item.todoId, { dayIndex }]];
-                  })
-              )
-            : null;
 
     return (
         <main className="calendar-page">
@@ -78,30 +90,55 @@ const CalendarPage = () => {
                 </button>
             </div>
 
-            <div className="calendar-body">
-                {isLoading && (
-                    <p className="calendar-loading" role="status" aria-label="Loading calendar…">
-                        Loading calendar…
-                    </p>
-                )}
+            {/* Where each booked to-do went is the drag area's to say, not this
+                page's: during a drag the answer is the preview, and only the one
+                place that computes it knows that. So the ready branch hands over
+                both panels whole.
 
-                {state.status === CALENDAR_STATUS.error && (
-                    <div className="calendar-error">
-                        <p role="alert">{state.loadError}</p>
-                        <button type="button" onClick={reload}>
-                            Try again
-                        </button>
-                    </div>
-                )}
+                Until then there is no calendar to ask, and `null` says exactly
+                that — nothing is known about where the work went, which is not
+                the same as knowing none of it is booked. The panel stays up
+                either way (design section 10), but with no calendar behind it, it
+                drops the badges and the count rather than reporting every booked
+                to-do as unscheduled. A successful retry brings both back. */}
+            {state.status === CALENDAR_STATUS.ready ? (
+                <CalendarProvider value={calendar}>
+                    <CalendarDragArea
+                        pool={pool}
+                        onOpenSource={openSource}
+                        expandedProjectIds={expandedProjectIds}
+                        onToggleProject={toggleProject}
+                    />
+                </CalendarProvider>
+            ) : (
+                <div className="calendar-body">
+                    {isLoading && (
+                        <p
+                            className="calendar-loading"
+                            role="status"
+                            aria-label="Loading calendar…"
+                        >
+                            Loading calendar…
+                        </p>
+                    )}
 
-                {state.status === CALENDAR_STATUS.ready && (
-                    <CalendarProvider value={calendar}>
-                        <DayStrip />
-                    </CalendarProvider>
-                )}
+                    {state.status === CALENDAR_STATUS.error && (
+                        <div className="calendar-error">
+                            <p role="alert">{state.loadError}</p>
+                            <button type="button" onClick={reload}>
+                                Try again
+                            </button>
+                        </div>
+                    )}
 
-                <ProjectPanel pool={pool} scheduledByTodoId={scheduledByTodoId} />
-            </div>
+                    <ProjectPanel
+                        pool={pool}
+                        scheduledByTodoId={null}
+                        expandedProjectIds={expandedProjectIds}
+                        onToggleProject={toggleProject}
+                    />
+                </div>
+            )}
         </main>
     );
 };
