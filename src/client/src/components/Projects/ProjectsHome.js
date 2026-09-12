@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import CreateProjectDialog from './CreateProjectDialog';
 import ProjectCard from './ProjectCard';
@@ -62,11 +63,20 @@ const ProjectsHome = () => {
         <main className="projects-page">
             <header className="projects-header">
                 <h1>Projects</h1>
-                {status === STATUS.ready && (
-                    <button type="button" onClick={() => setIsDialogOpen(true)}>
-                        New project
-                    </button>
-                )}
+                <div className="projects-header-actions">
+                    {/* Unconditional, unlike "New project": the calendar is the
+                        other view onto the same plan, and a grid that is still
+                        loading — or that failed to — is exactly when the user
+                        most wants a way off this page. */}
+                    <Link className="projects-calendar-link" to="/calendar">
+                        Calendar →
+                    </Link>
+                    {status === STATUS.ready && (
+                        <button type="button" onClick={() => setIsDialogOpen(true)}>
+                            New project
+                        </button>
+                    )}
+                </div>
             </header>
 
             {status === STATUS.loading && (

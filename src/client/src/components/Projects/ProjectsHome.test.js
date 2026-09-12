@@ -210,4 +210,31 @@ describe('ProjectsHome', () => {
         );
         expect(screen.getByText(/no projects yet/i)).toBeInTheDocument();
     });
+
+    test('offers a link through to the calendar', async () => {
+        // Arrange
+        api.get.mockResolvedValue([aProject()]);
+
+        // Act
+        renderHome();
+        await waitForLoadToFinish();
+
+        // Assert
+        expect(screen.getByRole('link', { name: /calendar/i })).toHaveAttribute(
+            'href',
+            '/calendar'
+        );
+    });
+
+    test('keeps the calendar reachable while the projects are still loading', async () => {
+        // Arrange — a slow or failing load must not strand the user on this page,
+        // so the calendar link does not wait on the grid the way "New project" does.
+        api.get.mockReturnValue(new Promise(() => {}));
+
+        // Act
+        renderHome();
+
+        // Assert
+        expect(screen.getByRole('link', { name: /calendar/i })).toBeInTheDocument();
+    });
 });

@@ -18,6 +18,29 @@
     margin: 0;
 }
 
+.projects-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* A link, so it opens in a new tab like any other, dressed as the button it
+ * sits beside. */
+.projects-calendar-link {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.projects-calendar-link:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
 .projects-loading,
 .projects-error,
 .projects-empty {
