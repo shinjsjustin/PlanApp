@@ -304,19 +304,52 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     // The three below are the resize gesture's half of the same preview-then-commit
     // shape. `resizeItem` runs `spillFrom` itself, so a booking dragged past
     // midnight spills as the user drags and is saved as one bulk request.
+    //
+    // Guarded for the same reason `handleDragMove` is, and reached the same way:
+    // the booking the press resolved against can leave the committed schedule
+    // mid-gesture — a failed save rolls it back, or a resync answers — and
+    // `resizeItem` then throws for a to-do that is no longer booked. From inside
+    // a state updater that throw is rethrown during render, where there is no
+    // boundary above it.
     const handleResizePreview = useCallback(
         (todoId, rect) => {
-            setPreview((current) =>
-                withStableTempDays(current, resizeItem(scheduleOf(state), { todoId, ...rect }))
-            );
+            setPreview((current) => {
+                try {
+                    return withStableTempDays(
+                        current,
+                        resizeItem(scheduleOf(state), { todoId, ...rect })
+                    );
+                } catch (err) {
+                    console.error('Could not preview this resize:', err);
+                    return current;
+                }
+            });
         },
         [state]
     );
 
+    // The release has the same exposure and not a drop's: it runs from a raw
+    // `document` pointerup listener, so a throw escapes the gesture entirely
+    // rather than surfacing as a rolled-back mutation. There is nothing to save
+    // for a booking that is no longer there, and the reason reaches the console.
+    //
+    // Only the gesture's own arithmetic is guarded. `commit` throws on a
+    // schedule holding an unnamed day, and `useCalendar` leaves that one to
+    // escape on purpose.
     const handleResizeCommit = useCallback(
         (todoId, rect) => {
             setPreview(null);
-            commit(resizeItem(scheduleOf(state), { todoId, ...rect }));
+
+            let next;
+
+            try {
+                next = resizeItem(scheduleOf(state), { todoId, ...rect });
+            } catch (err) {
+                console.error('Could not save this resize:', err);
+                return;
+            }
+
+            commit(next);
         },
         [commit, state]
     );

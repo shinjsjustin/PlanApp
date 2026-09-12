@@ -124,20 +124,28 @@ const POOL = {
     reload: () => {},
 };
 
+/**
+ * `showState` re-renders against a different *committed* schedule without
+ * disturbing a gesture in flight, which is the only way to reach what a failed
+ * save does to one: the rollback lands while the pointer is still down.
+ */
 const renderArea = (state) => {
-    const context = {
-        state,
-        commit: jest.fn(),
-        unschedule: jest.fn(),
+    const commit = jest.fn();
+    const unschedule = jest.fn();
+
+    const contextFor = (current) => ({
+        state: current,
+        commit,
+        unschedule,
         completeTodo: jest.fn(),
         addDay: jest.fn(),
         deleteDay: jest.fn(),
         isUnsavedDay: (dayId) => isTempId(dayId),
-        hasUnsavedDay: state.days.some((candidate) => isTempId(candidate.id)),
-    };
+        hasUnsavedDay: current.days.some((candidate) => isTempId(candidate.id)),
+    });
 
-    render(
-        <CalendarProvider value={context}>
+    const treeFor = (current) => (
+        <CalendarProvider value={contextFor(current)}>
             <CalendarDragArea
                 pool={POOL}
                 onOpenSource={() => {}}
@@ -147,7 +155,13 @@ const renderArea = (state) => {
         </CalendarProvider>
     );
 
-    return context;
+    const { rerender } = render(treeFor(state));
+
+    return {
+        commit,
+        unschedule,
+        showState: (next) => rerender(treeFor(next)),
+    };
 };
 
 /** dnd-kit measures and re-measures between frames, so each one is flushed. */
@@ -284,5 +298,82 @@ describe('resizing while a day is still saving', () => {
         expect(context.commit.mock.calls[0][0].items).toEqual([
             expect.objectContaining({ todoId: 7, startMinutes: 540, durationMinutes: 120 }),
         ]);
+    });
+});
+
+/**
+ * The booking a resize measures against can leave the committed schedule while
+ * the pointer is still down: the drop that created it fails and `mutate` rolls
+ * it back, or a resync answers mid-gesture. `resizeItem` then throws for a to-do
+ * that is not booked — from inside a `setPreview` updater, which React rethrows
+ * during render, and `src/client/src` has no error boundary, so the page goes
+ * blank rather than the gesture merely stopping.
+ */
+describe('resizing a booking that leaves the schedule mid-gesture', () => {
+    const edge = () =>
+        screen.getByRole('separator', { name: 'Change how long “Fit the rotor” takes' });
+
+    const cardTime = () => screen.getByText('09:00–11:00');
+
+    let reported;
+
+    beforeEach(() => {
+        reported = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        reported.mockRestore();
+    });
+
+    /** Press, drag an hour down, then pull the booking out from under it. */
+    const resizeThenRollBack = async (context) => {
+        fireEvent.pointerDown(edge(), { clientX: 100, clientY: 400 });
+        await settle();
+
+        fireEvent.pointerMove(document, { clientX: 100, clientY: 400 + minutesToPx(60) });
+        await settle();
+
+        // The last good preview: 09:00 to 11:00.
+        expect(cardTime()).toBeInTheDocument();
+
+        await act(async () => {
+            context.showState({ days: [day(1, 0)], items: [] });
+        });
+    };
+
+    test('holds the last good preview and keeps the page up', async () => {
+        // Arrange
+        const context = renderArea({ days: [day(1, 0)], items: [booking(7, 1, 540)] });
+        await resizeThenRollBack(context);
+
+        // Act — one more frame, now that there is no booking to resize.
+        fireEvent.pointerMove(document, { clientX: 100, clientY: 400 + minutesToPx(90) });
+        await settle();
+
+        // Assert — the strip is still standing, showing the frame before.
+        expect(cardTime()).toBeInTheDocument();
+        expect(reported).toHaveBeenCalledWith(
+            'Could not preview this resize:',
+            expect.any(Error)
+        );
+    });
+
+    test('saves nothing on release and keeps the page up', async () => {
+        // Arrange
+        const context = renderArea({ days: [day(1, 0)], items: [booking(7, 1, 540)] });
+        await resizeThenRollBack(context);
+
+        // Act — the release, which runs from a raw `document` listener.
+        fireEvent.pointerUp(document, { clientX: 100, clientY: 400 + minutesToPx(60) });
+        await settle();
+
+        // Assert — nothing was written for a booking that is gone, and the
+        // preview has been dropped, so the strip shows the empty day.
+        expect(context.commit).not.toHaveBeenCalled();
+        expect(screen.queryByText('Fit the rotor')).not.toBeInTheDocument();
+        expect(reported).toHaveBeenCalledWith(
+            'Could not save this resize:',
+            expect.any(Error)
+        );
     });
 });
