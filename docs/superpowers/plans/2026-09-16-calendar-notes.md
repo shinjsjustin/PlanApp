@@ -595,8 +595,18 @@ Append to `tests/integration/assertOwnership.test.js`, inside the existing top-l
 ```js
 describe('assertOwnership calendarNote', () => {
     test('returns the owning day row for the owner', async () => {
-        // Arrange
+        // Arrange — someone else's day and note go in first, so a query that
+        // forgot to filter by id would hand back theirs and fail here rather
+        // than pass by accident on a table this test happens to be alone in.
         const conn = getConn();
+        const intruderId = await createTestUser(conn);
+        const intruderDay = await calendarDaysRepo.create(conn, { ownerId: intruderId });
+        await calendarNotesRepo.create(conn, {
+            dayId: intruderDay.id,
+            text: 'not this one',
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
         const ownerId = await createTestUser(conn);
         const day = await calendarDaysRepo.create(conn, { ownerId });
         const note = await calendarNotesRepo.create(conn, {
@@ -610,6 +620,7 @@ describe('assertOwnership calendarNote', () => {
         const owned = await assertOwnership(conn, 'calendarNote', note.id, ownerId);
 
         // Assert
+        expect(owned.id).toBe(day.id);
         expect(owned.owner_id).toBe(ownerId);
     });
 
@@ -661,7 +672,9 @@ In `src/middleware/assertOwnership.js`, add to `OWNER_QUERIES` after the `calend
     // Reached through its day, which is itself owned directly. So this is the
     // one two-hop query here that still does not touch `projects` — and, like
     // `calendarDay`, the row it returns is not a project row. Callers must not
-    // read a project id off it.
+    // read a project id off it. Unlike `calendarDay`, the returned row is also
+    // not the requested resource: `owned.id` here is the day's id, not this
+    // note's — callers already have the note's id from the route param.
     calendarNote: {
         label: 'Note',
         sql: `SELECT d.id, d.owner_id FROM calendar_notes n
