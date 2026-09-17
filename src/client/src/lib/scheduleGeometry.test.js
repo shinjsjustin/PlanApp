@@ -1,16 +1,15 @@
 import {
-    DAY_HEIGHT_PX,
     INITIAL_SCROLL_MINUTES,
-    PX_PER_SLOT,
+    PX_PER_SLOT_MIN,
     SLOTS_PER_DAY,
     clampDuration,
     clampStart,
+    createDayGeometry,
     formatTime,
     hourLabels,
-    minutesToPx,
-    pxToMinutes,
     snapToSlot,
 } from './scheduleGeometry';
+import { DAY_MINUTES } from './schedule';
 
 /**
  * The shapes that break a `ToNumber` boundary are the ones that coerce
@@ -64,29 +63,36 @@ const expectPassedThrough = (actual, value) => {
 
 describe('scheduleGeometry constants', () => {
     test('a day is 48 slots of 24px, and opens at 06:00', () => {
-        // Literals, not `SLOTS_PER_DAY * PX_PER_SLOT`. Restating the definition
-        // cannot fail for any scale, and every other assertion in this file is
-        // expressed in terms of the scale itself — so the whole calendar could be
-        // drawn at the wrong size with the suite green. These are also the two
-        // numbers the module's own comments claim (48px an hour, a 1152px
-        // column), and Task 16 hardcodes the same 24 in its own rect fixtures —
-        // where a scale change would surface as a drag bug rather than as this.
+        // Literals, not `SLOTS_PER_DAY * PX_PER_SLOT_MIN`. Restating the
+        // definition cannot fail for any scale, and every other assertion in
+        // this file is expressed in terms of the scale itself — so the whole
+        // calendar could be drawn at the wrong size with the suite green. These
+        // are also the two numbers the module's own comments claim (48px an
+        // hour, a 1152px column), and Task 16 hardcodes the same 24 in its own
+        // rect fixtures — where a scale change would surface as a drag bug
+        // rather than as this.
+        const geometry = createDayGeometry(PX_PER_SLOT_MIN);
+
         expect(SLOTS_PER_DAY).toBe(48);
-        expect(PX_PER_SLOT).toBe(24);
-        expect(DAY_HEIGHT_PX).toBe(1152);
+        expect(PX_PER_SLOT_MIN).toBe(24);
+        expect(geometry.dayHeightPx).toBe(1152);
         expect(INITIAL_SCROLL_MINUTES).toBe(360);
     });
 });
 
-describe('minutesToPx / pxToMinutes', () => {
+describe('createDayGeometry: minutesToPx / pxToMinutes', () => {
     test('round-trips a slot', () => {
-        expect(minutesToPx(30)).toBe(PX_PER_SLOT);
-        expect(pxToMinutes(PX_PER_SLOT)).toBe(30);
+        const geometry = createDayGeometry(PX_PER_SLOT_MIN);
+
+        expect(geometry.minutesToPx(30)).toBe(PX_PER_SLOT_MIN);
+        expect(geometry.pxToMinutes(PX_PER_SLOT_MIN)).toBe(30);
     });
 
     test('round-trips a whole day', () => {
-        expect(minutesToPx(1440)).toBe(DAY_HEIGHT_PX);
-        expect(pxToMinutes(DAY_HEIGHT_PX)).toBe(1440);
+        const geometry = createDayGeometry(PX_PER_SLOT_MIN);
+
+        expect(geometry.minutesToPx(1440)).toBe(geometry.dayHeightPx);
+        expect(geometry.pxToMinutes(geometry.dayHeightPx)).toBe(1440);
     });
 });
 
@@ -179,5 +185,58 @@ describe('hourLabels', () => {
         expect(labels).toHaveLength(24);
         expect(labels[0]).toEqual({ minutes: 0, label: '00:00' });
         expect(labels[23]).toEqual({ minutes: 1380, label: '23:00' });
+    });
+});
+
+describe('createDayGeometry', () => {
+    test('converts minutes to pixels at the given scale', () => {
+        // Arrange
+        const geometry = createDayGeometry(PX_PER_SLOT_MIN);
+
+        // Act & Assert — one slot is one slot's worth of pixels
+        expect(geometry.minutesToPx(30)).toBe(PX_PER_SLOT_MIN);
+        expect(geometry.minutesToPx(60)).toBe(PX_PER_SLOT_MIN * 2);
+    });
+
+    test('stretches with the scale', () => {
+        // Arrange
+        const stretched = createDayGeometry(PX_PER_SLOT_MIN * 2);
+
+        // Act & Assert
+        expect(stretched.minutesToPx(30)).toBe(PX_PER_SLOT_MIN * 2);
+    });
+
+    test('round-trips minutes through pixels at any scale', () => {
+        // Arrange
+        const scales = [PX_PER_SLOT_MIN, 31, 48.5];
+
+        // Act & Assert
+        scales.forEach((pxPerSlot) => {
+            const geometry = createDayGeometry(pxPerSlot);
+
+            expect(geometry.pxToMinutes(geometry.minutesToPx(450))).toBeCloseTo(450);
+        });
+    });
+
+    test('a day is exactly the scale times the number of slots', () => {
+        // Arrange
+        const geometry = createDayGeometry(40);
+
+        // Act & Assert
+        expect(geometry.dayHeightPx).toBe(40 * SLOTS_PER_DAY);
+        expect(geometry.minutesToPx(DAY_MINUTES)).toBe(geometry.dayHeightPx);
+    });
+
+    test('carries its own scale, so callers can compare two', () => {
+        // Act & Assert
+        expect(createDayGeometry(37).pxPerSlot).toBe(37);
+    });
+});
+
+describe('PX_PER_SLOT_MIN', () => {
+    test('is the scale the calendar has always drawn at', () => {
+        // 48px an hour reads comfortably, and the page never goes below it:
+        // more hours beats a squeezed day (design 2026-09-16, decision 10).
+        expect(PX_PER_SLOT_MIN).toBe(24);
     });
 });

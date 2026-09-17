@@ -3,8 +3,10 @@
 //
 // Everything the calendar draws is positioned from a time, and every gesture
 // arrives as a pixel offset. This is the only place that converts between them,
-// so the scale is one number rather than a factor scattered through five
+// so the scale is decided in one place rather than scattered through five
 // components — and every magic number in the layout has a name here instead.
+// The scale itself is no longer a constant: it is derived from the window by
+// `hooks/useDayScale` and bound into a geometry by `createDayGeometry` below.
 // Reading a time back out is the same job seen from the other end: `formatTime`
 // and `hourLabels` render the gutter ruler, whose `minutes` feed straight back
 // into `minutesToPx` to position it.
@@ -37,15 +39,56 @@
 
 import { DAY_MINUTES, MIN_DURATION, SLOT_MINUTES, boundDuration } from './schedule';
 
-/** How tall one half-hour slot is drawn. 48px an hour reads comfortably. */
-export const PX_PER_SLOT = 24;
-
-/** Not exported: nothing outside converts by the minute, it calls the two below. */
-const PX_PER_MINUTE = PX_PER_SLOT / SLOT_MINUTES;
+/**
+ * The smallest the scale ever gets, and the one the calendar drew at when it was
+ * fixed. 48px an hour reads comfortably.
+ *
+ * A floor rather than a value, because the priority is showing more hours rather
+ * than fitting a whole day: on a short window the column fills the page at this
+ * scale and the rest scrolls inside, and only a window tall enough for all 24
+ * hours makes the scale grow (design 2026-09-16, decision 10).
+ */
+export const PX_PER_SLOT_MIN = 24;
 
 export const SLOTS_PER_DAY = DAY_MINUTES / SLOT_MINUTES;
 
-export const DAY_HEIGHT_PX = SLOTS_PER_DAY * PX_PER_SLOT;
+/**
+ * The two conversions that depend on how tall a slot is drawn, bound to one
+ * scale.
+ *
+ * A factory rather than a `pxPerSlot` parameter on each converter, and that is a
+ * decision about this file's guards as much as about its ergonomics. Every note
+ * in the header above reasons about which parameters are open to a value read
+ * off a payload; adding a second parameter to `minutesToPx` and `pxToMinutes`
+ * would open a new boundary at each call site and make that analysis something
+ * to redo. Bound once, at the one place that measures, there is no new boundary
+ * — and a caller cannot forget the argument, because there is no argument.
+ *
+ * `snapToSlot`, `clampStart`, `clampDuration`, `formatTime` and `hourLabels` are
+ * all scale-independent and stay module-level exports, so everything the header
+ * says about them is still true.
+ *
+ * `pxPerSlot` is carried on the result so a consumer can tell two geometries
+ * apart — which is what lets a memo key on the scale rather than on the object.
+ */
+export const createDayGeometry = (pxPerSlot) => {
+    const pxPerMinute = pxPerSlot / SLOT_MINUTES;
+
+    return {
+        pxPerSlot,
+
+        /**
+         * Unguarded, and the header's rule is why: both are fed the result of
+         * arithmetic — a rect subtraction, a pointer delta — never a field read
+         * off a payload. The worst case is `NaN`, which propagates safely into a
+         * clamp that refuses it.
+         */
+        minutesToPx: (minutes) => minutes * pxPerMinute,
+        pxToMinutes: (px) => px / pxPerMinute,
+
+        dayHeightPx: pxPerSlot * SLOTS_PER_DAY,
+    };
+};
 
 /**
  * Where a column is scrolled to when it first appears: 06:00 at the top.
@@ -56,19 +99,6 @@ export const DAY_HEIGHT_PX = SLOTS_PER_DAY * PX_PER_SLOT;
 export const INITIAL_SCROLL_MINUTES = 360;
 
 const MINUTES_PER_HOUR = 60;
-
-/**
- * The two unguarded functions in the file, and the header's rule says why: both
- * are fed the result of arithmetic — a rect subtraction, a pointer delta — never
- * a field read off a payload. Subtraction never returns a *coercible* non-number:
- * it yields a number, or a bigint that throws at the next arithmetic op, or it
- * throws outright. So nothing plausible can be manufactured at the `*` or `/`
- * here — the worst case is `NaN`, which propagates safely into a clamp that
- * refuses it. A `Number.isFinite` ternary here would be unreachable.
- */
-export const minutesToPx = (minutes) => minutes * PX_PER_MINUTE;
-
-export const pxToMinutes = (px) => px / PX_PER_MINUTE;
 
 /**
  * The nearest half hour. Everything the user drags lands on the grid.
