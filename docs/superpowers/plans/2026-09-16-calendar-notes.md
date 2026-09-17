@@ -2176,12 +2176,45 @@ describe('canPlace', () => {
     });
 });
 
+describe('canPlace with an id-less candidate', () => {
+    // A note being created has no id yet — that shape is not in the shared
+    // table, which has no notion of an id-less note, so these belong here.
+
+    test('refuses a tied draft when the day is already at capacity', () => {
+        // Arrange — four existing notes fill every lane; the draft shares
+        // their start and has no id, which is what a note being created
+        // looks like before it is saved.
+        const existing = [1, 2, 3, 4].map((id) => note(id, 540, 60));
+        const draft = { startMinutes: 540, durationMinutes: 60 };
+
+        // Act & Assert
+        expect(canPlace(existing, draft)).toBe(false);
+    });
+
+    test('allows a tied draft when the day is under capacity', () => {
+        // Arrange — three existing notes leave a lane free
+        const existing = [1, 2, 3].map((id) => note(id, 540, 60));
+        const draft = { startMinutes: 540, durationMinutes: 60 };
+
+        // Act & Assert
+        expect(canPlace(existing, draft)).toBe(true);
+    });
+});
+
 describe('MAX_NOTE_LANES', () => {
     test('is four', () => {
         expect(MAX_NOTE_LANES).toBe(4);
     });
 });
 ```
+
+> **Post-review addendum (commit `db313af`):** review before Tasks 16/18 land found
+> that the `a.id - b.id` tie-break above is `NaN` when `candidate` has no id yet
+> (a note being created), and a comparator returning `NaN` is treated as "equal" —
+> so an id-less draft's lane at capacity depended on which side of
+> `[...siblings, candidate]` it landed on, correct only because that spread
+> happens to put it last. The two tests above, and the explicit tie-break in
+> Step 4 below, close that gap. See that commit's message for the full finding.
 
 - [ ] **Step 2: Write the failing fixture test**
 
@@ -2323,6 +2356,16 @@ const overlaps = (a, b) => a.startMinutes < endOf(b) && b.startMinutes < endOf(a
  * the same minute must not swap lanes between renders, or a ribbon would jump
  * sideways when something unrelated changed.
  *
+ * A note being created has no id yet (see `canPlace`), so the tie-break treats
+ * a missing id as larger than every real one: a draft always loses a tie
+ * against a saved note. Written as `?? Number.POSITIVE_INFINITY` rather than
+ * bare subtraction, because `undefined - b.id` is `NaN`, and a comparator that
+ * returns `NaN` is treated as "equal" — which would make the outcome depend on
+ * where the draft happened to sit in the array `canPlace` builds, a detail with
+ * no meaning of its own. Two id-less notes would compare `Infinity - Infinity`
+ * (`NaN`, so "equal", so whichever order they arrived in), but only one draft
+ * exists at a time during a gesture, so that case cannot arise today.
+ *
  * A note with no free lane maps to `null` rather than being left out, so a
  * caller iterating the map still sees it and can draw it as unplaceable. Every
  * client gesture is refused before it can produce one (see `canPlace`), so this
@@ -2333,7 +2376,9 @@ const overlaps = (a, b) => a.startMinutes < endOf(b) && b.startMinutes < endOf(a
  */
 export const assignLanes = (notes) => {
     const ordered = [...notes].sort(
-        (a, b) => a.startMinutes - b.startMinutes || a.id - b.id
+        (a, b) =>
+            a.startMinutes - b.startMinutes ||
+            (a.id ?? Number.POSITIVE_INFINITY) - (b.id ?? Number.POSITIVE_INFINITY)
     );
 
     // lane index → the notes already placed in it
@@ -2391,7 +2436,10 @@ export const canPlace = (notes, candidate) => {
 CI=true npm test --prefix src/client -- --testPathPattern=noteLanes
 ```
 
-Expected: PASS, 42 tests across the two files — 13 behaviour tests, plus one table-loaded check and the 14 shared cases in each of the fixture suite's two describe blocks.
+Expected: PASS, 44 tests across the two files — the 13 original behaviour tests
+plus the 2 id-less-candidate tests added in the post-review addendum above, plus
+one table-loaded check and the 14 shared cases in each of the fixture suite's two
+describe blocks.
 
 > If `assignLanes` returns `undefined` rather than `null` for a refused note,
 > check that the `lane === -1` branch sets the entry rather than `continue`ing
