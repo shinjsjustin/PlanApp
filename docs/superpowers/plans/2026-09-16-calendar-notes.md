@@ -1923,7 +1923,9 @@ module.exports = router;
 In `src/server.js`, beside the existing calendar mount, **above** it:
 
 ```js
-app.use('/api/calendar/notes', isAuth, require('./routes/calendarNotes'));
+// The more specific mount comes first, so `/api/calendar/notes` is not
+// swallowed by the calendar router's own `/:id` routes.
+app.use('/api/calendar/notes', isAuth, respond, calendarNotesRoutes);
 app.use('/api/calendar', isAuth, require('./routes/calendar'));
 ```
 
@@ -1935,7 +1937,7 @@ Match the surrounding file's exact style for `isAuth` and the require — if the
 DB_NAME=planapp_test npx jest tests/integration/calendarNotesRoutes.test.js
 ```
 
-Expected: PASS, 26 tests.
+Expected: PASS, 27 tests — the POST validation `test.each` carries five rows, not four.
 
 > If every request 404s, the mount order is wrong — `/api/calendar/notes` must be
 > registered before `/api/calendar`.
