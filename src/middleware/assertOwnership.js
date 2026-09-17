@@ -65,7 +65,9 @@ const OWNER_QUERIES = {
     // Reached through its day, which is itself owned directly. So this is the
     // one two-hop query here that still does not touch `projects` — and, like
     // `calendarDay`, the row it returns is not a project row. Callers must not
-    // read a project id off it.
+    // read a project id off it. Unlike `calendarDay`, the returned row is also
+    // not the requested resource: `owned.id` here is the day's id, not this
+    // note's — callers already have the note's id from the route param.
     calendarNote: {
         label: 'Note',
         sql: `SELECT d.id, d.owner_id FROM calendar_notes n

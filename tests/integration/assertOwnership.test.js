@@ -151,8 +151,18 @@ describe('assertOwnership(calendarDay)', () => {
 
 describe('assertOwnership calendarNote', () => {
     test('returns the owning day row for the owner', async () => {
-        // Arrange
+        // Arrange — someone else's day and note go in first, so a query that
+        // forgot to filter by id would hand back theirs and fail here rather
+        // than pass by accident on a table this test happens to be alone in.
         const conn = getConn();
+        const intruderId = await createTestUser(conn);
+        const intruderDay = await calendarDaysRepo.create(conn, { ownerId: intruderId });
+        await calendarNotesRepo.create(conn, {
+            dayId: intruderDay.id,
+            text: 'not this one',
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
         const ownerId = await createTestUser(conn);
         const day = await calendarDaysRepo.create(conn, { ownerId });
         const note = await calendarNotesRepo.create(conn, {
@@ -166,6 +176,7 @@ describe('assertOwnership calendarNote', () => {
         const owned = await assertOwnership(conn, 'calendarNote', note.id, ownerId);
 
         // Assert
+        expect(owned.id).toBe(day.id);
         expect(owned.owner_id).toBe(ownerId);
     });
 
