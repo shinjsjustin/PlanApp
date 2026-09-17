@@ -4082,7 +4082,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import useCalendarNotes from './useCalendarNotes';
 import { NOTES_STATUS } from '../state/notesReducer';
-import { api } from '../lib/api';
+import { ApiError, api } from '../lib/api';
 
 jest.mock('../lib/api', () => {
     const actual = jest.requireActual('../lib/api');
@@ -4233,6 +4233,66 @@ describe('loading', () => {
 
         // Assert
         expect(result.current.state.notes).toEqual([note(1)]);
+    });
+});
+
+describe('failure diagnostics', () => {
+    test('records a refused gesture without changing a word of what is on screen', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady([]);
+
+        // Act — a write aimed at a note that is not there.
+        await act(() => result.current.updateNote(99, { text: 'ghost' }));
+
+        // Assert — the reason still names the note on screen …
+        expect(result.current.state.actionError).toMatch(/99/);
+        // … and the error itself, stack and all, is on the record. A string in
+        // a toast cannot carry one.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('records a load that failed on this side of the wire', async () => {
+        // Arrange — a note the reducer's ingest guard refuses.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({ notes: [note(1, { durationMinutes: 0 })] });
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/duration/);
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('says nothing to the console about an ordinary wire failure', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady([]);
+        api.post.mockRejectedValue(new ApiError('Could not reach the server.', 0));
+
+        // Act
+        await act(() => result.current.createNote(draft()));
+
+        // Assert — the user is already being told; offline and 500 are the wire
+        // working as designed, and logging them would bury the defects.
+        expect(result.current.state.actionError).toBe('Could not reach the server.');
+        expect(logged).not.toHaveBeenCalled();
+    });
+
+    test('records an unreadable body once, not twice', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({});
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert — the guard already put the body on the record; repeating it
+        // with a stack pointing at the guard adds nothing.
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(logged).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -4628,15 +4688,16 @@ Expected: FAIL — `Cannot find module './useCalendarNotes'`.
 
 Create `src/client/src/hooks/useCalendarNotes.js`:
 
-Two things below depart from what this plan originally specified, both on the user's ruling after the Task 13 review — keep them:
+Three things below depart from what this plan originally specified, all three on the user's ruling after the Task 13 review — keep them:
 
 1. **The response body is checked at the boundary.** `fetchNotes` reads it through `readNotes` rather than destructuring it, because `api` guarantees a parsed body and nothing about its shape, and a missing key reached the reducer as `undefined.forEach` — a stack trace's wording beside the retry button with nothing logged. `useCalendar.fetchCalendar` got the same treatment in the same commit, which is why that hook now appears in the Modified table.
 2. **`notesForDay` groups once per change instead of filtering per call**, with a module-level `EMPTY_NOTES` for days that hold nothing, so a day's array keeps its identity for as long as its notes do. Filtering per call handed `NotePlane` a fresh prop on every render of the page.
+3. **Failures are logged as well as shown — `logFailure`, on the load and write paths of both hooks.** The review proposed going further and replacing the message the user sees with a generic one whenever the error was not an `ApiError`. **The user ruled against that, and the verbatim wording is deliberate: do not “fix” it into a generic toast later.** A refused gesture names the note or the day on screen — *“refuses an unbookable item before it reaches the wire, and says why”* in `useCalendar.test.js` is one of seven tests across the two hooks that pin that wording, and the split would have reversed all seven. What was missing was the developer's half, not the user's, so the error object is written to the console alongside — for everything except an `ApiError` (ordinary offline/500 noise the user is already shown) and a body the envelope guard has already reported.
 
 ```js
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
-import { api } from '../lib/api';
+import { ApiError, api } from '../lib/api';
 import { createTempId } from '../lib/tempIds';
 import { notesReducer, initialNotesState, notesOf } from '../state/notesReducer';
 import {
@@ -4673,6 +4734,28 @@ const EMPTY_NOTES = [];
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
+/**
+ * Records a failure for whoever has to work out why, without changing a word of
+ * what the user is told.
+ *
+ * Both halves on purpose. A refused gesture or a payload the reducer would not
+ * ingest says why on screen — that wording is deliberate and pinned by tests —
+ * while the error itself, stack and all, goes where a string in a toast could
+ * never carry it.
+ *
+ * An `ApiError` is not recorded. That class is the wire saying one of the things
+ * the wire says: offline, 500, 409. The user is already being shown it, the
+ * server has its own log of it, and repeating every one here would bury the
+ * entries that mean a defect on this side under the ones that do not. What is
+ * left is exactly that: an error this code did not expect to be possible.
+ */
+const logFailure = (context, error) => {
+    if (error instanceof ApiError || error?.alreadyLogged) return;
+
+    console.error(`[calendar notes] ${context}`, error);
+};
+
+
 const UNREADABLE_NOTES = 'The server sent an unreadable notes list.';
 
 /**
@@ -4690,7 +4773,12 @@ const readNotes = (payload) => {
     if (!Array.isArray(payload?.notes)) {
         console.error('[calendar notes] unreadable response body:', payload);
 
-        throw new Error(UNREADABLE_NOTES);
+        // The body is the diagnostic here, and it is already on the record, so
+        // `logFailure` does not repeat it with a stack pointing at this line.
+        const error = new Error(UNREADABLE_NOTES);
+        error.alreadyLogged = true;
+
+        throw error;
     }
 
     return payload.notes;
@@ -4737,6 +4825,8 @@ const useCalendarNotes = () => {
 
             dispatch(loadSucceeded(notes));
         } catch (err) {
+            logFailure('load failed', err);
+
             dispatch(loadFailed(messageOf(err)));
         }
     }, [dispatch]);
@@ -4788,6 +4878,8 @@ const useCalendarNotes = () => {
 
                 return true;
             } catch (err) {
+                logFailure('write failed', err);
+
                 // `previous` is an undo only while this mutation's change is
                 // still the last thing that happened. Once something else has
                 // settled, restoring it would wind that away too — so the
@@ -4973,7 +5065,7 @@ export default useCalendarNotes;
 CI=true npm test --prefix src/client -- --testPathPattern=useCalendarNotes
 ```
 
-Expected: PASS, 30 tests.
+Expected: PASS, 34 tests.
 
 The count grew twice over the original fourteen: once to protect eleven behaviours that were deletable while green (see Step 1), and once for the boundary guard and the grouping identity above.
 
