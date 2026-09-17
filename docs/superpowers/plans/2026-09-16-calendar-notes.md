@@ -2391,7 +2391,7 @@ export const canPlace = (notes, candidate) => {
 CI=true npm test --prefix src/client -- --testPathPattern=noteLanes
 ```
 
-Expected: PASS, 40 tests across the two files.
+Expected: PASS, 42 tests across the two files — 13 behaviour tests, plus one table-loaded check and the 14 shared cases in each of the fixture suite's two describe blocks.
 
 > If `assignLanes` returns `undefined` rather than `null` for a refused note,
 > check that the `lane === -1` branch sets the entry rather than `continue`ing
