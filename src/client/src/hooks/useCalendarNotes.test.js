@@ -461,6 +461,48 @@ describe('notesForDay', () => {
         expect(result.current.notesForDay(2)).toEqual([note(2, { dayId: 2 })]);
     });
 
+    test('hands back the same array for a day until the notes change', async () => {
+        // Arrange
+        const { result, rerender } = await renderReady([
+            note(1, { dayId: 1 }),
+            note(2, { dayId: 1 }),
+            note(3, { dayId: 2 }),
+        ]);
+
+        // Act & Assert — twice in one render, and again across the next one.
+        // `NotePlane` takes this array as a prop, so a fresh one per call would
+        // re-render every lane whenever anything on the page moved.
+        const before = result.current.notesForDay(1);
+        expect(result.current.notesForDay(1)).toBe(before);
+
+        rerender();
+
+        expect(result.current.notesForDay(1)).toBe(before);
+        expect(before).toEqual([note(1, { dayId: 1 }), note(2, { dayId: 1 })]);
+    });
+
+    test('hands back one shared empty list for every day that holds nothing', async () => {
+        // Arrange
+        const { result } = await renderReady([note(1, { dayId: 1 })]);
+
+        // Act & Assert — an empty day is the common case in a fresh strip.
+        expect(result.current.notesForDay(98)).toBe(result.current.notesForDay(99));
+        expect(result.current.notesForDay(98)).toEqual([]);
+    });
+
+    test('regroups once the notes have changed', async () => {
+        // Arrange
+        const { result } = await renderReady([note(1, { dayId: 1 })]);
+        const before = result.current.notesForDay(1);
+        api.patch.mockResolvedValue(note(1, { dayId: 1, startMinutes: 600 }));
+
+        // Act
+        await act(() => result.current.updateNote(1, { startMinutes: 600 }));
+
+        // Assert — held identity is not a stale answer.
+        expect(result.current.notesForDay(1)).not.toBe(before);
+        expect(result.current.notesForDay(1)).toEqual([note(1, { dayId: 1, startMinutes: 600 })]);
+    });
 });
 
 describe('dismissActionError', () => {

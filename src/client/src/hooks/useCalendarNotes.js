@@ -31,6 +31,10 @@ import {
 
 const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
+// One shared empty list, so every day that holds nothing hands back the same
+// array rather than a new one per call — the common case in a fresh strip.
+const EMPTY_NOTES = [];
+
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
 const UNREADABLE_NOTES = 'The server sent an unreadable notes list.';
@@ -271,10 +275,28 @@ const useCalendarNotes = () => {
         [dispatch]
     );
 
-    /** One day's notes, for the plane inside that column. */
+    // Grouped once per change rather than filtered once per call, so a day's
+    // array keeps its identity for as long as its notes do.
+    //
+    // `NotePlane` takes that array as a prop. Filtering per call would hand it a
+    // fresh one on every render the page has — including the ones the
+    // independently-loaded calendar and pool cause — and re-render every lane in
+    // every column over notes that did not move, which is the memoised return
+    // above being undone one prop at a time.
+    const notesByDay = useMemo(() => {
+        const byDay = new Map();
+
+        state.notes.forEach((note) =>
+            byDay.set(note.dayId, [...(byDay.get(note.dayId) ?? []), note])
+        );
+
+        return byDay;
+    }, [state.notes]);
+
+    /** One day's notes, in the order they arrived, for the plane in its column. */
     const notesForDay = useCallback(
-        (dayId) => state.notes.filter((note) => note.dayId === dayId),
-        [state.notes]
+        (dayId) => notesByDay.get(dayId) ?? EMPTY_NOTES,
+        [notesByDay]
     );
 
     const dismissActionError = useCallback(() => dispatch(actionErrorCleared()), [dispatch]);
