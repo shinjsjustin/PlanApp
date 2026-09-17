@@ -22,7 +22,7 @@ const booking = {
     sequenceId: 9,
 };
 
-const renderColumn = (items = [], calendar = {}) => {
+const renderColumn = (items = [], calendar = {}, props = {}) => {
     const value = {
         deleteDay: jest.fn(),
         completeTodo: jest.fn(),
@@ -33,12 +33,27 @@ const renderColumn = (items = [], calendar = {}) => {
 
     const rendered = render(
         <CalendarProvider value={value}>
-            <DayColumn day={day} index={0} items={items} onOpenSource={jest.fn()} />
+            <DayColumn day={day} index={0} items={items} onOpenSource={jest.fn()} {...props} />
         </CalendarProvider>
     );
 
     return { ...rendered, value };
 };
+
+/**
+ * A note on this column's day.
+ *
+ * Its id is deliberately nothing like the day's — the column addresses both, and
+ * a fixture that numbered them alike would let it confuse the two and still pass.
+ */
+const noteOnThisDay = (id, overrides = {}) => ({
+    id,
+    dayId: day.id,
+    text: `note ${id}`,
+    startMinutes: 540,
+    durationMinutes: 60,
+    ...overrides,
+});
 
 describe('DayColumn', () => {
     test('pins its delete bubble to the column rather than the page', () => {
@@ -137,6 +152,59 @@ describe('DayColumn', () => {
 
         // Assert
         expect(screen.queryByRole('button', { name: 'Delete Day 1' })).not.toBeInTheDocument();
+    });
+
+    test('gives its day a notes plane, named for the column it is in', () => {
+        // Act
+        const { container } = renderColumn();
+
+        // Assert — the label distinguishes one column's plane from the next's,
+        // which is the only thing that does when three days are on screen.
+        const plane = screen.getByRole('group', { name: 'Notes for Day 1' });
+        expect(plane).toBe(container.querySelector('.note-plane'));
+        expect(plane).toHaveAttribute('data-day-id', String(day.id));
+    });
+
+    test('draws the notes it is given', () => {
+        // Act
+        renderColumn([], {}, { notes: [noteOnThisDay(31)] });
+
+        // Assert
+        expect(screen.getByText('note 31')).toBeInTheDocument();
+    });
+
+    test('lets a caller supply the wired plane in place of the plain one', () => {
+        // Arrange — the gestures live in the wrapper that has the DndContext,
+        // so it hands the column a plane rather than props for one.
+        const notePlane = <div data-testid="wired-plane" />;
+
+        // Act
+        const { container } = renderColumn([], {}, { notePlane });
+
+        // Assert
+        expect(screen.getByTestId('wired-plane')).toBeInTheDocument();
+        expect(container.querySelector('.note-plane')).not.toBeInTheDocument();
+    });
+
+    test('hangs both planes off one clock face', () => {
+        // Arrange — the two planes are positioned from the same minutes, which
+        // only holds while they are laid over the same box. Drawn against
+        // different ancestors they would drift apart by whatever separates them,
+        // and no amount of arithmetic would line them up again. Only a real
+        // cascade shows which box each is measured in.
+        const unload = loadStylesheets('Calendar.css');
+
+        try {
+            // Act
+            const { container } = renderColumn([booking], {}, { notes: [noteOnThisDay(31)] });
+
+            // Assert
+            const grid = container.querySelector('.day-grid');
+            expect(containingBlockOf(container.querySelector('.note-plane'))).toBe(grid);
+            expect(containingBlockOf(container.querySelector('.day-item-card'))).toBe(grid);
+        } finally {
+            unload();
+        }
     });
 
     test('confirming the prompt deletes it', async () => {

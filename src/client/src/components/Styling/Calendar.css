@@ -58,6 +58,14 @@
      * short enough not to eat a half-hour booking's body. */
     --cal-resize-depth: 6px;
 
+    /* The column splits in half after the gutter: notes left, to-dos right
+     * (design 2026-09-16, section 8.1). One number, used by both halves, so they
+     * cannot disagree about where the boundary is. */
+    --cal-note-plane-width: 50%;
+    /* The grab strips on a ribbon's ends. Same depth as a booking's, so the two
+     * planes feel the same under the pointer. */
+    --cal-note-edge-depth: var(--cal-resize-depth);
+
     /* The calendar is the whole page — there is no global nav above it (see
      * `routes.js`), so the viewport is all of it. `dvh` rather than `vh` so a
      * mobile browser's collapsing toolbar does not leave the strip cut off. */
@@ -360,7 +368,8 @@
 
 .day-item-card {
     position: absolute;
-    left: var(--cal-gutter-width);
+    /* The gutter, plus the notes plane. The to-do plane is the right half. */
+    left: calc(var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) * 0.5);
     right: var(--space-xs);
     overflow: hidden;
     border-radius: var(--radius-sm);
@@ -461,6 +470,130 @@ button.day-item-name:hover {
 .day-item-edge:hover {
     background: var(--color-accent);
     opacity: 0.2;
+}
+
+/* ─── The notes plane ────────────────────────────────────────────────────── */
+
+/* The left half of the grid, from the end of the gutter to the middle of the
+ * column. Absolutely positioned over `.day-grid`, like the bookings on the other
+ * side — the two planes share one clock face and never interact. */
+.note-plane {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--cal-gutter-width);
+    /* Half of what is left after the gutter, so the two planes are equal. */
+    width: calc((100% - var(--cal-gutter-width)) * 0.5);
+    border-right: 1px dashed var(--border);
+}
+
+/* The press-to-create surface, behind every ribbon. Stretched over the plane so
+ * a press anywhere empty starts a draft, and underneath the ribbons so a press
+ * on one opens it instead. */
+.note-plane-surface {
+    position: absolute;
+    inset: 0;
+    cursor: crosshair;
+}
+
+/* A ribbon is positioned in two dimensions at once: `top`/`height` are its time,
+ * `right`/`width` are its lane, and both arrive as inline styles. `right` rather
+ * than `left` is decision 6 — lane 0 is the one against the to-do plane, so the
+ * notes build outward from the boundary between the two halves. */
+.note-ribbon {
+    position: absolute;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    border-left: var(--cal-item-edge-width) solid var(--color-primary);
+}
+
+/* A note the picker could not place — five overlapping, which no gesture here
+ * can produce. It is drawn in lane 0 and marked, rather than dropped, because a
+ * ribbon that silently vanished would be far harder to explain. */
+.note-ribbon--unplaceable {
+    border-left-color: var(--color-danger);
+    opacity: 0.7;
+}
+
+/* The whole ribbon is the button: there is no room at this width for a separate
+ * handle, so one target does both jobs and the drag sensor's activation distance
+ * keeps a click from being swallowed. */
+.note-ribbon-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: var(--space-xs) 0;
+    background: none;
+    border: 0;
+    color: var(--text-secondary);
+    cursor: grab;
+}
+
+/* Rotated to read bottom-to-top, which is what lets a ribbon be ~20px wide and
+ * still carry a legible label (decision 3).
+ *
+ * `vertical-rl` plus a half turn rather than `sideways-lr`, which only Firefox
+ * implements. Clipped rather than wrapped: the ribbon's height is the note's
+ * duration and a long name must not be able to argue with it. */
+.note-ribbon-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-sm);
+}
+
+button.note-ribbon-body:hover .note-ribbon-text {
+    color: var(--color-accent);
+}
+
+/* Grab strips, like a booking's. Symmetric, unlike a booking's, because notes
+ * may overlap: a note's top edge has nothing above it to clamp against. */
+.note-ribbon-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--cal-note-edge-depth);
+    z-index: 1;
+    cursor: ns-resize;
+}
+
+.note-ribbon-edge--top {
+    top: 0;
+}
+
+.note-ribbon-edge--bottom {
+    bottom: 0;
+}
+
+.note-ribbon-edge:hover {
+    background: var(--color-accent);
+    opacity: 0.2;
+}
+
+/* The range being described by a press-and-drag, before it is a note. Drawn
+ * across the whole plane rather than in a lane: which lane it would land in is
+ * not settled until the gesture ends. */
+.note-draft {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border: 1px dashed var(--color-accent);
+    border-radius: var(--radius-sm);
+    background: var(--color-warning-light);
+    pointer-events: none;
+}
+
+/* The refusal, shown while it is happening rather than reported afterwards
+ * (design section 8.4). A release here does nothing at all. */
+.note-draft--refused {
+    border-color: var(--color-danger);
+    background: none;
 }
 
 /* ─── The pool ───────────────────────────────────────────────────────────── */

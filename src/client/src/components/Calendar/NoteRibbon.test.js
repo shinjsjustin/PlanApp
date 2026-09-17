@@ -7,6 +7,7 @@ import NoteRibbon from './NoteRibbon';
 import { MAX_NOTE_LANES } from '../../lib/noteLanes';
 import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
 import { DayScaleProvider } from '../../state/DayScaleContext';
+import { loadStylesheets } from '../../testUtils/stylesheet';
 
 const note = (overrides = {}) => ({
     id: 1,
@@ -232,6 +233,28 @@ describe('NoteRibbon', () => {
 
         // Assert
         expect(screen.getByText('train to Leeds')).toHaveClass('note-ribbon-text');
+    });
+
+    test('the stylesheet really does turn that element on its side', () => {
+        // Arrange — the two tests above assert the class the sheet hangs the
+        // rotation on, which is worth nothing if the sheet stops rotating it.
+        // A ribbon is a quarter of half a column wide — around 20px — and a
+        // label printed across it would be one clipped character (decision 3),
+        // so the rotation is the feature rather than a flourish.
+        const unload = loadStylesheets('Calendar.css');
+
+        try {
+            // Act
+            renderRibbon({ onOpen: jest.fn() });
+
+            // Assert — `vertical-rl` turned a half turn, rather than
+            // `sideways-lr`, which only Firefox implements.
+            const style = getComputedStyle(screen.getByText('train to Leeds'));
+            expect(style.getPropertyValue('writing-mode')).toBe('vertical-rl');
+            expect(style.transform).toBe('rotate(180deg)');
+        } finally {
+            unload();
+        }
     });
 
     test('draws an unplaceable note in lane 0, where it is at least visible', () => {

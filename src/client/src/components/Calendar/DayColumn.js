@@ -4,6 +4,7 @@ import ConfirmDialog from '../Project/ConfirmDialog';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DeleteBubble from '../common/DeleteBubble';
+import NotePlane from './NotePlane';
 import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
 import { useCalendarContext } from '../../state/CalendarContext';
 import { useDayGeometry } from '../../state/DayScaleContext';
@@ -15,6 +16,11 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 // the whole page inside one enormous scroll; giving each column its own keeps
 // adjacent days adjacent, which matters because the overflow rule is constantly
 // moving work between them (design decision 9).
+//
+// The column is split down the middle: notes on the left, bookings on the right
+// (design 2026-09-16, section 8.1). The hour gutter sits outside that split, so
+// it is the gutter, then two equal halves. Both planes are absolutely positioned
+// over the same `DayGrid`, which is what keeps one clock face for both.
 //
 // It opens at 06:00 rather than midnight: the top six hours of most days are
 // empty, and starting there would mean scrolling before anything can be done.
@@ -30,6 +36,11 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 // hooks cannot be called from a loop in here. The wrapper that holds the
 // schedule supplies them; absent, the column draws a plain card. A caller that
 // takes the render over owns the key, as `columnFor`'s does.
+//
+// `notePlane` is the same bargain one plane up: the gestures on a note live in
+// the wrapper that has the `DndContext`, so it supplies a fully wired plane and
+// the column simply gives it its place in the grid. Absent, the column draws a
+// read-only plane from `notes`.
 const DayColumn = ({
     day,
     index,
@@ -38,6 +49,8 @@ const DayColumn = ({
     droppable = null,
     cardFor = null,
     registerViewport = null,
+    notes = [],
+    notePlane = null,
     children,
 }) => {
     const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
@@ -124,6 +137,17 @@ const DayColumn = ({
             <div className="day-column-scroll" ref={attachScroll}>
                 <div ref={droppable?.setNodeRef} className={droppable?.className}>
                     <DayGrid>
+                        {/* The notes plane is drawn inside the same grid as the
+                            bookings so the two planes share one clock face and
+                            cannot drift apart by a pixel. It is a sibling of the
+                            cards, not a container for them: they are independent
+                            (decision 1). */}
+                        {notePlane ? (
+                            notePlane
+                        ) : (
+                            <NotePlane dayId={day.id} notes={notes} label={`Notes for ${label}`} />
+                        )}
+
                         {items.map((item) =>
                             cardFor ? (
                                 cardFor(item)
