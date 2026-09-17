@@ -9,7 +9,7 @@ import {
     hourLabels,
     snapToSlot,
 } from './scheduleGeometry';
-import { DAY_MINUTES } from './schedule';
+import { DAY_MINUTES, SLOT_MINUTES } from './schedule';
 
 /**
  * The shapes that break a `ToNumber` boundary are the ones that coerce
@@ -215,6 +215,14 @@ describe('createDayGeometry', () => {
             const geometry = createDayGeometry(pxPerSlot);
 
             expect(geometry.pxToMinutes(geometry.minutesToPx(450))).toBeCloseTo(450);
+            // The round-trip alone only proves the two conversions are each
+            // other's inverse — it says nothing about the scale itself. Tying
+            // one slot's worth of minutes back to `pxPerSlot` is what catches a
+            // factory that ignores its argument and always converts at the same
+            // fixed rate. `toBeCloseTo`, not `toBe`, because dividing then
+            // re-multiplying by `SLOT_MINUTES` is not exact for every scale in
+            // this table — 31 / 30 * 30 lands a float epsilon off 31.
+            expect(geometry.minutesToPx(SLOT_MINUTES)).toBeCloseTo(pxPerSlot);
         });
     });
 

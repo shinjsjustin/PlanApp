@@ -70,6 +70,11 @@ export const SLOTS_PER_DAY = DAY_MINUTES / SLOT_MINUTES;
  *
  * `pxPerSlot` is carried on the result so a consumer can tell two geometries
  * apart — which is what lets a memo key on the scale rather than on the object.
+ *
+ * `pxPerSlot` itself is unguarded, and the header's rule is why: it is never a
+ * field read off a payload. The literal `PX_PER_SLOT_MIN` and `useDayScale`'s
+ * `scaleFor` — already `Math.max`-clamped to that floor — are its only two
+ * callers, so nothing reaches this parameter that a guard here would refuse.
  */
 export const createDayGeometry = (pxPerSlot) => {
     const pxPerMinute = pxPerSlot / SLOT_MINUTES;
