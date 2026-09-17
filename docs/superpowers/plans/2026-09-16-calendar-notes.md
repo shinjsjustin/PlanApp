@@ -2801,6 +2801,34 @@ describe('useDayScale', () => {
         // Assert — the floor, and no throw
         expect(result.current.geometry.pxPerSlot).toBe(PX_PER_SLOT_MIN);
     });
+
+    // Added beyond the 7 tests originally drafted here. React calls a ref
+    // callback with `null` on unmount but never says which node it was, so a
+    // shared `registerViewport` cannot drop the entry itself — see the
+    // `pruneDetached` note in useDayScale.js. A real, detached DOM node reports
+    // `isConnected === false`; nothing here can prove that with the plain-object
+    // stub `viewportOf` returns, so this test uses a stub that mimics it.
+    test('drops a detached viewport once another remeasure runs', () => {
+        // Arrange — a tall column, then a second column that goes away.
+        const { result } = renderHook(() => useDayScale());
+        const tall = PX_PER_SLOT_MIN * SLOTS_PER_DAY * 2;
+        const staleViewport = { clientHeight: tall, isConnected: true };
+
+        act(() => result.current.registerViewport(staleViewport));
+        fireAll();
+        expect(result.current.geometry.pxPerSlot).toBe(PX_PER_SLOT_MIN * 2);
+
+        // Act — the column unmounts (`isConnected` flips, as it does for a real
+        // DOM node) and a second, shorter column registers in its place.
+        staleViewport.isConnected = false;
+        const freshViewport = { clientHeight: PX_PER_SLOT_MIN * SLOTS_PER_DAY, isConnected: true };
+        act(() => result.current.registerViewport(freshViewport));
+        fireAll();
+
+        // Assert — the stale entry was dropped rather than still counted as the
+        // tallest, so the scale now tracks only the live column.
+        expect(result.current.geometry.pxPerSlot).toBe(PX_PER_SLOT_MIN);
+    });
 });
 ```
 
@@ -2847,9 +2875,35 @@ import {
 // columns are the same height, so any one would do — but a column mid-unmount
 // can report 0, so the tallest is taken rather than the first.
 
-/** Measured heights, by the node they came from. A Map so unmounts can be dropped. */
+/** The tallest viewport currently registered, ignoring any reporting 0. */
 const tallestOf = (viewports) =>
     [...viewports].reduce((tallest, node) => Math.max(tallest, node.clientHeight || 0), 0);
+
+/**
+ * Drops any viewport that is no longer in the document.
+ *
+ * A column's ref callback is called with `null` on unmount, but React does not
+ * say which node that was — a shared, stable `registerViewport` has no way to
+ * tell one column's unmount from another's from that argument alone, so it
+ * cannot remove the entry itself. This is what actually reclaims it: the next
+ * remeasure, triggered by any other column, sees the stale node is detached and
+ * drops it, so a calendar paged through a hundred days does not accumulate a
+ * hundred dead entries — and a hundred open `ResizeObserver.observe`s on nodes
+ * nothing will ever reattach.
+ *
+ * `isConnected === false`, not merely falsy, on purpose: the test stubs in
+ * `useDayScale.test.js` are plain objects with no `isConnected` at all
+ * (`undefined`), and only a strict `false` — which only a real, detached DOM
+ * node reports — may prune.
+ */
+const pruneDetached = (viewports, observer) => {
+    viewports.forEach((node) => {
+        if (node.isConnected !== false) return;
+
+        viewports.delete(node);
+        observer?.unobserve(node);
+    });
+};
 
 const scaleFor = (availableHeightPx) =>
     Math.max(PX_PER_SLOT_MIN, availableHeightPx / SLOTS_PER_DAY);
@@ -2861,6 +2915,8 @@ const useDayScale = () => {
     const observerRef = useRef(null);
 
     const remeasure = useCallback(() => {
+        pruneDetached(viewportsRef.current, observerRef.current);
+
         const available = tallestOf(viewportsRef.current);
 
         // Nothing has been laid out yet — every column is gone, or jsdom. The
@@ -2875,23 +2931,29 @@ const useDayScale = () => {
     }, []);
 
     /**
-     * A day column's scroll viewport, handed over as a ref callback. Passing
-     * `null` — which React does when the column unmounts — drops it.
+     * A day column's scroll viewport, handed over as a ref callback. React
+     * calls this with `null` on unmount, but never says which node that was —
+     * so this cannot remove the entry itself; `pruneDetached` above is what
+     * actually drops it, lazily, the next time anything remeasures.
      *
      * Safe to call on every render: a node already registered is re-added to the
      * same Set and re-observed, and `ResizeObserver.observe` on an element it is
      * already watching is a no-op.
+     *
+     * Deliberately does not call `remeasure` itself. `ResizeObserver.observe`
+     * delivers one notification for the element's current size on its own,
+     * right after the next layout — so measuring here too would just be the
+     * same number a frame earlier, at the cost of a second code path. Without a
+     * `ResizeObserver` there is no such notification, and the absence is exactly
+     * what keeps the scale at the floor rather than measuring once and freezing
+     * on whatever size happened to be registered first.
      */
-    const registerViewport = useCallback(
-        (node) => {
-            if (!node) return;
+    const registerViewport = useCallback((node) => {
+        if (!node) return;
 
-            viewportsRef.current.add(node);
-            observerRef.current?.observe(node);
-            remeasure();
-        },
-        [remeasure]
-    );
+        viewportsRef.current.add(node);
+        observerRef.current?.observe(node);
+    }, []);
 
     useEffect(() => {
         // jsdom before 22, and any browser old enough to matter. Without a
@@ -2921,6 +2983,28 @@ const useDayScale = () => {
 
 export default useDayScale;
 ```
+
+> **Two corrections made against an earlier draft of this hook, both caught by the tests
+> above rather than invented after the fact.**
+>
+> `registerViewport` must not call `remeasure()` itself. An earlier draft did, and it broke
+> `survives a browser with no ResizeObserver`: without an observer, `observerRef.current` is
+> null, but the manual `remeasure()` call still ran and measured the registered node directly —
+> `2000 / SLOTS_PER_DAY` clamps to `41.67`, not the floor. The fix is to let
+> `ResizeObserver.observe()` do the measuring on its own: a real `ResizeObserver` delivers one
+> notification carrying the element's current size right after the next layout, as soon as
+> `observe()` is called, so a manual call here was always redundant on top of being wrong when
+> there is no observer to fall back on. Every test above that needs a measurement to land calls
+> `fireAll()` explicitly for exactly this reason.
+>
+> `pruneDetached` exists because `registerViewport(null)` cannot, by itself, remove the stale
+> entry — see its own docstring above. Without it, a viewport whose column has unmounted stays
+> in `viewportsRef.current` and stays under `ResizeObserver.observe()` for the rest of the
+> calendar page's life, which in this app means every date the strip pages through leaves one
+> more dead entry behind. None of the 7 tests above catch this on their own, because their
+> viewport stubs are plain objects with no real DOM detachment semantics to fail on — this is
+> exactly the class of bug jsdom will not tell you about. The 8th test, appended to Step 1,
+> proves it with a stub that mimics `isConnected` flipping to `false`.
 
 - [ ] **Step 4: Write the context**
 
@@ -2959,7 +3043,7 @@ export default DayScaleContext;
 CI=true npm test --prefix src/client -- --testPathPattern=useDayScale
 ```
 
-Expected: PASS, 7 tests.
+Expected: PASS, 8 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -3270,6 +3354,10 @@ Accept a new prop and use it. Change the signature to add `registerViewport = nu
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 ```
+
+> No unregister call is needed here: `useDayScale` prunes a detached viewport lazily, inside
+> `remeasure`, the next time anything else registers or resizes — `DayColumn` only ever needs to
+> hand a node over, never take one back. See `pruneDetached` in Task 9.
 
 Add `useCallback` to the `react` import. Change the scroll div to use the combined ref:
 
