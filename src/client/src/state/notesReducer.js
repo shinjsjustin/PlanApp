@@ -11,6 +11,13 @@
 // spill to reconcile, and no temporary day to re-key. The list is still replaced
 // wholesale rather than patched, because that makes a rollback a plain
 // assignment — but it is the only thing this file borrows.
+//
+// Notes arrays are values: `notesReplaced`, `rolledBack` and `notesOf` all pass
+// one by reference rather than copying it, and that is only safe because
+// nobody mutates a notes array in place, ever. Every change is a new array
+// installed wholesale (immutability is CRITICAL project-wide; here it is also
+// what lets `useCalendarNotes` tell a fresh array from the one it handed out
+// by comparing identity, not contents).
 
 import { DAY_MINUTES } from '../lib/schedule';
 
@@ -43,6 +50,10 @@ export const initialNotesState = {
 /** The slice a mutation snapshots and a rollback restores. */
 export const notesOf = (state) => state.notes;
 
+/** `JSON.stringify(NaN)` is the string "null"; a number should say what it is. */
+const describeValue = (value) =>
+    typeof value === 'number' ? String(value) : JSON.stringify(value);
+
 /**
  * Every note must carry a real start and a real length that lands inside its
  * day, because everything downstream assumes it.
@@ -54,16 +65,18 @@ export const notesOf = (state) => state.notes;
  * error anywhere. Cheaper to refuse it here than to explain it later.
  *
  * This is the calendar's `assertIngestible` for the other plane, and it is
- * called at the one point data enters this tree: `notesReplaced`, which covers
- * the server's answer on load, an optimistic row, and the real thing landing
- * after a save alike. A rollback restores a snapshot that was already checked on
- * its way in, so it needs no second check.
+ * called at both points data enters this tree: the server's answer on load
+ * (`loadSucceeded`), and a note gesture's settled result on commit
+ * (`notesReplaced`), which covers an optimistic row and the real thing landing
+ * after a save alike. A rollback restores a snapshot that was already checked
+ * on its way in, so it needs no second check.
  */
 const assertIngestible = (note) => {
     if (!Number.isFinite(note.startMinutes) || !Number.isFinite(note.durationMinutes)) {
         throw new Error(
             `Note ${note.id} needs a number for both startMinutes and ` +
-                `durationMinutes, got ${note.startMinutes} and ${note.durationMinutes}`
+                `durationMinutes, got ${describeValue(note.startMinutes)} ` +
+                `and ${describeValue(note.durationMinutes)}`
         );
     }
 

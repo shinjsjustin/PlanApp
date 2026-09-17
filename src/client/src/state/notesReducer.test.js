@@ -13,6 +13,7 @@ import {
     notesReplaced,
     rolledBack,
 } from './notesActions';
+import { DAY_MINUTES } from '../lib/schedule';
 
 const note = (id, dayId = 1) => ({
     id,
@@ -55,6 +56,16 @@ describe('loading', () => {
         expect(state.notes).toEqual([note(1)]);
         expect(state.loadError).toBe('nope');
     });
+
+    test('loadSucceeded refuses a note that is not a legal booking of time', () => {
+        // Arrange
+        const broken = [{ ...note(1), startMinutes: undefined }];
+
+        // Act & Assert
+        expect(() => notesReducer(initialNotesState, loadSucceeded(broken))).toThrow(
+            /startMinutes/
+        );
+    });
 });
 
 describe('notesReplaced', () => {
@@ -94,7 +105,27 @@ describe('notesReplaced', () => {
     test('refuses a note running past midnight', () => {
         // Arrange
         const ready = notesReducer(initialNotesState, loadSucceeded([]));
-        const broken = [{ ...note(1), startMinutes: 1410, durationMinutes: 60 }];
+        const broken = [
+            { ...note(1), startMinutes: DAY_MINUTES - 30, durationMinutes: 60 },
+        ];
+
+        // Act & Assert
+        expect(() => notesReducer(ready, notesReplaced(broken))).toThrow(/end of its day/);
+    });
+
+    test('refuses a note with a non-positive duration', () => {
+        // Arrange
+        const ready = notesReducer(initialNotesState, loadSucceeded([]));
+        const broken = [{ ...note(1), durationMinutes: 0 }];
+
+        // Act & Assert
+        expect(() => notesReducer(ready, notesReplaced(broken))).toThrow(/positive/);
+    });
+
+    test('refuses a note starting before its day', () => {
+        // Arrange
+        const ready = notesReducer(initialNotesState, loadSucceeded([]));
+        const broken = [{ ...note(1), startMinutes: -30 }];
 
         // Act & Assert
         expect(() => notesReducer(ready, notesReplaced(broken))).toThrow(/end of its day/);
