@@ -792,7 +792,7 @@ Create `src/shared/noteLaneCases.json`:
 
 ```json
 {
-  "README": "Note lane arrangements (design 2026-09-16, decisions 4-7). The client assigns lanes greedily right-to-left in src/client/src/lib/noteLanes.js; the server enforces the cap by sweeping for maximum overlap in src/lib/calendarNoteLanes.js. Decision 7 is the claim that those are the same rule. Both suites read this one table so the two cannot drift apart silently. Client suite: src/client/src/lib/noteLanes.fixtures.test.js. Server suite: tests/unit/calendarNoteLanes.test.js. Notes are in the API's camelCase wire shape. `lanes` maps note id to expected lane, and is null when the arrangement is illegal.",
+  "README": "Note lane arrangements (design 2026-09-16, decisions 4-7). The client assigns lanes greedily right-to-left in src/client/src/lib/noteLanes.js; the server enforces the cap by sweeping for maximum overlap in src/lib/calendarNoteLanes.js. Decision 7 is the claim that those are the same rule. Both suites read this one table so the two cannot drift apart silently. Client suite: src/client/src/lib/noteLanes.fixtures.test.js. Server suite: tests/unit/calendarNoteLanes.test.js. Notes are in the API's camelCase wire shape. `lanes` maps note id to expected lane, and is null when the arrangement is illegal. Notes within a case are listed in arbitrary order; an implementation must sort by (startMinutes, id) before assigning lanes, not rely on input order. Lane numbers are arbitrary slots with no screen position of their own; that lane 0 renders rightmost is a decision in the design spec, not in this table.",
   "maxLanes": 4,
   "cases": [
     {
@@ -919,6 +919,17 @@ Create `src/shared/noteLaneCases.json`:
       ],
       "maxOverlap": 5,
       "lanes": null
+    },
+    {
+      "name": "input order does not decide lanes",
+      "notes": [
+        { "id": 3, "startMinutes": 780, "durationMinutes": 180 },
+        { "id": 4, "startMinutes": 600, "durationMinutes": 120 },
+        { "id": 2, "startMinutes": 540, "durationMinutes": 240 },
+        { "id": 1, "startMinutes": 720, "durationMinutes": 180 }
+      ],
+      "maxOverlap": 2,
+      "lanes": { "1": 1, "2": 0, "3": 0, "4": 1 }
     }
   ]
 }
@@ -930,7 +941,7 @@ Create `src/shared/noteLaneCases.json`:
 node -e "const t=require('./src/shared/noteLaneCases.json'); console.log(t.cases.length, 'cases');"
 ```
 
-Expected: `13 cases`
+Expected: `14 cases`
 
 - [ ] **Step 3: Commit**
 
