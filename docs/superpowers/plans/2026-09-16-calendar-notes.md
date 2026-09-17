@@ -318,6 +318,31 @@ describe('calendarNotesRepo.listByDayId', () => {
         // Assert
         expect(notes.map((note) => note.text)).toEqual(['first', 'second']);
     });
+
+    test('breaks a tie on start_minutes by insertion id', async () => {
+        // Arrange
+        const conn = getConn();
+        const { day } = await createDay(conn);
+
+        await calendarNotesRepo.create(conn, {
+            dayId: day.id,
+            text: 'inserted first',
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+        await calendarNotesRepo.create(conn, {
+            dayId: day.id,
+            text: 'inserted second',
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+
+        // Act
+        const notes = await calendarNotesRepo.listByDayId(conn, day.id);
+
+        // Assert
+        expect(notes.map((note) => note.text)).toEqual(['inserted first', 'inserted second']);
+    });
 });
 
 describe('calendarNotesRepo.update', () => {
@@ -372,6 +397,17 @@ describe('calendarNotesRepo.remove', () => {
         expect(deleted).toBe(true);
         expect(await calendarNotesRepo.listByOwner(conn, ownerId)).toEqual([]);
     });
+
+    test('returns false for a note that is not there', async () => {
+        // Arrange
+        const conn = getConn();
+
+        // Act
+        const deleted = await calendarNotesRepo.remove(conn, 999999);
+
+        // Assert
+        expect(deleted).toBe(false);
+    });
 });
 
 describe('deleting a day', () => {
@@ -410,7 +446,7 @@ Create `src/db/repositories/calendarNotesRepo.js`:
 ```js
 'use strict';
 
-const { firstRow } = require('./sql');
+const { firstRow, buildAssignments } = require('./sql');
 
 /**
  * Data access for `calendar_notes` — unplanned context attached to a day
@@ -496,26 +532,20 @@ const create = async (conn, { dayId, text, startMinutes, durationMinutes }) => {
  * Applies the named fields and leaves the rest alone. Returns the updated row,
  * or null when there was no such note.
  *
- * The column list is built from a fixed allow-list rather than from the caller's
- * keys, so an unexpected field cannot reach the SQL. Values still go through
- * placeholders; the allow-list is what keeps the *identifiers* safe.
+ * The column list is built by `buildAssignments` from a fixed allow-list rather
+ * than from the caller's keys, so an unexpected field cannot reach the SQL and
+ * identifiers are quoted rather than interpolated raw. Values still go through
+ * placeholders. `buildAssignments` throws when the patch names nothing to
+ * change — an empty patch is a caller bug, not something to silently succeed
+ * at, and the router rejects one before it ever reaches here.
  */
 const update = async (conn, id, fields) => {
-    const entries = Object.entries(fields).filter(
-        ([field]) => UPDATABLE_COLUMNS[field] !== undefined
-    );
+    const { clause, values } = buildAssignments(fields, UPDATABLE_COLUMNS);
 
-    if (entries.length === 0) return findById(conn, id);
+    const existing = await findById(conn, id);
+    if (!existing) return null;
 
-    const assignments = entries.map(([field]) => `${UPDATABLE_COLUMNS[field]} = ?`).join(', ');
-    const values = entries.map(([, value]) => value);
-
-    const [result] = await conn.execute(
-        `UPDATE calendar_notes SET ${assignments} WHERE id = ?`,
-        [...values, id]
-    );
-
-    if (result.affectedRows === 0) return null;
+    await conn.execute(`UPDATE calendar_notes SET ${clause} WHERE id = ?`, [...values, id]);
 
     return findById(conn, id);
 };
@@ -535,10 +565,11 @@ module.exports = { create, findById, listByDayId, listByOwner, remove, update };
 DB_NAME=planapp_test npx jest tests/integration/calendarNotesRepo.test.js
 ```
 
-Expected: PASS, 8 tests.
+Expected: PASS, 10 tests.
 
 > If `update` with a non-existent id returns a row rather than null, check that
-> `result.affectedRows === 0` is being read from the `UPDATE`, not the `SELECT`.
+> `existing` (read via `findById` before the `UPDATE`) is what is being tested,
+> not the `UPDATE`'s own `affectedRows`.
 
 - [ ] **Step 5: Commit**
 
