@@ -64,8 +64,26 @@
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    /* The strip owns the sideways overflow; the page must never scroll with it. */
-    overflow: hidden;
+    /* The strip owns the sideways overflow, so the page never scrolls vertically
+     * with it.
+     *
+     * Sideways is `auto` rather than `hidden` to keep one fallback this page had
+     * before it gained a height. The pool rail is a fixed 320px that cannot
+     * shrink, so below about 348px of content width the rail itself no longer
+     * fits: `hidden` would clip it where nobody could reach it, `auto` leaves it
+     * reachable. Measured: at a 320px page the rail overflows by 28px and this
+     * rule is what makes it scrollable.
+     *
+     * It does not rescue the band above that. The strip carries `min-width: 0`,
+     * so between roughly 360px and 528px it is shrunk to a sliver — 20px at
+     * 380px, nothing at all at 360px — rather than overflowing, and no overflow
+     * rule can help with a box that shrank instead of overflowing. That is
+     * older than this stylesheet and wants real responsive work, not a scrollbar.
+     *
+     * On any window this calendar was designed for, neither axis overflows and
+     * no scrollbar appears. */
+    overflow-x: auto;
+    overflow-y: hidden;
 
     padding: var(--page-pad) var(--page-pad) var(--space-xl);
     padding-right: max(var(--page-pad), env(safe-area-inset-right));
