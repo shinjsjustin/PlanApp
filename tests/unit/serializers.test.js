@@ -3,6 +3,7 @@
 const {
     toCalendarDay,
     toCalendarItem,
+    toCalendarNote,
     toEdge,
     toFrontierEntry,
     toLayer,
@@ -324,6 +325,33 @@ describe('serializers', () => {
             expect(item.text).toBe('Wire up the token refresh');
             expect(item.projectTitle).toBe('Auth rewrite');
             expect(item.sequenceTitle).toBe('Session handling');
+        });
+    });
+
+    describe('toCalendarNote', () => {
+        test('maps the row to the wire shape and drops timestamps', () => {
+            // Arrange
+            const row = {
+                id: 7,
+                day_id: 3,
+                text: 'kids at home',
+                start_minutes: 540,
+                duration_minutes: 180,
+                created_at: new Date('2026-09-16T08:00:00Z'),
+                updated_at: new Date('2026-09-16T08:00:00Z'),
+            };
+
+            // Act
+            const note = toCalendarNote(row);
+
+            // Assert
+            expect(note).toEqual({
+                id: 7,
+                dayId: 3,
+                text: 'kids at home',
+                startMinutes: 540,
+                durationMinutes: 180,
+            });
         });
     });
 });
