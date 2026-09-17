@@ -72,6 +72,7 @@ Each of the above gets a sibling `*.test.js` (client) or a file under `tests/uni
 | `src/server.js` | mount `/api/calendar/notes` |
 | `src/client/src/lib/scheduleGeometry.js` | `PX_PER_SLOT_MIN`, `createDayGeometry` |
 | `src/client/src/hooks/useResizeEdge.js` | takes `geometry` |
+| `src/client/src/hooks/useCalendar.js` | response body checked at the boundary (user ruling, Task 13) |
 | `src/client/src/components/Calendar/DayGrid.js` | height and hour tops from context |
 | `src/client/src/components/Calendar/DayItemCard.js` | top/height from context |
 | `src/client/src/components/Calendar/DayColumn.js` | renders `NotePlane`; scroll ref feeds the scale |
@@ -4138,6 +4139,12 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
+afterEach(() => {
+    // Only the `console.error` spies below; the `api` doubles are module mocks,
+    // which this does not touch.
+    jest.restoreAllMocks();
+});
+
 describe('loading', () => {
     test('reads the notes on mount', async () => {
         // Act
@@ -4193,6 +4200,27 @@ describe('loading', () => {
         await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
         expect(result.current.state.loadError).toMatch(/duration/);
         expect(result.current.state.notes).toEqual([]);
+    });
+
+    test.each([
+        ['a body with no notes in it', {}],
+        ['a body that is not an object at all', null],
+        ['a notes key that is not a list', { notes: 'nope' }],
+    ])('reports %s rather than reading through it', async (_label, payload) => {
+        // Arrange — `api` guarantees a parsed body and nothing about its shape.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue(payload);
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert — a sentence about the server rather than `undefined.forEach`
+        // beside the retry button …
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/unreadable/);
+        expect(result.current.state.notes).toEqual([]);
+        // … and the body itself where a developer will find it.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), payload);
     });
 
     test('reload asks again', async () => {
@@ -4512,6 +4540,49 @@ describe('notesForDay', () => {
         // Act & Assert
         expect(result.current.notesForDay(2)).toEqual([note(2, { dayId: 2 })]);
     });
+
+    test('hands back the same array for a day until the notes change', async () => {
+        // Arrange
+        const { result, rerender } = await renderReady([
+            note(1, { dayId: 1 }),
+            note(2, { dayId: 1 }),
+            note(3, { dayId: 2 }),
+        ]);
+
+        // Act & Assert — twice in one render, and again across the next one.
+        // `NotePlane` takes this array as a prop, so a fresh one per call would
+        // re-render every lane whenever anything on the page moved.
+        const before = result.current.notesForDay(1);
+        expect(result.current.notesForDay(1)).toBe(before);
+
+        rerender();
+
+        expect(result.current.notesForDay(1)).toBe(before);
+        expect(before).toEqual([note(1, { dayId: 1 }), note(2, { dayId: 1 })]);
+    });
+
+    test('hands back one shared empty list for every day that holds nothing', async () => {
+        // Arrange
+        const { result } = await renderReady([note(1, { dayId: 1 })]);
+
+        // Act & Assert — an empty day is the common case in a fresh strip.
+        expect(result.current.notesForDay(98)).toBe(result.current.notesForDay(99));
+        expect(result.current.notesForDay(98)).toEqual([]);
+    });
+
+    test('regroups once the notes have changed', async () => {
+        // Arrange
+        const { result } = await renderReady([note(1, { dayId: 1 })]);
+        const before = result.current.notesForDay(1);
+        api.patch.mockResolvedValue(note(1, { dayId: 1, startMinutes: 600 }));
+
+        // Act
+        await act(() => result.current.updateNote(1, { startMinutes: 600 }));
+
+        // Assert — held identity is not a stale answer.
+        expect(result.current.notesForDay(1)).not.toBe(before);
+        expect(result.current.notesForDay(1)).toEqual([note(1, { dayId: 1, startMinutes: 600 })]);
+    });
 });
 
 describe('dismissActionError', () => {
@@ -4557,6 +4628,11 @@ Expected: FAIL — `Cannot find module './useCalendarNotes'`.
 
 Create `src/client/src/hooks/useCalendarNotes.js`:
 
+Two things below depart from what this plan originally specified, both on the user's ruling after the Task 13 review — keep them:
+
+1. **The response body is checked at the boundary.** `fetchNotes` reads it through `readNotes` rather than destructuring it, because `api` guarantees a parsed body and nothing about its shape, and a missing key reached the reducer as `undefined.forEach` — a stack trace's wording beside the retry button with nothing logged. `useCalendar.fetchCalendar` got the same treatment in the same commit, which is why that hook now appears in the Modified table.
+2. **`notesForDay` groups once per change instead of filtering per call**, with a module-level `EMPTY_NOTES` for days that hold nothing, so a day's array keeps its identity for as long as its notes do. Filtering per call handed `NotePlane` a fresh prop on every render of the page.
+
 ```js
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
@@ -4591,7 +4667,34 @@ import {
 
 const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
+// One shared empty list, so every day that holds nothing hands back the same
+// array rather than a new one per call — the common case in a fresh strip.
+const EMPTY_NOTES = [];
+
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
+
+const UNREADABLE_NOTES = 'The server sent an unreadable notes list.';
+
+/**
+ * The wire is a boundary, and `api` guarantees a parsed body and nothing at all
+ * about its shape.
+ *
+ * Handed on unchecked, a body missing the key reaches `loadSucceeded` as
+ * `undefined.forEach` — which lands in the `catch` below and puts a stack
+ * trace's wording beside the retry button, with nothing anywhere saying what the
+ * server actually sent. So the shape is checked where it enters, the user is
+ * told something about the server, and the body goes to the console for whoever
+ * has to work out why.
+ */
+const readNotes = (payload) => {
+    if (!Array.isArray(payload?.notes)) {
+        console.error('[calendar notes] unreadable response body:', payload);
+
+        throw new Error(UNREADABLE_NOTES);
+    }
+
+    return payload.notes;
+};
 
 /**
  * Whether anything has settled into the list since `installed` was put there.
@@ -4630,7 +4733,7 @@ const useCalendarNotes = () => {
 
     const fetchNotes = useCallback(async () => {
         try {
-            const { notes } = await api.get('/calendar/notes');
+            const notes = readNotes(await api.get('/calendar/notes'));
 
             dispatch(loadSucceeded(notes));
         } catch (err) {
@@ -4808,10 +4911,28 @@ const useCalendarNotes = () => {
         [dispatch]
     );
 
-    /** One day's notes, for the plane inside that column. */
+    // Grouped once per change rather than filtered once per call, so a day's
+    // array keeps its identity for as long as its notes do.
+    //
+    // `NotePlane` takes that array as a prop. Filtering per call would hand it a
+    // fresh one on every render the page has — including the ones the
+    // independently-loaded calendar and pool cause — and re-render every lane in
+    // every column over notes that did not move, which is the memoised return
+    // above being undone one prop at a time.
+    const notesByDay = useMemo(() => {
+        const byDay = new Map();
+
+        state.notes.forEach((note) =>
+            byDay.set(note.dayId, [...(byDay.get(note.dayId) ?? []), note])
+        );
+
+        return byDay;
+    }, [state.notes]);
+
+    /** One day's notes, in the order they arrived, for the plane in its column. */
     const notesForDay = useCallback(
-        (dayId) => state.notes.filter((note) => note.dayId === dayId),
-        [state.notes]
+        (dayId) => notesByDay.get(dayId) ?? EMPTY_NOTES,
+        [notesByDay]
     );
 
     const dismissActionError = useCallback(() => dispatch(actionErrorCleared()), [dispatch]);
@@ -4852,7 +4973,9 @@ export default useCalendarNotes;
 CI=true npm test --prefix src/client -- --testPathPattern=useCalendarNotes
 ```
 
-Expected: PASS, 24 tests.
+Expected: PASS, 30 tests.
+
+The count grew twice over the original fourteen: once to protect eleven behaviours that were deletable while green (see Step 1), and once for the boundary guard and the grouping identity above.
 
 - [ ] **Step 5: Commit**
 
