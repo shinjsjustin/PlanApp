@@ -81,6 +81,41 @@ describe('loading', () => {
         expect(result.current.state.loadError).toBe('the server is down');
     });
 
+    test('says it is loading until the notes land', async () => {
+        // Arrange
+        const pending = deferred();
+        api.get.mockReturnValue(pending.promise);
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert — the skeleton, not an empty plane pretending to be ready.
+        expect(result.current.state.status).toBe(NOTES_STATUS.loading);
+
+        // Act — the notes land
+        await act(async () => {
+            pending.resolve({ notes: [note(1)] });
+            await pending.promise;
+        });
+
+        // Assert
+        expect(result.current.state.status).toBe(NOTES_STATUS.ready);
+    });
+
+    test('reports a malformed note from the server rather than ingesting it', async () => {
+        // Arrange — a note the reducer's ingest guard refuses.
+        api.get.mockResolvedValue({ notes: [note(1, { durationMinutes: 0 })] });
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert — the refusal lands on the retry screen rather than throwing
+        // during a render, where the page's error boundary would take the plane.
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/duration/);
+        expect(result.current.state.notes).toEqual([]);
+    });
+
     test('reload asks again', async () => {
         // Arrange
         const { result } = await renderReady([]);
@@ -115,14 +150,17 @@ describe('createNote', () => {
         expect(result.current.state.notes[0].text).toBe('on call');
 
         // Act — the save lands
+        let landed;
         await act(async () => {
             resolveSave(note(7, { text: 'on call' }));
-            await pending;
+            landed = await pending;
         });
 
         // Assert
         expect(result.current.state.notes).toEqual([note(7, { text: 'on call' })]);
         expect(api.post).toHaveBeenCalledWith('/calendar/notes', draft());
+        // Whether the write landed, for the caller with something to do about it.
+        expect(landed).toBe(true);
     });
 
     test('rolls the note away when the save fails', async () => {
@@ -131,14 +169,45 @@ describe('createNote', () => {
         api.post.mockRejectedValue(new Error('a day may hold at most 4 notes'));
 
         // Act
-        await act(() => result.current.createNote(draft()));
+        let landed;
+        await act(async () => {
+            landed = await result.current.createNote(draft());
+        });
 
         // Assert
         expect(result.current.state.notes).toEqual([]);
         expect(result.current.state.actionError).toBe('a day may hold at most 4 notes');
+        expect(landed).toBe(false);
         // The load is the one from `renderReady` and no other: a rollback that
         // resynced instead would refetch, and that tells the two paths apart.
         expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    test('says something rather than nothing when the failure carries no message', async () => {
+        // Arrange
+        const { result } = await renderReady([]);
+        api.post.mockRejectedValue(new Error());
+
+        // Act
+        await act(() => result.current.createNote(draft()));
+
+        // Assert — an empty toast would tell the user less than the failure did.
+        expect(result.current.state.actionError).toBe('Something went wrong. Please try again.');
+    });
+
+    test('refuses a malformed note without sending it', async () => {
+        // Arrange — a gesture that produced an impossible length. The reducer's
+        // ingest guard refuses it, and because the fold runs inside `dispatch`
+        // the refusal lands in `mutate`'s own `try` rather than in a render.
+        const { result } = await renderReady([]);
+
+        // Act
+        await act(() => result.current.createNote(draft({ durationMinutes: 0 })));
+
+        // Assert — rolled back with a message, and the server never heard of it.
+        expect(result.current.state.notes).toEqual([]);
+        expect(result.current.state.actionError).toMatch(/duration/);
+        expect(api.post).not.toHaveBeenCalled();
     });
 
     test('does not resurrect a note deleted while the new note’s save is in flight', async () => {
@@ -182,7 +251,8 @@ describe('createNote', () => {
         await act(() => result.current.deleteNote(1));
 
         const resynced = [note(9)];
-        api.get.mockResolvedValue({ notes: resynced });
+        const resync = deferred();
+        api.get.mockReturnValue(resync.promise);
 
         // Act
         await act(async () => {
@@ -190,11 +260,22 @@ describe('createNote', () => {
             await creation;
         });
 
+        // Assert — the resync is out, and the plane stays readable while it is:
+        // a failure that merely interleaved is no reason to blank the day back
+        // to its loading state, which is what asking for a full `load` would do.
+        expect(api.get).toHaveBeenCalledTimes(2);
+        expect(result.current.state.status).toBe(NOTES_STATUS.ready);
+
+        // Act — the server says what is actually true
+        await act(async () => {
+            resync.resolve({ notes: resynced });
+            await resync.promise;
+        });
+
         // Assert — the server's own answer replaces the guesswork, and the
         // message survives the refetch so the failure is still on screen.
         await waitFor(() => expect(result.current.state.notes).toEqual(resynced));
         expect(result.current.state.actionError).toBe('nope');
-        expect(api.get).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -235,6 +316,27 @@ describe('updateNote', () => {
         // Assert — reported, not thrown out of a click handler
         expect(result.current.state.actionError).toMatch(/99/);
         expect(api.patch).not.toHaveBeenCalled();
+        // A refusal changed nothing, so there is nothing to resync from: this is
+        // still the one load `renderReady` did.
+        expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    test('rolls back to the list as it is now, not as the last render saw it', async () => {
+        // Arrange — two changes inside one tick, so no render lands between
+        // them: a day is pruned, then a note in another day is dragged.
+        const { result } = await renderReady([note(1, { dayId: 1 }), note(2, { dayId: 2 })]);
+        api.patch.mockRejectedValue(new Error('nope'));
+
+        // Act
+        await act(async () => {
+            result.current.pruneDay(1);
+            await result.current.updateNote(2, { startMinutes: 600 });
+        });
+
+        // Assert — the rollback restores the snapshot the update itself took, so
+        // the pruned day stays pruned. A snapshot read from the render's `state`
+        // would be the pre-prune list and would put day 1's note back.
+        expect(result.current.state.notes).toEqual([note(2, { dayId: 2 })]);
     });
 });
 
@@ -274,6 +376,7 @@ describe('deleteNote', () => {
         // Assert — reported, not thrown out of a click handler
         expect(result.current.state.actionError).toMatch(/99/);
         expect(api.delete).not.toHaveBeenCalled();
+        expect(api.get).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -288,6 +391,25 @@ describe('pruneDay', () => {
         // Assert — the server already cascaded them; this is hygiene
         expect(result.current.state.notes).toEqual([note(2, { dayId: 2 })]);
         expect(api.delete).not.toHaveBeenCalled();
+    });
+
+    test('prunes a second day from the list the first prune left', async () => {
+        // Arrange — two days deleted inside one tick, so no render lands between
+        // them.
+        const { result } = await renderReady([
+            note(1, { dayId: 1 }),
+            note(2, { dayId: 2 }),
+            note(3, { dayId: 3 }),
+        ]);
+
+        // Act
+        act(() => {
+            result.current.pruneDay(1);
+            result.current.pruneDay(2);
+        });
+
+        // Assert — neither prune undoes the other.
+        expect(result.current.state.notes).toEqual([note(3, { dayId: 3 })]);
     });
 
     test('says nothing about a day that held no notes', async () => {
@@ -325,5 +447,20 @@ describe('dismissActionError', () => {
 
         // Assert
         expect(result.current.state.actionError).toBeNull();
+    });
+});
+
+describe('the hook’s value', () => {
+    test('hands back the same object across a render that changed nothing', async () => {
+        // Arrange
+        const { result, rerender } = await renderReady([note(1)]);
+        const before = result.current;
+
+        // Act — the kind of render the independently-loaded calendar and pool
+        // cause, which the notes plane has no stake in.
+        rerender();
+
+        // Assert — a fresh object every render would re-render every ribbon.
+        expect(result.current).toBe(before);
     });
 });
