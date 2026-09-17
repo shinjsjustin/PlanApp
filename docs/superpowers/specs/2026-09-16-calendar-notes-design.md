@@ -653,10 +653,28 @@ trusts it:
 nested and staircase arrangements; `findLaneProblem` returning null at four and
 a message at five.
 
-**Agreement test** — one test asserting decision 7 directly: for a generated set
-of notes, `assignLanes` succeeds if and only if `maxOverlap <= MAX_NOTE_LANES`.
-This is the seam between client and server, and it is the one that would rot
-silently.
+**Agreement test** — decision 7 is a claim about two implementations in two
+bundles, and the codebase already has a mechanism for exactly that. The ready
+frontier is derived twice, in `src/client/src/lib/graph.js` and
+`src/lib/frontier.js`, and the two suites are held together by one table of
+cases in `src/shared/frontierFixtures.json`, read by
+`src/client/src/lib/graph.frontier.test.js` and `tests/unit/frontier.test.js`.
+
+Notes follow that precedent exactly. A new `src/shared/noteLaneCases.json`
+holds one table of note arrangements with, for each, the expected
+`maxOverlap` and the expected lane assignment. Two suites read it:
+
+- `src/client/src/lib/noteLanes.fixtures.test.js` — asserts `assignLanes`
+  produces the expected lanes, and that it refuses exactly the cases whose
+  `maxOverlap` exceeds `MAX_NOTE_LANES`.
+- `tests/unit/calendarNoteLanes.test.js` — asserts `maxOverlap` returns the
+  expected number and `findLaneProblem` reports on exactly the same cases.
+
+A change to one side that the other does not follow fails on one side of the
+app or the other, which is the property decision 7 needs and a single test
+spanning both bundles could not give: the client is ESM behind CRA's module
+scope and the server is CommonJS under the root Jest config, so no one test can
+import both. A shared JSON table can be imported by both, and already is.
 
 **`scheduleGeometry`** — `createDayGeometry` round-trips minutes → px → minutes
 at 24 and at a stretched scale; `PX_PER_SLOT_MIN` is the floor.
