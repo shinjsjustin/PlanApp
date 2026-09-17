@@ -55,6 +55,16 @@ const overlaps = (a, b) => a.startMinutes < endOf(b) && b.startMinutes < endOf(a
  * the same minute must not swap lanes between renders, or a ribbon would jump
  * sideways when something unrelated changed.
  *
+ * A note being created has no id yet (see `canPlace`), so the tie-break treats
+ * a missing id as larger than every real one: a draft always loses a tie
+ * against a saved note. Written as `?? Number.POSITIVE_INFINITY` rather than
+ * bare subtraction, because `undefined - b.id` is `NaN`, and a comparator that
+ * returns `NaN` is treated as "equal" — which would make the outcome depend on
+ * where the draft happened to sit in the array `canPlace` builds, a detail with
+ * no meaning of its own. Two id-less notes would compare `Infinity - Infinity`
+ * (`NaN`, so "equal", so whichever order they arrived in), but only one draft
+ * exists at a time during a gesture, so that case cannot arise today.
+ *
  * A note with no free lane maps to `null` rather than being left out, so a
  * caller iterating the map still sees it and can draw it as unplaceable. Every
  * client gesture is refused before it can produce one (see `canPlace`), so this
@@ -65,7 +75,9 @@ const overlaps = (a, b) => a.startMinutes < endOf(b) && b.startMinutes < endOf(a
  */
 export const assignLanes = (notes) => {
     const ordered = [...notes].sort(
-        (a, b) => a.startMinutes - b.startMinutes || a.id - b.id
+        (a, b) =>
+            a.startMinutes - b.startMinutes ||
+            (a.id ?? Number.POSITIVE_INFINITY) - (b.id ?? Number.POSITIVE_INFINITY)
     );
 
     // lane index → the notes already placed in it

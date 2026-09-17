@@ -115,6 +115,31 @@ describe('canPlace', () => {
     });
 });
 
+describe('canPlace with an id-less candidate', () => {
+    // A note being created has no id yet — that shape is not in the shared
+    // table, which has no notion of an id-less note, so these belong here.
+
+    test('refuses a tied draft when the day is already at capacity', () => {
+        // Arrange — four existing notes fill every lane; the draft shares
+        // their start and has no id, which is what a note being created
+        // looks like before it is saved.
+        const existing = [1, 2, 3, 4].map((id) => note(id, 540, 60));
+        const draft = { startMinutes: 540, durationMinutes: 60 };
+
+        // Act & Assert
+        expect(canPlace(existing, draft)).toBe(false);
+    });
+
+    test('allows a tied draft when the day is under capacity', () => {
+        // Arrange — three existing notes leave a lane free
+        const existing = [1, 2, 3].map((id) => note(id, 540, 60));
+        const draft = { startMinutes: 540, durationMinutes: 60 };
+
+        // Act & Assert
+        expect(canPlace(existing, draft)).toBe(true);
+    });
+});
+
 describe('MAX_NOTE_LANES', () => {
     test('is four', () => {
         expect(MAX_NOTE_LANES).toBe(4);
