@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import useCalendarNotes from './useCalendarNotes';
 import { NOTES_STATUS } from '../state/notesReducer';
-import { api } from '../lib/api';
+import { ApiError, api } from '../lib/api';
 
 jest.mock('../lib/api', () => {
     const actual = jest.requireActual('../lib/api');
@@ -153,6 +153,66 @@ describe('loading', () => {
 
         // Assert
         expect(result.current.state.notes).toEqual([note(1)]);
+    });
+});
+
+describe('failure diagnostics', () => {
+    test('records a refused gesture without changing a word of what is on screen', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady([]);
+
+        // Act — a write aimed at a note that is not there.
+        await act(() => result.current.updateNote(99, { text: 'ghost' }));
+
+        // Assert — the reason still names the note on screen …
+        expect(result.current.state.actionError).toMatch(/99/);
+        // … and the error itself, stack and all, is on the record. A string in
+        // a toast cannot carry one.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('records a load that failed on this side of the wire', async () => {
+        // Arrange — a note the reducer's ingest guard refuses.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({ notes: [note(1, { durationMinutes: 0 })] });
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/duration/);
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('says nothing to the console about an ordinary wire failure', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady([]);
+        api.post.mockRejectedValue(new ApiError('Could not reach the server.', 0));
+
+        // Act
+        await act(() => result.current.createNote(draft()));
+
+        // Assert — the user is already being told; offline and 500 are the wire
+        // working as designed, and logging them would bury the defects.
+        expect(result.current.state.actionError).toBe('Could not reach the server.');
+        expect(logged).not.toHaveBeenCalled();
+    });
+
+    test('records an unreadable body once, not twice', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({});
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert — the guard already put the body on the record; repeating it
+        // with a stack pointing at the guard adds nothing.
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(logged).toHaveBeenCalledTimes(1);
     });
 });
 

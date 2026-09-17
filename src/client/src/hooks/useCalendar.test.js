@@ -142,6 +142,67 @@ describe('useCalendar unreadable responses', () => {
     });
 });
 
+describe('useCalendar failure diagnostics', () => {
+    test('records a refused gesture without changing a word of what is on screen', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady();
+
+        // Act — a gesture aimed at a day that is not in the strip.
+        await act(() => result.current.deleteDay(999));
+
+        // Assert — the reason still names the day on screen …
+        expect(result.current.state.actionError).toMatch(/No day with id 999/);
+        // … and the error itself, stack and all, is on the record.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('records a load that failed on this side of the wire', async () => {
+        // Arrange — an item the reducer's ingest guard refuses.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({
+            days: calendar.days,
+            items: [{ ...calendar.items[0], startMinutes: undefined }],
+        });
+
+        // Act
+        const { result } = renderHook(() => useCalendar());
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/needs a number/);
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('says nothing to the console about an ordinary wire failure', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady();
+        api.delete.mockRejectedValue(new ApiError('Could not delete the day.', 500));
+
+        // Act
+        await act(() => result.current.deleteDay(1));
+
+        // Assert — the user is already being told; logging offline and 500 would
+        // bury the defects in noise.
+        expect(result.current.state.actionError).toBe('Could not delete the day.');
+        expect(logged).not.toHaveBeenCalled();
+    });
+
+    test('records an unreadable body once, not twice', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({});
+
+        // Act
+        const { result } = renderHook(() => useCalendar());
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(logged).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('useCalendar.commit', () => {
     test('sends only what changed and installs the server’s answer', async () => {
         // Arrange

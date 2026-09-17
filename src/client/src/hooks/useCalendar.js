@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
-import { api } from '../lib/api';
+import { ApiError, api } from '../lib/api';
 import { toBulkRequest } from '../lib/calendarRequest';
 import { appendDay, removeDay, unscheduleItem } from '../lib/schedule';
 import { isTempId } from '../lib/tempIds';
@@ -35,6 +35,28 @@ const TODO_COMPLETE = 'complete';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
+/**
+ * Records a failure for whoever has to work out why, without changing a word of
+ * what the user is told.
+ *
+ * Both halves on purpose. A refused gesture or a payload the reducer would not
+ * ingest says why on screen — that wording is deliberate and pinned by tests —
+ * while the error itself, stack and all, goes where a string in a toast could
+ * never carry it.
+ *
+ * An `ApiError` is not recorded. That class is the wire saying one of the things
+ * the wire says: offline, 500, 409. The user is already being shown it, the
+ * server has its own log of it, and repeating every one here would bury the
+ * entries that mean a defect on this side under the ones that do not. What is
+ * left is exactly that: an error this code did not expect to be possible.
+ */
+const logFailure = (context, error) => {
+    if (error instanceof ApiError || error?.alreadyLogged) return;
+
+    console.error(`[calendar] ${context}`, error);
+};
+
+
 const UNREADABLE_CALENDAR = 'The server sent an unreadable calendar.';
 
 /**
@@ -55,7 +77,12 @@ const readCalendar = (payload) => {
     if (!Array.isArray(payload?.days) || !Array.isArray(payload?.items)) {
         console.error('[calendar] unreadable response body:', payload);
 
-        throw new Error(UNREADABLE_CALENDAR);
+        // The body is the diagnostic here, and it is already on the record, so
+        // `logFailure` does not repeat it with a stack pointing at this line.
+        const error = new Error(UNREADABLE_CALENDAR);
+        error.alreadyLogged = true;
+
+        throw error;
     }
 
     return payload;
@@ -193,6 +220,8 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
             dispatch(loadSucceeded(readCalendar(await api.get('/calendar'))));
             loadGenerationRef.current += 1;
         } catch (err) {
+            logFailure('load failed', err);
+
             dispatch(loadFailed(messageOf(err)));
         }
     }, [dispatch]);
@@ -277,6 +306,8 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
 
             return true;
         } catch (err) {
+            logFailure('write failed', err);
+
             // `previous` is an undo only while this mutation's change is still
             // the last thing that happened. Once something else has settled —
             // the × on a real day during a pending `addDay` — the snapshot has
