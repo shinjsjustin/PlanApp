@@ -1138,7 +1138,7 @@ module.exports = { MAX_NOTE_LANES, findLaneProblem, maxOverlap };
 DB_NAME=planapp_test npx jest tests/unit/calendarNoteLanes.test.js
 ```
 
-Expected: PASS, 29 tests.
+Expected: PASS, 31 tests — one table-sanity check, the 14 shared cases in each of the two describe blocks, and two dedicated `maxOverlap` tests.
 
 - [ ] **Step 5: Commit**
 
