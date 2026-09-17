@@ -37,6 +37,13 @@ const MAX_NOTE_LANES = 4;
  * Ends sort before starts at the same minute, which is what makes contact
  * non-overlapping: a note ending at 10:00 and one starting at 10:00 may share a
  * lane, so the -1 must land first or the count would briefly read 2.
+ *
+ * Assumes `durationMinutes > 0`. A zero-duration note's start and end land on
+ * the same minute, and that same ends-before-starts tie-break cancels its +1
+ * before `running` ever sees it — the note is invisible for its whole
+ * existence, not just at its boundary. This file does not guard against that;
+ * the notes router's minimum duration does, the same way `routes/calendar.js`
+ * owns the arithmetic this module never re-checks.
  */
 const maxOverlap = (notes) => {
     const events = notes.flatMap((note) => [

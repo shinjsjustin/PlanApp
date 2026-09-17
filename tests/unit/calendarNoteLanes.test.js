@@ -49,25 +49,18 @@ describe('findLaneProblem against the shared table', () => {
 });
 
 describe('maxOverlap', () => {
-    test('counts a nested note as overlapping its container', () => {
-        // Arrange
+    test('a zero-duration note is invisible to the sweep, which the router\'s minimum duration prevents', () => {
+        // Arrange — the notes router's minimum duration (Task 6) is the only
+        // thing keeping this input from ever reaching here for real.
         const notes = [
-            { id: 1, startMinutes: 0, durationMinutes: 600 },
-            { id: 2, startMinutes: 60, durationMinutes: 60 },
+            { id: 1, startMinutes: 0, durationMinutes: 0 },
+            { id: 2, startMinutes: 0, durationMinutes: 0 },
+            { id: 3, startMinutes: 0, durationMinutes: 0 },
+            { id: 4, startMinutes: 0, durationMinutes: 0 },
+            { id: 5, startMinutes: 0, durationMinutes: 0 },
         ];
 
         // Act & Assert
-        expect(maxOverlap(notes)).toBe(2);
-    });
-
-    test('does not count a note ending where the next begins', () => {
-        // Arrange
-        const notes = [
-            { id: 1, startMinutes: 0, durationMinutes: 60 },
-            { id: 2, startMinutes: 60, durationMinutes: 60 },
-        ];
-
-        // Act & Assert
-        expect(maxOverlap(notes)).toBe(1);
+        expect(maxOverlap(notes)).toBe(0);
     });
 });
