@@ -2494,6 +2494,14 @@ describe('createDayGeometry', () => {
             const geometry = createDayGeometry(pxPerSlot);
 
             expect(geometry.pxToMinutes(geometry.minutesToPx(450))).toBeCloseTo(450);
+            // The round-trip alone only proves the two conversions are each
+            // other's inverse — it says nothing about the scale itself. Tying
+            // one slot's worth of minutes back to `pxPerSlot` is what catches a
+            // factory that ignores its argument and always converts at the same
+            // fixed rate. `toBeCloseTo`, not `toBe`, because dividing then
+            // re-multiplying by `SLOT_MINUTES` is not exact for every scale in
+            // this table — 31 / 30 * 30 lands a float epsilon off 31.
+            expect(geometry.minutesToPx(SLOT_MINUTES)).toBeCloseTo(pxPerSlot);
         });
     });
 
@@ -2521,7 +2529,7 @@ describe('PX_PER_SLOT_MIN', () => {
 });
 ```
 
-Add `DAY_MINUTES` to the test file's imports from `./schedule` if it is not already imported.
+Add `DAY_MINUTES` and `SLOT_MINUTES` to the test file's imports from `./schedule` if they are not already imported.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -2567,6 +2575,11 @@ export const SLOTS_PER_DAY = DAY_MINUTES / SLOT_MINUTES;
  *
  * `pxPerSlot` is carried on the result so a consumer can tell two geometries
  * apart — which is what lets a memo key on the scale rather than on the object.
+ *
+ * `pxPerSlot` itself is unguarded, and the header's rule is why: it is never a
+ * field read off a payload. The literal `PX_PER_SLOT_MIN` and `useDayScale`'s
+ * `scaleFor` — already `Math.max`-clamped to that floor — are its only two
+ * callers, so nothing reaches this parameter that a guard here would refuse.
  */
 export const createDayGeometry = (pxPerSlot) => {
     const pxPerMinute = pxPerSlot / SLOT_MINUTES;
