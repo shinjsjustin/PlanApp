@@ -601,7 +601,11 @@ Firefox implements. Centred on both axes, clipped with `overflow: hidden`, so a
 long note in a short ribbon truncates rather than escaping it.
 
 New tokens on `.calendar-page`, named by role beside the existing ones:
-`--cal-note-plane-width` (50%), `--cal-note-lane-gap`, `--cal-note-edge-width`.
+`--cal-note-plane-width` (50%) and `--cal-note-edge-depth`, the latter matching
+the existing `--cal-resize-depth` so both planes feel the same under the pointer.
+
+There is no lane-gap token. Lanes are positioned as percentages of the plane
+rather than laid out as boxes, so there is nothing between them to space.
 
 ---
 
@@ -617,8 +621,12 @@ regions stacked above the strip would be noise for a page that raises an error
 roughly never.
 
 A failed notes **load** leaves the day columns fully usable and shows a quiet
-notice in the notes plane with a retry, the way `pool-notice` already does — not
-a full-page error, because the calendar itself is fine.
+notice with a retry, the way `pool-notice` already does — not a full-page error,
+because the calendar itself is fine.
+
+One notice for the strip, pinned above it, rather than one per notes plane. The
+load is a single request for every day at once, so a copy in each column would
+repeat one failure as many times as the user has days.
 
 ---
 
