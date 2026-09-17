@@ -20,10 +20,15 @@
 -- for `calendar_days` and `calendar_items` from the bottom of this file and run
 -- those alone.
 --
+-- A database created before the calendar notes pass is missing one table. Add it
+-- in place rather than re-running this file: copy the CREATE TABLE statement for
+-- `calendar_notes` from the bottom of this file and run it alone.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `calendar_notes`;
 DROP TABLE IF EXISTS `calendar_items`;
 DROP TABLE IF EXISTS `calendar_days`;
 DROP TABLE IF EXISTS `sequence_edges`;
@@ -197,4 +202,40 @@ CREATE TABLE `calendar_items` (
     FOREIGN KEY (`day_id`) REFERENCES `calendar_days` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_calendar_items_todo`
     FOREIGN KEY (`todo_id`) REFERENCES `todos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- calendar_notes --------------------------------------------------------
+-- Unplanned context for a day: a train journey, being on call, the kids being
+-- home. A note is not work, and the difference is the whole design — notes do
+-- not cascade, do not spill, and never move a booking (design 2026-09-16,
+-- decision 1).
+--
+-- What is absent matters as much as what is here:
+--
+--   - No `lane`. Which of the four vertical tracks a note is drawn in is
+--     derived from the day's notes on every render (decision 5). Stored, it
+--     would be a second truth with nothing keeping it honest: deleting a note
+--     would leave a hole no sibling could fill until something rewrote them all.
+--   - No `owner_id`. A note reaches its owner through its day, the way a to-do
+--     reaches its owner through its project.
+--   - No unique key. `calendar_items` has one because a to-do may be booked at
+--     most once; a day may hold any number of notes.
+--   - No `position`. Display order is `start_minutes` then `id`, which is a
+--     total order over any set of notes and needs no stored rank.
+--
+-- The ON DELETE CASCADE is decision 9 stated in the schema rather than in code:
+-- deleting a day deletes its notes, with no prompt. Unlike a booking, a note
+-- has nowhere to be released to — it exists only as part of its day.
+CREATE TABLE `calendar_notes` (
+  `id`               int unsigned NOT NULL AUTO_INCREMENT,
+  `day_id`           int unsigned NOT NULL,
+  `text`             varchar(500) NOT NULL,
+  `start_minutes`    int NOT NULL,
+  `duration_minutes` int NOT NULL,
+  `created_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_calendar_notes_day_start` (`day_id`, `start_minutes`),
+  CONSTRAINT `fk_calendar_notes_day`
+    FOREIGN KEY (`day_id`) REFERENCES `calendar_days` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
