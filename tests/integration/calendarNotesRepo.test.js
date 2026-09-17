@@ -127,6 +127,31 @@ describe('calendarNotesRepo.listByDayId', () => {
         // Assert
         expect(notes.map((note) => note.text)).toEqual(['first', 'second']);
     });
+
+    test('breaks a tie on start_minutes by insertion id', async () => {
+        // Arrange
+        const conn = getConn();
+        const { day } = await createDay(conn);
+
+        await calendarNotesRepo.create(conn, {
+            dayId: day.id,
+            text: 'inserted first',
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+        await calendarNotesRepo.create(conn, {
+            dayId: day.id,
+            text: 'inserted second',
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+
+        // Act
+        const notes = await calendarNotesRepo.listByDayId(conn, day.id);
+
+        // Assert
+        expect(notes.map((note) => note.text)).toEqual(['inserted first', 'inserted second']);
+    });
 });
 
 describe('calendarNotesRepo.update', () => {
@@ -180,6 +205,17 @@ describe('calendarNotesRepo.remove', () => {
         // Assert
         expect(deleted).toBe(true);
         expect(await calendarNotesRepo.listByOwner(conn, ownerId)).toEqual([]);
+    });
+
+    test('returns false for a note that is not there', async () => {
+        // Arrange
+        const conn = getConn();
+
+        // Act
+        const deleted = await calendarNotesRepo.remove(conn, 999999);
+
+        // Assert
+        expect(deleted).toBe(false);
     });
 });
 
