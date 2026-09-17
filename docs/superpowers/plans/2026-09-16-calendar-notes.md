@@ -5419,6 +5419,18 @@ Not addressed here: the resize edges have no keyboard path, being non-focusable
 `role="separator"` spans with no key handler. That is inherited from
 `DayItemCard` and is project-wide, not introduced by this task.
 
+**Known accessibility debt, accepted deliberately.** There is no keyboard path
+to resize a note or a booking at all (WCAG 2.1.1), and the edges the stylesheet
+draws are around 6px tall where WCAG 2.5.8 asks for 24px. Task 17's popover is
+*not* the keyboard equivalent: it renders the time range as display text, and
+its only input is the note's text. Closing this properly would mean focusable
+edges with arrow-key resize in the shared `useResizeEdge`, reaching both planes.
+
+The user was asked and chose to ship as planned and document the gap rather
+than expand the plan mid-flight. Task 21 records it in the README so it is a
+tracked decision rather than something rediscovered later. Do not treat the
+absence as an oversight to be quietly "fixed" by a later task.
+
 ---
 
 ## Task 15: `NotePlane`, wired into the column
