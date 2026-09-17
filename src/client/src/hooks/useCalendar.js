@@ -35,6 +35,32 @@ const TODO_COMPLETE = 'complete';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
+const UNREADABLE_CALENDAR = 'The server sent an unreadable calendar.';
+
+/**
+ * The wire is a boundary, and `api` guarantees a parsed body and nothing at all
+ * about its shape.
+ *
+ * Handed on unchecked, a body missing a collection reaches `loadSucceeded` as
+ * `undefined.forEach` — which lands in `fetchCalendar`'s `catch` and puts a
+ * stack trace's wording beside the retry button, with nothing anywhere saying
+ * what the server actually sent. So the shape is checked where it enters, the
+ * user is told something about the server, and the body goes to the console for
+ * whoever has to work out why.
+ *
+ * Only that both collections are there: what is *in* them is `assertIngestible`'s
+ * question, and it already answers it one item at a time.
+ */
+const readCalendar = (payload) => {
+    if (!Array.isArray(payload?.days) || !Array.isArray(payload?.items)) {
+        console.error('[calendar] unreadable response body:', payload);
+
+        throw new Error(UNREADABLE_CALENDAR);
+    }
+
+    return payload;
+};
+
 /** A gesture that asks the server for nothing — a drag let go where it started. */
 const isNoOp = (request) =>
     request.appendDays === 0 &&
@@ -164,7 +190,7 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
      */
     const fetchCalendar = useCallback(async () => {
         try {
-            dispatch(loadSucceeded(await api.get('/calendar')));
+            dispatch(loadSucceeded(readCalendar(await api.get('/calendar'))));
             loadGenerationRef.current += 1;
         } catch (err) {
             dispatch(loadFailed(messageOf(err)));

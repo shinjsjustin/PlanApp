@@ -33,6 +33,29 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
+const UNREADABLE_NOTES = 'The server sent an unreadable notes list.';
+
+/**
+ * The wire is a boundary, and `api` guarantees a parsed body and nothing at all
+ * about its shape.
+ *
+ * Handed on unchecked, a body missing the key reaches `loadSucceeded` as
+ * `undefined.forEach` — which lands in the `catch` below and puts a stack
+ * trace's wording beside the retry button, with nothing anywhere saying what the
+ * server actually sent. So the shape is checked where it enters, the user is
+ * told something about the server, and the body goes to the console for whoever
+ * has to work out why.
+ */
+const readNotes = (payload) => {
+    if (!Array.isArray(payload?.notes)) {
+        console.error('[calendar notes] unreadable response body:', payload);
+
+        throw new Error(UNREADABLE_NOTES);
+    }
+
+    return payload.notes;
+};
+
 /**
  * Whether anything has settled into the list since `installed` was put there.
  *
@@ -70,7 +93,7 @@ const useCalendarNotes = () => {
 
     const fetchNotes = useCallback(async () => {
         try {
-            const { notes } = await api.get('/calendar/notes');
+            const notes = readNotes(await api.get('/calendar/notes'));
 
             dispatch(loadSucceeded(notes));
         } catch (err) {

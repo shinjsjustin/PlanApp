@@ -62,6 +62,12 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
+afterEach(() => {
+    // Only the `console.error` spies below; the `api` doubles are module mocks,
+    // which this does not touch.
+    jest.restoreAllMocks();
+});
+
 describe('useCalendar loading', () => {
     test('loads the calendar in one request', async () => {
         // Arrange + Act
@@ -82,6 +88,57 @@ describe('useCalendar loading', () => {
         // Assert
         await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
         expect(result.current.state.loadError).toBe('Could not reach the server.');
+    });
+});
+
+describe('useCalendar unreadable responses', () => {
+    test.each([
+        ['a body with neither collection in it', {}],
+        ['a body that is not an object at all', null],
+        ['a days key that is not a list', { days: 'nope', items: [] }],
+        ['an items key that is not a list', { days: [], items: null }],
+    ])('reports %s rather than reading through it', async (_label, payload) => {
+        // Arrange — `api` guarantees a parsed body and nothing about its shape.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue(payload);
+
+        // Act
+        const { result } = renderHook(() => useCalendar());
+
+        // Assert — a sentence about the server rather than the stack trace's
+        // wording beside the retry button …
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/unreadable/);
+        expect(result.current.state.days).toEqual([]);
+        // … and the body itself where a developer will find it.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), payload);
+    });
+
+    test('does not count an unreadable response as a load that overtook anything', async () => {
+        // Arrange — a refused payload replaced nothing, so a mutation in flight
+        // across it must still install its own answer rather than decline to.
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady();
+        const pending = deferred();
+        api.post.mockReturnValue(pending.promise);
+
+        let addition;
+        act(() => {
+            addition = result.current.addDay();
+        });
+
+        // Act — a reload lands in the middle of it, and is refused.
+        api.get.mockResolvedValue({});
+        await act(() => result.current.reload());
+        const saved = { id: 2, position: 1, createdAt: '2026-09-09T09:00:00.000Z' };
+        await act(async () => {
+            pending.resolve(saved);
+            await addition;
+        });
+
+        // Assert — the new day carries the id the server gave it.
+        expect(result.current.state.days).toContainEqual(saved);
+        expect(result.current.hasUnsavedDay).toBe(false);
     });
 });
 

@@ -59,6 +59,12 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
+afterEach(() => {
+    // Only the `console.error` spies below; the `api` doubles are module mocks,
+    // which this does not touch.
+    jest.restoreAllMocks();
+});
+
 describe('loading', () => {
     test('reads the notes on mount', async () => {
         // Act
@@ -114,6 +120,27 @@ describe('loading', () => {
         await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
         expect(result.current.state.loadError).toMatch(/duration/);
         expect(result.current.state.notes).toEqual([]);
+    });
+
+    test.each([
+        ['a body with no notes in it', {}],
+        ['a body that is not an object at all', null],
+        ['a notes key that is not a list', { notes: 'nope' }],
+    ])('reports %s rather than reading through it', async (_label, payload) => {
+        // Arrange — `api` guarantees a parsed body and nothing about its shape.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue(payload);
+
+        // Act
+        const { result } = renderHook(() => useCalendarNotes());
+
+        // Assert — a sentence about the server rather than `undefined.forEach`
+        // beside the retry button …
+        await waitFor(() => expect(result.current.state.status).toBe(NOTES_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/unreadable/);
+        expect(result.current.state.notes).toEqual([]);
+        // … and the body itself where a developer will find it.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), payload);
     });
 
     test('reload asks again', async () => {
@@ -433,6 +460,7 @@ describe('notesForDay', () => {
         // Act & Assert
         expect(result.current.notesForDay(2)).toEqual([note(2, { dayId: 2 })]);
     });
+
 });
 
 describe('dismissActionError', () => {
