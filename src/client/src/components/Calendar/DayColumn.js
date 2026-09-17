@@ -70,6 +70,12 @@ const DayColumn = ({
     // A no-op once the scale has grown enough for all 24 hours to fit: there is
     // then nothing to scroll, and `scrollTop` on a viewport with no overflow
     // stays 0 on its own. No branch needed.
+    //
+    // The one case this gives up on: a window grown past a whole day and then
+    // shrunk back. The column is scrollable again but sits at 00:00, because the
+    // browser clamped `scrollTop` to 0 while it fitted and nothing re-anchors it.
+    // Re-anchoring would mean depending on `geometry` here, which is the yank
+    // above — a rarer annoyance is the better trade.
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = geometry.minutesToPx(INITIAL_SCROLL_MINUTES);
