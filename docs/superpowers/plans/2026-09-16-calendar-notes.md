@@ -974,8 +974,8 @@ const {
 
 /**
  * The server's half of decision 7. The client assigns lanes greedily and the
- * server counts maximum overlap; the claim is that those refuse exactly the same
- * arrangements. Neither side can import the other, so both read one table.
+ * server counts maximum overlap; the claim is that those refuse exactly the
+ * same arrangements. Neither side can import the other, so both read one table.
  *
  * The client twin of this file is
  * `src/client/src/lib/noteLanes.fixtures.test.js`.
@@ -1014,26 +1014,19 @@ describe('findLaneProblem against the shared table', () => {
 });
 
 describe('maxOverlap', () => {
-    test('counts a nested note as overlapping its container', () => {
-        // Arrange
+    test('a zero-duration note is invisible to the sweep, which the router\'s minimum duration prevents', () => {
+        // Arrange — the notes router's minimum duration (Task 6) is the only
+        // thing keeping this input from ever reaching here for real.
         const notes = [
-            { id: 1, startMinutes: 0, durationMinutes: 600 },
-            { id: 2, startMinutes: 60, durationMinutes: 60 },
+            { id: 1, startMinutes: 0, durationMinutes: 0 },
+            { id: 2, startMinutes: 0, durationMinutes: 0 },
+            { id: 3, startMinutes: 0, durationMinutes: 0 },
+            { id: 4, startMinutes: 0, durationMinutes: 0 },
+            { id: 5, startMinutes: 0, durationMinutes: 0 },
         ];
 
         // Act & Assert
-        expect(maxOverlap(notes)).toBe(2);
-    });
-
-    test('does not count a note ending where the next begins', () => {
-        // Arrange
-        const notes = [
-            { id: 1, startMinutes: 0, durationMinutes: 60 },
-            { id: 2, startMinutes: 60, durationMinutes: 60 },
-        ];
-
-        // Act & Assert
-        expect(maxOverlap(notes)).toBe(1);
+        expect(maxOverlap(notes)).toBe(0);
     });
 });
 ```
@@ -1090,6 +1083,13 @@ const MAX_NOTE_LANES = 4;
  * Ends sort before starts at the same minute, which is what makes contact
  * non-overlapping: a note ending at 10:00 and one starting at 10:00 may share a
  * lane, so the -1 must land first or the count would briefly read 2.
+ *
+ * Assumes `durationMinutes > 0`. A zero-duration note's start and end land on
+ * the same minute, and that same ends-before-starts tie-break cancels its +1
+ * before `running` ever sees it — the note is invisible for its whole
+ * existence, not just at its boundary. This file does not guard against that;
+ * the notes router's minimum duration does, the same way `routes/calendar.js`
+ * owns the arithmetic this module never re-checks.
  */
 const maxOverlap = (notes) => {
     const events = notes.flatMap((note) => [
@@ -1138,7 +1138,7 @@ module.exports = { MAX_NOTE_LANES, findLaneProblem, maxOverlap };
 DB_NAME=planapp_test npx jest tests/unit/calendarNoteLanes.test.js
 ```
 
-Expected: PASS, 31 tests — one table-sanity check, the 14 shared cases in each of the two describe blocks, and two dedicated `maxOverlap` tests.
+Expected: PASS, 30 tests — one table-sanity check, the 14 shared cases in each of the two describe blocks, and one dedicated `maxOverlap` test pinning the zero-duration precondition.
 
 - [ ] **Step 5: Commit**
 
