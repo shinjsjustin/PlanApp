@@ -3669,6 +3669,7 @@ import {
     notesReplaced,
     rolledBack,
 } from './notesActions';
+import { DAY_MINUTES } from '../lib/schedule';
 
 const note = (id, dayId = 1) => ({
     id,
@@ -3711,6 +3712,16 @@ describe('loading', () => {
         expect(state.notes).toEqual([note(1)]);
         expect(state.loadError).toBe('nope');
     });
+
+    test('loadSucceeded refuses a note that is not a legal booking of time', () => {
+        // Arrange
+        const broken = [{ ...note(1), startMinutes: undefined }];
+
+        // Act & Assert
+        expect(() => notesReducer(initialNotesState, loadSucceeded(broken))).toThrow(
+            /startMinutes/
+        );
+    });
 });
 
 describe('notesReplaced', () => {
@@ -3750,7 +3761,27 @@ describe('notesReplaced', () => {
     test('refuses a note running past midnight', () => {
         // Arrange
         const ready = notesReducer(initialNotesState, loadSucceeded([]));
-        const broken = [{ ...note(1), startMinutes: 1410, durationMinutes: 60 }];
+        const broken = [
+            { ...note(1), startMinutes: DAY_MINUTES - 30, durationMinutes: 60 },
+        ];
+
+        // Act & Assert
+        expect(() => notesReducer(ready, notesReplaced(broken))).toThrow(/end of its day/);
+    });
+
+    test('refuses a note with a non-positive duration', () => {
+        // Arrange
+        const ready = notesReducer(initialNotesState, loadSucceeded([]));
+        const broken = [{ ...note(1), durationMinutes: 0 }];
+
+        // Act & Assert
+        expect(() => notesReducer(ready, notesReplaced(broken))).toThrow(/positive/);
+    });
+
+    test('refuses a note starting before its day', () => {
+        // Arrange
+        const ready = notesReducer(initialNotesState, loadSucceeded([]));
+        const broken = [{ ...note(1), startMinutes: -30 }];
 
         // Act & Assert
         expect(() => notesReducer(ready, notesReplaced(broken))).toThrow(/end of its day/);
@@ -3878,6 +3909,13 @@ Create `src/client/src/state/notesReducer.js`:
 // spill to reconcile, and no temporary day to re-key. The list is still replaced
 // wholesale rather than patched, because that makes a rollback a plain
 // assignment — but it is the only thing this file borrows.
+//
+// Notes arrays are values: `notesReplaced`, `rolledBack` and `notesOf` all pass
+// one by reference rather than copying it, and that is only safe because
+// nobody mutates a notes array in place, ever. Every change is a new array
+// installed wholesale (immutability is CRITICAL project-wide; here it is also
+// what lets `useCalendarNotes` tell a fresh array from the one it handed out
+// by comparing identity, not contents).
 
 import { DAY_MINUTES } from '../lib/schedule';
 
@@ -3910,6 +3948,10 @@ export const initialNotesState = {
 /** The slice a mutation snapshots and a rollback restores. */
 export const notesOf = (state) => state.notes;
 
+/** `JSON.stringify(NaN)` is the string "null"; a number should say what it is. */
+const describeValue = (value) =>
+    typeof value === 'number' ? String(value) : JSON.stringify(value);
+
 /**
  * Every note must carry a real start and a real length that lands inside its
  * day, because everything downstream assumes it.
@@ -3921,16 +3963,18 @@ export const notesOf = (state) => state.notes;
  * error anywhere. Cheaper to refuse it here than to explain it later.
  *
  * This is the calendar's `assertIngestible` for the other plane, and it is
- * called at the one point data enters this tree: `notesReplaced`, which covers
- * the server's answer on load, an optimistic row, and the real thing landing
- * after a save alike. A rollback restores a snapshot that was already checked on
- * its way in, so it needs no second check.
+ * called at both points data enters this tree: the server's answer on load
+ * (`loadSucceeded`), and a note gesture's settled result on commit
+ * (`notesReplaced`), which covers an optimistic row and the real thing landing
+ * after a save alike. A rollback restores a snapshot that was already checked
+ * on its way in, so it needs no second check.
  */
 const assertIngestible = (note) => {
     if (!Number.isFinite(note.startMinutes) || !Number.isFinite(note.durationMinutes)) {
         throw new Error(
             `Note ${note.id} needs a number for both startMinutes and ` +
-                `durationMinutes, got ${note.startMinutes} and ${note.durationMinutes}`
+                `durationMinutes, got ${describeValue(note.startMinutes)} ` +
+                `and ${describeValue(note.durationMinutes)}`
         );
     }
 
@@ -4004,7 +4048,12 @@ export const notesReducer = (state, action) => {
 CI=true npm test --prefix src/client -- --testPathPattern=notesReducer
 ```
 
-Expected: PASS, 12 tests.
+Expected: PASS, 15 tests — the original 12 plus `loadSucceeded refuses a note
+that is not a legal booking of time`, `refuses a note with a non-positive
+duration`, and `refuses a note starting before its day`, added in a follow-up
+commit once review found `loadSucceeded`'s own validation, and two of
+`assertIngestible`'s branches, were only exercised indirectly through
+`notesReplaced`.
 
 - [ ] **Step 6: Commit**
 
