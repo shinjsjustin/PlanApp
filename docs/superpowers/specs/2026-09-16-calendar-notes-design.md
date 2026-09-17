@@ -301,6 +301,45 @@ also empties a slot in the source day, and removing a note can never raise that
 day's maximum overlap — so re-checking it would always pass and cost a read.
 `DELETE` is checked not at all, for the same reason.
 
+**Concurrency.** "Re-reads the target day's notes and runs the lane check" is a
+classic check-then-act, and under InnoDB's default REPEATABLE READ it is
+racy in a way that matters: a transaction's plain reads all share the
+snapshot fixed by that transaction's *first* plain read, not "the database
+right now". `assertOwnership` runs a plain read before the lane check ever
+does, so by the time the lane check runs, the snapshot is already fixed. Two
+requests racing to fill the same day can each read the same "room for one
+more" snapshot, each write, and each commit — a day landing at five notes
+despite every write having individually passed the four-note cap. This is
+not the client-staleness race §8.4 describes below; both writers here are
+current and correct at the moment they act, and the server still lets the
+day overflow.
+
+The fix is a row lock: `routes/calendarNotes.js` takes an exclusive
+`SELECT ... FOR UPDATE` on the day row (and, for a `PATCH` that doesn't name
+a target day, on the note row first, to discover it) as the **first
+statement of the transaction** — before `assertOwnership`'s read and before
+any insert or update. A second writer to the same day then blocks on that
+lock before its own snapshot exists, so once it proceeds its reads see
+everything the first writer committed. The lock cannot be taken later, next
+to the lane check itself, for two independent reasons: the transaction's
+snapshot is already fixed by then (so the read still can't see what was
+just committed), and inserting a note takes an implicit shared lock on its
+day row to check the foreign key — two concurrent inserts into the same day
+each hold that shared lock, and a `FOR UPDATE` issued by either one
+afterwards deadlocks against the other's shared lock. Both failure modes
+were reproduced directly against a real database before this fix was
+written.
+
+> **Follow-up, not fixed here.** `routes/calendar.js`'s booking-overlap check
+> (`findOverlap` inside `PUT /api/calendar/items`) has the identical
+> check-then-act shape and the identical race — nothing locks a day before
+> re-reading its bookings to check the overlap. It is deliberately left
+> unlocked for now: that endpoint is outside this plan's scope (see "Do not
+> touch" at the top), and the fix above cannot simply be copied over, since
+> a bulk booking write can touch several days and appended ones at once,
+> which changes what "lock the day first" even means. Left as a known gap
+> for whoever next touches that endpoint.
+
 ### 5.4 The lane check — `src/lib/calendarNoteLanes.js`
 
 A pure module beside `lib/calendarPlacement.js`, following its conventions:
@@ -541,9 +580,10 @@ The lane is recomputed live during every create, move and resize. When
 - **no toast.** The user is shown the refusal while it is happening, which is
   better than being told about it afterwards.
 
-A server 400 from `findLaneProblem` is therefore a genuine race — two tabs, or a
-stale client — and *that* raises the toast, through the notes hook's own
-`actionError`.
+A server 400 from `findLaneProblem` is therefore a genuine race — two tabs, a
+stale client, or two concurrent writers to the same day each landing inside
+the cap on their own and colliding on the server (§5.3's "Concurrency" note)
+— and *that* raises the toast, through the notes hook's own `actionError`.
 
 ### 8.5 Reading a note
 
