@@ -49,6 +49,8 @@ const LiftHarness = ({ onDragStart, ...props }) => {
     );
 };
 
+const startEventOf = (onDragStart) => onDragStart.mock.calls[0][0];
+
 /** Lifts the ribbon and returns the `onDragStart` spy the context was given. */
 const liftRibbon = async (props = {}) => {
     const onDragStart = jest.fn();
@@ -108,9 +110,12 @@ describe('NoteRibbon', () => {
         // Act
         const { container } = renderRibbon({ lane: 2 });
 
-        // Assert
+        // Assert — the width is asserted here as well as in lane 0, because a
+        // width derived from the lane index rather than fixed would be correct
+        // in lane 0 and wrong everywhere else.
         expect(ribbonOf(container)).toHaveStyle({
             right: `${(2 * 100) / MAX_NOTE_LANES}%`,
+            width: `${100 / MAX_NOTE_LANES}%`,
         });
     });
 
@@ -158,8 +163,18 @@ describe('NoteRibbon', () => {
         // Act
         renderRibbon({ resize });
 
-        // Assert
+        // Assert — by class as well as by count, because which end of the ribbon
+        // an edge is drawn at is the stylesheet's job and nothing else here
+        // would notice the two being swapped.
         expect(screen.getAllByRole('separator')).toHaveLength(2);
+        expect(edgeNamed(/Change when .*train to Leeds.* starts/)).toHaveClass(
+            'note-ribbon-edge',
+            'note-ribbon-edge--top'
+        );
+        expect(edgeNamed(/Change how long .*train to Leeds.* lasts/)).toHaveClass(
+            'note-ribbon-edge',
+            'note-ribbon-edge--bottom'
+        );
     });
 
     test('each edge starts its own half of the resize', () => {
@@ -226,6 +241,46 @@ describe('NoteRibbon', () => {
         // Assert
         expect(ribbonOf(container)).toHaveStyle({ right: '0%' });
     });
+
+    test('treats a lane that never arrived the same as one that does not exist', () => {
+        // Arrange — what a caller reading its lane out of a `Map` hands over
+        // when the lookup misses.
+
+        // Act
+        const { container } = renderRibbon({ lane: undefined });
+
+        // Assert
+        expect(ribbonOf(container)).toHaveClass('note-ribbon--unplaceable');
+        expect(ribbonOf(container)).toHaveStyle({ right: '0%' });
+    });
+
+    test('keeps the body class the stylesheet sizes the ribbon by', () => {
+        // Act
+        const { rerender } = renderRibbon({ onOpen: jest.fn() });
+
+        // Assert
+        expect(screen.getByRole('button', { name: /train to Leeds/ })).toHaveClass(
+            'note-ribbon-body'
+        );
+
+        // Act — and the same for a ribbon with nowhere to open.
+        rerender(
+            <DayScaleProvider value={createDayGeometry(PX_PER_SLOT_MIN)}>
+                <NoteRibbon note={note()} lane={0} onOpen={null} />
+            </DayScaleProvider>
+        );
+
+        // Assert
+        expect(screen.getByText('train to Leeds').parentElement).toHaveClass('note-ribbon-body');
+    });
+
+    test('reads out the time range even when the ribbon is not a control', () => {
+        // Act
+        renderRibbon({ onOpen: null });
+
+        // Assert
+        expect(screen.getByLabelText('train to Leeds, 09:00–11:00')).toBeInTheDocument();
+    });
 });
 
 describe('NoteRibbon in flight', () => {
@@ -235,8 +290,36 @@ describe('NoteRibbon in flight', () => {
 
         // Assert
         expect(onDragStart).toHaveBeenCalledTimes(1);
-        expect(onDragStart.mock.calls[0][0].active.id).toBe('note-1');
-        expect(onDragStart.mock.calls[0][0].active.data.current).toEqual({ noteId: 1 });
+        expect(startEventOf(onDragStart).active.id).toBe('note-1');
+        expect(startEventOf(onDragStart).active.data.current).toEqual({ noteId: 1 });
+    });
+
+    test('lifts the note it belongs to rather than the day it sits in', async () => {
+        // Arrange — an id that cannot be confused with the day's, because the
+        // drop is routed by this number and a ribbon that reported its day would
+        // move some other note.
+
+        // Act
+        const onDragStart = await liftRibbon({
+            note: note({ id: 42, dayId: 7 }),
+            isDraggable: true,
+        });
+
+        // Assert
+        expect(startEventOf(onDragStart).active.id).toBe('note-42');
+        expect(startEventOf(onDragStart).active.data.current).toEqual({ noteId: 42 });
+    });
+
+    test('a lifted ribbon announces itself as draggable', async () => {
+        // Act
+        await liftRibbon({ isDraggable: true });
+
+        // Assert — dnd-kit's `attributes` carry the whole keyboard-drag
+        // affordance, and this is the one of them a screen reader speaks.
+        expect(screen.getByRole('button', { name: /train to Leeds/ })).toHaveAttribute(
+            'aria-roledescription',
+            'draggable'
+        );
     });
 
     test('hands dnd-kit the ribbon itself, so a drop has a rectangle to measure', async () => {
@@ -245,7 +328,7 @@ describe('NoteRibbon in flight', () => {
 
         // Assert — `CalendarDragArea` reads this rect to work out the minute a
         // drop landed on; a ribbon that never registered its node has none.
-        expect(onDragStart.mock.calls[0][0].active.rect.current.translated).not.toBeNull();
+        expect(startEventOf(onDragStart).active.rect.current.translated).not.toBeNull();
     });
 
     test('cannot be lifted until it is told it is draggable', async () => {

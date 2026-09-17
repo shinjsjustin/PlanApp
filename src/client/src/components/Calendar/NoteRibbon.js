@@ -35,6 +35,16 @@ const laneStyle = (lane) => ({
  * from data that got past the server, and a ribbon that silently vanished would
  * be much harder to explain than one that looks wrong.
  *
+ * Anything that is not a lane index counts as unplaceable, not just the null
+ * `assignLanes` returns, and `Number.isInteger` rather than `== null` is what
+ * says so. The caller reads its lane out of a `Map`, and a `Map.get` that misses
+ * returns `undefined` — which `laneStyle` would turn into `right: NaN%`, a
+ * declaration the CSSOM drops on the floor. The ribbon would then inherit
+ * whatever the stylesheet defaults to, unmarked, and a note drawn in the wrong
+ * lane with no sign of it is the one outcome this component's whole null branch
+ * exists to avoid. Treating every non-index the same way keeps that promise
+ * whatever shape the miss arrives in.
+ *
  * `resize` is `{ top, bottom }` and `onOpen` is optional, both for the same
  * reasons `DayItemCard`'s are: a ribbon rendered bare in a test is the plain
  * graphic below.
@@ -46,7 +56,7 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
     // rendered, never whether the hook runs. Inert outside a `DndContext`.
     const drag = useNoteDrag(note.id);
 
-    const isUnplaceable = lane === null;
+    const isUnplaceable = !Number.isInteger(lane);
 
     const className = ['note-ribbon', isUnplaceable ? 'note-ribbon--unplaceable' : '']
         .filter(Boolean)
@@ -89,7 +99,10 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
                     <span className="note-ribbon-text">{note.text}</span>
                 </button>
             ) : (
-                <span className="note-ribbon-body">
+                // Labelled like the button above it, because the reason the
+                // time is not printed does not change when the ribbon stops
+                // being a control: there is still no room for a second line.
+                <span className="note-ribbon-body" aria-label={`${note.text}, ${range}`}>
                     <span className="note-ribbon-text">{note.text}</span>
                 </span>
             )}
