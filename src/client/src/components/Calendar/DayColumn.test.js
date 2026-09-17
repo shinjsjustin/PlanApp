@@ -4,8 +4,10 @@ import userEvent from '@testing-library/user-event';
 
 import DayColumn from './DayColumn';
 import { CalendarProvider } from '../../state/CalendarContext';
-import { INITIAL_SCROLL_MINUTES, minutesToPx } from '../../lib/scheduleGeometry';
+import { INITIAL_SCROLL_MINUTES, PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
 import { loadStylesheets, containingBlockOf } from '../../testUtils/stylesheet';
+
+const { minutesToPx } = createDayGeometry(PX_PER_SLOT_MIN);
 
 const day = { id: 4, position: 0, createdAt: '2026-09-09T08:30:00.000Z' };
 

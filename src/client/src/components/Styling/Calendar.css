@@ -24,12 +24,21 @@
      * one the strip does not have. */
     --cal-panel-width: 320px;
 
-    /* A day column is narrow on purpose: the strip is meant to hold several
-     * days at once, and a day is read as a shape rather than in detail. */
-    --cal-column-width: 220px;
-    /* How tall a column may grow before its 24 hours start scrolling inside it.
-     * The inner scroll only exists because this is bounded. */
-    --cal-column-max-height: 70vh;
+    /* Wide enough that exactly two days fill the strip, whatever the window
+     * (design 2026-09-16, decision 11). The percentage resolves against
+     * `.calendar-strip`'s content box — its visible width, not its scroll width
+     * — so two columns and the one gap between them are precisely what fits, and
+     * the third day sits just off the edge inviting the sideways scroll that
+     * already exists.
+     *
+     * The floor is what stops it collapsing on a narrow window: below roughly
+     * 560px of strip the columns stop shrinking and even the second one scrolls,
+     * because two unreadable days are worth less than one readable one. */
+    --cal-column-min-width: 260px;
+    --cal-column-width: max(
+        var(--cal-column-min-width),
+        calc((100% - var(--space-sm)) / 2)
+    );
 
     /* The gutter down the left of a day, holding the hour labels. Bookings
      * start where it ends, so the two are the same number by definition.
@@ -48,6 +57,15 @@
     /* The grab strip along a booking's top and bottom. Tall enough to hit,
      * short enough not to eat a half-hour booking's body. */
     --cal-resize-depth: 6px;
+
+    /* The calendar is the whole page — there is no global nav above it (see
+     * `routes.js`), so the viewport is all of it. `dvh` rather than `vh` so a
+     * mobile browser's collapsing toolbar does not leave the strip cut off. */
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    /* The strip owns the sideways overflow; the page must never scroll with it. */
+    overflow: hidden;
 
     padding: var(--page-pad) var(--page-pad) var(--space-xl);
     padding-right: max(var(--page-pad), env(safe-area-inset-right));
@@ -139,6 +157,11 @@
     display: flex;
     gap: var(--space-md);
     align-items: stretch;
+    /* Takes what the header leaves. `min-height: 0` is what actually lets the
+     * columns inside scroll: without it a flex item refuses to shrink below its
+     * content, the columns grow to their full 24 hours, and the page scrolls
+     * instead of the column. */
+    flex: 1;
     min-height: 0;
 }
 
@@ -147,7 +170,9 @@
     display: flex;
     gap: var(--space-sm);
     overflow-x: auto;
-    align-items: flex-start;
+    /* Was `flex-start`, which let a column size to its content. The columns are
+     * now told to fill the strip's height, so they must be stretched to it. */
+    align-items: stretch;
     min-width: 0;
 }
 
@@ -186,6 +211,9 @@
  * rather than the column itself — it adds a day, it is not one. */
 .calendar-strip-add {
     flex: 0 0 auto;
+    /* The columns stretch now, so this has to opt out: it adds a day, it is not
+     * one. */
+    align-self: flex-start;
     font-size: var(--font-lg);
     line-height: 1;
 }
@@ -218,7 +246,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
-    max-height: var(--cal-column-max-height);
+    /* Fills the body rather than capping at 70vh. How much of the day that
+     * reveals is `useDayScale`'s answer, not this file's: more hours first, and
+     * a stretched scale only once all 24 fit (decision 10). */
+    height: 100%;
+    min-height: 0;
 }
 
 .day-column-header {
@@ -240,6 +272,11 @@
 }
 
 .day-column-scroll {
+    /* Everything the header leaves. The height of this box is what the scale is
+     * derived from, which is why it must come from flex layout and not from its
+     * contents — see `useDayScale`. */
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     position: relative;
 }

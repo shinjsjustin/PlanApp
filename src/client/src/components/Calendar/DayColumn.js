@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import ConfirmDialog from '../Project/ConfirmDialog';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DeleteBubble from '../common/DeleteBubble';
-import { INITIAL_SCROLL_MINUTES, minutesToPx } from '../../lib/scheduleGeometry';
+import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
 import { useCalendarContext } from '../../state/CalendarContext';
+import { useDayGeometry } from '../../state/DayScaleContext';
 
 // One day: a header, a delete control, and 24 hours that scroll inside it.
 //
@@ -36,20 +37,44 @@ const DayColumn = ({
     onOpenSource,
     droppable = null,
     cardFor = null,
+    registerViewport = null,
     children,
 }) => {
     const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
+    const geometry = useDayGeometry();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const scrollRef = useRef(null);
 
     const label = `Day ${index + 1}`;
 
+    /**
+     * The scroll element does two jobs, so it takes two refs.
+     *
+     * `scrollRef` is this column's own, for the opening scroll below.
+     * `registerViewport` hands the same node to `useDayScale`, which measures it
+     * to decide the scale — it measures the viewport and never the grid, because
+     * the grid's height is derived from the scale and measuring it would be a
+     * loop (see that hook's header).
+     */
+    const attachScroll = useCallback(
+        (node) => {
+            scrollRef.current = node;
+            registerViewport?.(node);
+        },
+        [registerViewport]
+    );
+
     // Once, on mount. Re-applying it on every render would yank the column back
     // to 06:00 every time a booking moved.
+    //
+    // A no-op once the scale has grown enough for all 24 hours to fit: there is
+    // then nothing to scroll, and `scrollTop` on a viewport with no overflow
+    // stays 0 on its own. No branch needed.
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = minutesToPx(INITIAL_SCROLL_MINUTES);
+            scrollRef.current.scrollTop = geometry.minutesToPx(INITIAL_SCROLL_MINUTES);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Deleting an empty day releases nothing, so it does not warrant a prompt —
@@ -90,7 +115,7 @@ const DayColumn = ({
                 <DeleteBubble label={`Delete ${label}`} onDelete={requestDelete} />
             )}
 
-            <div className="day-column-scroll" ref={scrollRef}>
+            <div className="day-column-scroll" ref={attachScroll}>
                 <div ref={droppable?.setNodeRef} className={droppable?.className}>
                     <DayGrid>
                         {items.map((item) =>

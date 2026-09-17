@@ -4,6 +4,9 @@ import {
     previewFor,
     withStableTempDays,
 } from './CalendarDragArea';
+import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
+
+const geometry = createDayGeometry(PX_PER_SLOT_MIN);
 
 const day = (id, position) => ({ id, position, createdAt: '2026-09-09T08:00:00.000Z' });
 
@@ -29,16 +32,16 @@ describe('minutesAtRect', () => {
         const grid = { top: 100 };
 
         // Act + Assert
-        expect(minutesAtRect({ top: 100 }, grid)).toBe(0);
-        expect(minutesAtRect({ top: 124 }, grid)).toBe(30);
-        expect(minutesAtRect({ top: 532 }, grid)).toBe(540);
+        expect(minutesAtRect(geometry, { top: 100 }, grid)).toBe(0);
+        expect(minutesAtRect(geometry, { top: 124 }, grid)).toBe(30);
+        expect(minutesAtRect(geometry, { top: 532 }, grid)).toBe(540);
     });
 
     test('clamps a card dragged above the top or below the bottom', () => {
         const grid = { top: 100 };
 
-        expect(minutesAtRect({ top: -500 }, grid)).toBe(0);
-        expect(minutesAtRect({ top: 99999 }, grid)).toBe(1410);
+        expect(minutesAtRect(geometry, { top: -500 }, grid)).toBe(0);
+        expect(minutesAtRect(geometry, { top: 99999 }, grid)).toBe(1410);
     });
 });
 

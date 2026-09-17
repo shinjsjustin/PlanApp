@@ -1,7 +1,8 @@
 import React from 'react';
 
-import { formatTime, minutesToPx } from '../../lib/scheduleGeometry';
+import { formatTime } from '../../lib/scheduleGeometry';
 import { useBookingDrag } from '../../hooks/useCalendarDrag';
+import { useDayGeometry } from '../../state/DayScaleContext';
 
 // One booking, drawn over the grid at the minute it starts and as tall as it
 // lasts (design section 8).
@@ -31,6 +32,7 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
     // decides what is rendered, never whether the hook runs. Inert outside a
     // `DndContext`, so a card rendered bare in a test is the graphic below.
     const drag = useBookingDrag(item.todoId);
+    const geometry = useDayGeometry();
 
     const isComplete = item.status === TODO_COMPLETE;
 
@@ -42,8 +44,8 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
         <div
             className={className}
             style={{
-                top: `${minutesToPx(item.startMinutes)}px`,
-                height: `${minutesToPx(item.durationMinutes)}px`,
+                top: `${geometry.minutesToPx(item.startMinutes)}px`,
+                height: `${geometry.minutesToPx(item.durationMinutes)}px`,
             }}
             ref={isDraggable ? drag.setNodeRef : undefined}
         >

@@ -4,8 +4,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import CalendarDragArea from './CalendarDragArea';
 import { CalendarProvider } from '../../state/CalendarContext';
 import { POOL_STATUS } from '../../hooks/usePool';
-import { DAY_HEIGHT_PX, minutesToPx } from '../../lib/scheduleGeometry';
+import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
 import { isTempId } from '../../lib/tempIds';
+
+const { dayHeightPx: DAY_HEIGHT_PX, minutesToPx } = createDayGeometry(PX_PER_SLOT_MIN);
 
 // Both gestures driven for real, against the one rule they share: nothing may be
 // committed against a day the *saved* schedule does not contain. A day the

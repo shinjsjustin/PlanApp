@@ -15,6 +15,7 @@ import DayItemCard from './DayItemCard';
 import DayStrip from './DayStrip';
 import ProjectPanel from './ProjectPanel';
 import RemoveOverlay from './RemoveOverlay';
+import useDayScale from '../../hooks/useDayScale';
 import useResizeEdge, { EDGE } from '../../hooks/useResizeEdge';
 import {
     DEFAULT_DURATION,
@@ -23,10 +24,11 @@ import {
     resizeItem,
     topEdgeFloor,
 } from '../../lib/schedule';
-import { clampStart, pxToMinutes } from '../../lib/scheduleGeometry';
+import { clampStart } from '../../lib/scheduleGeometry';
 import { isTempId } from '../../lib/tempIds';
 import { scheduleOf } from '../../state/calendarReducer';
 import { useCalendarContext } from '../../state/CalendarContext';
+import { DayScaleProvider } from '../../state/DayScaleContext';
 
 // Everything that can be dragged on this page, and what a drop means.
 //
@@ -75,9 +77,13 @@ export const dragKindOf = (activeData) => {
  * against the rule, and for a booking being moved it is literally the value being
  * set. `getBoundingClientRect` already accounts for the column's inner scroll,
  * so no scroll offset is added here.
+ *
+ * `geometry` is the live scale — the column is no longer a fixed 24px a slot, so
+ * how many minutes a pixel offset is worth depends on how tall the window let
+ * the column be.
  */
-export const minutesAtRect = (activeRect, gridRect) =>
-    clampStart(pxToMinutes(activeRect.top - gridRect.top));
+export const minutesAtRect = (geometry, activeRect, gridRect) =>
+    clampStart(geometry.pxToMinutes(activeRect.top - gridRect.top));
 
 /**
  * The schedule as it would be if the drag were released now. Null target — the
@@ -174,6 +180,11 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     const [active, setActive] = useState(null);
     const [preview, setPreview] = useState(null);
 
+    // The scale every column, card and ribbon draws at. Held here rather than on
+    // the page because this is the component that renders the strip, and the
+    // columns that register their viewports are its children.
+    const { geometry, registerViewport } = useDayScale();
+
     // dayId → the element the grid is drawn in, for measuring a drop.
     const gridsRef = useRef(new Map());
 
@@ -227,10 +238,10 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
                 kind,
                 todo: kind === DRAG_KIND.pool ? data.poolTodo : { todoId: data.bookingTodoId },
                 dayId: dropTarget.dayId,
-                startMinutes: minutesAtRect(activeRect, grid.getBoundingClientRect()),
+                startMinutes: minutesAtRect(geometry, activeRect, grid.getBoundingClientRect()),
             };
         },
-        []
+        [geometry]
     );
 
     const handleDragStart = useCallback((event) => {
@@ -386,6 +397,7 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     );
 
     const { startResize } = useResizeEdge({
+        geometry,
         resolve: resolveEdge,
         onPreview: handleResizePreview,
         onCommit: handleResizeCommit,
@@ -408,39 +420,42 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
         >
-            <div className="calendar-body">
-                <DayStrip
-                    schedule={shown}
-                    onOpenSource={onOpenSource}
-                    columnFor={(day, index, items) => (
-                        <DroppableDayColumn
-                            key={day.id}
-                            day={day}
-                            index={index}
-                            items={items}
-                            onOpenSource={onOpenSource}
-                            registerGrid={registerGrid}
-                            isDropDisabled={hasUnsavedDay || isTempId(day.id)}
-                            resize={resize}
-                        />
-                    )}
-                />
+            <DayScaleProvider value={geometry}>
+                <div className="calendar-body">
+                    <DayStrip
+                        schedule={shown}
+                        onOpenSource={onOpenSource}
+                        columnFor={(day, index, items) => (
+                            <DroppableDayColumn
+                                key={day.id}
+                                day={day}
+                                index={index}
+                                items={items}
+                                onOpenSource={onOpenSource}
+                                registerGrid={registerGrid}
+                                registerViewport={registerViewport}
+                                isDropDisabled={hasUnsavedDay || isTempId(day.id)}
+                                resize={resize}
+                            />
+                        )}
+                    />
 
-                <ProjectPanel
-                    pool={pool}
-                    scheduledByTodoId={scheduledByTodoId}
-                    dragFor={(todo) => !scheduledByTodoId.has(todo.todoId)}
-                    overlay={<RemoveOverlay isActive={isDraggingBooking} />}
-                    expandedProjectIds={expandedProjectIds}
-                    onToggleProject={onToggleProject}
-                />
-            </div>
+                    <ProjectPanel
+                        pool={pool}
+                        scheduledByTodoId={scheduledByTodoId}
+                        dragFor={(todo) => !scheduledByTodoId.has(todo.todoId)}
+                        overlay={<RemoveOverlay isActive={isDraggingBooking} />}
+                        expandedProjectIds={expandedProjectIds}
+                        onToggleProject={onToggleProject}
+                    />
+                </div>
 
-            {/* The thing under the pointer. The preview shows where everything
-                lands; this shows what is in the hand. */}
-            <DragOverlay dropAnimation={null}>
-                {active && <div className="calendar-drag-ghost">{labelOf(active)}</div>}
-            </DragOverlay>
+                {/* The thing under the pointer. The preview shows where everything
+                    lands; this shows what is in the hand. */}
+                <DragOverlay dropAnimation={null}>
+                    {active && <div className="calendar-drag-ghost">{labelOf(active)}</div>}
+                </DragOverlay>
+            </DayScaleProvider>
         </DndContext>
     );
 };
@@ -452,6 +467,7 @@ const DroppableDayColumn = ({
     items,
     onOpenSource,
     registerGrid,
+    registerViewport,
     isDropDisabled,
     resize,
 }) => {
@@ -464,6 +480,7 @@ const DroppableDayColumn = ({
             items={items}
             onOpenSource={onOpenSource}
             droppable={droppable}
+            registerViewport={registerViewport}
             cardFor={(item) => (
                 <ResizableDayItemCard
                     key={item.todoId}

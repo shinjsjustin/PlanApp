@@ -3,7 +3,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import DayItemCard from './DayItemCard';
-import { minutesToPx } from '../../lib/scheduleGeometry';
+import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
+
+const { minutesToPx } = createDayGeometry(PX_PER_SLOT_MIN);
 
 const item = (overrides = {}) => ({
     todoId: 12,
