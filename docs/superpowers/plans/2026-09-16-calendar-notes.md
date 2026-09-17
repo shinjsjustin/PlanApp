@@ -2875,26 +2875,50 @@ import {
 // columns are the same height, so any one would do — but a column mid-unmount
 // can report 0, so the tallest is taken rather than the first.
 
-/** The tallest viewport currently registered, ignoring any reporting 0. */
+/**
+ * The tallest viewport currently registered, ignoring any reporting 0.
+ *
+ * A node that is not part of a rendered layout — including one detached from
+ * the document — reports `clientHeight` as `0`, so a stale entry can never
+ * skew this upward. That is what makes `pruneDetached` below optional for
+ * correctness: a scale computed before a stale entry is pruned is already the
+ * same scale computed after.
+ */
 const tallestOf = (viewports) =>
     [...viewports].reduce((tallest, node) => Math.max(tallest, node.clientHeight || 0), 0);
 
 /**
- * Drops any viewport that is no longer in the document.
+ * Drops any viewport that is no longer in the document, so `viewportsRef` and
+ * its `ResizeObserver.observe` calls do not grow for the life of the calendar
+ * page.
  *
- * A column's ref callback is called with `null` on unmount, but React does not
- * say which node that was — a shared, stable `registerViewport` has no way to
- * tell one column's unmount from another's from that argument alone, so it
- * cannot remove the entry itself. This is what actually reclaims it: the next
- * remeasure, triggered by any other column, sees the stale node is detached and
- * drops it, so a calendar paged through a hundred days does not accumulate a
- * hundred dead entries — and a hundred open `ResizeObserver.observe`s on nodes
- * nothing will ever reattach.
+ * Memory hygiene, not correctness — see `tallestOf` above for why a stale
+ * entry cannot corrupt the measured scale on its own. Nobody needs to "fix"
+ * this file for that reason.
  *
- * `isConnected === false`, not merely falsy, on purpose: the test stubs in
- * `useDayScale.test.js` are plain objects with no `isConnected` at all
- * (`undefined`), and only a strict `false` — which only a real, detached DOM
- * node reports — may prune.
+ * Lazy, and only bounded in the common case, not guaranteed. A column's ref
+ * callback is called with `null` on unmount, but React does not say which
+ * node that was — a shared, stable `registerViewport` has no way to tell one
+ * column's unmount from another's from that argument alone, so it cannot
+ * remove the entry itself, and an unmount does not trigger a remeasure on its
+ * own either: `ResizeObserver` fires when an observed element's size changes,
+ * not when it is removed from the document. What actually reclaims a stale
+ * entry is the next remeasure from anywhere else — and in this app there
+ * usually is one close behind, because every *mount* calls `observe()`, which
+ * a real `ResizeObserver` answers with one notification for that element's
+ * current size on its own. Columns swap constantly as the strip pages through
+ * dates, so the next column to mount typically clears out the one that just
+ * left. That is what ordinary use looks like, not a structural guarantee: a
+ * page that stops mounting columns keeps its stale entries until the hook
+ * itself unmounts, at which point the effect's `disconnect()` clears
+ * everything at once regardless.
+ *
+ * Assumes `registerViewport` is only ever handed a real, mounted DOM node —
+ * true today via `DayColumn`'s `attachScroll` (Task 11). `isConnected !==
+ * false`, not merely falsy, is what makes that assumption load-bearing: a
+ * live node and a plain-object test stub (no `isConnected` at all,
+ * `undefined`) both pass it, and only a real, detached DOM node's strict
+ * `false` trips it.
  */
 const pruneDetached = (viewports, observer) => {
     viewports.forEach((node) => {
@@ -2998,13 +3022,18 @@ export default useDayScale;
 > `fireAll()` explicitly for exactly this reason.
 >
 > `pruneDetached` exists because `registerViewport(null)` cannot, by itself, remove the stale
-> entry — see its own docstring above. Without it, a viewport whose column has unmounted stays
-> in `viewportsRef.current` and stays under `ResizeObserver.observe()` for the rest of the
-> calendar page's life, which in this app means every date the strip pages through leaves one
-> more dead entry behind. None of the 7 tests above catch this on their own, because their
-> viewport stubs are plain objects with no real DOM detachment semantics to fail on — this is
-> exactly the class of bug jsdom will not tell you about. The 8th test, appended to Step 1,
-> proves it with a stub that mimics `isConnected` flipping to `false`.
+> entry — see its own docstring above. This is memory hygiene, not a correctness fix: a stale
+> node's `clientHeight` is already `0` once it is out of layout, so it can never skew
+> `tallestOf`'s `max()` upward, and nothing here should later be "fixed" on the theory that it
+> can. What `pruneDetached` bounds is `viewportsRef.current` and the open `ResizeObserver.observe`
+> calls it carries — and only in the common case, not by guarantee: an unmount alone does not
+> trigger a remeasure (`ResizeObserver` fires on a resize, not a removal), so a stale entry only
+> clears once something else remeasures, which in this app is usually the very next column to
+> mount, since every `observe()` call gets its own initial notification. None of the 7 tests
+> above catch any of this on their own, because their viewport stubs are plain objects with no
+> real DOM detachment semantics to fail on — this is exactly the class of bug jsdom will not
+> tell you about. The 8th test, appended to Step 1, proves the pruning itself with a stub that
+> mimics `isConnected` flipping to `false`.
 
 - [ ] **Step 4: Write the context**
 
