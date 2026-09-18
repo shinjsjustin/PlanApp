@@ -70,12 +70,33 @@ W0 (orchestrator)
 
 Never start T(n+1) while T(n) has an open review finding.
 
-### 0.4 Preconditions (orchestrator, before T1)
+### 0.4 Preconditions (orchestrator, before T1) — DONE
 
-- Working tree is clean and the deleted `docs/superpowers/**` files are committed or restored —
-  the current branch has them staged as deletions. Subagents must not touch them.
-- Create the feature branch: `git checkout -b feat/pinned-todos`.
-- Record the base SHA; every task's code review diffs against the previous task's HEAD.
+- [x] Working tree clean; the superseded `docs/superpowers/**` files committed as deletions (`177afaf`).
+- [x] Feature branch `feat/pinned-todos` created from `3c8bb42`.
+- [x] Baseline recorded: **32 suites / 465 tests passing** via `DB_NAME=planapp_test npm test -- --runInBand`.
+- [x] `todos.is_pinned` + `idx_todos_project_pinned` applied to the `planapp_test` database by hand.
+
+### 0.5 Schema changes are the ORCHESTRATOR's job, not a subagent's
+
+This repo has no migration runner. `src/db/schema.sql` is a destructive DROP/CREATE script used
+only by `init.sh` for a fresh install, so there is no supported way for a task to move an existing
+database forward. A subagent told to "apply the schema change" will improvise, and the first T1
+run proved that improvisation goes straight to repairing Homebrew.
+
+Therefore, for any task that adds or alters a column:
+
+1. The orchestrator applies the DDL to `planapp_test` by hand BEFORE dispatching, using the
+   project's own `mysql2` driver and the credentials in `.env`, and verifies with `SHOW COLUMNS`.
+2. The task prompt states the column is already present and forbids all DDL.
+3. The task edits `src/db/schema.sql` as TEXT ONLY — the fresh-install `CREATE TABLE` plus the
+   migration note at the top of the file.
+
+Only T1 in this runbook adds a column. If a later task turns out to need one, stop and apply it
+the same way rather than delegating it.
+
+**Known gap, out of scope:** applying pending DDL to a developer's database is manual and
+undocumented. Worth a migration runner later; not part of this feature.
 
 ---
 
@@ -90,6 +111,35 @@ PlanApp — Express + MySQL2 server under `src/`, Create React App client under 
 Server tests: `tests/unit`, `tests/integration` (Jest, root). Client tests: colocated
 `*.test.js` under `src/client/src` (CRA Jest). E2E: `tests/e2e` (Playwright).
 Read `AGENTS.md` at the repo root for stack and layout conventions.
+
+## Environment facts — already verified. Do not re-investigate them.
+
+A first attempt at T1 burned its entire run trying to repair a Homebrew MySQL installation that
+was never broken in any way that mattered. Do not repeat it. These facts are verified:
+
+- A MySQL server (version 8.0.27) is ALREADY RUNNING and reachable. Do not start, install,
+  reinstall, relink, or repair any database server.
+- The `planapp_test` database EXISTS and the suite connects to it. The verified green baseline on
+  branch `feat/pinned-todos` is 32 suites / 465 tests passing.
+- The `todos.is_pinned` column and the `idx_todos_project_pinned` index have ALREADY been applied
+  to `planapp_test` by the orchestrator. No task needs to run DDL against any database.
+- `src/db/schema.sql` is the DESTRUCTIVE fresh-install definition (DROP/CREATE), and this repo has
+  no migration runner. NEVER execute that file against a database. Tasks only EDIT its text; the
+  orchestrator applies pending DDL to `planapp_test` by hand before dispatching the task that
+  needs it.
+- The server gate REQUIRES the test database name. Without the `DB_NAME=planapp_test` prefix the
+  integration helper (`tests/helpers/db.js`) refuses to run and you will see ~333 spurious
+  failures unrelated to your change.
+
+ABSOLUTELY FORBIDDEN in every task in this runbook:
+- Running `brew` in any form, installing or repairing system packages, or touching anything under
+  /opt/homebrew.
+- Starting, stopping, or reconfiguring a database server.
+- Running DDL/DML against any database outside of what the Jest tests themselves do.
+- Any `otool`, dylib hunting, or toolchain debugging.
+
+If a gate fails for a reason that looks environmental, STOP and report BLOCKED with the exact
+error text. Do not attempt to repair the environment. That is not your job.
 
 ## Non-negotiable coding rules (from the user's global CLAUDE.md)
 
@@ -205,15 +255,16 @@ No HTTP route changes in this task.
 
 ### Requirements
 
-1. Schema. Add to the `todos` table:
+1. Schema TEXT ONLY — do NOT execute any DDL. The column is already live in `planapp_test`
+   (see the Environment facts block). In `src/db/schema.sql`:
+   - update the destructive `CREATE TABLE todos` definition so a fresh database gets `is_pinned`
+     after `completed_at`, plus the `idx_todos_project_pinned` key;
+   - add the in-place migration note at the top of the file, following the convention already
+     used there for prior migrations, recording:
 
-   ALTER TABLE `todos`
-     ADD COLUMN `is_pinned` tinyint(1) NOT NULL DEFAULT '0' AFTER `completed_at`,
-     ADD KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`);
-
-   Update the destructive `CREATE TABLE todos` definition in the same file so a fresh database
-   matches, and add the in-place migration note at the top of `src/db/schema.sql` following the
-   convention already used there for prior migrations.
+     ALTER TABLE `todos`
+       ADD COLUMN `is_pinned` tinyint(1) NOT NULL DEFAULT '0' AFTER `completed_at`,
+       ADD KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`);
 
 2. Serialization. Add `isPinned: Boolean(row.is_pinned)` to `toTodo`.
 
