@@ -5909,6 +5909,35 @@ The plan's fixture again used `id === dayId === 1`, the same trap as Task 14; on
 
 **Deferred by user ruling:** `Calendar.css` reached 809 lines here, past the 800 ceiling. It is to be split by feature **after Task 17**, once the popover styles land — one clean split rather than two. Do not split it in Task 16 or 17.
 
+**Spec review, second pass** (`e135e14`, `8eef839`). Review found the first pass still under-protective, and two real defects behind it.
+
+*Fixed in `NotePlane.js` and `DayColumn.js`:*
+
+- `notes = []` as a default parameter built a fresh array on every render, which defeated the very memo it fed — and undid, for every column with no notes, the stable-array-per-day guarantee `useCalendarNotes` exists to provide. Now one module-level `NO_NOTES`, the same shape as that hook's `EMPTY_NOTES`.
+- A `droppable` carrying only a node ref put the literal string `"undefined"` in the plane's class list. The append is now keyed off `droppable?.className` rather than `droppable`.
+
+*Contract written down, not refactored.* `NotePlane` **appends** the droppable's classes to `note-plane`; `DayColumn`'s booking droppable **replaces**. That asymmetry is correct — Task 20's helper returns its own base plus a modifier (`note-plane-drop note-plane-drop--over`), which composes with an append — so it is now stated in `NotePlane`'s JSDoc. A caller must not assume replacement: the rules that position the plane, size it and make it the containing block for its lanes all hang off `note-plane`. `NotePlane.test.js` previously used a `note-plane--over` fixture, a class that will never exist; it now uses the real Task 20 names.
+
+*Seven more behaviours were deletable while green,* all now pinned and each mutation-proven:
+
+| Was deletable | Now killed by |
+|---|---|
+| `ribbonFor(note, lanes.get(note.dayId))` — the branch production takes | `hands the render over when a caller takes it` (fixture moved onto `onOtherDay`) |
+| memo deps `[notes]` → `[]` | `re-lanes its notes when the day's notes change` |
+| memo deps `[notes]` → `[notes.length]` — misses every **move** | `re-lanes when a note moves, though the count has not changed` |
+| the memo removed entirely | `hands an empty day the same notes twice…` |
+| `key={note.id}` → index — remounts ribbons mid-drag | `keeps a ribbon with its note when the notes reorder` |
+| `.note-draft { pointer-events: none }` | `lets the pointer through the draft it is drawing` |
+| `.note-plane-surface { cursor: crosshair }` | `stretches the create surface over the whole plane` |
+
+The draft's `pointer-events` is the one to guard: Task 16 drags the ghost under the pointer for the whole gesture, so without it the draft swallows the moves that size it.
+
+`DayColumn.test.js` wraps `assignLanes` in a counting `jest.fn` to observe the memo from outside. **CRA sets `resetMocks: true`**, which strips a `jest.fn`'s implementation between tests, so the implementation is restored in `beforeEach` — clearing the count alone leaves every later test with no lane map.
+
+Final: 941 client tests / 66 suites, 494 server tests / 34 suites.
+
+**Owed, not done here** (do not implement in this task): the draft's refusal has no screen-reader announcement — it belongs with Task 16's gesture. And the create surface has no keyboard or AT path at all, which is a *different* severity from the resize-edge debt already ruled on, because press-and-drag will be the only way to make a note; that one is with the user.
+
 ---
 
 ## Task 16: `useNoteDraft`
