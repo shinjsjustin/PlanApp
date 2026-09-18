@@ -109,7 +109,7 @@ Simplify the project canvas and sequence card while leaving drag/drop, editing, 
 - [x] Add/update focused canvas and card assertions for the simplified UI, then remove `EdgeLayer`, node measurement, geometry, connect selection, Escape/background clearing, connect providers, edge-derived node mapping, connector dots, connect overlays, `data-connect`, and connect CSS classes. Keep collection derivation memoized where it avoids rebuilding arrays, and call `activeSequenceId({ layers, sequences, todos })`.
 - [x] Remove the `Edges.css` import and delete all edge-only UI/hooks/context/geometry files and their obsolete tests listed above. Remove `isEligibleChild` and its tests now that connect mode has no consumer; retain `canConnect` temporarily because client cascade cleanup belongs to Subagent 4.
 - [x] Clean project canvas/card/gutter comments and CSS that describe line routing, connector measurement, or connect mode. Keep `--canvas-gutter` and the right gutter itself because it still owns the add-sequence control.
-- [ ] Run focused `Canvas`, `SequenceCard`, `ProjectPage`, and `graph` tests plus `npm run build --prefix src/client`, then commit this task.
+- [x] Run focused `Canvas`, `SequenceCard`, `ProjectPage`, and `graph` tests plus `npm run build --prefix src/client`, then commit this task.
 
 ### Acceptance checks
 
