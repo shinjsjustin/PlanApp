@@ -34,7 +34,7 @@ const todosIn = (state, sequenceId) =>
     Object.values(state.todos).filter((todo) => todo.sequenceId === sequenceId);
 
 const useProjectMutations = () => {
-    const { state, createEntity, updateEntity, removeEntity, raiseNotice } = useProjectContext();
+    const { state, createEntity, updateEntity, removeEntity } = useProjectContext();
 
     const projectId = state.project?.id;
 
@@ -157,36 +157,19 @@ const useProjectMutations = () => {
      * Puts a sequence at a position in a layer — the verb behind dragging a card
      * from one band to another (spec section 9 of the 2026-09-07 changes).
      *
-     * A move between layers can leave an edge pointing upward, and those edges
-     * go with it. That is not announced before the drop — refusing to move a
-     * connected card would make reorganizing a plan nearly impossible — so it is
-     * reported after, through the notice channel, and only when something was
-     * actually lost.
+     * The layer it left closes up and the one it joins opens a slot, which is
+     * the same reindexing the server does inside its transaction.
      */
     const moveSequence = useCallback(
-        (sequenceId, placement) => {
-            const also = cascadeSequenceMove(state, sequenceId, placement);
-            const removedEdges = also.filter((action) => action.collection === 'edges').length;
-
-            if (removedEdges > 0) {
-                const sequence = state.sequences[sequenceId];
-
-                raiseNotice(
-                    `Moved “${sequence.title}”. ` +
-                        `${removedEdges} connection${removedEdges === 1 ? '' : 's'} ` +
-                        `${removedEdges === 1 ? 'was' : 'were'} removed.`
-                );
-            }
-
-            return updateEntity('sequences', sequenceId, {
+        (sequenceId, placement) =>
+            updateEntity('sequences', sequenceId, {
                 path: `/sequences/${sequenceId}/move`,
                 method: 'put',
                 changes: placement,
                 body: placement,
-                also,
-            });
-        },
-        [updateEntity, raiseNotice, state]
+                also: cascadeSequenceMove(state, sequenceId, placement),
+            }),
+        [updateEntity, state]
     );
 
     const addTodo = useCallback(
@@ -253,40 +236,6 @@ const useProjectMutations = () => {
         [removeEntity, state]
     );
 
-    /**
-     * Connects a parent to a child, or disconnects them if they already are —
-     * the one verb behind connect mode (spec decision 7).
-     *
-     * One gesture doing both is what lets a click on a child untether several
-     * parents at once, without the user having to work out first which of them
-     * are currently attached.
-     *
-     * The pair is the identity of an edge, so the delete names it in the query
-     * string; DELETE is not reliably allowed a body. The layer-ordering rule is
-     * not re-checked here — the canvas only offers eligible children, and the
-     * server checks it again regardless.
-     */
-    const toggleEdge = useCallback(
-        (parentId, childId) => {
-            const existing = Object.values(state.edges).find(
-                (edge) => edge.parentId === parentId && edge.childId === childId
-            );
-
-            if (existing) {
-                return removeEntity('edges', existing.id, {
-                    path: `/projects/${projectId}/edges?parentId=${parentId}&childId=${childId}`,
-                });
-            }
-
-            return createEntity('edges', {
-                path: `/projects/${projectId}/edges`,
-                optimistic: { projectId, parentId, childId },
-                body: { parentId, childId },
-            });
-        },
-        [createEntity, removeEntity, projectId, state.edges]
-    );
-
     return useMemo(
         () => ({
             addLayer,
@@ -303,7 +252,6 @@ const useProjectMutations = () => {
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
-            toggleEdge,
         }),
         [
             addLayer,
@@ -320,7 +268,6 @@ const useProjectMutations = () => {
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
-            toggleEdge,
         ]
     );
 };

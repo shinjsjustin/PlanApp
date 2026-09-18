@@ -8,7 +8,7 @@ const { defineConfig, devices } = require('@playwright/test');
 // by the real Express server, talking to a real MySQL schema. That is the whole
 // reason this suite exists — everything the unit and component tests can reach
 // is already covered there, and everything they cannot (layout, measurement,
-// drag-and-drop, the drawn edges) only exists in a real browser.
+// drag-and-drop) only exists in a real browser.
 //
 // The server is started on the test database, never the development one. The
 // name is asserted in `tests/e2e/database.js` for the same reason the Jest

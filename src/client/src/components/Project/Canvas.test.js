@@ -8,12 +8,30 @@ import Canvas from './Canvas';
 
 const layer = (id, title, position) => ({ id, projectId: 1, title, position });
 
+const sequence = (id, layerId, title, position = 0) => ({
+    id,
+    projectId: 1,
+    layerId,
+    title,
+    description: null,
+    isBlocked: false,
+    position,
+});
+
+const todo = (id, sequenceId, status, position = 0) => ({
+    id,
+    projectId: 1,
+    sequenceId,
+    text: `To-do ${id}`,
+    status,
+    position,
+});
+
 const graphState = (overrides = {}) => ({
     project: { id: 1, title: 'Build a drone' },
     layers: {},
     sequences: {},
     todos: {},
-    edges: {},
     ...overrides,
 });
 
@@ -101,5 +119,79 @@ describe('Canvas', () => {
             'layers',
             expect.objectContaining({ path: '/projects/1/layers', body: {} })
         );
+    });
+
+    // The canvas shows layers and sequences and nothing between them: there are
+    // no dependency lines to draw, so there is no overlay to measure against, no
+    // handle to start one from, and no mode the canvas can be caught in.
+    describe('without connections', () => {
+        const twoLayerState = () =>
+            graphState({
+                layers: { 10: layer(10, 'Learning', 0), 20: layer(20, 'Design', 1) },
+                sequences: {
+                    100: sequence(100, 10, 'Learn aerodynamics'),
+                    200: sequence(200, 20, 'Design rotor system'),
+                },
+            });
+
+        test('draws no edge overlay', () => {
+            // Act
+            const { container } = renderCanvas(twoLayerState());
+
+            // Assert
+            expect(container.querySelector('.edge-layer')).toBeNull();
+        });
+
+        test('gives no sequence a connector dot', () => {
+            // Act
+            renderCanvas(twoLayerState());
+
+            // Assert
+            expect(screen.queryByRole('button', { name: /connect from/i })).toBeNull();
+        });
+
+        test('offers no card as a connect target', () => {
+            // Act
+            renderCanvas(twoLayerState());
+
+            // Assert
+            expect(screen.queryByRole('button', { name: /connect to/i })).toBeNull();
+        });
+
+        test('marks no card with a connect state', () => {
+            // Act
+            const { container } = renderCanvas(twoLayerState());
+
+            // Assert
+            expect(container.querySelector('[data-connect]')).toBeNull();
+            expect(container.querySelector('.canvas--connecting')).toBeNull();
+        });
+    });
+
+    // The ring is exclusive and the canvas is the only thing that can see enough
+    // of the graph to place it: one frontier sequence per layer, top to bottom,
+    // and the first of those holding something to pick up wears it.
+    test('gives the spotlight to the first startable sequence', () => {
+        // Arrange — the top layer's sequence is finished, so the ring belongs to
+        // the layer below it.
+        const state = graphState({
+            layers: { 10: layer(10, 'Learning', 0), 20: layer(20, 'Design', 1) },
+            sequences: {
+                100: sequence(100, 10, 'Learn aerodynamics'),
+                200: sequence(200, 20, 'Design rotor system'),
+            },
+            todos: {
+                1: todo(1, 100, 'complete'),
+                2: todo(2, 200, 'incomplete'),
+            },
+        });
+
+        // Act
+        const { container } = renderCanvas(state);
+
+        // Assert
+        const active = container.querySelectorAll('[data-state="active"]');
+        expect(active).toHaveLength(1);
+        expect(active[0]).toHaveAttribute('data-sequence-title', 'Design rotor system');
     });
 });

@@ -3,7 +3,6 @@
 const assertOwnership = require('../../src/middleware/assertOwnership');
 const calendarDaysRepo = require('../../src/db/repositories/calendarDaysRepo');
 const calendarNotesRepo = require('../../src/db/repositories/calendarNotesRepo');
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -20,16 +19,10 @@ const buildGraph = async (conn) => {
     const ownerId = await createTestUser(conn);
     const project = await projectsRepo.create(conn, { ownerId, title: 'Owned' });
     const layer = await layersRepo.create(conn, { projectId: project.id });
-    const parent = await sequencesRepo.create(conn, { layerId: layer.id });
-    const child = await sequencesRepo.create(conn, { layerId: layer.id });
+    const sequence = await sequencesRepo.create(conn, { layerId: layer.id });
     const todo = await todosRepo.create(conn, { projectId: project.id, text: 'A to-do' });
-    const edge = await edgesRepo.create(conn, {
-        projectId: project.id,
-        parentId: parent.id,
-        childId: child.id,
-    });
 
-    return { ownerId, project, layer, sequence: parent, todo, edge };
+    return { ownerId, project, layer, sequence, todo };
 };
 
 const RESOURCE_KEYS = {
@@ -37,7 +30,6 @@ const RESOURCE_KEYS = {
     layer: 'layer',
     sequence: 'sequence',
     todo: 'todo',
-    edge: 'edge',
 };
 
 describe('assertOwnership', () => {

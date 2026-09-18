@@ -28,7 +28,6 @@ const graphValue = () => ({
                 position: 0,
             },
         },
-        edges: {},
     },
     createEntity: jest.fn(),
     updateEntity: jest.fn(),

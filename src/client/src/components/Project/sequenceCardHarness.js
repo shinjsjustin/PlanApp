@@ -44,7 +44,6 @@ export const graphValue = (sequence, todos) => ({
         layers: { 10: { id: 10, projectId: 1, title: 'Learning', position: 0 } },
         sequences: { [sequence.id]: sequence },
         todos: Object.fromEntries(todos.map((t) => [t.id, t])),
-        edges: {},
     },
     createEntity: jest.fn(),
     updateEntity: jest.fn(),
@@ -80,9 +79,9 @@ export const renderCard = ({ sequence = baseSequence, todos = [], isActive = fal
     return { ...rendered, value, rerenderWith };
 };
 
-// Named by the action rather than by the sequence: the card now also carries a
-// connector dot labelled with the same title, and "the button mentioning
-// aerodynamics" no longer picks out one thing.
+// Named by the action rather than by the sequence: several controls on the card
+// carry the same title, so "the button mentioning aerodynamics" would not pick
+// out one thing.
 export const expander = () =>
     screen.getByRole('button', { name: /(expand|collapse) learn aerodynamics/i });
 

@@ -12,6 +12,15 @@ const { SEQUENCE_STATUS, readyFrontier, sequenceStatus } = require('../../src/li
  * browser's `lib/graph.js` — cannot drift apart without one of them going red.
  */
 
+const UNSORTED_LAYERS_CASE = 'orders entries by layer position, whatever order the layers arrive in';
+
+/**
+ * The fixture table is one shared JSON object for the whole file, so a case
+ * handed to `readyFrontier` unguarded would let an in-place sort rewrite the
+ * table for every test after it. Each case is worked on as its own copy.
+ */
+const copyOf = (testCase) => JSON.parse(JSON.stringify(testCase));
+
 const summarise = (frontier) =>
     frontier.map((entry) => ({
         sequenceId: entry.sequence.id,
@@ -23,13 +32,16 @@ describe('readyFrontier against the shared fixture table', () => {
         expect(fixtures.cases.length).toBeGreaterThan(0);
     });
 
-    fixtures.cases.forEach((testCase) => {
-        test(testCase.name, () => {
-            // Arrange & Act
+    fixtures.cases.forEach((sharedCase) => {
+        test(sharedCase.name, () => {
+            // Arrange
+            const testCase = copyOf(sharedCase);
+
+            // Act
             const frontier = readyFrontier({
+                layers: testCase.layers,
                 sequences: testCase.sequences,
                 todos: testCase.todos,
-                edges: testCase.edges,
             });
 
             // Assert
@@ -82,16 +94,18 @@ describe('sequenceStatus', () => {
 
 describe('readyFrontier immutability', () => {
     test('does not touch the arrays it is handed', () => {
-        // Arrange
-        const [droneCase] = fixtures.cases.filter((testCase) => testCase.sequences.length > 3);
-        const sequences = [...droneCase.sequences];
-        const todos = [...droneCase.todos];
-        const snapshot = JSON.stringify({ sequences, todos, edges: droneCase.edges });
+        // Arrange — the one case whose layers arrive out of position order, so
+        // sorting them in place would reorder the caller's own array.
+        const sharedCase = fixtures.cases.find((entry) => entry.name === UNSORTED_LAYERS_CASE);
+        expect(sharedCase).toBeDefined();
+
+        const { layers, sequences, todos } = copyOf(sharedCase);
+        const snapshot = JSON.stringify({ layers, sequences, todos });
 
         // Act
-        readyFrontier({ sequences, todos, edges: droneCase.edges });
+        readyFrontier({ layers, sequences, todos });
 
         // Assert
-        expect(JSON.stringify({ sequences, todos, edges: droneCase.edges })).toBe(snapshot);
+        expect(JSON.stringify({ layers, sequences, todos })).toBe(snapshot);
     });
 });

@@ -66,14 +66,6 @@ const toTodo = (row) => ({
     updatedAt: row.updated_at,
 });
 
-const toEdge = (row) => ({
-    id: row.id,
-    projectId: row.project_id,
-    parentId: row.parent_id,
-    childId: row.child_id,
-    createdAt: row.created_at,
-});
-
 /**
  * One line of the ready frontier on the projects home page (spec section 4.8):
  * a sequence the caller can start now, and the to-do to pick up in it.
@@ -165,7 +157,6 @@ module.exports = {
     toCalendarDay,
     toCalendarItem,
     toCalendarNote,
-    toEdge,
     toFrontierEntry,
     toLayer,
     toProject,

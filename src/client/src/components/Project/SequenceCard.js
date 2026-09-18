@@ -3,7 +3,6 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 import ConfirmDialog from './ConfirmDialog';
-import ConnectorDot from './ConnectorDot';
 import DeleteBubble from '../common/DeleteBubble';
 import DropZone from './DropZone';
 import InlineTitle from './InlineTitle';
@@ -16,10 +15,8 @@ import useProjectMutations from '../../hooks/useProjectMutations';
 import { DROP_TARGET, isEligibleDropTarget } from '../../lib/dragDrop';
 import { TODO_STATUS, sequenceStatus } from '../../lib/graph';
 import { CARD_STATE, STATUS_LABELS, sequenceCardModel } from '../../lib/sequenceCard';
-import { useConnectMode } from '../../state/ConnectContext';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragTodo } from '../../state/DragContext';
-import { useNodeRegistry } from '../../state/NodeRegistryContext';
 
 // One sequence on the canvas.
 //
@@ -89,14 +86,6 @@ const SequenceCard = ({
     const activeDragTodo = useActiveDragTodo();
     const isEligibleTarget = isEligibleDropTarget(activeDragTodo, sequence.id);
 
-    // Connect mode, and where the edges are measured from. The card's top edge
-    // is where an incoming edge lands; the dot below is where an outgoing one
-    // leaves. The card registers its node and knows nothing else about edges.
-    const connect = useConnectMode();
-    const registry = useNodeRegistry();
-    const connectState = connect?.stateOf(sequence) ?? null;
-    const isConnectTarget = connectState === 'eligible';
-
     // The card body is the append target: a to-do let go on it joins the end of
     // the list (spec section 4.7). The gaps inside it aim at a given index.
     const { isOver, setNodeRef } = useDroppable({
@@ -121,18 +110,6 @@ const SequenceCard = ({
             dropTarget: { kind: DROP_TARGET.item, layerId: sequence.layerId, index },
         },
     });
-
-    /**
-     * The `<li>` already carries a ref — `registry.registerCard`, which is how
-     * `useNodePositions` finds this card to draw edges to. The sortable needs
-     * the same node, so the two are composed rather than one replacing the
-     * other. (The to-do droppable's `setNodeRef` is NOT here: it lives on
-     * `.sequence-card-body` further down, and stays there.)
-     */
-    const setCardNode = (node) => {
-        registry?.registerCard(sequence.id, node);
-        sortable.setNodeRef(node);
-    };
 
     // Everything the card draws, derived from the graph on every render. The
     // status word underneath is still `sequenceStatus`'s, unchanged: the card
@@ -209,7 +186,6 @@ const SequenceCard = ({
         isCollapsed ? 'sequence-card--folded' : 'sequence-card--open',
         activeDragTodo ? `sequence-card--${isEligibleTarget ? 'eligible' : 'ineligible'}` : '',
         isOver ? 'sequence-card--over' : '',
-        connectState ? `sequence-card--connect-${connectState}` : '',
         sortable.isDragging ? 'sequence-card--dragging' : '',
         isSpotlit ? 'sequence-card--spotlit' : '',
     ]
@@ -255,7 +231,7 @@ const SequenceCard = ({
 
     return (
         <li
-            ref={setCardNode}
+            ref={sortable.setNodeRef}
             style={{
                 transform: sortable.transform
                     ? `translate3d(${sortable.transform.x}px, ${sortable.transform.y}px, 0)`
@@ -266,27 +242,10 @@ const SequenceCard = ({
             // Read by the styling, and the one thing a test can check about a
             // drag jsdom cannot otherwise see: which cards would take this to-do.
             data-drop={activeDragTodo ? (isEligibleTarget ? 'eligible' : 'ineligible') : undefined}
-            data-connect={connectState ?? undefined}
             data-state={model.state}
             data-sequence-title={sequence.title}
             onClick={handleCardClick}
         >
-            {/* An eligible card is the target, and the whole of it is clickable
-                because the whole of it is what connect mode outlines. A button
-                laid over the card does that without the card's own controls
-                doubling as the gesture: peeking inside a card before tethering
-                it must expand it and nothing else. A dimmed card gets no target
-                at all, so a click there lands on nothing rather than quietly
-                failing to connect. */}
-            {isConnectTarget && (
-                <button
-                    type="button"
-                    className="sequence-card-connect-target"
-                    aria-label={`Connect to ${sequence.title}`}
-                    onClick={() => connect.connectTo(sequence)}
-                />
-            )}
-
             {/* Pinned to the card's corner rather than laid out in the header,
                 which reserves the room for it on the right so nothing runs
                 underneath. A direct child of the card, because that is what the
@@ -417,14 +376,6 @@ const SequenceCard = ({
                     />
                 </>
             )}
-
-            {/* The outgoing end of every edge. Last in the card so it sits on
-                the bottom edge whether the card is collapsed or expanded — an
-                expanded card grows above it, and the edges leaving it are
-                re-measured because the row growing resizes the canvas. */}
-            <div className="sequence-card-connector">
-                <ConnectorDot sequence={sequence} />
-            </div>
 
             {isConfirmingDelete && (
                 <ConfirmDialog

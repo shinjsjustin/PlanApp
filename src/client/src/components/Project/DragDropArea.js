@@ -131,8 +131,7 @@ const DragDropArea = ({ children }) => {
      * whole drag, which is why the drop reached it saying so.
      *
      * A sequence drop is refused for one reason only: it landed where it already
-     * was. Every layer takes every sequence, and what a move costs in edges is
-     * settled by the cascade rather than by refusing the drop.
+     * was. Every layer takes every sequence, so there is nothing else to refuse.
      */
     const handleDragEnd = useCallback(
         (event) => {

@@ -79,7 +79,7 @@
     color: #b00020;
 }
 
-/* Both toasts are permanently mounted now (see `ProjectPage.js`) and toggle
+/* The toast is permanently mounted now (see `ProjectPage.js`) and toggles
  * `hidden` rather than being removed from the DOM. The UA stylesheet's
  * `[hidden] { display: none }` has the same specificity as the class rule
  * above, and an author rule beats a user-agent rule at equal specificity — so
@@ -91,16 +91,6 @@
 
 .project-toast p {
     margin: 0;
-}
-
-/* The same box as the error toast, in a colour that is not an emergency: this
- * reports what a change cost, not that something went wrong. Only the three
- * colour declarations are overridden — the shape is shared on purpose, so the
- * two read as one channel with two temperatures. */
-.project-toast--notice {
-    border-color: #d3d9e2;
-    background: #f4f7fb;
-    color: #2c3e56;
 }
 
 /* The drag-and-drop area, and nothing else: the panel inside it is taken out of
@@ -237,18 +227,11 @@
  * card grows the page, not a window cut into it.
  *
  * `--canvas-gutter` is the width of the reserved right-hand column every layer
- * row leaves free. It is declared here so the rows, their footers and — from
- * phase 7 — the skip-edge lanes all measure from one number. */
+ * row leaves free. It is declared here so the rows and their footers measure
+ * from one number. */
 .canvas {
-    /* Mirrored in `lib/geometry.js` as `CANVAS_GUTTER_WIDTH`, which places the
-     * skip-edge lanes inside this column. Change one and change the other. */
     --canvas-gutter: 3rem;
 
-    /* The positioning context for the edge overlay, which is stretched across the
-     * whole canvas rather than sitting in the flow. `useNodePositions` measures
-     * against this box and adds back `scrollTop`/`scrollLeft`, which are simply
-     * zero now that nothing here scrolls. */
-    position: relative;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -275,15 +258,9 @@
  * holds its place when a row grows or a card expands. The add-layer button is
  * not in this column — see `.layer-divider` below, which spans the row's full
  * width instead.
- *
- * It is reserved rather than incidental because phase 7 routes skip-edges —
- * the ones that jump past a layer — down lanes inside it.
  */
 
 .canvas-layer {
-    /* Above the edge overlay, so a line never covers a title or a button. */
-    position: relative;
-    z-index: 1;
     display: flex;
     flex-direction: column;
 }
@@ -396,8 +373,8 @@
  * page.
  *
  * The band used to tint on hover to give the revealed × something to belong to,
- * but the tint painted over the edges running behind the row, which are the one
- * thing on this canvas worth not covering — the × is reveal enough.
+ * but a whole row lighting up said far more than the one control being offered
+ * warranted — the × is reveal enough.
  *
  * It keeps `position: relative` because that is the contract the shared delete
  * bubble pins itself to. The padding and the negative left margin stay too: they

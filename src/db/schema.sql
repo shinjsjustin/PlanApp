@@ -24,6 +24,13 @@
 -- in place rather than re-running this file: copy the CREATE TABLE statement for
 -- `calendar_notes` from the bottom of this file and run it alone.
 --
+-- A database created before sequence connections were removed has one table too
+-- many. Drop it in place rather than re-running this file:
+--   DROP TABLE IF EXISTS `sequence_edges`;
+-- The same statement stays in the teardown below, ahead of the tables it points
+-- at, so re-running this file against such a database cannot fail on the foreign
+-- keys it holds.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -31,6 +38,9 @@
 DROP TABLE IF EXISTS `calendar_notes`;
 DROP TABLE IF EXISTS `calendar_items`;
 DROP TABLE IF EXISTS `calendar_days`;
+-- No longer created below: this drop is what lets a database made by an older
+-- version of this file be torn down, since its `sequence_edges` foreign keys
+-- point at `sequences` and `projects`.
 DROP TABLE IF EXISTS `sequence_edges`;
 DROP TABLE IF EXISTS `todos`;
 DROP TABLE IF EXISTS `sequences`;
@@ -134,27 +144,6 @@ CREATE TABLE `todos` (
     FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_todos_sequence`
     FOREIGN KEY (`sequence_id`) REFERENCES `sequences` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
--- -- sequence_edges --------------------------------------------------------
--- "parent must finish before child can start". Edges are strictly downward, so
--- the graph is acyclic by construction and needs no cycle detection.
-CREATE TABLE `sequence_edges` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `project_id` int unsigned NOT NULL,
-  `parent_id` int unsigned NOT NULL,
-  `child_id` int unsigned NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_sequence_edges_parent_child` (`parent_id`, `child_id`),
-  KEY `idx_sequence_edges_project` (`project_id`),
-  KEY `idx_sequence_edges_child` (`child_id`),
-  CONSTRAINT `fk_sequence_edges_project`
-    FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_sequence_edges_parent`
-    FOREIGN KEY (`parent_id`) REFERENCES `sequences` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_sequence_edges_child`
-    FOREIGN KEY (`child_id`) REFERENCES `sequences` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -- calendar_days ---------------------------------------------------------

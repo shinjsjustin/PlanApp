@@ -47,12 +47,6 @@ const OWNER_QUERIES = {
               JOIN projects p ON p.id = t.project_id
               WHERE t.id = ?`,
     },
-    edge: {
-        label: 'Edge',
-        sql: `SELECT p.id, p.owner_id FROM sequence_edges e
-              JOIN projects p ON p.id = e.project_id
-              WHERE e.id = ?`,
-    },
     // The one resource that does not hang off a project. The calendar draws from
     // every project at once, so a day belongs to the user directly — which makes
     // this the only query here that needs no join, and the only one whose

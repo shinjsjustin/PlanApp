@@ -4,7 +4,6 @@ const request = require('supertest');
 
 const app = require('../../src/server');
 const { authHeaderFor } = require('../helpers/auth');
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -16,21 +15,27 @@ const getConn = useTransaction();
  * Moving a sequence between layers (spec section 9 of the 2026-09-07 changes).
  *
  * The danger is never the sequence landing in the wrong place. It is the layer
- * it left keeping a hole, the layer it joined ending up with two sequences
- * claiming one position, or an edge surviving the move pointing upward — which
- * would break the one invariant the whole graph rests on, that every edge steps
- * strictly down a layer and so no chain can ever cycle.
+ * it left keeping a hole, or the layer it joined ending up with two sequences
+ * claiming one position — a layer's order is what the canvas draws and what the
+ * ready frontier reads, so a gap or a collision in it is visible everywhere.
  */
 
-/** Three layers, top to bottom, in one project. */
+/**
+ * The tables one statement names, so a test can say what a move is allowed to
+ * touch rather than listing what it must not.
+ */
+const TABLE_PATTERN = /\b(?:FROM|INTO|JOIN|UPDATE)\s+`?(\w+)`?/gi;
+
+const tablesIn = (sql) => [...sql.matchAll(TABLE_PATTERN)].map(([, table]) => table);
+
+/** Two layers, top to bottom, in one project. */
 const createFixture = async (conn) => {
     const ownerId = await createTestUser(conn);
     const project = await projectsRepo.create(conn, { ownerId, title: 'Build a drone' });
     const top = await layersRepo.create(conn, { projectId: project.id, title: 'Learning' });
     const middle = await layersRepo.create(conn, { projectId: project.id, title: 'Design' });
-    const bottom = await layersRepo.create(conn, { projectId: project.id, title: 'Build' });
 
-    return { ownerId, project, top, middle, bottom };
+    return { ownerId, project, top, middle };
 };
 
 /** One layer's sequences as `[title, position]` pairs, left to right. */
@@ -88,63 +93,28 @@ describe('sequencesRepo.move', () => {
         expect(await layerOrder(conn, middle.id)).toEqual([['D', 0]]);
     });
 
-    test('deletes edges the move would leave pointing upward', async () => {
-        // Arrange — parent up top feeding a child in the middle layer.
+    test('touches no table but `sequences`', async () => {
+        // Arrange — a cross-layer move, the widest case: it rewrites one column
+        // on the moved row and reindexes two layers.
         const conn = getConn();
-        const { project, top, middle, bottom } = await createFixture(conn);
-        const parent = await sequencesRepo.create(conn, { layerId: top.id, title: 'Parent' });
-        const child = await sequencesRepo.create(conn, { layerId: middle.id, title: 'Child' });
-        await edgesRepo.create(conn, {
-            projectId: project.id,
-            parentId: parent.id,
-            childId: child.id,
-        });
+        const { top, middle } = await createFixture(conn);
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+        await sequencesRepo.create(conn, { layerId: middle.id, title: 'B' });
+        const spy = jest.spyOn(conn, 'execute');
+        let tables = [];
 
-        // Act — the parent drops BELOW its child, which the edge cannot survive.
-        await sequencesRepo.move(conn, parent.id, { layerId: bottom.id, position: 0 });
+        // Act — the statements are read before the spy is restored, which clears
+        // them.
+        try {
+            await sequencesRepo.move(conn, moving.id, { layerId: middle.id, position: 0 });
+            tables = spy.mock.calls.flatMap(([sql]) => tablesIn(sql));
+        } finally {
+            spy.mockRestore();
+        }
 
-        // Assert
-        expect(await edgesRepo.listByProject(conn, project.id)).toEqual([]);
-    });
-
-    test('keeps edges that still point downward after the move', async () => {
-        // Arrange — parent up top, child at the bottom, one layer of slack.
-        const conn = getConn();
-        const { project, top, middle, bottom } = await createFixture(conn);
-        const parent = await sequencesRepo.create(conn, { layerId: top.id, title: 'Parent' });
-        const child = await sequencesRepo.create(conn, { layerId: bottom.id, title: 'Child' });
-        await edgesRepo.create(conn, {
-            projectId: project.id,
-            parentId: parent.id,
-            childId: child.id,
-        });
-
-        // Act — the parent moves down one layer and is still above the child.
-        await sequencesRepo.move(conn, parent.id, { layerId: middle.id, position: 0 });
-
-        // Assert
-        const edges = await edgesRepo.listByProject(conn, project.id);
-        expect(edges).toHaveLength(1);
-        expect(edges[0].parent_id).toBe(parent.id);
-    });
-
-    test('deletes an edge that a move into the child’s own layer invalidates', async () => {
-        // Arrange — same-layer pairs are parallel work; neither gates the other.
-        const conn = getConn();
-        const { project, top, middle } = await createFixture(conn);
-        const parent = await sequencesRepo.create(conn, { layerId: top.id, title: 'Parent' });
-        const child = await sequencesRepo.create(conn, { layerId: middle.id, title: 'Child' });
-        await edgesRepo.create(conn, {
-            projectId: project.id,
-            parentId: parent.id,
-            childId: child.id,
-        });
-
-        // Act
-        await sequencesRepo.move(conn, parent.id, { layerId: middle.id, position: 0 });
-
-        // Assert
-        expect(await edgesRepo.listByProject(conn, project.id)).toEqual([]);
+        // Assert — a sequence's placement is a fact about its layer and nothing
+        // else, so a move has no other table to keep in step.
+        expect([...new Set(tables)]).toEqual(['sequences']);
     });
 
     test('rejects a position past the end of the target layer, writing nothing', async () => {
@@ -208,27 +178,31 @@ describe('PUT /api/sequences/:id/move', () => {
         ]);
     });
 
-    test('deletes an edge the move invalidates, through the HTTP layer', async () => {
-        // Arrange
+    test('closes the gap in the layer it left, through the HTTP layer', async () => {
+        // Arrange — three sequences up top, one below.
         const conn = getConn();
-        const { ownerId, project, top, middle, bottom } = await createFixture(conn);
-        const parent = await sequencesRepo.create(conn, { layerId: top.id, title: 'Parent' });
-        const child = await sequencesRepo.create(conn, { layerId: middle.id, title: 'Child' });
-        await edgesRepo.create(conn, {
-            projectId: project.id,
-            parentId: parent.id,
-            childId: child.id,
-        });
+        const { ownerId, top, middle } = await createFixture(conn);
+        await sequencesRepo.create(conn, { layerId: top.id, title: 'A' });
+        const moving = await sequencesRepo.create(conn, { layerId: top.id, title: 'B' });
+        await sequencesRepo.create(conn, { layerId: top.id, title: 'C' });
+        await sequencesRepo.create(conn, { layerId: middle.id, title: 'D' });
 
-        // Act — parent drops below its child.
+        // Act — B leaves from between A and C.
         const response = await request(app)
-            .put(`/api/sequences/${parent.id}/move`)
+            .put(`/api/sequences/${moving.id}/move`)
             .set('Authorization', authHeaderFor(ownerId))
-            .send({ layerId: bottom.id, position: 0 });
+            .send({ layerId: middle.id, position: 1 });
 
-        // Assert
+        // Assert — both layers stay dense, so neither draws a hole.
         expect(response.status).toBe(200);
-        expect(await edgesRepo.listByProject(conn, project.id)).toEqual([]);
+        expect(await layerOrder(conn, top.id)).toEqual([
+            ['A', 0],
+            ['C', 1],
+        ]);
+        expect(await layerOrder(conn, middle.id)).toEqual([
+            ['D', 0],
+            ['B', 1],
+        ]);
     });
 
     test('answers 400 for a position past the end of the target layer', async () => {

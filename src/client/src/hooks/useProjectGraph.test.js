@@ -25,7 +25,6 @@ const GRAPH = {
     sequences: [
         { id: 100, projectId: 1, layerId: 10, title: 'Learn aerodynamics', isBlocked: false, position: 0 },
     ],
-    edges: [],
     todos: [],
 };
 

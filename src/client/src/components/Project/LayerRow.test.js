@@ -31,7 +31,6 @@ const graphValue = (sequences) => ({
         layers: { 10: layer, 20: { id: 20, projectId: 1, title: 'Design', position: 1 } },
         sequences: Object.fromEntries(sequences.map((s) => [s.id, s])),
         todos: {},
-        edges: {},
     },
     createEntity: jest.fn(),
     updateEntity: jest.fn(),
@@ -239,8 +238,8 @@ describe('LayerRow', () => {
     });
 
     test('keeps a permanent gutter column beside the row for the add-sequence button', () => {
-        // Arrange — phase 7 routes skip-edges down this column, so it is a real
-        // reserved column whether or not anything is in it. The add-layer
+        // Arrange — the column is reserved on every row so the button holds its
+        // place as rows grow and cards expand. The add-layer
         // control is not in this column at all: it is the full-width divider
         // below the row (asserted separately above), not a second gutter slice.
         const { container } = renderRow();

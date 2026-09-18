@@ -80,42 +80,46 @@ const nextTodoOf = (sequence, todos) => {
 };
 
 /**
- * "What can I actually work on right now?" — the sequences that are incomplete
- * and whose every parent is complete, each paired with the next to-do to pick
- * up.
+ * "What can I actually work on right now?" — one line per layer, top to bottom,
+ * each pairing the layer's first unfinished sequence with the next to-do to pick
+ * up in it.
  *
- * Incomplete, not merely "not complete": a blocked sequence is held back by hand
- * and is not something to start, so it is left out along with the finished ones.
+ * A layer is worked left to right, so its frontier sequence is the first one by
+ * position that is not complete. That sequence is offered only when it is
+ * incomplete: if it is blocked by hand the layer contributes nothing, and the
+ * search does not carry on past it — "not this, not yet" means the layer waits,
+ * not that the next card takes its turn.
  *
- * A sequence with no parents qualifies as soon as it is incomplete. An empty
- * frontier means one of three things now: a project with no sequences at all,
- * one whose every sequence is complete, and one whose every otherwise-eligible
- * sequence is blocked. All three collapse to the same `[]` here; telling them
- * apart is the caller's job, not this function's.
+ * Layers are independent. Nothing in one layer gates another, so an unfinished
+ * or blocked layer never holds back the ones below it.
+ *
+ * An empty frontier means one of three things: a project with no sequences at
+ * all, one whose every sequence is complete, and one whose every layer leads
+ * with a blocked sequence. All three collapse to the same `[]` here; telling
+ * them apart is the caller's job, not this function's.
  */
-const readyFrontier = ({ sequences, todos, edges }) => {
+const readyFrontier = ({ layers, sequences, todos }) => {
     const statusById = new Map(
         sequences.map((sequence) => [sequence.id, sequenceStatus(sequence, todos)])
     );
 
-    const isComplete = (sequenceId) => statusById.get(sequenceId) === SEQUENCE_STATUS.complete;
+    const frontierOf = (layer) => {
+        const own = sequences.filter((sequence) => sequence.layerId === layer.id);
 
-    const parentsById = new Map(sequences.map((sequence) => [sequence.id, []]));
-    edges.forEach((edge) => {
-        const parents = parentsById.get(edge.childId);
-        if (parents) parents.push(edge.parentId);
-    });
+        const first = [...own]
+            .sort(byPosition)
+            .find((sequence) => statusById.get(sequence.id) !== SEQUENCE_STATUS.complete);
 
-    return sequences
-        .filter((sequence) => {
-            // Incomplete is the only status with anything to start in it:
-            // complete is finished, and blocked is the manual "not this, not
-            // yet" that the whole frontier exists to respect.
-            if (statusById.get(sequence.id) !== SEQUENCE_STATUS.incomplete) return false;
+        if (!first) return null;
+        if (statusById.get(first.id) !== SEQUENCE_STATUS.incomplete) return null;
 
-            return parentsById.get(sequence.id).every(isComplete);
-        })
-        .map((sequence) => ({ sequence, nextTodo: nextTodoOf(sequence, todos) }));
+        return { sequence: first, nextTodo: nextTodoOf(first, todos) };
+    };
+
+    return [...layers]
+        .sort(byPosition)
+        .map(frontierOf)
+        .filter((entry) => entry !== null);
 };
 
 module.exports = { SEQUENCE_STATUS, TODO_STATUS, readyFrontier, sequenceStatus };

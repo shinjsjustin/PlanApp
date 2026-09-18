@@ -1,11 +1,8 @@
 'use strict';
 
-const { expect } = require('@playwright/test');
-
 // The few things the critical flow needs that Playwright does not give it
-// directly: a throwaway account, a pointer drag the `@dnd-kit` sensor accepts,
-// and a reading of an SVG path good enough to tell a real edge from a smear at
-// the origin.
+// directly: a throwaway account, a plan seeded through the API, and a pointer
+// drag the `@dnd-kit` sensor accepts.
 
 /** Past `@dnd-kit`'s 5px activation distance — the nudge that starts the drag. */
 const DRAG_NUDGE_PX = 12;
@@ -24,9 +21,6 @@ const DRAG_STEPS = 20;
  * nothing to do with the app. This is that window, with room to spare.
  */
 const DROP_SETTLE_MS = 150;
-
-/** A path shorter than this end to end is a measurement that has not settled. */
-const MIN_EDGE_SPAN_PX = 20;
 
 /**
  * A fresh account per run, on a domain that cannot be delivered to.
@@ -69,46 +63,6 @@ const dragOnto = async (page, source, target) => {
     await page.mouse.move(endX, endY);
     await page.mouse.up();
     await page.waitForTimeout(DROP_SETTLE_MS);
-};
-
-/** Every `x,y` pair in an SVG `d`, in order, as numbers. */
-const pointsIn = (d) =>
-    [...d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map(([, x, y]) => ({
-        x: Number(x),
-        y: Number(y),
-    }));
-
-/**
- * Asserts that a `d` attribute describes a line actually drawn between two
- * measured cards, rather than the shape an unmeasured graph produces.
- *
- * This is the assertion the whole E2E suite exists for. `EdgeLayer` leaves out
- * any edge whose ends are not both measured, so a path in the DOM already means
- * something was measured — but a canvas that laid out to nothing would still
- * yield a path, of zero length at the origin. Checking the span is what
- * separates "an edge was drawn" from "an edge row reached the DOM".
- */
-const expectDrawnEdge = (d) => {
-    const points = pointsIn(d);
-
-    expect(points.length, `an edge path should have coordinates: ${d}`).toBeGreaterThanOrEqual(2);
-    points.forEach(({ x, y }) => {
-        expect(
-            Number.isFinite(x) && Number.isFinite(y),
-            `edge path has a bad point: ${d}`
-        ).toBe(true);
-    });
-
-    const start = points[0];
-    const end = points[points.length - 1];
-
-    // A downward edge: the child card's top edge is below the parent's connector
-    // dot, and both sit inside the canvas rather than at its origin.
-    expect(start.x, `edge starts at x=0: ${d}`).toBeGreaterThan(0);
-    expect(start.y, `edge starts at y=0: ${d}`).toBeGreaterThan(0);
-    expect(end.y - start.y, `edge does not run downward far enough: ${d}`).toBeGreaterThan(
-        MIN_EDGE_SPAN_PX
-    );
 };
 
 /**
@@ -205,14 +159,6 @@ const addSequence = async (page, headers, layerId, sequenceTitle) => {
     );
 };
 
-const createEdge = async (page, headers, projectId, parentId, childId) =>
-    dataOf(
-        await page.request.post(`/api/projects/${projectId}/edges`, {
-            headers,
-            data: { parentId, childId },
-        })
-    );
-
 /**
  * A to-do, either loose in the unorganized panel (`sequenceId` left null) or
  * already filed in a sequence.
@@ -242,8 +188,8 @@ const seedPlan = async (page, credentials, title) => {
     const { headers } = await registerAndLogin(page, credentials);
     const project = await createProject(page, headers, title);
 
-    // A new project comes with one layer; the second is what makes a connection
-    // between layers possible at all.
+    // A new project comes with one layer; the second is what gives the canvas
+    // two rows, so a card has somewhere else to be dragged to.
     const graph = await dataOf(await page.request.get(`/api/projects/${project.id}`, { headers }));
     const lower = await addLayerBelow(page, headers, project.id);
 
@@ -254,19 +200,18 @@ const seedPlan = async (page, credentials, title) => {
 };
 
 /**
- * Registers an account and builds a two-layer plan with an edge already drawn
- * between a sequence in each layer, and names both layers so a test can address
- * one of them by its `region` role rather than by an id it would otherwise have
- * to thread through.
+ * Registers an account and builds a two-layer plan holding one sequence in each
+ * layer, naming both layers so a test can address one of them by its `region`
+ * role rather than by an id it would otherwise have to thread through.
  *
- * For the sequence drag: dragging the parent down into the child's own layer is
- * what makes the edge invalid (a layer is no longer "above" itself), so the
- * connection this seeds is exactly the one the drag is expected to cost.
+ * For the sequence drag: the named bottom layer is the destination, and the
+ * sequence already sitting in it is what makes the drop ambiguous enough to be
+ * worth aiming carefully at.
  */
-const seedConnectedPlan = async (
+const seedLayeredPlan = async (
     page,
     credentials,
-    { projectTitle, topLayerTitle, bottomLayerTitle, parentTitle, childTitle }
+    { projectTitle, topLayerTitle, bottomLayerTitle, topTitle, bottomTitle }
 ) => {
     const { headers } = await registerAndLogin(page, credentials);
     const project = await createProject(page, headers, projectTitle);
@@ -277,12 +222,10 @@ const seedConnectedPlan = async (
     await renameLayer(page, headers, graph.layers[0].id, topLayerTitle);
     await renameLayer(page, headers, lower.id, bottomLayerTitle);
 
-    const parent = await addSequence(page, headers, graph.layers[0].id, parentTitle);
-    const child = await addSequence(page, headers, lower.id, childTitle);
+    const top = await addSequence(page, headers, graph.layers[0].id, topTitle);
+    const bottom = await addSequence(page, headers, lower.id, bottomTitle);
 
-    await createEdge(page, headers, project.id, parent.id, child.id);
-
-    return { projectId: project.id, headers, parent, child };
+    return { projectId: project.id, headers, top, bottom };
 };
 
 /**
@@ -295,19 +238,16 @@ const CROWDED_SEQUENCE_COUNT = 6;
 
 /**
  * Registers an account and builds one layer crowded with more sequences than a
- * 1280px viewport can show at once, plus a second layer below holding one
- * sequence connected to the first of the crowd.
+ * 1280px viewport can show at once.
  *
- * The connected sequence is the leftmost of the six on purpose: scrolling the
- * row all the way to the right is what should carry it out of view and, with
- * it, the edge that starts there (Task 5).
+ * One layer and nothing else: the only thing seeded here is the overflow, which
+ * is the whole subject of the test that asks for it.
  */
 const seedCrowdedPlan = async (page, credentials, title) => {
     const { headers } = await registerAndLogin(page, credentials);
     const project = await createProject(page, headers, title);
 
     const graph = await dataOf(await page.request.get(`/api/projects/${project.id}`, { headers }));
-    const lower = await addLayerBelow(page, headers, project.id);
 
     const crowd = [];
     for (let position = 1; position <= CROWDED_SEQUENCE_COUNT; position += 1) {
@@ -318,11 +258,7 @@ const seedCrowdedPlan = async (page, credentials, title) => {
         crowd.push(await addSequence(page, headers, graph.layers[0].id, `Crowded ${position}`));
     }
 
-    const below = await addSequence(page, headers, lower.id, 'Below the fold');
-
-    await createEdge(page, headers, project.id, crowd[0].id, below.id);
-
-    return { projectId: project.id, crowd, below };
+    return { projectId: project.id, crowd };
 };
 
 /** Opens a seeded project and waits for its canvas to actually be on screen. */
@@ -335,12 +271,9 @@ module.exports = {
     attachDiagnostics,
     addTodo,
     seedPlan,
-    seedConnectedPlan,
+    seedLayeredPlan,
     seedCrowdedPlan,
     openProject,
     dragOnto,
-    expectDrawnEdge,
     newCredentials,
-    pointsIn,
-    MIN_EDGE_SPAN_PX,
 };

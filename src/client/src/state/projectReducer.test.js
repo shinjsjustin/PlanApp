@@ -15,8 +15,6 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
-    noticeCleared,
-    noticeRaised,
     rolledBack,
 } from './projectActions';
 
@@ -29,7 +27,6 @@ const GRAPH = {
     sequences: [
         { id: 100, projectId: 1, layerId: 10, title: 'Learn aerodynamics', isBlocked: false, position: 0 },
     ],
-    edges: [{ id: 500, projectId: 1, parentId: 100, childId: 101 }],
     todos: [
         { id: 1000, projectId: 1, sequenceId: 100, text: 'Read about lift', status: 'incomplete', position: 0 },
     ],
@@ -62,8 +59,20 @@ describe('projectReducer', () => {
                 layers: {},
                 sequences: {},
                 todos: {},
-                edges: {},
             });
+        });
+
+        test('the graph is layers, sequences and to-dos, and nothing else', () => {
+            // Act
+            const snapshot = snapshotOf(loadedState());
+
+            // Assert
+            expect(Object.keys(snapshot)).toEqual([
+                'project',
+                'layers',
+                'sequences',
+                'todos',
+            ]);
         });
 
         test('loadStarted moves to loading and clears a previous failure', () => {
@@ -86,7 +95,6 @@ describe('projectReducer', () => {
             expect(next.project).toEqual(GRAPH.project);
             expect(next.layers).toEqual({ 10: GRAPH.layers[0], 20: GRAPH.layers[1] });
             expect(next.sequences).toEqual({ 100: GRAPH.sequences[0] });
-            expect(next.edges).toEqual({ 500: GRAPH.edges[0] });
             expect(next.todos).toEqual({ 1000: GRAPH.todos[0] });
         });
 
@@ -278,7 +286,6 @@ describe('projectReducer', () => {
             expect(next.sequences).toEqual(loaded.sequences);
             expect(next.layers).toEqual(loaded.layers);
             expect(next.todos).toEqual(loaded.todos);
-            expect(next.edges).toEqual(loaded.edges);
             expect(next.project).toEqual(loaded.project);
             expect(next.actionError).toBe('Something went wrong. Please try again.');
         });
@@ -345,40 +352,21 @@ describe('projectReducer', () => {
                 projectReducer(initialProjectState, entityAdded('widgets', { id: 1 }))
             ).toThrow(/widgets/);
         });
-    });
-});
 
-describe('the notice channel', () => {
-    test('raises a notice', () => {
-        // Arrange & Act
-        const after = projectReducer(initialProjectState, noticeRaised('2 connections were removed.'));
+        // The notice channel had one producer — the connections a sequence move
+        // cost — and it went with them. A dispatch of one now is a bug, and
+        // reports itself as one rather than setting a field nothing renders.
+        test('throws on a notice action, which is no longer a channel', () => {
+            expect(() =>
+                projectReducer(initialProjectState, { type: 'noticeRaised', message: 'Hi.' })
+            ).toThrow(/noticeRaised/);
+        });
 
-        // Assert
-        expect(after.notice).toBe('2 connections were removed.');
-    });
-
-    test('clears a notice', () => {
-        // Arrange
-        const raised = projectReducer(initialProjectState, noticeRaised('Something happened.'));
-
-        // Act
-        const after = projectReducer(raised, noticeCleared());
-
-        // Assert
-        expect(after.notice).toBeNull();
-    });
-
-    test('drops a standing notice when a mutation rolls back', () => {
-        // Arrange — the notice describes a change that is about to be undone.
-        const raised = projectReducer(initialProjectState, noticeRaised('2 connections were removed.'));
-        const snapshot = { layers: {}, sequences: {}, todos: {}, edges: {} };
-
-        // Act
-        const after = projectReducer(raised, rolledBack(snapshot, 'Move failed.'));
-
-        // Assert — a notice claiming the edges went would be a lie once they are back.
-        expect(after.notice).toBeNull();
-        expect(after.actionError).toBe('Move failed.');
+        test('throws on edges, which are no longer a collection', () => {
+            expect(() =>
+                projectReducer(initialProjectState, entityAdded('edges', { id: 1 }))
+            ).toThrow(/edges/);
+        });
     });
 });
 

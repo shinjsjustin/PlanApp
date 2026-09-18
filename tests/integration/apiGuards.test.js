@@ -3,7 +3,6 @@
 const request = require('supertest');
 
 const app = require('../../src/server');
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -36,11 +35,6 @@ const buildGraph = async (conn) => {
     const parent = await sequencesRepo.create(conn, { layerId: upper.id, title: 'Aerodynamics' });
     const child = await sequencesRepo.create(conn, { layerId: lower.id, title: 'Rotor system' });
     const todo = await todosRepo.create(conn, { projectId: project.id, text: 'Read about lift' });
-    await edgesRepo.create(conn, {
-        projectId: project.id,
-        parentId: parent.id,
-        childId: child.id,
-    });
 
     return { ownerId, project, upper, parent, child, todo };
 };
@@ -62,19 +56,6 @@ const scopedEndpoints = (graph) => [
         'post',
         `/api/projects/${graph.project.id}/todos`,
         { text: 'Smuggled in' },
-    ],
-    [
-        'POST /api/projects/:id/edges',
-        'post',
-        `/api/projects/${graph.project.id}/edges`,
-        { parentId: graph.parent.id, childId: graph.child.id },
-    ],
-    [
-        'DELETE /api/projects/:id/edges',
-        'delete',
-        `/api/projects/${graph.project.id}/edges` +
-            `?parentId=${graph.parent.id}&childId=${graph.child.id}`,
-        undefined,
     ],
     ['PATCH /api/layers/:id', 'patch', `/api/layers/${graph.upper.id}`, { title: 'Taken' }],
     ['DELETE /api/layers/:id', 'delete', `/api/layers/${graph.upper.id}`, undefined],
@@ -185,5 +166,51 @@ describe('no resource is reachable across users', () => {
         // forbid: the owner's project is simply not in it.
         expect(response.status).toBe(200);
         expect(response.body.data.map((project) => project.id)).not.toContain(graph.project.id);
+    });
+});
+
+/**
+ * Sequences are gated by the layer they sit in, not by connections between them,
+ * so nothing in the API names a pair of sequences any more.
+ *
+ * Asserted with the owner's own token, and on the body as well as the status: a
+ * handler that refused the request would answer in the API envelope, so only the
+ * server's fallthrough body proves there is no handler at all.
+ */
+const NOT_ROUTED = { error: 'Endpoint not found' };
+
+describe('the edge endpoints are gone from the API surface', () => {
+    test('POST /api/projects/:id/edges is not routed', async () => {
+        // Arrange
+        const conn = getConn();
+        const graph = await buildGraph(conn);
+
+        // Act
+        const response = await request(app)
+            .post(`/api/projects/${graph.project.id}/edges`)
+            .set('Authorization', authHeaderFor(graph.ownerId))
+            .send({ parentId: graph.parent.id, childId: graph.child.id });
+
+        // Assert
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual(NOT_ROUTED);
+    });
+
+    test('DELETE /api/projects/:id/edges is not routed', async () => {
+        // Arrange
+        const conn = getConn();
+        const graph = await buildGraph(conn);
+
+        // Act
+        const response = await request(app)
+            .delete(
+                `/api/projects/${graph.project.id}/edges` +
+                    `?parentId=${graph.parent.id}&childId=${graph.child.id}`
+            )
+            .set('Authorization', authHeaderFor(graph.ownerId));
+
+        // Assert
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual(NOT_ROUTED);
     });
 });

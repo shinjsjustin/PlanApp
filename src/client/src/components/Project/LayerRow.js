@@ -17,9 +17,9 @@ import { useActiveDragSequence } from '../../state/DragContext';
 //
 // The row is a flex row and its cards are spaced with `justify-content`; nothing
 // is positioned absolutely, so expanding a card simply grows the row. The gutter
-// is a real column, rendered whether or not it holds a button, because phase 7
-// routes skip-edges down it — the add-sequence button pins to the right of the
-// row with `margin-left: auto`. The add-layer button is not in that column at
+// is a real column, the same width on every row, so the add-sequence button
+// pinned to the right of the row with `margin-left: auto` holds its place as
+// rows grow and cards expand. The add-layer button is not in that column at
 // all: it is the full-width divider below the row, shaped like the band it
 // creates rather than like the card the other button creates.
 //

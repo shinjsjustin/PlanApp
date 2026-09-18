@@ -27,7 +27,6 @@ export const GRAPH = {
         { id: 101, projectId: 1, layerId: 10, title: 'Learn electronics', description: null, isBlocked: false, position: 1 },
         { id: 200, projectId: 1, layerId: 20, title: 'Design rotor system', description: null, isBlocked: false, position: 0 },
     ],
-    edges: [{ id: 500, projectId: 1, parentId: 100, childId: 200 }],
     todos: [
         { id: 1000, projectId: 1, sequenceId: null, text: 'Loose', status: 'incomplete', position: 0 },
         { id: 1001, projectId: 1, sequenceId: 100, text: 'Read about lift', status: 'incomplete', position: 0 },
@@ -38,30 +37,21 @@ export const GRAPH = {
  * Renders the verbs over a real `useProjectGraph`, so each test asserts both the
  * request that went out and the graph the canvas is left showing — rather than
  * that one function called another.
- *
- * `raiseNotice` is the one piece of context swapped for a spy: it is a
- * `useCallback` with no dependencies, so the real one is the same function
- * reference for the life of the hook and can never be intercepted after the
- * fact from a `graph` object read back post-render. Standing a `jest.fn()` in
- * its place — declared once outside the wrapper, so it stays stable across
- * every re-render — lets a test assert who was told what, the same way the
- * suites already assert on `api.post`/`patch`/`put`/`delete`.
  */
 export const renderMutations = async () => {
     api.get.mockResolvedValue(GRAPH);
 
-    const raiseNotice = jest.fn();
     let graph;
     const wrapper = ({ children }) => {
         graph = useProjectGraph(1);
 
-        return <ProjectProvider value={{ ...graph, raiseNotice }}>{children}</ProjectProvider>;
+        return <ProjectProvider value={graph}>{children}</ProjectProvider>;
     };
 
     const rendered = renderHook(() => useProjectMutations(), { wrapper });
     await waitFor(() => expect(graph.state.status).toBe(PROJECT_STATUS.ready));
 
-    return { ...rendered, stateOf: () => graph.state, raiseNotice };
+    return { ...rendered, stateOf: () => graph.state };
 };
 
 export const positionsIn = (collection, predicate = () => true) =>

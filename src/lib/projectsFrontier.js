@@ -1,11 +1,11 @@
 'use strict';
 
-const edgesRepo = require('../db/repositories/edgesRepo');
+const layersRepo = require('../db/repositories/layersRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
 const { SEQUENCE_STATUS, readyFrontier, sequenceStatus } = require('./frontier');
-const { toEdge, toFrontierEntry, toProject, toSequence, toTodo } = require('./serializers');
+const { toFrontierEntry, toLayer, toProject, toSequence, toTodo } = require('./serializers');
 
 /**
  * The project payload the home page reads (spec sections 4.4 and 4.8): a project
@@ -13,7 +13,7 @@ const { toEdge, toFrontierEntry, toProject, toSequence, toTodo } = require('./se
  *
  * `listProjectsWithFrontier` answers `GET /api/projects` in four queries,
  * whatever the number of projects. Each one covers the owner's whole collection
- * — all their sequences, all their edges, all their to-dos — and the grouping
+ * — all their layers, all their sequences, all their to-dos — and the grouping
  * happens here in memory. The obvious shape, a frontier query per project or per
  * sequence, is exactly the N+1 this exists to avoid;
  * `tests/integration/projectsFrontierRoute.test.js` counts the statements a
@@ -50,17 +50,17 @@ const groupByProject = (rows, projectIds) => {
  *   - `sequenceCount === 0` — nothing has been planned yet.
  *   - `sequenceCount > 0` and `blockedSequenceCount === 0` — every sequence is
  *     complete.
- *   - `blockedSequenceCount > 0` — something is left, but it is blocked, or
- *     waiting behind something that is.
+ *   - `blockedSequenceCount > 0` — something is left, but every layer with work
+ *     outstanding leads with a blocked sequence.
  * `sequenceCount` is the total regardless of status; `blockedSequenceCount` is
  * how many of those are blocked by hand, which is what separates the second
  * case from the third.
  */
-const attachFrontiers = (projects, { sequences, edges, todos }) => {
+const attachFrontiers = (projects, { layers, sequences, todos }) => {
     const projectIds = projects.map((project) => project.id);
 
+    const layersByProject = groupByProject(layers, projectIds);
     const sequencesByProject = groupByProject(sequences, projectIds);
-    const edgesByProject = groupByProject(edges, projectIds);
     const todosByProject = groupByProject(todos, projectIds);
 
     return projects.map((project) => {
@@ -74,8 +74,8 @@ const attachFrontiers = (projects, { sequences, edges, todos }) => {
                 (sequence) => sequenceStatus(sequence, ownTodos) === SEQUENCE_STATUS.blocked
             ).length,
             frontier: readyFrontier({
+                layers: layersByProject.get(project.id),
                 sequences: own,
-                edges: edgesByProject.get(project.id),
                 todos: ownTodos,
             }).map((entry) => toFrontierEntry(entry, ownTodos)),
         };
@@ -84,13 +84,13 @@ const attachFrontiers = (projects, { sequences, edges, todos }) => {
 
 const listProjectsWithFrontier = async (conn, ownerId) => {
     const projectRows = await projectsRepo.listByOwnerWithCounts(conn, ownerId);
+    const layerRows = await layersRepo.listByOwner(conn, ownerId);
     const sequenceRows = await sequencesRepo.listByOwner(conn, ownerId);
-    const edgeRows = await edgesRepo.listByOwner(conn, ownerId);
     const todoRows = await todosRepo.listByOwner(conn, ownerId);
 
     return attachFrontiers(projectRows.map(toProject), {
+        layers: layerRows.map(toLayer),
         sequences: sequenceRows.map(toSequence),
-        edges: edgeRows.map(toEdge),
         todos: todoRows.map(toTodo),
     });
 };
@@ -100,13 +100,13 @@ const findProjectWithFrontier = async (conn, id) => {
     const projectRow = await projectsRepo.findByIdWithCounts(conn, id);
     if (!projectRow) return null;
 
+    const layerRows = await layersRepo.listByProject(conn, id);
     const sequenceRows = await sequencesRepo.listByProject(conn, id);
-    const edgeRows = await edgesRepo.listByProject(conn, id);
     const todoRows = await todosRepo.listByProject(conn, id);
 
     const [project] = attachFrontiers([toProject(projectRow)], {
+        layers: layerRows.map(toLayer),
         sequences: sequenceRows.map(toSequence),
-        edges: edgeRows.map(toEdge),
         todos: todoRows.map(toTodo),
     });
 

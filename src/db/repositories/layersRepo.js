@@ -36,6 +36,25 @@ const listByProject = async (conn, projectId) => {
     return rows;
 };
 
+/**
+ * Every layer belonging to a user, across all their projects — the batched input
+ * to the ready frontier on the projects home page (spec section 4.4). One query
+ * for the whole page rather than one per project, ordered so each project's
+ * layers arrive top to bottom.
+ */
+const listByOwner = async (conn, ownerId) => {
+    const [rows] = await conn.execute(
+        `SELECT l.id, l.project_id, l.title, l.position, l.created_at, l.updated_at
+         FROM layers l
+         JOIN projects p ON p.id = l.project_id
+         WHERE p.owner_id = ?
+         ORDER BY l.project_id, l.position, l.id`,
+        [ownerId]
+    );
+
+    return rows;
+};
+
 /** The project's layer ids in display order — the input to the position helpers. */
 const listIds = async (conn, projectId) => {
     const layers = await listByProject(conn, projectId);
@@ -131,4 +150,4 @@ const remove = async (conn, id) => {
     return true;
 };
 
-module.exports = { create, findById, listByProject, listIds, update, remove };
+module.exports = { create, findById, listByOwner, listByProject, listIds, update, remove };

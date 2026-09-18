@@ -1,6 +1,5 @@
 'use strict';
 
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const todosRepo = require('../../src/db/repositories/todosRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
@@ -12,8 +11,7 @@ const getConn = useTransaction();
 /**
  * The referential rules from spec section 4.2, asserted against the real schema
  * rather than against repository logic: a to-do outlives the sequence it was
- * filed in, a project takes every child row with it, and a pair of sequences can
- * only be connected once.
+ * filed in, and a project takes every child row with it.
  */
 
 const createFixture = async (conn) => {
@@ -87,12 +85,7 @@ describe('deleting a project', () => {
     test('cascades to every child table', async () => {
         // Arrange
         const conn = getConn();
-        const { project, parent, child } = await createFixture(conn);
-        await edgesRepo.create(conn, {
-            projectId: project.id,
-            parentId: parent.id,
-            childId: child.id,
-        });
+        const { project, parent } = await createFixture(conn);
         await todosRepo.create(conn, { projectId: project.id, text: 'Loose' });
         await todosRepo.create(conn, {
             projectId: project.id,
@@ -108,7 +101,6 @@ describe('deleting a project', () => {
         expect(await countIn(conn, 'layers', project.id)).toBe(0);
         expect(await countIn(conn, 'sequences', project.id)).toBe(0);
         expect(await countIn(conn, 'todos', project.id)).toBe(0);
-        expect(await countIn(conn, 'sequence_edges', project.id)).toBe(0);
     });
 
     test('leaves other projects untouched', async () => {
@@ -125,22 +117,5 @@ describe('deleting a project', () => {
         expect(await countIn(conn, 'layers', survivor.project.id)).toBe(2);
         expect(await countIn(conn, 'sequences', survivor.project.id)).toBe(2);
         expect(await countIn(conn, 'todos', survivor.project.id)).toBe(1);
-    });
-});
-
-describe('sequence_edges uniqueness', () => {
-    test('the database rejects a duplicate (parent_id, child_id) pair', async () => {
-        // Arrange
-        const conn = getConn();
-        const { project, parent, child } = await createFixture(conn);
-        const insert =
-            'INSERT INTO sequence_edges (project_id, parent_id, child_id) VALUES (?, ?, ?)';
-        await conn.execute(insert, [project.id, parent.id, child.id]);
-
-        // Act + Assert — asserted through raw SQL so this covers the constraint
-        // itself, not the repository's handling of it.
-        await expect(
-            conn.execute(insert, [project.id, parent.id, child.id])
-        ).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
     });
 });
