@@ -188,7 +188,7 @@ It is always OK to stop and say the task is too hard. Bad work is worse than no 
 
 ## 2. T1 — Pin persistence: schema, repository, serializers
 
-**Depends on:** W0 · **Gate:** `npm test -- --runInBand`
+**Depends on:** W0 · **Gate:** `DB_NAME=planapp_test npm test -- --runInBand`
 
 ```text
 ## Task T1: Persist the pin flag
@@ -246,7 +246,7 @@ No HTTP route changes in this task.
 
 ### Gate
 
-npm test -- --runInBand
+DB_NAME=planapp_test npm test -- --runInBand
 
 Paste the real output. Then commit with a `feat:` message.
 ```
@@ -255,7 +255,7 @@ Paste the real output. Then commit with a `feat:` message.
 
 ## 3. T2 — Atomic bulk pin endpoint
 
-**Depends on:** T1 · **Gate:** `npm test -- --runInBand`
+**Depends on:** T1 · **Gate:** `DB_NAME=planapp_test npm test -- --runInBand`
 
 ```text
 ## Task T2: PUT /api/projects/:id/todos/pins
@@ -311,7 +311,7 @@ src/routes/projects.js.
 
 ### Gate
 
-npm test -- --runInBand
+DB_NAME=planapp_test npm test -- --runInBand
 
 Paste the real output. Then commit with a `feat:` message.
 ```
@@ -320,7 +320,7 @@ Paste the real output. Then commit with a `feat:` message.
 
 ## 4. T3 — Pinned project payloads, calendar `isPinned`, server frontier removal
 
-**Depends on:** T2 · **Gate:** `npm test -- --runInBand`
+**Depends on:** T2 · **Gate:** `DB_NAME=planapp_test npm test -- --runInBand`
 
 ```text
 ## Task T3: Replace frontier project payloads with pinnedTodos
@@ -370,7 +370,7 @@ Paste the real output. Then commit with a `feat:` message.
 
 ### Gate
 
-npm test -- --runInBand
+DB_NAME=planapp_test npm test -- --runInBand
 rg -n "frontier" src tests    # must return no live server references
 
 Paste the real output. Then commit — a `feat:` for the payload and a `refactor:` for the removal.
@@ -882,7 +882,7 @@ Confirm the frozen names are used consistently and nothing drifted to a variant 
 
 ### Gates — run in this order so failures stay attributable
 
-npm test -- --runInBand
+DB_NAME=planapp_test npm test -- --runInBand
 CI=true npm test --prefix src/client -- --runInBand
 npm run build --prefix src/client
 DB_NAME=planapp_test npm run test:e2e
