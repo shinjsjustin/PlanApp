@@ -455,13 +455,20 @@ describe('todosRepo', () => {
             });
             await todosRepo.setPinned(conn, [firstTodo.id], true);
 
+            // Both statement paths are counted: an N+1 built on `query` would be
+            // invisible to a spy that only watched `execute`.
             const countQueries = async () => {
-                const spy = jest.spyOn(conn, 'execute');
+                const executeSpy = jest.spyOn(conn, 'execute');
+                const querySpy = jest.spyOn(conn, 'query');
                 try {
                     const rows = await todosRepo.listPinnedByOwner(conn, ownerId);
-                    return { rows, count: spy.mock.calls.length };
+                    return {
+                        rows,
+                        count: executeSpy.mock.calls.length + querySpy.mock.calls.length,
+                    };
                 } finally {
-                    spy.mockRestore();
+                    executeSpy.mockRestore();
+                    querySpy.mockRestore();
                 }
             };
 
