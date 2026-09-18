@@ -61,7 +61,7 @@ Change the shared client/server frontier and the projects-home data loader. Pres
 - [x] Change `activeSequenceId` to accept `{ layers, sequences, todos }`, derive candidates from the new frontier, ignore frontier entries with `nextTodo === null`, and choose the earliest startable sequence by layer position then sequence position. Update focused client tests, including the case where a blocked first sequence prevents a later sequence in that same layer from receiving the spotlight.
 - [x] Add `layersRepo.listByOwner`, ordered by project and layer position, with owner-isolation integration coverage. Update `projectsFrontier` to fetch, serialize, group, and pass layers instead of edges for both list and single-project payloads.
 - [x] Update `projectsFrontierRoute` integration coverage to the new semantics. The representative three-layer project should surface the first unfinished sequence from every applicable layer (three lines in the current drone fixture), a blocked first sequence should suppress only its own layer, and the one-project/five-project statement count must remain equal.
-- [ ] Run the focused client frontier tests and `DB_NAME=planapp_test npm test -- --runInBand tests/unit/frontier.test.js tests/integration/layersRepo.test.js tests/integration/projectsFrontierRoute.test.js`, then commit this task.
+- [x] Run the focused client frontier tests and `DB_NAME=planapp_test npm test -- --runInBand tests/unit/frontier.test.js tests/integration/layersRepo.test.js tests/integration/projectsFrontierRoute.test.js`, then commit this task.
 
 ### Acceptance checks
 
