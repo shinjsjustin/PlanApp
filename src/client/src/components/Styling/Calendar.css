@@ -349,6 +349,12 @@
     background: var(--color-warning-light);
 }
 
+/* The whole plane tints, like a day column does for a booking — it says "this
+ * day's notes" without pretending to know the minute or the lane. */
+.note-plane-drop--over {
+    background: var(--color-warning-light);
+}
+
 /* ─── The 24-hour grid ───────────────────────────────────────────────────── */
 
 /* Decorative and absolutely-positioned-over: the height is set inline from

@@ -1,6 +1,8 @@
 import {
+    DRAG_KIND,
     dragKindOf,
     minutesAtRect,
+    noteMoveFor,
     previewFor,
     withStableTempDays,
 } from './CalendarDragArea';
@@ -126,5 +128,46 @@ describe('withStableTempDays', () => {
 
         // Act + Assert
         expect(withStableTempDays(null, next)).toBe(next);
+    });
+});
+
+describe('dragKindOf', () => {
+    test('reads a note drag', () => {
+        // Act & Assert
+        expect(dragKindOf({ noteId: 5 })).toBe(DRAG_KIND.note);
+    });
+
+    test('still tells a pool row from a booking', () => {
+        // Act & Assert
+        expect(dragKindOf({ poolTodo: { todoId: 1 } })).toBe(DRAG_KIND.pool);
+        expect(dragKindOf({ bookingTodoId: 1 })).toBe(DRAG_KIND.booking);
+    });
+
+    test('is null for a drag it does not recognise', () => {
+        // Act & Assert
+        expect(dragKindOf({})).toBeNull();
+    });
+});
+
+describe('noteMoveFor', () => {
+    const note = { id: 5, dayId: 1, text: 'on call', startMinutes: 540, durationMinutes: 60 };
+
+    test('names the day and the minute the ribbon landed on', () => {
+        // Act
+        const move = noteMoveFor(note, { dayId: 2, startMinutes: 600 });
+
+        // Assert
+        expect(move).toEqual({ dayId: 2, startMinutes: 600 });
+    });
+
+    test('is null when nothing would change', () => {
+        // Arrange — dropped exactly where it started; no request is worth sending
+        // Act & Assert
+        expect(noteMoveFor(note, { dayId: 1, startMinutes: 540 })).toBeNull();
+    });
+
+    test('is null when the note would run past midnight', () => {
+        // Act & Assert
+        expect(noteMoveFor(note, { dayId: 1, startMinutes: 1410 })).toBeNull();
     });
 });
