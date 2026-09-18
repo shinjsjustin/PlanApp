@@ -233,7 +233,7 @@ Remove obsolete edge/connect browser scenarios, preserve non-edge interaction co
 - [x] Simplify E2E seeding: remove edge path parsing/assertion helpers and edge API calls; rename `seedConnectedPlan` to a neutral layered-plan helper; make crowded-plan setup only seed what horizontal-scroll coverage needs.
 - [x] Remove connect-mode, persisted-line, line-clipping, connector keyboard, and connection-removal-notice E2E steps. Keep and adapt project creation, todos, folding, sequence dragging (open and folded), nested drag collision partitioning, keyboard todo drag/reorder, and crowded-row scrolling.
 - [x] Update frontier E2E expectations to layer independence: after the parent is reopened, both the parent's layer and the child's layer may contribute a frontier line. Add an explicit assertion that the simplified project page has no connect controls, connector dots, or edge SVG.
-- [ ] Run scoped stale-reference searches and remove or justify every hit. The only intentional `sequence_edges` hits are the two schema upgrade/teardown drops; calendar resize-edge terminology and `useResizeEdge` are unrelated and stay.
+- [x] Run scoped stale-reference searches and remove or justify every hit. The only intentional `sequence_edges` hits are the two schema upgrade/teardown drops; calendar resize-edge terminology and `useResizeEdge` are unrelated and stay.
 - [ ] Run final validation in order: `DB_NAME=planapp_test npm test -- --runInBand`, `npm run test:client`, `npm run build --prefix src/client`, and `npm run test:e2e`. Fix regressions within scope, rerun the failed command, and commit the completed sweep.
 
 ### Required searches

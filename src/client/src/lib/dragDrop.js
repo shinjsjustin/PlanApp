@@ -21,8 +21,6 @@
 //
 //   - A sequence may be dropped into any layer of its project, including its
 //     own, where the drop is a reorder.
-//   - Edges the move invalidates are not a reason to refuse it. They are dropped
-//     with the move, and the cascade reports how many.
 
 import { sortByPosition } from './graph';
 
@@ -146,9 +144,8 @@ export const resolveTodoPlacement = ({ activeTodo, target, todos }) => {
  * `PUT /api/sequences/:id/move` takes, or null when it asks for nothing.
  *
  * Unlike a to-do, a sequence has no eligibility rule to check: every layer will
- * take every sequence. What a cross-layer move costs is edges, and that is
- * settled after the drop by `cascadeSequenceMove` rather than refused before it
- * (spec decision 2).
+ * take every sequence, so the only drop this refuses is one that asks for no
+ * move at all.
  *
  * `sequences` is the project's sequences as a plain array — the same shape the
  * graph hands out. Null rather than a throw, because a card let go where it
