@@ -609,6 +609,71 @@ button.note-ribbon-body:hover .note-ribbon-text {
     background: none;
 }
 
+/* Floats over the column it belongs to, wide enough for a real sentence — which
+ * is the whole reason it exists rather than an input inside the ribbon. */
+.note-popover {
+    position: absolute;
+    /* Positioned against `.day-grid`, so it clears the hour gutter and floats
+     * over both planes. `top` is set inline from the note it belongs to. */
+    left: var(--cal-gutter-width);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    width: 240px;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-alt);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-lg);
+}
+
+.note-popover-range {
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+}
+
+.note-popover-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.note-popover-label {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+.note-popover-field input {
+    width: 100%;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    color: inherit;
+    font-size: var(--font-base);
+}
+
+.note-popover-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+}
+
+.note-popover-save {
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent);
+    color: var(--text-white);
+}
+
+.note-popover-delete {
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-danger);
+}
+
 /* ─── The pool ───────────────────────────────────────────────────────────── */
 
 .pool-loading,
