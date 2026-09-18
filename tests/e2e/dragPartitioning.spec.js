@@ -9,7 +9,7 @@ const {
     dragOnto,
     newCredentials,
     openProject,
-    seedConnectedPlan,
+    seedLayeredPlan,
     seedPlan,
 } = require('./helpers');
 
@@ -32,9 +32,9 @@ const {
 const CIRCUIT = {
     topLayer: 'Foundations',
     bottomLayer: 'Design',
-    parent: 'Learn electronics',
-    child: 'Build a circuit',
-    childTodos: ['Read up on lift', 'Etch the board'],
+    top: 'Learn electronics',
+    bottom: 'Build a circuit',
+    bottomTodos: ['Read up on lift', 'Etch the board'],
 };
 
 const LOOSE_TODO = 'Solder the joints';
@@ -60,36 +60,36 @@ test.describe('a drag let go over the other drag’s droppable', () => {
     test('files a sequence dropped on a to-do inside another card into that card’s layer', async ({
         page,
     }) => {
-        const { projectId, headers, child } = await seedConnectedPlan(
+        const { projectId, headers, bottom } = await seedLayeredPlan(
             page,
             sequenceOntoTodoCredentials,
             {
                 projectTitle: 'Circuit design',
                 topLayerTitle: CIRCUIT.topLayer,
                 bottomLayerTitle: CIRCUIT.bottomLayer,
-                parentTitle: CIRCUIT.parent,
-                childTitle: CIRCUIT.child,
+                topTitle: CIRCUIT.top,
+                bottomTitle: CIRCUIT.bottom,
             }
         );
 
         // A card arrives expanded, so its to-do rows are on screen and in the
         // way by default — this is the ordinary state of a used canvas, not a
         // contrived one.
-        for (const text of CIRCUIT.childTodos) {
+        for (const text of CIRCUIT.bottomTodos) {
             // eslint-disable-next-line no-await-in-loop
-            await addTodo(page, headers, projectId, text, child.id);
+            await addTodo(page, headers, projectId, text, bottom.id);
         }
 
         await openProject(page, projectId);
 
         const targetLayer = page.getByRole('region', { name: CIRCUIT.bottomLayer });
-        const childCard = sequenceCard(page, CIRCUIT.child);
-        const todoRow = childCard.locator('.todo-item').first();
+        const bottomCard = sequenceCard(page, CIRCUIT.bottom);
+        const todoRow = bottomCard.locator('.todo-item').first();
 
         await expect(todoRow).toBeVisible();
 
-        const grip = sequenceCard(page, CIRCUIT.parent).getByRole('button', {
-            name: `Move ${CIRCUIT.parent} to another layer`,
+        const grip = sequenceCard(page, CIRCUIT.top).getByRole('button', {
+            name: `Move ${CIRCUIT.top} to another layer`,
         });
 
         // Straight onto a to-do row nested inside the target card: the smallest
@@ -99,20 +99,13 @@ test.describe('a drag let go over the other drag’s droppable', () => {
         // The drop resolves to the card the row is in, and a card dropped on a
         // card takes its place (spec section 9) — so the moved sequence is now
         // first in the bottom layer, ahead of the card it was aimed at.
-        const moved = targetLayer.locator(`li[data-sequence-title="${CIRCUIT.parent}"]`);
+        const moved = targetLayer.locator(`li[data-sequence-title="${CIRCUIT.top}"]`);
 
         await expect(moved).toBeVisible();
         await expect(targetLayer.locator('li[data-sequence-title]').first()).toHaveAttribute(
             'data-sequence-title',
-            CIRCUIT.parent
+            CIRCUIT.top
         );
-
-        // The parent came down into its own child's layer, so the edge between
-        // them no longer points downward and is gone, with the notice saying so.
-        await expect(page.locator('.project-toast--notice')).toContainText(
-            '1 connection was removed'
-        );
-        await expect(page.locator('svg.edge-layer path.edge')).toHaveCount(0);
     });
 
     test('files a to-do dropped on a sequence card’s header into that card', async ({ page }) => {

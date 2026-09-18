@@ -3,15 +3,15 @@
 const { test, expect } = require('@playwright/test');
 
 const { deleteUserByEmail } = require('./database');
-const { attachDiagnostics, expectDrawnEdge, newCredentials, seedPlan } = require('./helpers');
+const { attachDiagnostics, newCredentials, seedPlan } = require('./helpers');
 
-// The three gestures that would otherwise need a pointer, done with keys only
-// (spec section 4.7).
+// The gestures that would otherwise need a pointer, done with keys only (spec
+// section 4.7).
 //
 // Not a second pass over the critical flow: the graph here is seeded through the
-// API, and only the gestures are performed. Two of the three are a form and a
-// pair of buttons, and would be hard to get wrong — but the third is a drag, and
-// a drag is exactly the interaction that ends up mouse-only without anyone
+// API, and only the gestures are performed. The composer and the fold toggle are
+// a form and a button, and would be hard to get wrong — but the rest is a drag,
+// and a drag is exactly the interaction that ends up mouse-only without anyone
 // noticing. `@dnd-kit`'s keyboard sensor steps between droppables by comparing
 // their measured rectangles, so whether it can carry a to-do out of the panel
 // and into a card is a question only a real browser can answer.
@@ -49,9 +49,7 @@ test.afterAll(async () => {
     await deleteUserByEmail(credentials.email);
 });
 
-test('the composer, the drag and the connect gesture all work without a mouse', async ({
-    page,
-}) => {
+test('the composer, the fold toggle and the drags all work without a mouse', async ({ page }) => {
     const { projectId, parent, child } = await seedPlan(page, credentials, PLAN.project);
 
     await page.goto(`/projects/${projectId}`);
@@ -70,7 +68,7 @@ test('the composer, the drag and the connect gesture all work without a mouse', 
         await expect(composer).toBeFocused();
     });
 
-    await test.step('cards fold and unfold from the keyboard, and their dots are reachable', async () => {
+    await test.step('cards fold and unfold from the keyboard', async () => {
         // Both, because a card only offers its drop target while it is open —
         // and the drag below is only a real choice if there are two to choose
         // between. Cards render open, so this closes each one and opens it
@@ -91,13 +89,6 @@ test('the composer, the drag and the connect gesture all work without a mouse', 
             await expect(
                 page.getByRole('button', { name: `Collapse ${sequence.title}` })
             ).toBeVisible();
-
-            // The connector dot at the end of the card is a real button in the
-            // tab order, so it can be reached without pointing at it.
-            const dot = page.getByRole('button', { name: `Connect from ${sequence.title}` });
-
-            await expect(dot).toBeVisible();
-            await expect(dot).not.toHaveAttribute('tabindex', '-1');
         }
     });
 
@@ -170,33 +161,5 @@ test('the composer, the drag and the connect gesture all work without a mouse', 
 
         await expect(outstanding.first()).toContainText(PLAN.secondTodo);
         await expect(outstanding.last()).toContainText(PLAN.todo);
-    });
-
-    await test.step('connect mode arms and fires on Enter', async () => {
-        await page.getByRole('button', { name: `Connect from ${parent.title}` }).focus();
-        await page.keyboard.press('Enter');
-
-        const target = page.getByRole('button', { name: `Connect to ${child.title}` });
-
-        await expect(target).toBeVisible();
-        await target.focus();
-        await page.keyboard.press('Enter');
-
-        const edge = page.locator('svg.edge-layer path.edge');
-
-        await expect(edge).toHaveCount(1);
-        expectDrawnEdge(await edge.getAttribute('d'));
-    });
-
-    await test.step('Escape drops a selection rather than stranding connect mode', async () => {
-        const childCard = page.locator(`li[data-sequence-title="${child.title}"]`);
-
-        await page.getByRole('button', { name: `Connect from ${parent.title}` }).focus();
-        await page.keyboard.press('Enter');
-        await expect(childCard).toHaveAttribute('data-connect', 'eligible');
-
-        await page.keyboard.press('Escape');
-
-        await expect(childCard).not.toHaveAttribute('data-connect', 'eligible');
     });
 });
