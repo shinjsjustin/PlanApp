@@ -5697,10 +5697,14 @@ Update the component's header comment — after the paragraph about the inner sc
 In `src/client/src/components/Styling/Calendar.css`, add to the `.calendar-page` token block:
 
 ```css
-    /* The column splits in half after the gutter: notes left, to-dos right
-     * (design 2026-09-16, section 8.1). One number, used by both halves, so they
-     * cannot disagree about where the boundary is. */
-    --cal-note-plane-width: 50%;
+    /* Where the column splits after the gutter: notes left, to-dos right
+     * (design 2026-09-16, section 8.1). One number, read by both halves, so they
+     * cannot disagree about where the boundary is.
+     *
+     * A bare multiplier rather than the `50%` it reads as, because `calc()`
+     * cannot multiply by a percentage: `calc(x * 50%)` is invalid and the whole
+     * declaration is dropped. */
+    --cal-note-plane-split: 0.5;
     /* The grab strips on a ribbon's ends. Same depth as a booking's, so the two
      * planes feel the same under the pointer. */
     --cal-note-edge-depth: var(--cal-resize-depth);
@@ -5720,7 +5724,7 @@ Then add a section before "The pool":
     bottom: 0;
     left: var(--cal-gutter-width);
     /* Half of what is left after the gutter, so the two planes are equal. */
-    width: calc((100% - var(--cal-gutter-width)) * 0.5);
+    width: calc((100% - var(--cal-gutter-width)) * var(--cal-note-plane-split));
     border-right: 1px dashed var(--border);
 }
 
@@ -5840,7 +5844,10 @@ Also constrain the bookings to the right half — in the existing `.day-item-car
 .day-item-card {
     position: absolute;
     /* The gutter, plus the notes plane. The to-do plane is the right half. */
-    left: calc(var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) * 0.5);
+    left: calc(
+        var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) *
+            var(--cal-note-plane-split)
+    );
     right: var(--space-xs);
     /* ...the rest unchanged... */
 }
@@ -5869,7 +5876,17 @@ INSERT INTO calendar_notes (day_id, text, start_minutes, duration_minutes) VALUE
   (<dayId>, 'kids at home',   630, 210);
 ```
 
-Expected: three ribbons in the left half, the first hard against the to-do boundary and the others stepping leftward, text reading bottom-to-top.
+**Corrected after implementation — read this before you go looking for a bug.**
+
+The rows land and `GET /api/calendar/notes?dayId=<dayId>` serves them, but **no ribbon appears at the end of this task, and none can.** Nothing in the app fetches notes yet: `CalendarPage`, `CalendarDragArea` and `DayStrip` gain `useCalendarNotes` and pass `notes` down in Task 19. Until then the plane is correctly empty, and that is the pass condition — not a defect to chase.
+
+Expected here: an empty `.note-plane` inside `.day-grid`, one per day, carrying `role="group"`, `aria-label="Notes for <day>"` and `data-day-id`, with the bookings confined to the right half and the boundary in the right place.
+
+Measured in a real browser at this commit, on a 593px-wide grid with a 48px gutter: the plane spans 61→333 — `(593 − 48) / 2 = 272` wide — and `.day-item-card` begins at exactly 333. Precisely adjacent, no overlap, no gap.
+
+Verifying the ribbons themselves needs the Task 19 wiring. Scaffolding notes into `DayColumn`'s defaults will show them early (they render in lanes 0/1/2 at `right` 0%/25%/50%, each 25% wide, text bottom-to-top), but that scaffold is a throwaway — do not commit it.
+
+**This boundary cannot be unit-tested.** jsdom's `cssstyle` discards `calc()` and `var()` outright, so `getComputedStyle(plane).width` and `getComputedStyle(card).left` both return `""` with the real sheet loaded. Two mutations — the plane spanning the whole column, and `.day-item-card`'s `left` reverting to the bare gutter — are the only ones in this plan that no unit test at any layer can kill. Task 21 owes them a Playwright assertion.
 
 - [ ] **Step 8: Commit**
 
@@ -5877,6 +5894,20 @@ Expected: three ribbons in the left half, the first hard against the to-do bound
 git add src/client/src/components/Calendar/ src/client/src/components/Styling/Calendar.css
 git commit -m "feat: draw the notes plane inside each day column"
 ```
+
+### As built
+
+Two departures from the blocks above, both deliberate. Do not revert them.
+
+**The split token was dead and is now real** (user-ruled). `--cal-note-plane-width: 50%` was declared and referenced nowhere — the plane and `.day-item-card` each hardcoded `* 0.5` — so its comment's claim that one number kept the halves from disagreeing was false, and the two could drift apart. It is now `--cal-note-plane-split: 0.5`, read by both. It has to be a bare multiplier: `calc()` cannot multiply by a percentage, so `calc(x * 50%)` is invalid and drops the declaration entirely. Shipped in `83c5b4a`; the blocks above already show the corrected form.
+
+**Step 7's expectation was wrong and is corrected in place** — see the note there. No ribbon can appear until Task 19 wires `useCalendarNotes` into the page.
+
+**Test coverage.** The plan's seven tests killed 7 of 31 mutations: the whole `DayColumn` wiring, the create surface, the drop-target registration, the draft's geometry and every CSS rule were deletable while the suite stayed green. Sixteen tests were added, taking the file to 23 and the client suite to 935. Two mutations survive and always will — see Step 7 on jsdom and `calc()`.
+
+The plan's fixture again used `id === dayId === 1`, the same trap as Task 14; one mutation was killed only by coincidence. `NotePlane.test.js` and `DayColumn.test.js` now use distinct-id factories so an id-sensitive assertion cannot collapse.
+
+**Deferred by user ruling:** `Calendar.css` reached 809 lines here, past the 800 ceiling. It is to be split by feature **after Task 17**, once the popover styles land — one clean split rather than two. Do not split it in Task 16 or 17.
 
 ---
 
