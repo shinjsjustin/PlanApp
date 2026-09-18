@@ -192,18 +192,3 @@ export const canConnect = (parent, child, layers) => {
 
     return parentPosition < childPosition;
 };
-
-/**
- * Whether a sequence is a legal target for every currently selected parent —
- * what connect mode outlines (spec section 4.7).
- *
- * Every, not any: clicking the card connects it to all of them at once, so
- * offering a card that only some could reach would promise a connection the
- * click could not deliver. With two parents in different layers, the lower one
- * is what actually constrains the answer.
- *
- * An empty selection is false throughout. Nothing is selected, so the canvas is
- * not in connect mode and no card is a target.
- */
-export const isEligibleChild = (sequence, parents, layers) =>
-    parents.length > 0 && parents.every((parent) => canConnect(parent, sequence, layers));

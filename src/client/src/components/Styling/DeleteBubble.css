@@ -22,8 +22,8 @@
     top: var(--delete-bubble-top, 0.4rem);
     right: var(--delete-bubble-right, 0.4rem);
     /* Above the overlays some hosts lay over themselves — the project card's
-     * stretched link, a sequence card's connect target — so the × keeps its own
-     * click wherever it is dropped. */
+     * stretched link, say — so the × keeps its own click wherever it is
+     * dropped. */
     z-index: 3;
     display: flex;
     align-items: center;

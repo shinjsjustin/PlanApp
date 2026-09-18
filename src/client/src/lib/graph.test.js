@@ -2,7 +2,6 @@ import {
     SEQUENCE_STATUS,
     activeSequenceId,
     canConnect,
-    isEligibleChild,
     readyFrontier,
     sequenceStatus,
     sortByPosition,
@@ -331,73 +330,6 @@ describe('sortByPosition', () => {
         // Assert
         expect(sorted).not.toBe(items);
         expect(items.map((item) => item.id)).toEqual([3, 1]);
-    });
-});
-
-describe('isEligibleChild', () => {
-    test('offers nothing while no parent is selected', () => {
-        // Arrange — an empty selection means the canvas is not in connect mode
-        // at all, so no card should be outlined as a target.
-        const child = sequence(2, DESIGN.id);
-
-        // Act & Assert
-        expect(isEligibleChild(child, [], LAYERS)).toBe(false);
-    });
-
-    test('offers a sequence in the layer below the selected parent', () => {
-        // Arrange
-        const parent = sequence(1, LEARNING.id);
-        const child = sequence(2, DESIGN.id);
-
-        // Act & Assert
-        expect(isEligibleChild(child, [parent], LAYERS)).toBe(true);
-    });
-
-    test('offers a sequence further down, past a skipped layer', () => {
-        // Arrange
-        const parent = sequence(1, LEARNING.id);
-        const child = sequence(3, BUILD.id);
-
-        // Act & Assert
-        expect(isEligibleChild(child, [parent], LAYERS)).toBe(true);
-    });
-
-    test('refuses a sequence in the same layer as the parent', () => {
-        // Arrange
-        const parent = sequence(1, LEARNING.id);
-        const sibling = sequence(2, LEARNING.id);
-
-        // Act & Assert
-        expect(isEligibleChild(sibling, [parent], LAYERS)).toBe(false);
-    });
-
-    test('refuses a sequence above the parent', () => {
-        // Arrange
-        const parent = sequence(1, DESIGN.id);
-        const above = sequence(2, LEARNING.id);
-
-        // Act & Assert
-        expect(isEligibleChild(above, [parent], LAYERS)).toBe(false);
-    });
-
-    test('refuses the selected parent itself', () => {
-        // Arrange
-        const parent = sequence(1, LEARNING.id);
-
-        // Act & Assert
-        expect(isEligibleChild(parent, [parent], LAYERS)).toBe(false);
-    });
-
-    test('offers only what is below every selected parent', () => {
-        // Arrange — two parents in different layers, the lower one at `design`.
-        // Only `build` is strictly below both.
-        const upper = sequence(1, LEARNING.id);
-        const lower = sequence(2, DESIGN.id);
-        const parents = [upper, lower];
-
-        // Act & Assert
-        expect(isEligibleChild(sequence(3, BUILD.id), parents, LAYERS)).toBe(true);
-        expect(isEligibleChild(sequence(4, DESIGN.id), parents, LAYERS)).toBe(false);
     });
 });
 

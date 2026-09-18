@@ -10,7 +10,6 @@ import { PROJECT_STATUS } from '../../state/projectReducer';
 import { ProjectProvider } from '../../state/ProjectContext';
 import '../Styling/Project.css';
 import '../Styling/SequenceCard.css';
-import '../Styling/Edges.css';
 import '../Styling/Todos.css';
 
 // One project: the layered canvas, with the unorganized panel floating over it.

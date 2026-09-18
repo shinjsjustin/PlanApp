@@ -33,9 +33,6 @@
 // of the sum are themselves open, no guard *here* can help: the `+` ran first, so
 // the check belongs upstream on the object, not on the parameter that receives
 // the total.
-//
-// Not to be confused with `lib/geometry.js`, which routes graph edges around the
-// project canvas. Different feature, different axis, no shared arithmetic.
 
 import { DAY_MINUTES, MIN_DURATION, SLOT_MINUTES, boundDuration } from './schedule';
 

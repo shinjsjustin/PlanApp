@@ -419,4 +419,17 @@ describe('SequenceCard', () => {
             expect(value.updateEntity).not.toHaveBeenCalled();
         });
     });
+
+    // A card is a card. There is nothing to connect it to, so it carries no
+    // handle to start a connection from and no slot to measure one against.
+    test('carries no connector', () => {
+        // Arrange & Act
+        const { container } = renderCard();
+
+        // Assert
+        expect(
+            screen.queryByRole('button', { name: /connect (from|to) learn aerodynamics/i })
+        ).toBeNull();
+        expect(container.querySelector('.sequence-card-connector')).toBeNull();
+    });
 });
