@@ -58,6 +58,32 @@ its complete context inline:
 This is more prompt text per dispatch. It is also the only form that is not silently order-
 dependent. The runbook's self-contained task blocks exist precisely so this is cheap.
 
+### 0.1.2 Codex cannot commit. The orchestrator commits.
+
+The Codex sandbox denies writing `.git/index.lock`:
+
+```text
+fatal: Unable to create '.../.git/index.lock': Operation not permitted
+```
+
+So a task can stage nothing and commit nothing, however its prompt is worded. T1 hit this after
+finishing its work correctly, and reported BLOCKED at the commit step.
+
+Therefore each task prompt should:
+
+- tell the subagent to leave its work uncommitted in the working tree, and NOT to attempt a commit;
+- ask it to report the files it changed and the gate output instead.
+
+The orchestrator then verifies and commits. Concretely, after each task:
+
+1. `git status --short` — confirm ONLY the task's owned files changed.
+2. Re-run the task's gate independently. Never trust the pasted counts.
+3. Read the diff of the source files.
+4. Commit with the `<type>: <description>` convention and the `Co-Authored-By` trailer.
+
+This is not a workaround to remove later. Verifying before committing is the orchestrator's job
+in this runbook anyway; the sandbox simply enforces it.
+
 ### 0.2 Ordering rule
 
 Tasks run **strictly sequentially, one implementer at a time, on one branch.** This deviates from
