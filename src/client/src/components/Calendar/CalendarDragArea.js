@@ -13,6 +13,7 @@ import {
 import DayColumn from './DayColumn';
 import DayItemCard from './DayItemCard';
 import DayStrip from './DayStrip';
+import NoteLayer from './NoteLayer';
 import ProjectPanel from './ProjectPanel';
 import RemoveOverlay from './RemoveOverlay';
 import useDayScale from '../../hooks/useDayScale';
@@ -174,7 +175,7 @@ const useDayDroppable = (dayId, registerGrid, isDisabled) => {
     };
 };
 
-const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProject }) => {
+const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onToggleProject }) => {
     const { state, commit, unschedule, hasUnsavedDay } = useCalendarContext();
 
     const [active, setActive] = useState(null);
@@ -436,9 +437,20 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
                                 registerViewport={registerViewport}
                                 isDropDisabled={hasUnsavedDay || isTempId(day.id)}
                                 resize={resize}
+                                notes={notes}
                             />
                         )}
                     />
+
+                    {/* A failed notes read sits above the strip rather than replacing
+                        it: the days and their bookings are fine, and only the context
+                        is missing. The same shape `pool-notice` already has. */}
+                    <div className="notes-notice" role="alert" hidden={!notes.state.loadError}>
+                        <p>{notes.state.loadError}</p>
+                        <button type="button" onClick={notes.reload}>
+                            Try again
+                        </button>
+                    </div>
 
                     <ProjectPanel
                         pool={pool}
@@ -470,6 +482,7 @@ const DroppableDayColumn = ({
     registerViewport,
     isDropDisabled,
     resize,
+    notes,
 }) => {
     const droppable = useDayDroppable(day.id, registerGrid, isDropDisabled);
 
@@ -481,6 +494,16 @@ const DroppableDayColumn = ({
             onOpenSource={onOpenSource}
             droppable={droppable}
             registerViewport={registerViewport}
+            notePlane={
+                <NoteLayer
+                    dayId={day.id}
+                    label={`Notes for Day ${index + 1}`}
+                    notes={notes.notesForDay(day.id)}
+                    onCreate={notes.createNote}
+                    onUpdate={notes.updateNote}
+                    onDelete={notes.deleteNote}
+                />
+            }
             cardFor={(item) => (
                 <ResizableDayItemCard
                     key={item.todoId}

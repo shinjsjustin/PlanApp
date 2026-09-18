@@ -160,7 +160,7 @@ const reconcileSpilledDays = (schedule, optimistic, saved) => {
  * because the hook is complete without it — a calendar with no pool beside it
  * still ticks bookings off.
  */
-const useCalendar = ({ onTodoCompleted = null } = {}) => {
+const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
     const [state, rawDispatch] = useReducer(calendarReducer, initialCalendarState);
 
     // The state as the reducer has already been told to make it.
@@ -423,14 +423,26 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
      * Deletes a day. Its bookings are released rather than pushed forward — the
      * container goes, the work does not (design decision 6) — and the to-dos
      * behind them reappear in the pool.
+     *
+     * Its notes go with it and do not come back. That is the schema's
+     * `ON DELETE CASCADE` rather than anything here (design 2026-09-16, decision
+     * 9); `onDayDeleted` only lets the notes plane drop rows the server has
+     * already destroyed. On success only — a rolled-back deletion put the day
+     * back, and its notes are still in the notes hook's state ready to be drawn
+     * again.
      */
     const deleteDay = useCallback(
-        (dayId) =>
-            mutate({
+        async (dayId) => {
+            const didDelete = await mutate({
                 apply: (previous) => removeDay(previous, dayId),
                 send: () => api.delete(`/calendar/days/${dayId}`),
-            }),
-        [mutate]
+            });
+
+            if (didDelete) onDayDeleted?.(dayId);
+
+            return didDelete;
+        },
+        [mutate, onDayDeleted]
     );
 
     /** Dropping a booking on the pool's remove overlay. */

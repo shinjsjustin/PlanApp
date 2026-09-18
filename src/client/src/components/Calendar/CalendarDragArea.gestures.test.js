@@ -126,6 +126,17 @@ const POOL = {
     reload: () => {},
 };
 
+const EMPTY_NOTES = [];
+
+const NOTES = {
+    state: { loadError: null },
+    reload: () => {},
+    notesForDay: () => EMPTY_NOTES,
+    createNote: () => {},
+    updateNote: () => {},
+    deleteNote: () => {},
+};
+
 /**
  * `showState` re-renders against a different *committed* schedule without
  * disturbing a gesture in flight, which is the only way to reach what a failed
@@ -150,6 +161,7 @@ const renderArea = (state) => {
         <CalendarProvider value={contextFor(current)}>
             <CalendarDragArea
                 pool={POOL}
+                notes={NOTES}
                 onOpenSource={() => {}}
                 expandedProjectIds={new Set()}
                 onToggleProject={() => {}}

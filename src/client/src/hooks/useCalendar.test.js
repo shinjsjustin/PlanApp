@@ -571,6 +571,34 @@ describe('useCalendar loads overtaking mutations', () => {
     });
 });
 
+describe('onDayDeleted', () => {
+    test('is called after a deletion the server took', async () => {
+        // Arrange
+        const onDayDeleted = jest.fn();
+        const { result } = await renderReady({ onDayDeleted });
+        api.delete.mockResolvedValue({ id: 1 });
+
+        // Act
+        await act(() => result.current.deleteDay(1));
+
+        // Assert
+        expect(onDayDeleted).toHaveBeenCalledWith(1);
+    });
+
+    test('is not called when the deletion failed', async () => {
+        // Arrange — a rolled-back deletion put the day back, notes and all
+        const onDayDeleted = jest.fn();
+        const { result } = await renderReady({ onDayDeleted });
+        api.delete.mockRejectedValue(new Error('nope'));
+
+        // Act
+        await act(() => result.current.deleteDay(1));
+
+        // Assert
+        expect(onDayDeleted).not.toHaveBeenCalled();
+    });
+});
+
 describe('useCalendar overlapping writes', () => {
     test('keeps the later gesture when an earlier save answers after it', async () => {
         // Arrange — two gestures inside one round trip, the second computed from

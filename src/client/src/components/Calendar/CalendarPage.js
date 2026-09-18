@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import CalendarDragArea from './CalendarDragArea';
 import ProjectPanel from './ProjectPanel';
 import useCalendar from '../../hooks/useCalendar';
+import useCalendarNotes from '../../hooks/useCalendarNotes';
 import usePool from '../../hooks/usePool';
 import { CALENDAR_STATUS } from '../../state/calendarReducer';
 import { CalendarProvider } from '../../state/CalendarContext';
@@ -30,9 +31,27 @@ const CalendarPage = () => {
     // frontier has moved on, so the sequence's next step is what belongs in the
     // panel now (design section “The bubble”).
     const pool = usePool();
-    const calendar = useCalendar({ onTodoCompleted: pool.refresh });
+    const notes = useCalendarNotes();
+    const calendar = useCalendar({
+        onTodoCompleted: pool.refresh,
+        // The server has already destroyed them through the schema's cascade
+        // (design 2026-09-16, decision 9); this only drops the rows this tab is
+        // still holding. On success only, so a rolled-back deletion brings the
+        // column back with its notes intact.
+        onDayDeleted: notes.pruneDay,
+    });
 
     const { state, reload, dismissActionError } = calendar;
+
+    // One alert region for three hooks. Two live regions stacked above the strip
+    // would be noise on a page that raises an error roughly never, and the
+    // calendar's own message is the more urgent of the two when both are set.
+    const actionError = state.actionError ?? notes.state.actionError;
+
+    const dismissError = useCallback(() => {
+        if (state.actionError) dismissActionError();
+        else notes.dismissActionError();
+    }, [dismissActionError, notes, state.actionError]);
 
     // Which cards are open has to outlive the ready/error branch: the panel is
     // rendered on both sides of it, so a retry remounts it. Held here, where
@@ -83,9 +102,9 @@ const CalendarPage = () => {
                 rendered: a live region inserted into the DOM already holding its
                 message is not reliably announced; one that is already there when
                 the text changes is. */}
-            <div className="calendar-toast" role="alert" hidden={!state.actionError}>
-                <p>{state.actionError}</p>
-                <button type="button" onClick={dismissActionError} aria-label="Dismiss error">
+            <div className="calendar-toast" role="alert" hidden={!actionError}>
+                <p>{actionError}</p>
+                <button type="button" onClick={dismissError} aria-label="Dismiss error">
                     Dismiss
                 </button>
             </div>
@@ -105,6 +124,7 @@ const CalendarPage = () => {
                 <CalendarProvider value={calendar}>
                     <CalendarDragArea
                         pool={pool}
+                        notes={notes}
                         onOpenSource={openSource}
                         expandedProjectIds={expandedProjectIds}
                         onToggleProject={toggleProject}

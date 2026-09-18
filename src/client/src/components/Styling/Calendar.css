@@ -187,6 +187,7 @@
 /* The page is two columns: the day strip takes the room that is left, and the
    pool is a fixed rail. Only the strip scrolls sideways. */
 .calendar-body {
+    position: relative;
     display: flex;
     gap: var(--space-md);
     align-items: stretch;
@@ -196,6 +197,33 @@
      * instead of the column. */
     flex: 1;
     min-height: 0;
+}
+
+/* Same tie-break as `.calendar-toast[hidden]`: an author rule beats a user-agent
+ * rule at equal specificity, so without the `[hidden]` rule this paints empty. */
+.notes-notice {
+    position: absolute;
+    top: var(--space-sm);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--color-danger);
+    font-size: var(--font-sm);
+}
+
+.notes-notice[hidden] {
+    display: none;
+}
+
+.notes-notice p {
+    margin: 0;
 }
 
 .calendar-strip {
