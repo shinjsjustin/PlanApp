@@ -15,6 +15,12 @@
 --   ALTER TABLE `todos`     ADD COLUMN `completed_at` timestamp NULL DEFAULT NULL AFTER `status`;
 --   UPDATE `todos` SET `completed_at` = `updated_at` WHERE `status` = 'complete';
 --
+-- A database created before pinned to-dos is missing the pin flag and its lookup
+-- index. Add them in place rather than re-running this file:
+--   ALTER TABLE `todos`
+--     ADD COLUMN `is_pinned` tinyint(1) NOT NULL DEFAULT '0' AFTER `completed_at`,
+--     ADD KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`);
+--
 -- A database created before the calendar page is missing two tables. Add them in
 -- place rather than re-running this file: copy the two CREATE TABLE statements
 -- for `calendar_days` and `calendar_items` from the bottom of this file and run
@@ -134,11 +140,13 @@ CREATE TABLE `todos` (
   `text` varchar(500) NOT NULL,
   `status` enum('incomplete','complete','blocked') NOT NULL DEFAULT 'incomplete',
   `completed_at` timestamp NULL DEFAULT NULL,
+  `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
   `position` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_todos_project_sequence_position` (`project_id`, `sequence_id`, `position`),
+  KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`),
   KEY `idx_todos_sequence` (`sequence_id`),
   CONSTRAINT `fk_todos_project`
     FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,

@@ -39,6 +39,7 @@ describe('todosRepo', () => {
             sequence_id: null,
             text: 'Read a book',
             status: 'incomplete',
+            is_pinned: 0,
             position: 0,
         });
     });
@@ -308,6 +309,269 @@ describe('todosRepo', () => {
 
     test('reports false when deleting a to-do that does not exist', async () => {
         expect(await todosRepo.remove(getConn(), 987654321)).toBe(false);
+    });
+
+    describe('pinned to-dos', () => {
+        test('listPinnedByProject orders filed rows by layer, sequence, then to-do position', async () => {
+            // Arrange
+            const conn = getConn();
+            const ownerId = await createTestUser(conn);
+            const project = await projectsRepo.create(conn, { ownerId, title: 'Build a drone' });
+            const topLayer = await layersRepo.create(conn, {
+                projectId: project.id,
+                title: 'Learn',
+            });
+            const bottomLayer = await layersRepo.create(conn, {
+                projectId: project.id,
+                title: 'Build',
+            });
+            const firstSequence = await sequencesRepo.create(conn, {
+                layerId: topLayer.id,
+                title: 'Aerodynamics',
+            });
+            const secondSequence = await sequencesRepo.create(conn, {
+                layerId: topLayer.id,
+                title: 'Controls',
+            });
+            const lastSequence = await sequencesRepo.create(conn, {
+                layerId: bottomLayer.id,
+                title: 'Frame',
+            });
+            const first = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: firstSequence.id,
+                text: 'Read about lift',
+            });
+            const second = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: firstSequence.id,
+                text: 'Read about drag',
+            });
+            const third = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: secondSequence.id,
+                text: 'Choose a controller',
+            });
+            const fourth = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: lastSequence.id,
+                text: 'Cut the frame',
+            });
+            await todosRepo.setPinned(conn, [fourth.id, third.id, second.id, first.id], true);
+
+            // Act
+            const rows = await todosRepo.listPinnedByProject(conn, project.id);
+
+            // Assert
+            expect(idsOf(rows)).toEqual([first.id, second.id, third.id, fourth.id]);
+        });
+
+        test('listPinnedByProject places unorganized pins last', async () => {
+            // Arrange
+            const conn = getConn();
+            const { project, sequence } = await createFixture(conn);
+            const loose = await todosRepo.create(conn, {
+                projectId: project.id,
+                text: 'Buy materials',
+            });
+            const filed = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: sequence.id,
+                text: 'Draw the wing',
+            });
+            await todosRepo.setPinned(conn, [loose.id, filed.id], true);
+
+            // Act
+            const rows = await todosRepo.listPinnedByProject(conn, project.id);
+
+            // Assert
+            expect(idsOf(rows)).toEqual([filed.id, loose.id]);
+            expect(rows[1].sequence_id).toBeNull();
+        });
+
+        test('listPinnedByProject includes complete and blocked pinned to-dos', async () => {
+            // Arrange
+            const conn = getConn();
+            const { project, sequence } = await createFixture(conn);
+            const completed = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: sequence.id,
+                text: 'Finish the design',
+            });
+            const blocked = await todosRepo.create(conn, {
+                projectId: project.id,
+                sequenceId: sequence.id,
+                text: 'Order the motor',
+            });
+            await todosRepo.update(conn, completed.id, { status: 'complete' });
+            await todosRepo.update(conn, blocked.id, { status: 'blocked' });
+            await todosRepo.setPinned(conn, [completed.id, blocked.id], true);
+
+            // Act
+            const rows = await todosRepo.listPinnedByProject(conn, project.id);
+
+            // Assert
+            expect(rows.map(({ id, status }) => ({ id, status }))).toEqual([
+                { id: completed.id, status: 'complete' },
+                { id: blocked.id, status: 'blocked' },
+            ]);
+        });
+
+        test("listPinnedByOwner never returns another owner's pins", async () => {
+            // Arrange
+            const conn = getConn();
+            const ownerId = await createTestUser(conn);
+            const strangerId = await createTestUser(conn);
+            const ownProject = await projectsRepo.create(conn, { ownerId, title: 'Mine' });
+            const theirProject = await projectsRepo.create(conn, {
+                ownerId: strangerId,
+                title: 'Theirs',
+            });
+            const ownTodo = await todosRepo.create(conn, {
+                projectId: ownProject.id,
+                text: 'My pin',
+            });
+            const theirTodo = await todosRepo.create(conn, {
+                projectId: theirProject.id,
+                text: 'Their pin',
+            });
+            await todosRepo.setPinned(conn, [ownTodo.id, theirTodo.id], true);
+
+            // Act
+            const rows = await todosRepo.listPinnedByOwner(conn, ownerId);
+
+            // Assert
+            expect(idsOf(rows)).toEqual([ownTodo.id]);
+        });
+
+        test('listPinnedByOwner issues a constant number of queries as project count grows', async () => {
+            // Arrange
+            const conn = getConn();
+            const ownerId = await createTestUser(conn);
+            const firstProject = await projectsRepo.create(conn, { ownerId, title: 'Project 1' });
+            const firstTodo = await todosRepo.create(conn, {
+                projectId: firstProject.id,
+                text: 'First pin',
+            });
+            await todosRepo.setPinned(conn, [firstTodo.id], true);
+
+            const countQueries = async () => {
+                const spy = jest.spyOn(conn, 'execute');
+                try {
+                    const rows = await todosRepo.listPinnedByOwner(conn, ownerId);
+                    return { rows, count: spy.mock.calls.length };
+                } finally {
+                    spy.mockRestore();
+                }
+            };
+
+            const oneProject = await countQueries();
+
+            for (let number = 2; number <= 5; number += 1) {
+                const project = await projectsRepo.create(conn, {
+                    ownerId,
+                    title: `Project ${number}`,
+                });
+                const todo = await todosRepo.create(conn, {
+                    projectId: project.id,
+                    text: `Pin ${number}`,
+                });
+                await todosRepo.setPinned(conn, [todo.id], true);
+            }
+
+            // Act
+            const fiveProjects = await countQueries();
+
+            // Assert
+            expect(oneProject.count).toBe(1);
+            expect(fiveProjects.count).toBe(oneProject.count);
+            expect(fiveProjects.rows).toHaveLength(5);
+        });
+
+        test('setPinned updates every named id in one statement', async () => {
+            // Arrange
+            const conn = getConn();
+            const { project } = await createFixture(conn);
+            const first = await todosRepo.create(conn, { projectId: project.id, text: 'First' });
+            const second = await todosRepo.create(conn, { projectId: project.id, text: 'Second' });
+            const untouched = await todosRepo.create(conn, {
+                projectId: project.id,
+                text: 'Untouched',
+            });
+            const executeSpy = jest.spyOn(conn, 'execute');
+            const querySpy = jest.spyOn(conn, 'query');
+            let updateStatements = [];
+
+            // Act
+            try {
+                await todosRepo.setPinned(conn, [first.id, second.id], true);
+                updateStatements = [...executeSpy.mock.calls, ...querySpy.mock.calls].filter(
+                    ([sql]) => /^UPDATE todos SET is_pinned/i.test(sql)
+                );
+            } finally {
+                executeSpy.mockRestore();
+                querySpy.mockRestore();
+            }
+
+            // Assert
+            expect(updateStatements).toHaveLength(1);
+            expect(await todosRepo.findById(conn, first.id)).toMatchObject({ is_pinned: 1 });
+            expect(await todosRepo.findById(conn, second.id)).toMatchObject({ is_pinned: 1 });
+            expect(await todosRepo.findById(conn, untouched.id)).toMatchObject({ is_pinned: 0 });
+        });
+
+        test('setPinned unpins every named id', async () => {
+            // Arrange
+            const conn = getConn();
+            const { project } = await createFixture(conn);
+            const first = await todosRepo.create(conn, { projectId: project.id, text: 'First' });
+            const second = await todosRepo.create(conn, { projectId: project.id, text: 'Second' });
+            await todosRepo.setPinned(conn, [first.id, second.id], true);
+
+            // Act
+            await todosRepo.setPinned(conn, [first.id, second.id], false);
+
+            // Assert
+            expect(await todosRepo.findByIds(conn, [first.id, second.id])).toEqual([
+                expect.objectContaining({ id: first.id, is_pinned: 0 }),
+                expect.objectContaining({ id: second.id, is_pinned: 0 }),
+            ]);
+        });
+
+        test('batched operations handle an empty id list without issuing a query', async () => {
+            // Arrange
+            const conn = getConn();
+            const executeSpy = jest.spyOn(conn, 'execute');
+            const querySpy = jest.spyOn(conn, 'query');
+
+            // Act
+            const found = await todosRepo.findByIds(conn, []);
+            const updatedCount = await todosRepo.setPinned(conn, [], true);
+
+            // Assert
+            expect(found).toEqual([]);
+            expect(updatedCount).toBe(0);
+            expect(executeSpy).not.toHaveBeenCalled();
+            expect(querySpy).not.toHaveBeenCalled();
+
+            executeSpy.mockRestore();
+            querySpy.mockRestore();
+        });
+
+        test('findByIds returns only the requested rows', async () => {
+            // Arrange
+            const conn = getConn();
+            const { project } = await createFixture(conn);
+            const first = await todosRepo.create(conn, { projectId: project.id, text: 'First' });
+            await todosRepo.create(conn, { projectId: project.id, text: 'Not requested' });
+            const third = await todosRepo.create(conn, { projectId: project.id, text: 'Third' });
+
+            // Act
+            const rows = await todosRepo.findByIds(conn, [first.id, third.id]);
+
+            // Assert
+            expect(idsOf(rows)).toEqual([first.id, third.id]);
+        });
     });
 
     // -- The completion stamp ---------------------------------------------

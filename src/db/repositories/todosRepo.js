@@ -27,7 +27,17 @@ const UPDATABLE_COLUMNS = {
 };
 
 const SELECT_COLUMNS =
-    'id, project_id, sequence_id, text, status, completed_at, position, created_at, updated_at';
+    'id, project_id, sequence_id, text, status, completed_at, is_pinned, position, created_at, updated_at';
+
+const PINNED_SELECT_COLUMNS =
+    't.id, t.text, t.status, t.sequence_id, s.title AS sequence_title, t.position, t.is_pinned';
+
+const PINNED_FROM_JOINS = `FROM todos t
+    LEFT JOIN sequences s ON s.id = t.sequence_id
+    LEFT JOIN layers l ON l.id = s.layer_id`;
+
+const PINNED_ORDER =
+    't.sequence_id IS NULL, l.position, s.position, t.position, t.id';
 
 const findById = async (conn, id) => {
     const [rows] = await conn.execute(
@@ -36,6 +46,22 @@ const findById = async (conn, id) => {
     );
 
     return firstRow(rows);
+};
+
+/** Finds the named to-dos in one batched read. */
+const findByIds = async (conn, todoIds) => {
+    if (todoIds.length === 0) return [];
+
+    const placeholders = todoIds.map(() => '?').join(', ');
+    // `query` rather than `execute`: the placeholder count varies per call.
+    const [rows] = await conn.query(
+        `SELECT ${SELECT_COLUMNS} FROM todos
+         WHERE id IN (${placeholders})
+         ORDER BY id`,
+        todoIds
+    );
+
+    return rows;
 };
 
 const listByProject = async (conn, projectId) => {
@@ -66,6 +92,47 @@ const listByOwner = async (conn, ownerId) => {
     );
 
     return rows;
+};
+
+/** Every pinned to-do belonging to the owner, including unorganized rows. */
+const listPinnedByOwner = async (conn, ownerId) => {
+    const [rows] = await conn.execute(
+        `SELECT ${PINNED_SELECT_COLUMNS}
+         ${PINNED_FROM_JOINS}
+         JOIN projects p ON p.id = t.project_id
+         WHERE p.owner_id = ? AND t.is_pinned = 1
+         ORDER BY ${PINNED_ORDER}`,
+        [ownerId]
+    );
+
+    return rows;
+};
+
+/** Every pinned to-do in one project, including unorganized rows. */
+const listPinnedByProject = async (conn, projectId) => {
+    const [rows] = await conn.execute(
+        `SELECT ${PINNED_SELECT_COLUMNS}
+         ${PINNED_FROM_JOINS}
+         WHERE t.project_id = ? AND t.is_pinned = 1
+         ORDER BY ${PINNED_ORDER}`,
+        [projectId]
+    );
+
+    return rows;
+};
+
+/** Pins or unpins all named to-dos in one statement. */
+const setPinned = async (conn, todoIds, isPinned) => {
+    if (todoIds.length === 0) return 0;
+
+    const placeholders = todoIds.map(() => '?').join(', ');
+    // `query` rather than `execute`: the placeholder count varies per call.
+    const [result] = await conn.query(
+        `UPDATE todos SET is_pinned = ? WHERE id IN (${placeholders})`,
+        [Number(Boolean(isPinned)), ...todoIds]
+    );
+
+    return result.affectedRows;
 };
 
 /**
@@ -235,7 +302,10 @@ const remove = async (conn, id) => {
 module.exports = {
     create,
     findById,
+    findByIds,
     listByOwner,
+    listPinnedByOwner,
+    listPinnedByProject,
     listByProject,
     listUnorganized,
     listBySequence,
@@ -243,4 +313,5 @@ module.exports = {
     update,
     move,
     remove,
+    setPinned,
 };

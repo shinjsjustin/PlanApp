@@ -61,9 +61,21 @@ const toTodo = (row) => ({
     text: row.text,
     status: row.status,
     completedAt: row.completed_at ?? null,
+    isPinned: Boolean(row.is_pinned),
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+});
+
+/** One pinned to-do in the deliberately narrow pinned-list wire shape. */
+const toPinnedTodo = (row) => ({
+    id: row.id,
+    text: row.text,
+    status: row.status,
+    sequenceId: row.sequence_id ?? null,
+    sequenceTitle: row.sequence_title ?? null,
+    position: row.position,
+    isPinned: Boolean(row.is_pinned),
 });
 
 /**
@@ -159,6 +171,7 @@ module.exports = {
     toCalendarNote,
     toFrontierEntry,
     toLayer,
+    toPinnedTodo,
     toProject,
     toSequence,
     toTodo,
