@@ -34,6 +34,7 @@
     "testTimeout": 15000,
     "testPathIgnorePatterns": [
       "<rootDir>/tests/e2e/"
-    ]
+    ],
+    "maxWorkers": 1
   }
 }

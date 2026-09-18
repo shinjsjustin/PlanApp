@@ -11,8 +11,61 @@ jest.mock('../../lib/api');
 
 const renderPage = () => render(<CalendarPage />, { wrapper: MemoryRouter });
 
+/**
+ * `api.get` answers by path. The page loads the calendar, the pool and the notes
+ * independently, and each test wants to set them — or fail them — separately.
+ */
+let calendarAnswer = { days: [], items: [] };
+let poolAnswer = [];
+let notesAnswer = { notes: [] };
+let notesError = null;
+
+const answerWith = (answer) =>
+    answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+
+const routeGet = () => {
+    api.get.mockImplementation((path) => {
+        if (path === '/calendar/notes') {
+            return notesError ? Promise.reject(new Error(notesError)) : Promise.resolve(notesAnswer);
+        }
+
+        if (path === '/calendar') return answerWith(calendarAnswer);
+
+        return answerWith(poolAnswer);
+    });
+};
+
+const mockCalendar = (calendar) => {
+    calendarAnswer = calendar;
+};
+
+const mockCalendarFailure = (message) => {
+    calendarAnswer = new Error(message);
+};
+
+const mockPoolFailure = (message) => {
+    poolAnswer = new Error(message);
+};
+
+const mockNotes = (notes) => {
+    notesAnswer = { notes };
+    notesError = null;
+};
+
+const mockNotesFailure = (message) => {
+    notesError = message;
+};
+
+/** One day, in the shape `GET /api/calendar` answers with. */
+const day = (id) => ({ id, position: id - 1, createdAt: '2026-09-16T08:00:00.000Z' });
+
 beforeEach(() => {
     jest.clearAllMocks();
+    calendarAnswer = { days: [], items: [] };
+    poolAnswer = [];
+    notesAnswer = { notes: [] };
+    notesError = null;
+    routeGet();
 });
 
 describe('CalendarPage', () => {
@@ -25,10 +78,6 @@ describe('CalendarPage', () => {
         const unload = loadStylesheets('Calendar.css');
 
         try {
-            api.get.mockImplementation((path) =>
-                path === '/calendar' ? Promise.resolve({ days: [], items: [] }) : Promise.resolve([])
-            );
-
             // Act
             renderPage();
             await screen.findByRole('region', { name: 'Days' });
@@ -58,11 +107,7 @@ describe('CalendarPage', () => {
         // Arrange — an empty strip and a failed load must not look alike.
         // Only the calendar fails: the pool renders its own alert and retry
         // button, so a blanket reject would match both panels here.
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.reject(new Error('Could not reach the server.'))
-                : Promise.resolve([])
-        );
+        mockCalendarFailure('Could not reach the server.');
 
         // Act
         renderPage();
@@ -74,14 +119,10 @@ describe('CalendarPage', () => {
 
     test('retrying asks again', async () => {
         // Arrange — again, only the calendar fails, so one retry button exists
-        api.get.mockImplementation((path) =>
-            path === '/calendar' ? Promise.reject(new Error('Offline')) : Promise.resolve([])
-        );
+        mockCalendarFailure('Offline');
         renderPage();
         await screen.findByRole('button', { name: 'Try again' });
-        api.get.mockImplementation((path) =>
-            path === '/calendar' ? Promise.resolve({ days: [], items: [] }) : Promise.resolve([])
-        );
+        mockCalendar({ days: [], items: [] });
 
         // Act
         await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -92,10 +133,6 @@ describe('CalendarPage', () => {
 
     test('renders the two panels once loaded', async () => {
         // Arrange
-        api.get.mockImplementation((path) =>
-            path === '/calendar' ? Promise.resolve({ days: [], items: [] }) : Promise.resolve([])
-        );
-
         // Act
         renderPage();
 
@@ -124,11 +161,8 @@ describe('CalendarPage', () => {
                 ],
             },
         ];
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.reject(new Error('Could not reach the server.'))
-                : Promise.resolve(projects)
-        );
+        mockCalendarFailure('Could not reach the server.');
+        poolAnswer = projects;
 
         // Act
         const { container } = renderPage();
@@ -141,28 +175,24 @@ describe('CalendarPage', () => {
         expect(container.querySelector('.panel-todo-badge')).not.toBeInTheDocument();
 
         // Act — and a retry that succeeds restores both, without a reload.
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.resolve({
-                      days: [{ id: 1, position: 0 }],
-                      items: [
-                          {
-                              id: 40,
-                              dayId: 1,
-                              todoId: 7,
-                              text: 'Wire up the token refresh',
-                              status: 'incomplete',
-                              projectId: 2,
-                              projectTitle: 'Auth rewrite',
-                              sequenceId: 9,
-                              sequenceTitle: 'Session handling',
-                              startMinutes: 540,
-                              durationMinutes: 60,
-                          },
-                      ],
-                  })
-                : Promise.resolve(projects)
-        );
+        mockCalendar({
+            days: [{ id: 1, position: 0 }],
+            items: [
+                {
+                    id: 40,
+                    dayId: 1,
+                    todoId: 7,
+                    text: 'Wire up the token refresh',
+                    status: 'incomplete',
+                    projectId: 2,
+                    projectTitle: 'Auth rewrite',
+                    sequenceId: 9,
+                    sequenceTitle: 'Session handling',
+                    startMinutes: 540,
+                    durationMinutes: 60,
+                },
+            ],
+        });
         await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
         // Assert
@@ -189,28 +219,25 @@ describe('CalendarPage', () => {
                 ],
             },
         ];
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.resolve({
-                      days: [{ id: 1, position: 0 }],
-                      items: [
-                          {
-                              id: 40,
-                              dayId: 1,
-                              todoId: 7,
-                              text: 'Wire up the token refresh',
-                              status: 'incomplete',
-                              projectId: 2,
-                              projectTitle: 'Auth rewrite',
-                              sequenceId: 9,
-                              sequenceTitle: 'Session handling',
-                              startMinutes: 540,
-                              durationMinutes: 60,
-                          },
-                      ],
-                  })
-                : Promise.resolve(frontierOf({ id: 7, text: 'Wire up the token refresh' }))
-        );
+        mockCalendar({
+            days: [{ id: 1, position: 0 }],
+            items: [
+                {
+                    id: 40,
+                    dayId: 1,
+                    todoId: 7,
+                    text: 'Wire up the token refresh',
+                    status: 'incomplete',
+                    projectId: 2,
+                    projectTitle: 'Auth rewrite',
+                    sequenceId: 9,
+                    sequenceTitle: 'Session handling',
+                    startMinutes: 540,
+                    durationMinutes: 60,
+                },
+            ],
+        });
+        poolAnswer = frontierOf({ id: 7, text: 'Wire up the token refresh' });
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
 
         const { container } = renderPage();
@@ -218,11 +245,8 @@ describe('CalendarPage', () => {
         await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
         expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
 
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.reject(new Error('The calendar is not asked again.'))
-                : Promise.resolve(frontierOf({ id: 8, text: 'Rotate the signing keys' }))
-        );
+        mockCalendarFailure('The calendar is not asked again.');
+        poolAnswer = frontierOf({ id: 8, text: 'Rotate the signing keys' });
 
         // Act
         await userEvent.click(
@@ -243,52 +267,46 @@ describe('CalendarPage', () => {
         // Arrange — the read behind a tick is one nobody asked to wait for, so
         // losing it must not fold the panel away: the rows on screen are still
         // the last thing the server actually said.
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.resolve({
-                      days: [{ id: 1, position: 0 }],
-                      items: [
-                          {
-                              id: 40,
-                              dayId: 1,
-                              todoId: 7,
-                              text: 'Wire up the token refresh',
-                              status: 'incomplete',
-                              projectId: 2,
-                              projectTitle: 'Auth rewrite',
-                              sequenceId: 9,
-                              sequenceTitle: 'Session handling',
-                              startMinutes: 540,
-                              durationMinutes: 60,
-                          },
-                      ],
-                  })
-                : Promise.resolve([
-                      {
-                          id: 2,
-                          title: 'Auth rewrite',
-                          frontier: [
-                              {
-                                  sequenceId: 9,
-                                  sequenceTitle: 'Session handling',
-                                  isStalled: false,
-                                  nextTodo: { id: 7, text: 'Wire up the token refresh' },
-                              },
-                          ],
-                      },
-                  ])
-        );
+        mockCalendar({
+            days: [{ id: 1, position: 0 }],
+            items: [
+                {
+                    id: 40,
+                    dayId: 1,
+                    todoId: 7,
+                    text: 'Wire up the token refresh',
+                    status: 'incomplete',
+                    projectId: 2,
+                    projectTitle: 'Auth rewrite',
+                    sequenceId: 9,
+                    sequenceTitle: 'Session handling',
+                    startMinutes: 540,
+                    durationMinutes: 60,
+                },
+            ],
+        });
+        poolAnswer = [
+            {
+                id: 2,
+                title: 'Auth rewrite',
+                frontier: [
+                    {
+                        sequenceId: 9,
+                        sequenceTitle: 'Session handling',
+                        isStalled: false,
+                        nextTodo: { id: 7, text: 'Wire up the token refresh' },
+                    },
+                ],
+            },
+        ];
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
 
         const { container } = renderPage();
         await screen.findByRole('region', { name: 'Days' });
         await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
 
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.resolve({ days: [], items: [] })
-                : Promise.reject(new Error('Could not reach the server.'))
-        );
+        mockCalendar({ days: [], items: [] });
+        mockPoolFailure('Could not reach the server.');
 
         // Act
         await userEvent.click(
@@ -308,41 +326,38 @@ describe('CalendarPage', () => {
         // Arrange — the two reads behind GET /calendar are not snapshotted
         // against each other, so an item can name a day the payload does not
         // carry. The strip draws no such item; the pool must agree with it.
-        api.get.mockImplementation((path) =>
-            path === '/calendar'
-                ? Promise.resolve({
-                      days: [{ id: 1, position: 0 }],
-                      items: [
-                          {
-                              id: 40,
-                              dayId: 99,
-                              todoId: 7,
-                              text: 'Wire up the token refresh',
-                              status: 'incomplete',
-                              projectId: 2,
-                              projectTitle: 'Auth rewrite',
-                              sequenceId: 9,
-                              sequenceTitle: 'Session handling',
-                              startMinutes: 540,
-                              durationMinutes: 60,
-                          },
-                      ],
-                  })
-                : Promise.resolve([
-                      {
-                          id: 2,
-                          title: 'Auth rewrite',
-                          frontier: [
-                              {
-                                  sequenceId: 9,
-                                  sequenceTitle: 'Session handling',
-                                  isStalled: false,
-                                  nextTodo: { id: 7, text: 'Wire up the token refresh' },
-                              },
-                          ],
-                      },
-                  ])
-        );
+        mockCalendar({
+            days: [{ id: 1, position: 0 }],
+            items: [
+                {
+                    id: 40,
+                    dayId: 99,
+                    todoId: 7,
+                    text: 'Wire up the token refresh',
+                    status: 'incomplete',
+                    projectId: 2,
+                    projectTitle: 'Auth rewrite',
+                    sequenceId: 9,
+                    sequenceTitle: 'Session handling',
+                    startMinutes: 540,
+                    durationMinutes: 60,
+                },
+            ],
+        });
+        poolAnswer = [
+            {
+                id: 2,
+                title: 'Auth rewrite',
+                frontier: [
+                    {
+                        sequenceId: 9,
+                        sequenceTitle: 'Session handling',
+                        isStalled: false,
+                        nextTodo: { id: 7, text: 'Wire up the token refresh' },
+                    },
+                ],
+            },
+        ];
 
         // Act
         const { container } = renderPage();
@@ -353,5 +368,52 @@ describe('CalendarPage', () => {
         expect(screen.queryByText('Day 0')).not.toBeInTheDocument();
         expect(container.querySelector('.panel-todo-row--scheduled')).not.toBeInTheDocument();
         expect(container.querySelector('.pool-card-count')).toHaveTextContent('1');
+    });
+});
+
+describe('notes on the page', () => {
+    test('draws the notes it loaded into their day', async () => {
+        // Arrange
+        mockCalendar({ days: [day(1)], items: [] });
+        mockNotes([
+            { id: 5, dayId: 1, text: 'on call', startMinutes: 540, durationMinutes: 60 },
+        ]);
+
+        // Act
+        renderPage();
+
+        // Assert
+        expect(await screen.findByText('on call')).toBeInTheDocument();
+    });
+
+    test('reports a failed notes load without losing the calendar', async () => {
+        // Arrange
+        mockCalendar({ days: [day(1)], items: [] });
+        mockNotesFailure('the server is down');
+
+        // Act
+        renderPage();
+
+        // Assert — the day is still there, and the notice says what failed
+        expect(await screen.findByRole('region', { name: 'Day 1' })).toBeInTheDocument();
+        expect(screen.getByText(/the server is down/)).toBeInTheDocument();
+    });
+
+    test('shows a note write failure in the page toast', async () => {
+        // Arrange
+        mockCalendar({ days: [day(1)], items: [] });
+        mockNotes([
+            { id: 5, dayId: 1, text: 'on call', startMinutes: 540, durationMinutes: 60 },
+        ]);
+        api.delete.mockRejectedValue(new Error('could not delete that note'));
+
+        renderPage();
+        await userEvent.click(await screen.findByRole('button', { name: /on call/ }));
+
+        // Act
+        await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+        // Assert
+        expect(await screen.findByText('could not delete that note')).toBeInTheDocument();
     });
 });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { MIN_DURATION } from '../lib/schedule';
-import { clampDuration, pxToMinutes, snapToSlot } from '../lib/scheduleGeometry';
+import { clampDuration, snapToSlot } from '../lib/scheduleGeometry';
 
 // Dragging the top or bottom edge of a booking.
 //
@@ -76,8 +76,18 @@ export const rectFor = (item, { edge, deltaMinutes, floor }) => {
  * `onPreview(todoId, rect)` is called on every move — the caller runs the cascade
  * and renders it — and `onCommit(todoId, rect)` once on release. `onCancel` fires
  * on Escape, so a resize can be abandoned the same way a drag can.
+ *
+ * `geometry` is the scale-bound converter from `DayScaleContext` — the calendar
+ * no longer draws at a fixed 24px a slot, so how far a pointer has travelled in
+ * minutes depends on how tall the column was laid out (design 2026-09-16,
+ * decision 10). It is read on every move rather than captured with the gesture,
+ * so a window resized mid-drag is followed rather than ignored.
+ *
+ * Only the pixel conversion needs it. `snapToSlot` and `clampDuration` work in
+ * minutes and are scale-independent, which is why they are still imported
+ * directly.
  */
-const useResizeEdge = ({ resolve, onPreview, onCommit, onCancel }) => {
+const useResizeEdge = ({ geometry, resolve, onPreview, onCommit, onCancel }) => {
     const [gesture, setGesture] = useState(null);
     const latestRef = useRef(null);
 
@@ -99,7 +109,9 @@ const useResizeEdge = ({ resolve, onPreview, onCommit, onCancel }) => {
         (event) => {
             if (!gesture) return;
 
-            const deltaMinutes = snapToSlot(pxToMinutes(event.clientY - gesture.originY));
+            const deltaMinutes = snapToSlot(
+                geometry.pxToMinutes(event.clientY - gesture.originY)
+            );
             const rect = rectFor(gesture.item, {
                 edge: gesture.edge,
                 deltaMinutes,
@@ -109,7 +121,7 @@ const useResizeEdge = ({ resolve, onPreview, onCommit, onCancel }) => {
             latestRef.current = rect;
             onPreview(gesture.todoId, rect);
         },
-        [gesture, onPreview]
+        [gesture, geometry, onPreview]
     );
 
     const handlePointerUp = useCallback(() => {

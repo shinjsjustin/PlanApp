@@ -24,12 +24,21 @@
      * one the strip does not have. */
     --cal-panel-width: 320px;
 
-    /* A day column is narrow on purpose: the strip is meant to hold several
-     * days at once, and a day is read as a shape rather than in detail. */
-    --cal-column-width: 220px;
-    /* How tall a column may grow before its 24 hours start scrolling inside it.
-     * The inner scroll only exists because this is bounded. */
-    --cal-column-max-height: 70vh;
+    /* Wide enough that exactly two days fill the strip, whatever the window
+     * (design 2026-09-16, decision 11). The percentage resolves against
+     * `.calendar-strip`'s content box — its visible width, not its scroll width
+     * — so two columns and the one gap between them are precisely what fits, and
+     * the third day sits just off the edge inviting the sideways scroll that
+     * already exists.
+     *
+     * The floor is what stops it collapsing on a narrow window: below roughly
+     * 560px of strip the columns stop shrinking and even the second one scrolls,
+     * because two unreadable days are worth less than one readable one. */
+    --cal-column-min-width: 260px;
+    --cal-column-width: max(
+        var(--cal-column-min-width),
+        calc((100% - var(--space-sm)) / 2)
+    );
 
     /* The gutter down the left of a day, holding the hour labels. Bookings
      * start where it ends, so the two are the same number by definition.
@@ -48,6 +57,48 @@
     /* The grab strip along a booking's top and bottom. Tall enough to hit,
      * short enough not to eat a half-hour booking's body. */
     --cal-resize-depth: 6px;
+
+    /* Where the column splits after the gutter: notes left, to-dos right
+     * (design 2026-09-16, section 8.1). One number, read by both halves, so they
+     * cannot disagree about where the boundary is — the notes plane is this much
+     * of what the gutter leaves, and a booking starts exactly where that ends.
+     *
+     * A bare multiplier rather than the `50%` it reads as, because `calc()`
+     * cannot multiply by a percentage: `calc(x * 50%)` is invalid and the whole
+     * declaration is dropped. The two uses below each multiply the same
+     * remainder by this, so half is `0.5` and moving the boundary is one edit
+     * here rather than two that have to be kept in step. */
+    --cal-note-plane-split: 0.5;
+    /* The grab strips on a ribbon's ends. Same depth as a booking's, so the two
+     * planes feel the same under the pointer. */
+    --cal-note-edge-depth: var(--cal-resize-depth);
+
+    /* The calendar is the whole page — there is no global nav above it (see
+     * `routes.js`), so the viewport is all of it. `dvh` rather than `vh` so a
+     * mobile browser's collapsing toolbar does not leave the strip cut off. */
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    /* The strip owns the sideways overflow, so the page never scrolls vertically
+     * with it.
+     *
+     * Sideways is `auto` rather than `hidden` to keep one fallback this page had
+     * before it gained a height. The pool rail is a fixed 320px that cannot
+     * shrink, so below about 348px of content width the rail itself no longer
+     * fits: `hidden` would clip it where nobody could reach it, `auto` leaves it
+     * reachable. Measured: at a 320px page the rail overflows by 28px and this
+     * rule is what makes it scrollable.
+     *
+     * It does not rescue the band above that. The strip carries `min-width: 0`,
+     * so between roughly 360px and 528px it is shrunk to a sliver — 20px at
+     * 380px, nothing at all at 360px — rather than overflowing, and no overflow
+     * rule can help with a box that shrank instead of overflowing. That is
+     * older than this stylesheet and wants real responsive work, not a scrollbar.
+     *
+     * On any window this calendar was designed for, neither axis overflows and
+     * no scrollbar appears. */
+    overflow-x: auto;
+    overflow-y: hidden;
 
     padding: var(--page-pad) var(--page-pad) var(--space-xl);
     padding-right: max(var(--page-pad), env(safe-area-inset-right));
@@ -136,10 +187,43 @@
 /* The page is two columns: the day strip takes the room that is left, and the
    pool is a fixed rail. Only the strip scrolls sideways. */
 .calendar-body {
+    position: relative;
     display: flex;
     gap: var(--space-md);
     align-items: stretch;
+    /* Takes what the header leaves. `min-height: 0` is what actually lets the
+     * columns inside scroll: without it a flex item refuses to shrink below its
+     * content, the columns grow to their full 24 hours, and the page scrolls
+     * instead of the column. */
+    flex: 1;
     min-height: 0;
+}
+
+/* Same tie-break as `.calendar-toast[hidden]`: an author rule beats a user-agent
+ * rule at equal specificity, so without the `[hidden]` rule this paints empty. */
+.notes-notice {
+    position: absolute;
+    top: var(--space-sm);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--color-danger);
+    font-size: var(--font-sm);
+}
+
+.notes-notice[hidden] {
+    display: none;
+}
+
+.notes-notice p {
+    margin: 0;
 }
 
 .calendar-strip {
@@ -147,7 +231,9 @@
     display: flex;
     gap: var(--space-sm);
     overflow-x: auto;
-    align-items: flex-start;
+    /* Was `flex-start`, which let a column size to its content. The columns are
+     * now told to fill the strip's height, so they must be stretched to it. */
+    align-items: stretch;
     min-width: 0;
 }
 
@@ -186,6 +272,9 @@
  * rather than the column itself — it adds a day, it is not one. */
 .calendar-strip-add {
     flex: 0 0 auto;
+    /* The columns stretch now, so this has to opt out: it adds a day, it is not
+     * one. */
+    align-self: flex-start;
     font-size: var(--font-lg);
     line-height: 1;
 }
@@ -218,7 +307,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
-    max-height: var(--cal-column-max-height);
+    /* Fills the body rather than capping at 70vh. How much of the day that
+     * reveals is `useDayScale`'s answer, not this file's: more hours first, and
+     * a stretched scale only once all 24 fit (decision 10). */
+    height: 100%;
+    min-height: 0;
 }
 
 .day-column-header {
@@ -240,6 +333,11 @@
 }
 
 .day-column-scroll {
+    /* Everything the header leaves. The height of this box is what the scale is
+     * derived from, which is why it must come from flex layout and not from its
+     * contents — see `useDayScale`. */
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     position: relative;
 }
@@ -248,6 +346,12 @@
  * rather than a slot: a tinted ground says "this day" without pretending to
  * know the minute, which the preview is already showing. */
 .day-column-drop--over {
+    background: var(--color-warning-light);
+}
+
+/* The whole plane tints, like a day column does for a booking — it says "this
+ * day's notes" without pretending to know the minute or the lane. */
+.note-plane-drop--over {
     background: var(--color-warning-light);
 }
 
@@ -305,7 +409,13 @@
 
 .day-item-card {
     position: absolute;
-    left: var(--cal-gutter-width);
+    /* The gutter, plus the notes plane — the same expression `.note-plane` sizes
+     * itself by, off the same split, so a booking begins precisely where the
+     * notes end however that number is set. */
+    left: calc(
+        var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) *
+            var(--cal-note-plane-split)
+    );
     right: var(--space-xs);
     overflow: hidden;
     border-radius: var(--radius-sm);
@@ -406,6 +516,196 @@ button.day-item-name:hover {
 .day-item-edge:hover {
     background: var(--color-accent);
     opacity: 0.2;
+}
+
+/* ─── The notes plane ────────────────────────────────────────────────────── */
+
+/* The left half of the grid, from the end of the gutter to the middle of the
+ * column. Absolutely positioned over `.day-grid`, like the bookings on the other
+ * side — the two planes share one clock face and never interact. */
+.note-plane {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--cal-gutter-width);
+    /* Its share of what is left after the gutter. The to-do plane starts where
+     * this ends, off the same number, so the two cannot overlap or leave a gap. */
+    width: calc((100% - var(--cal-gutter-width)) * var(--cal-note-plane-split));
+    border-right: 1px dashed var(--border);
+}
+
+/* The press-to-create surface, behind every ribbon. Stretched over the plane so
+ * a press anywhere empty starts a draft, and underneath the ribbons so a press
+ * on one opens it instead. */
+.note-plane-surface {
+    position: absolute;
+    inset: 0;
+    cursor: crosshair;
+}
+
+/* A ribbon is positioned in two dimensions at once: `top`/`height` are its time,
+ * `right`/`width` are its lane, and both arrive as inline styles. `right` rather
+ * than `left` is decision 6 — lane 0 is the one against the to-do plane, so the
+ * notes build outward from the boundary between the two halves. */
+.note-ribbon {
+    position: absolute;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    border-left: var(--cal-item-edge-width) solid var(--color-primary);
+}
+
+/* A note the picker could not place — five overlapping, which no gesture here
+ * can produce. It is drawn in lane 0 and marked, rather than dropped, because a
+ * ribbon that silently vanished would be far harder to explain. */
+.note-ribbon--unplaceable {
+    border-left-color: var(--color-danger);
+    opacity: 0.7;
+}
+
+/* The whole ribbon is the button: there is no room at this width for a separate
+ * handle, so one target does both jobs and the drag sensor's activation distance
+ * keeps a click from being swallowed. */
+.note-ribbon-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: var(--space-xs) 0;
+    background: none;
+    border: 0;
+    color: var(--text-secondary);
+    cursor: grab;
+}
+
+/* Rotated to read bottom-to-top, which is what lets a ribbon be ~20px wide and
+ * still carry a legible label (decision 3).
+ *
+ * `vertical-rl` plus a half turn rather than `sideways-lr`, which only Firefox
+ * implements. Clipped rather than wrapped: the ribbon's height is the note's
+ * duration and a long name must not be able to argue with it. */
+.note-ribbon-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-sm);
+}
+
+button.note-ribbon-body:hover .note-ribbon-text {
+    color: var(--color-accent);
+}
+
+/* Grab strips, like a booking's. Symmetric, unlike a booking's, because notes
+ * may overlap: a note's top edge has nothing above it to clamp against. */
+.note-ribbon-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--cal-note-edge-depth);
+    z-index: 1;
+    cursor: ns-resize;
+}
+
+.note-ribbon-edge--top {
+    top: 0;
+}
+
+.note-ribbon-edge--bottom {
+    bottom: 0;
+}
+
+.note-ribbon-edge:hover {
+    background: var(--color-accent);
+    opacity: 0.2;
+}
+
+/* The range being described by a press-and-drag, before it is a note. Drawn
+ * across the whole plane rather than in a lane: which lane it would land in is
+ * not settled until the gesture ends. */
+.note-draft {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border: 1px dashed var(--color-accent);
+    border-radius: var(--radius-sm);
+    background: var(--color-warning-light);
+    pointer-events: none;
+}
+
+/* The refusal, shown while it is happening rather than reported afterwards
+ * (design section 8.4). A release here does nothing at all. */
+.note-draft--refused {
+    border-color: var(--color-danger);
+    background: none;
+}
+
+/* Floats over the column it belongs to, wide enough for a real sentence — which
+ * is the whole reason it exists rather than an input inside the ribbon. */
+.note-popover {
+    position: absolute;
+    /* Positioned against `.day-grid`, so it clears the hour gutter and floats
+     * over both planes. `top` is set inline from the note it belongs to. */
+    left: var(--cal-gutter-width);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    width: 240px;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-alt);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-lg);
+}
+
+.note-popover-range {
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+}
+
+.note-popover-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.note-popover-label {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+.note-popover-field input {
+    width: 100%;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    color: inherit;
+    font-size: var(--font-base);
+}
+
+.note-popover-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+}
+
+.note-popover-save {
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent);
+    color: var(--text-white);
+}
+
+.note-popover-delete {
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-danger);
 }
 
 /* ─── The pool ───────────────────────────────────────────────────────────── */

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
-import useResizeEdge, { rectFor } from './useResizeEdge';
+import useResizeEdge, { EDGE, rectFor } from './useResizeEdge';
+import { PX_PER_SLOT_MIN, createDayGeometry } from '../lib/scheduleGeometry';
 
 const item = { todoId: 7, startMinutes: 540, durationMinutes: 60 };
 
@@ -80,7 +81,10 @@ describe('useResizeEdge across a spill', () => {
     const Harness = ({ onCommit }) => {
         const [dayIndex, setDayIndex] = useState(0);
 
+        const geometry = createDayGeometry(PX_PER_SLOT_MIN);
+
         const { startResize } = useResizeEdge({
+            geometry,
             resolve: () => ({ item, floor: 0 }),
             onPreview: () => setDayIndex(1),
             onCommit,
@@ -115,5 +119,19 @@ describe('useResizeEdge across a spill', () => {
 
         // Assert
         expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('rectFor at a stretched scale', () => {
+    test('is unaffected by the scale, because it works in minutes', () => {
+        // Arrange — rectFor never sees pixels; the caller converts first. This
+        // pins that, so a future change that smuggles a scale in here fails.
+        const item = { todoId: 1, startMinutes: 540, durationMinutes: 60 };
+
+        // Act
+        const rect = rectFor(item, { edge: EDGE.bottom, deltaMinutes: 30, floor: 0 });
+
+        // Assert
+        expect(rect).toEqual({ startMinutes: 540, durationMinutes: 90 });
     });
 });

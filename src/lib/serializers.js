@@ -139,9 +139,32 @@ const toCalendarItem = (row) => ({
     durationMinutes: row.duration_minutes,
 });
 
+/**
+ * One note on its way to the browser.
+ *
+ * Narrower than `toCalendarItem`, which has to carry a project and a sequence so
+ * a booking can draw itself after leaving the pool. A note belongs to nothing
+ * but its day and carries its own text, so there is nothing to join and nothing
+ * to pass through.
+ *
+ * No timestamps: nothing in the UI shows when a note was written. No lane
+ * either — that is derived in the browser from the day's notes (decision 5).
+ *
+ * Times are integer minutes from midnight, never clock strings, matching every
+ * other calendar serializer.
+ */
+const toCalendarNote = (row) => ({
+    id: row.id,
+    dayId: row.day_id,
+    text: row.text,
+    startMinutes: row.start_minutes,
+    durationMinutes: row.duration_minutes,
+});
+
 module.exports = {
     toCalendarDay,
     toCalendarItem,
+    toCalendarNote,
     toEdge,
     toFrontierEntry,
     toLayer,

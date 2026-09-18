@@ -62,6 +62,12 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
+afterEach(() => {
+    // Only the `console.error` spies below; the `api` doubles are module mocks,
+    // which this does not touch.
+    jest.restoreAllMocks();
+});
+
 describe('useCalendar loading', () => {
     test('loads the calendar in one request', async () => {
         // Arrange + Act
@@ -82,6 +88,118 @@ describe('useCalendar loading', () => {
         // Assert
         await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
         expect(result.current.state.loadError).toBe('Could not reach the server.');
+    });
+});
+
+describe('useCalendar unreadable responses', () => {
+    test.each([
+        ['a body with neither collection in it', {}],
+        ['a body that is not an object at all', null],
+        ['a days key that is not a list', { days: 'nope', items: [] }],
+        ['an items key that is not a list', { days: [], items: null }],
+    ])('reports %s rather than reading through it', async (_label, payload) => {
+        // Arrange — `api` guarantees a parsed body and nothing about its shape.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue(payload);
+
+        // Act
+        const { result } = renderHook(() => useCalendar());
+
+        // Assert — a sentence about the server rather than the stack trace's
+        // wording beside the retry button …
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/unreadable/);
+        expect(result.current.state.days).toEqual([]);
+        // … and the body itself where a developer will find it.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), payload);
+    });
+
+    test('does not count an unreadable response as a load that overtook anything', async () => {
+        // Arrange — a refused payload replaced nothing, so a mutation in flight
+        // across it must still install its own answer rather than decline to.
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady();
+        const pending = deferred();
+        api.post.mockReturnValue(pending.promise);
+
+        let addition;
+        act(() => {
+            addition = result.current.addDay();
+        });
+
+        // Act — a reload lands in the middle of it, and is refused.
+        api.get.mockResolvedValue({});
+        await act(() => result.current.reload());
+        const saved = { id: 2, position: 1, createdAt: '2026-09-09T09:00:00.000Z' };
+        await act(async () => {
+            pending.resolve(saved);
+            await addition;
+        });
+
+        // Assert — the new day carries the id the server gave it.
+        expect(result.current.state.days).toContainEqual(saved);
+        expect(result.current.hasUnsavedDay).toBe(false);
+    });
+});
+
+describe('useCalendar failure diagnostics', () => {
+    test('records a refused gesture without changing a word of what is on screen', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady();
+
+        // Act — a gesture aimed at a day that is not in the strip.
+        await act(() => result.current.deleteDay(999));
+
+        // Assert — the reason still names the day on screen …
+        expect(result.current.state.actionError).toMatch(/No day with id 999/);
+        // … and the error itself, stack and all, is on the record.
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('records a load that failed on this side of the wire', async () => {
+        // Arrange — an item the reducer's ingest guard refuses.
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({
+            days: calendar.days,
+            items: [{ ...calendar.items[0], startMinutes: undefined }],
+        });
+
+        // Act
+        const { result } = renderHook(() => useCalendar());
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(result.current.state.loadError).toMatch(/needs a number/);
+        expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    });
+
+    test('says nothing to the console about an ordinary wire failure', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = await renderReady();
+        api.delete.mockRejectedValue(new ApiError('Could not delete the day.', 500));
+
+        // Act
+        await act(() => result.current.deleteDay(1));
+
+        // Assert — the user is already being told; logging offline and 500 would
+        // bury the defects in noise.
+        expect(result.current.state.actionError).toBe('Could not delete the day.');
+        expect(logged).not.toHaveBeenCalled();
+    });
+
+    test('records an unreadable body once, not twice', async () => {
+        // Arrange
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+        api.get.mockResolvedValue({});
+
+        // Act
+        const { result } = renderHook(() => useCalendar());
+
+        // Assert
+        await waitFor(() => expect(result.current.state.status).toBe(CALENDAR_STATUS.error));
+        expect(logged).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -450,6 +568,34 @@ describe('useCalendar loads overtaking mutations', () => {
         // a state the server has already moved past.
         expect(result.current.state.days).toEqual(refetched.days);
         expect(result.current.state.items).toEqual([]);
+    });
+});
+
+describe('onDayDeleted', () => {
+    test('is called after a deletion the server took', async () => {
+        // Arrange
+        const onDayDeleted = jest.fn();
+        const { result } = await renderReady({ onDayDeleted });
+        api.delete.mockResolvedValue({ id: 1 });
+
+        // Act
+        await act(() => result.current.deleteDay(1));
+
+        // Assert
+        expect(onDayDeleted).toHaveBeenCalledWith(1);
+    });
+
+    test('is not called when the deletion failed', async () => {
+        // Arrange — a rolled-back deletion put the day back, notes and all
+        const onDayDeleted = jest.fn();
+        const { result } = await renderReady({ onDayDeleted });
+        api.delete.mockRejectedValue(new Error('nope'));
+
+        // Act
+        await act(() => result.current.deleteDay(1));
+
+        // Assert
+        expect(onDayDeleted).not.toHaveBeenCalled();
     });
 });
 

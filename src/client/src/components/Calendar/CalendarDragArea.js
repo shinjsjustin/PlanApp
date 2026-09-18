@@ -13,20 +13,24 @@ import {
 import DayColumn from './DayColumn';
 import DayItemCard from './DayItemCard';
 import DayStrip from './DayStrip';
+import NoteLayer from './NoteLayer';
 import ProjectPanel from './ProjectPanel';
 import RemoveOverlay from './RemoveOverlay';
+import useDayScale from '../../hooks/useDayScale';
 import useResizeEdge, { EDGE } from '../../hooks/useResizeEdge';
 import {
+    DAY_MINUTES,
     DEFAULT_DURATION,
     moveItem,
     placeFromPool,
     resizeItem,
     topEdgeFloor,
 } from '../../lib/schedule';
-import { clampStart, pxToMinutes } from '../../lib/scheduleGeometry';
+import { clampStart } from '../../lib/scheduleGeometry';
 import { isTempId } from '../../lib/tempIds';
 import { scheduleOf } from '../../state/calendarReducer';
 import { useCalendarContext } from '../../state/CalendarContext';
+import { DayScaleProvider } from '../../state/DayScaleContext';
 
 // Everything that can be dragged on this page, and what a drop means.
 //
@@ -58,12 +62,13 @@ const POINTER_SENSOR_OPTIONS = {
     activationConstraint: { distance: POINTER_ACTIVATION_DISTANCE_PX },
 };
 
-export const DRAG_KIND = { pool: 'pool', booking: 'booking' };
+export const DRAG_KIND = { pool: 'pool', booking: 'booking', note: 'note' };
 
 /** What was lifted, read off the data the draggable carries. */
 export const dragKindOf = (activeData) => {
     if (activeData?.poolTodo !== undefined) return DRAG_KIND.pool;
     if (activeData?.bookingTodoId !== undefined) return DRAG_KIND.booking;
+    if (activeData?.noteId !== undefined) return DRAG_KIND.note;
 
     return null;
 };
@@ -75,9 +80,13 @@ export const dragKindOf = (activeData) => {
  * against the rule, and for a booking being moved it is literally the value being
  * set. `getBoundingClientRect` already accounts for the column's inner scroll,
  * so no scroll offset is added here.
+ *
+ * `geometry` is the live scale — the column is no longer a fixed 24px a slot, so
+ * how many minutes a pixel offset is worth depends on how tall the window let
+ * the column be.
  */
-export const minutesAtRect = (activeRect, gridRect) =>
-    clampStart(pxToMinutes(activeRect.top - gridRect.top));
+export const minutesAtRect = (geometry, activeRect, gridRect) =>
+    clampStart(geometry.pxToMinutes(activeRect.top - gridRect.top));
 
 /**
  * The schedule as it would be if the drag were released now. Null target — the
@@ -96,6 +105,32 @@ export const previewFor = (schedule, target) => {
               durationMinutes: DEFAULT_DURATION,
           })
         : moveItem(schedule, { todoId: todo.todoId, dayId, startMinutes });
+};
+
+/**
+ * What moving a note to a drop target would change, or null when it would change
+ * nothing legal.
+ *
+ * Deliberately not a preview. A booking's drop is previewed because it cascades
+ * — half a day moves with it, and the only way to show that truthfully is to
+ * compute the whole settled schedule. A note moves alone (decision 1), so the
+ * dnd overlay under the pointer is already an honest picture of the result and
+ * there is nothing else to draw.
+ *
+ * A drop that would push the note past midnight is refused rather than clamped.
+ * Clamping would silently save a different note from the one the gesture
+ * described, and a note at 23:00 dropped where it cannot fit is a miss, not a
+ * request to shorten it.
+ */
+export const noteMoveFor = (note, target) => {
+    if (!target) return null;
+
+    const { dayId, startMinutes } = target;
+
+    if (dayId === note.dayId && startMinutes === note.startMinutes) return null;
+    if (startMinutes + note.durationMinutes > DAY_MINUTES) return null;
+
+    return { dayId, startMinutes };
 };
 
 /**
@@ -168,11 +203,47 @@ const useDayDroppable = (dayId, registerGrid, isDisabled) => {
     };
 };
 
-const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProject }) => {
+/**
+ * The notes plane's droppable.
+ *
+ * A second target per column rather than one shared with the bookings, because
+ * the two planes must not catch each other's drags: a to-do released over the
+ * notes half would otherwise book itself, and a note released over the to-do
+ * half would jump the boundary. Each is disabled while the other kind is in the
+ * air, which is also what stops `pointerWithin` having to choose between two
+ * overlapping targets.
+ */
+const useNoteDroppable = (dayId, registerPlane, isDisabled) => {
+    const { isOver, setNodeRef } = useDroppable({
+        id: `notes-${dayId}`,
+        disabled: isDisabled,
+        data: { noteDropTarget: { dayId } },
+    });
+
+    const ref = useCallback(
+        (node) => {
+            setNodeRef(node);
+            registerPlane(dayId, node);
+        },
+        [dayId, setNodeRef, registerPlane]
+    );
+
+    return {
+        setNodeRef: ref,
+        className: `note-plane-drop${isOver ? ' note-plane-drop--over' : ''}`,
+    };
+};
+
+const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onToggleProject }) => {
     const { state, commit, unschedule, hasUnsavedDay } = useCalendarContext();
 
     const [active, setActive] = useState(null);
     const [preview, setPreview] = useState(null);
+
+    // The scale every column, card and ribbon draws at. Held here rather than on
+    // the page because this is the component that renders the strip, and the
+    // columns that register their viewports are its children.
+    const { geometry, registerViewport } = useDayScale();
 
     // dayId → the element the grid is drawn in, for measuring a drop.
     const gridsRef = useRef(new Map());
@@ -180,6 +251,14 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     const registerGrid = useCallback((dayId, node) => {
         if (node) gridsRef.current.set(dayId, node);
         else gridsRef.current.delete(dayId);
+    }, []);
+
+    // dayId → the notes plane element, for measuring a note drop.
+    const planesRef = useRef(new Map());
+
+    const registerPlane = useCallback((dayId, node) => {
+        if (node) planesRef.current.set(dayId, node);
+        else planesRef.current.delete(dayId);
     }, []);
 
     const sensors = useSensors(
@@ -227,10 +306,33 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
                 kind,
                 todo: kind === DRAG_KIND.pool ? data.poolTodo : { todoId: data.bookingTodoId },
                 dayId: dropTarget.dayId,
-                startMinutes: minutesAtRect(activeRect, grid.getBoundingClientRect()),
+                startMinutes: minutesAtRect(geometry, activeRect, grid.getBoundingClientRect()),
             };
         },
-        []
+        [geometry]
+    );
+
+    /** Where a note drag would land, or null when it is over no plane. */
+    const noteTargetFrom = useCallback(
+        (event) => {
+            const dropTarget = event.over?.data.current?.noteDropTarget ?? null;
+            if (!dropTarget) return null;
+
+            const plane = planesRef.current.get(dropTarget.dayId);
+            const activeRect = event.active.rect.current.translated;
+
+            if (!plane || !activeRect) return null;
+
+            return {
+                dayId: dropTarget.dayId,
+                startMinutes: minutesAtRect(
+                    geometry,
+                    activeRect,
+                    plane.getBoundingClientRect()
+                ),
+            };
+        },
+        [geometry]
     );
 
     const handleDragStart = useCallback((event) => {
@@ -279,6 +381,18 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
             setActive(null);
             setPreview(null);
 
+            if (dragKindOf(data) === DRAG_KIND.note) {
+                const note = notes.state.notes.find((other) => other.id === data.noteId);
+                const move = note && noteMoveFor(note, noteTargetFrom(event));
+
+                // A drop over nothing, back where it started, or somewhere it
+                // will not fit: the gesture simply ends. Not a failure, so
+                // nothing is said.
+                if (move) notes.updateNote(note.id, move);
+
+                return;
+            }
+
             if (dropTarget?.remove && dragKindOf(data) === DRAG_KIND.booking) {
                 unschedule(data.bookingTodoId);
                 return;
@@ -292,7 +406,7 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
             // should be loud rather than silently doing nothing.
             commit(previewFor(scheduleOf(state), target));
         },
-        [commit, state, targetFrom, unschedule]
+        [commit, noteTargetFrom, notes, state, targetFrom, unschedule]
     );
 
     // Escape, and any cancel dnd-kit reports. The preview simply goes.
@@ -386,6 +500,7 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
     );
 
     const { startResize } = useResizeEdge({
+        geometry,
         resolve: resolveEdge,
         onPreview: handleResizePreview,
         onCommit: handleResizeCommit,
@@ -408,39 +523,55 @@ const CalendarDragArea = ({ pool, onOpenSource, expandedProjectIds, onToggleProj
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
         >
-            <div className="calendar-body">
-                <DayStrip
-                    schedule={shown}
-                    onOpenSource={onOpenSource}
-                    columnFor={(day, index, items) => (
-                        <DroppableDayColumn
-                            key={day.id}
-                            day={day}
-                            index={index}
-                            items={items}
-                            onOpenSource={onOpenSource}
-                            registerGrid={registerGrid}
-                            isDropDisabled={hasUnsavedDay || isTempId(day.id)}
-                            resize={resize}
-                        />
-                    )}
-                />
+            <DayScaleProvider value={geometry}>
+                <div className="calendar-body">
+                    <DayStrip
+                        schedule={shown}
+                        onOpenSource={onOpenSource}
+                        columnFor={(day, index, items) => (
+                            <DroppableDayColumn
+                                key={day.id}
+                                day={day}
+                                index={index}
+                                items={items}
+                                onOpenSource={onOpenSource}
+                                registerGrid={registerGrid}
+                                registerPlane={registerPlane}
+                                registerViewport={registerViewport}
+                                activeKind={active?.kind ?? null}
+                                isDropDisabled={hasUnsavedDay || isTempId(day.id)}
+                                resize={resize}
+                                notes={notes}
+                            />
+                        )}
+                    />
 
-                <ProjectPanel
-                    pool={pool}
-                    scheduledByTodoId={scheduledByTodoId}
-                    dragFor={(todo) => !scheduledByTodoId.has(todo.todoId)}
-                    overlay={<RemoveOverlay isActive={isDraggingBooking} />}
-                    expandedProjectIds={expandedProjectIds}
-                    onToggleProject={onToggleProject}
-                />
-            </div>
+                    {/* A failed notes read sits above the strip rather than replacing
+                        it: the days and their bookings are fine, and only the context
+                        is missing. The same shape `pool-notice` already has. */}
+                    <div className="notes-notice" role="alert" hidden={!notes.state.loadError}>
+                        <p>{notes.state.loadError}</p>
+                        <button type="button" onClick={notes.reload}>
+                            Try again
+                        </button>
+                    </div>
 
-            {/* The thing under the pointer. The preview shows where everything
-                lands; this shows what is in the hand. */}
-            <DragOverlay dropAnimation={null}>
-                {active && <div className="calendar-drag-ghost">{labelOf(active)}</div>}
-            </DragOverlay>
+                    <ProjectPanel
+                        pool={pool}
+                        scheduledByTodoId={scheduledByTodoId}
+                        dragFor={(todo) => !scheduledByTodoId.has(todo.todoId)}
+                        overlay={<RemoveOverlay isActive={isDraggingBooking} />}
+                        expandedProjectIds={expandedProjectIds}
+                        onToggleProject={onToggleProject}
+                    />
+                </div>
+
+                {/* The thing under the pointer. The preview shows where everything
+                    lands; this shows what is in the hand. */}
+                <DragOverlay dropAnimation={null}>
+                    {active && <div className="calendar-drag-ghost">{labelOf(active)}</div>}
+                </DragOverlay>
+            </DayScaleProvider>
         </DndContext>
     );
 };
@@ -452,10 +583,21 @@ const DroppableDayColumn = ({
     items,
     onOpenSource,
     registerGrid,
+    registerPlane,
+    registerViewport,
+    activeKind,
     isDropDisabled,
     resize,
+    notes,
 }) => {
-    const droppable = useDayDroppable(day.id, registerGrid, isDropDisabled);
+    const isNoteDrag = activeKind === DRAG_KIND.note;
+
+    const droppable = useDayDroppable(day.id, registerGrid, isDropDisabled || isNoteDrag);
+    const noteDroppable = useNoteDroppable(
+        day.id,
+        registerPlane,
+        isDropDisabled || !isNoteDrag
+    );
 
     return (
         <DayColumn
@@ -464,6 +606,19 @@ const DroppableDayColumn = ({
             items={items}
             onOpenSource={onOpenSource}
             droppable={droppable}
+            registerViewport={registerViewport}
+            notePlane={
+                <NoteLayer
+                    dayId={day.id}
+                    label={`Notes for Day ${index + 1}`}
+                    notes={notes.notesForDay(day.id)}
+                    onCreate={notes.createNote}
+                    onUpdate={notes.updateNote}
+                    onDelete={notes.deleteNote}
+                    droppable={noteDroppable}
+                    isDraggable
+                />
+            }
             cardFor={(item) => (
                 <ResizableDayItemCard
                     key={item.todoId}
@@ -516,7 +671,11 @@ const ResizableDayItemCard = ({ item, schedule, onOpenSource, startResize }) => 
     );
 };
 
-const labelOf = (active) =>
-    active.kind === DRAG_KIND.pool ? active.data.poolTodo.text : 'Moving…';
+const labelOf = (active) => {
+    if (active.kind === DRAG_KIND.pool) return active.data.poolTodo.text;
+    if (active.kind === DRAG_KIND.note) return 'Moving note…';
+
+    return 'Moving…';
+};
 
 export default CalendarDragArea;

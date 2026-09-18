@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
-import { api } from '../lib/api';
+import { ApiError, api } from '../lib/api';
 import { toBulkRequest } from '../lib/calendarRequest';
 import { appendDay, removeDay, unscheduleItem } from '../lib/schedule';
 import { isTempId } from '../lib/tempIds';
@@ -34,6 +34,59 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 const TODO_COMPLETE = 'complete';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
+
+/**
+ * Records a failure for whoever has to work out why, without changing a word of
+ * what the user is told.
+ *
+ * Both halves on purpose. A refused gesture or a payload the reducer would not
+ * ingest says why on screen — that wording is deliberate and pinned by tests —
+ * while the error itself, stack and all, goes where a string in a toast could
+ * never carry it.
+ *
+ * An `ApiError` is not recorded. That class is the wire saying one of the things
+ * the wire says: offline, 500, 409. The user is already being shown it, the
+ * server has its own log of it, and repeating every one here would bury the
+ * entries that mean a defect on this side under the ones that do not. What is
+ * left is exactly that: an error this code did not expect to be possible.
+ */
+const logFailure = (context, error) => {
+    if (error instanceof ApiError || error?.alreadyLogged) return;
+
+    console.error(`[calendar] ${context}`, error);
+};
+
+
+const UNREADABLE_CALENDAR = 'The server sent an unreadable calendar.';
+
+/**
+ * The wire is a boundary, and `api` guarantees a parsed body and nothing at all
+ * about its shape.
+ *
+ * Handed on unchecked, a body missing a collection reaches `loadSucceeded` as
+ * `undefined.forEach` — which lands in `fetchCalendar`'s `catch` and puts a
+ * stack trace's wording beside the retry button, with nothing anywhere saying
+ * what the server actually sent. So the shape is checked where it enters, the
+ * user is told something about the server, and the body goes to the console for
+ * whoever has to work out why.
+ *
+ * Only that both collections are there: what is *in* them is `assertIngestible`'s
+ * question, and it already answers it one item at a time.
+ */
+const readCalendar = (payload) => {
+    if (!Array.isArray(payload?.days) || !Array.isArray(payload?.items)) {
+        console.error('[calendar] unreadable response body:', payload);
+
+        // The body is the diagnostic here, and it is already on the record, so
+        // `logFailure` does not repeat it with a stack pointing at this line.
+        const error = new Error(UNREADABLE_CALENDAR);
+        error.alreadyLogged = true;
+
+        throw error;
+    }
+
+    return payload;
+};
 
 /** A gesture that asks the server for nothing — a drag let go where it started. */
 const isNoOp = (request) =>
@@ -107,7 +160,7 @@ const reconcileSpilledDays = (schedule, optimistic, saved) => {
  * because the hook is complete without it — a calendar with no pool beside it
  * still ticks bookings off.
  */
-const useCalendar = ({ onTodoCompleted = null } = {}) => {
+const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
     const [state, rawDispatch] = useReducer(calendarReducer, initialCalendarState);
 
     // The state as the reducer has already been told to make it.
@@ -164,9 +217,11 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
      */
     const fetchCalendar = useCallback(async () => {
         try {
-            dispatch(loadSucceeded(await api.get('/calendar')));
+            dispatch(loadSucceeded(readCalendar(await api.get('/calendar'))));
             loadGenerationRef.current += 1;
         } catch (err) {
+            logFailure('load failed', err);
+
             dispatch(loadFailed(messageOf(err)));
         }
     }, [dispatch]);
@@ -251,6 +306,8 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
 
             return true;
         } catch (err) {
+            logFailure('write failed', err);
+
             // `previous` is an undo only while this mutation's change is still
             // the last thing that happened. Once something else has settled —
             // the × on a real day during a pending `addDay` — the snapshot has
@@ -366,14 +423,26 @@ const useCalendar = ({ onTodoCompleted = null } = {}) => {
      * Deletes a day. Its bookings are released rather than pushed forward — the
      * container goes, the work does not (design decision 6) — and the to-dos
      * behind them reappear in the pool.
+     *
+     * Its notes go with it and do not come back. That is the schema's
+     * `ON DELETE CASCADE` rather than anything here (design 2026-09-16, decision
+     * 9); `onDayDeleted` only lets the notes plane drop rows the server has
+     * already destroyed. On success only — a rolled-back deletion put the day
+     * back, and its notes are still in the notes hook's state ready to be drawn
+     * again.
      */
     const deleteDay = useCallback(
-        (dayId) =>
-            mutate({
+        async (dayId) => {
+            const didDelete = await mutate({
                 apply: (previous) => removeDay(previous, dayId),
                 send: () => api.delete(`/calendar/days/${dayId}`),
-            }),
-        [mutate]
+            });
+
+            if (didDelete) onDayDeleted?.(dayId);
+
+            return didDelete;
+        },
+        [mutate, onDayDeleted]
     );
 
     /** Dropping a booking on the pool's remove overlay. */

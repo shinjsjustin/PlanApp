@@ -1,9 +1,14 @@
 import {
+    DRAG_KIND,
     dragKindOf,
     minutesAtRect,
+    noteMoveFor,
     previewFor,
     withStableTempDays,
 } from './CalendarDragArea';
+import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
+
+const geometry = createDayGeometry(PX_PER_SLOT_MIN);
 
 const day = (id, position) => ({ id, position, createdAt: '2026-09-09T08:00:00.000Z' });
 
@@ -29,16 +34,16 @@ describe('minutesAtRect', () => {
         const grid = { top: 100 };
 
         // Act + Assert
-        expect(minutesAtRect({ top: 100 }, grid)).toBe(0);
-        expect(minutesAtRect({ top: 124 }, grid)).toBe(30);
-        expect(minutesAtRect({ top: 532 }, grid)).toBe(540);
+        expect(minutesAtRect(geometry, { top: 100 }, grid)).toBe(0);
+        expect(minutesAtRect(geometry, { top: 124 }, grid)).toBe(30);
+        expect(minutesAtRect(geometry, { top: 532 }, grid)).toBe(540);
     });
 
     test('clamps a card dragged above the top or below the bottom', () => {
         const grid = { top: 100 };
 
-        expect(minutesAtRect({ top: -500 }, grid)).toBe(0);
-        expect(minutesAtRect({ top: 99999 }, grid)).toBe(1410);
+        expect(minutesAtRect(geometry, { top: -500 }, grid)).toBe(0);
+        expect(minutesAtRect(geometry, { top: 99999 }, grid)).toBe(1410);
     });
 });
 
@@ -123,5 +128,46 @@ describe('withStableTempDays', () => {
 
         // Act + Assert
         expect(withStableTempDays(null, next)).toBe(next);
+    });
+});
+
+describe('dragKindOf', () => {
+    test('reads a note drag', () => {
+        // Act & Assert
+        expect(dragKindOf({ noteId: 5 })).toBe(DRAG_KIND.note);
+    });
+
+    test('still tells a pool row from a booking', () => {
+        // Act & Assert
+        expect(dragKindOf({ poolTodo: { todoId: 1 } })).toBe(DRAG_KIND.pool);
+        expect(dragKindOf({ bookingTodoId: 1 })).toBe(DRAG_KIND.booking);
+    });
+
+    test('is null for a drag it does not recognise', () => {
+        // Act & Assert
+        expect(dragKindOf({})).toBeNull();
+    });
+});
+
+describe('noteMoveFor', () => {
+    const note = { id: 5, dayId: 1, text: 'on call', startMinutes: 540, durationMinutes: 60 };
+
+    test('names the day and the minute the ribbon landed on', () => {
+        // Act
+        const move = noteMoveFor(note, { dayId: 2, startMinutes: 600 });
+
+        // Assert
+        expect(move).toEqual({ dayId: 2, startMinutes: 600 });
+    });
+
+    test('is null when nothing would change', () => {
+        // Arrange — dropped exactly where it started; no request is worth sending
+        // Act & Assert
+        expect(noteMoveFor(note, { dayId: 1, startMinutes: 540 })).toBeNull();
+    });
+
+    test('is null when the note would run past midnight', () => {
+        // Act & Assert
+        expect(noteMoveFor(note, { dayId: 1, startMinutes: 1410 })).toBeNull();
     });
 });

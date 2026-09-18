@@ -10,6 +10,7 @@ const projectRoutes = require('./routes/projects');
 const layerRoutes = require('./routes/layers');
 const sequenceRoutes = require('./routes/sequences');
 const todoRoutes = require('./routes/todos');
+const calendarNotesRoutes = require('./routes/calendarNotes');
 const calendarRoutes = require('./routes/calendar');
 
 const isAuth = require('./middleware/isAuth');
@@ -55,6 +56,9 @@ app.use('/api/projects', isAuth, respond, projectRoutes);
 app.use('/api/layers', isAuth, respond, layerRoutes);
 app.use('/api/sequences', isAuth, respond, sequenceRoutes);
 app.use('/api/todos', isAuth, respond, todoRoutes);
+// The more specific mount comes first, so `/api/calendar/notes` is not
+// swallowed by the calendar router's own `/:id`-shaped routes below it.
+app.use('/api/calendar/notes', isAuth, respond, calendarNotesRoutes);
 app.use('/api/calendar', isAuth, respond, calendarRoutes);
 
 // Terminal error handler for the resource routes above.

@@ -2,6 +2,7 @@
 
 const assertOwnership = require('../../src/middleware/assertOwnership');
 const calendarDaysRepo = require('../../src/db/repositories/calendarDaysRepo');
+const calendarNotesRepo = require('../../src/db/repositories/calendarNotesRepo');
 const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
@@ -145,5 +146,67 @@ describe('assertOwnership(calendarDay)', () => {
         await expect(
             assertOwnership(conn, 'calendarDay', 987654321, ownerId)
         ).rejects.toMatchObject({ status: 404, message: 'Day not found' });
+    });
+});
+
+describe('assertOwnership calendarNote', () => {
+    test('returns the owning day row for the owner', async () => {
+        // Arrange — someone else's day and note go in first, so a query that
+        // forgot to filter by id would hand back theirs and fail here rather
+        // than pass by accident on a table this test happens to be alone in.
+        const conn = getConn();
+        const intruderId = await createTestUser(conn);
+        const intruderDay = await calendarDaysRepo.create(conn, { ownerId: intruderId });
+        await calendarNotesRepo.create(conn, {
+            dayId: intruderDay.id,
+            text: 'not this one',
+            startMinutes: 0,
+            durationMinutes: 30,
+        });
+        const ownerId = await createTestUser(conn);
+        const day = await calendarDaysRepo.create(conn, { ownerId });
+        const note = await calendarNotesRepo.create(conn, {
+            dayId: day.id,
+            text: 'on call',
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+
+        // Act
+        const owned = await assertOwnership(conn, 'calendarNote', note.id, ownerId);
+
+        // Assert
+        expect(owned.id).toBe(day.id);
+        expect(owned.owner_id).toBe(ownerId);
+    });
+
+    test('rejects another user’s note', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const strangerId = await createTestUser(conn);
+        const day = await calendarDaysRepo.create(conn, { ownerId });
+        const note = await calendarNotesRepo.create(conn, {
+            dayId: day.id,
+            text: 'on call',
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+
+        // Act & Assert
+        await expect(
+            assertOwnership(conn, 'calendarNote', note.id, strangerId)
+        ).rejects.toMatchObject({ status: 403 });
+    });
+
+    test('404s for a note that is not there', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+
+        // Act & Assert
+        await expect(
+            assertOwnership(conn, 'calendarNote', 999999, ownerId)
+        ).rejects.toMatchObject({ status: 404 });
     });
 });
