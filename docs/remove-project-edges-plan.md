@@ -151,12 +151,12 @@ Remove persisted/API edge functionality while preserving project/layer/sequence/
 
 ### Steps
 
-- [ ] Update graph-route and API census tests first: `GET /api/projects/:id` returns exactly project/layers/sequences/todos, and the edge POST/DELETE endpoints are no longer part of the API surface. Remove edge fixtures from those suites.
-- [ ] Remove edge route schemas/imports/handlers and the edge graph query from `projects.js`; update its query-count documentation. Remove `toEdge`, the edge ownership resource type, and their tests. Delete `edgesRepo` and `assertCanConnect` after all server imports are gone.
-- [ ] Remove invalid-edge deletion SQL from `sequencesRepo.move` and edge-specific route/repository comments. Update sequence-move and sequence-delete tests so they continue to prove dense positions, cross-layer ownership, todo freeing, and transaction behavior without testing connections.
-- [ ] Remove edge setup/assertions from schema cascade tests while retaining project/layer/sequence/todo cascade coverage. Update `projectsRepo`, `assertSequenceInProject`, and E2E-adjacent server comments that claim edges are part of a cascade or request.
-- [ ] In `schema.sql`, remove the `sequence_edges` `CREATE TABLE` block. Add an existing-database upgrade note containing `DROP TABLE IF EXISTS sequence_edges;`, and retain that same drop in the destructive teardown before `todos`/`sequences`/`projects` so old foreign keys cannot break a rerun. These are the only intentional server-side `sequence_edges` references after this task.
-- [ ] Run `DB_NAME=planapp_test npm test -- --runInBand`; use a server-only `rg` sweep to confirm no `edgesRepo`, `assertCanConnect`, `toEdge`, edge route, or edge ownership references remain; then commit this task.
+- [x] Update graph-route and API census tests first: `GET /api/projects/:id` returns exactly project/layers/sequences/todos, and the edge POST/DELETE endpoints are no longer part of the API surface. Remove edge fixtures from those suites.
+- [x] Remove edge route schemas/imports/handlers and the edge graph query from `projects.js`; update its query-count documentation. Remove `toEdge`, the edge ownership resource type, and their tests. Delete `edgesRepo` and `assertCanConnect` after all server imports are gone.
+- [x] Remove invalid-edge deletion SQL from `sequencesRepo.move` and edge-specific route/repository comments. Update sequence-move and sequence-delete tests so they continue to prove dense positions, cross-layer ownership, todo freeing, and transaction behavior without testing connections.
+- [x] Remove edge setup/assertions from schema cascade tests while retaining project/layer/sequence/todo cascade coverage. Update `projectsRepo`, `assertSequenceInProject`, and E2E-adjacent server comments that claim edges are part of a cascade or request.
+- [x] In `schema.sql`, remove the `sequence_edges` `CREATE TABLE` block. Add an existing-database upgrade note containing `DROP TABLE IF EXISTS sequence_edges;`, and retain that same drop in the destructive teardown before `todos`/`sequences`/`projects` so old foreign keys cannot break a rerun. These are the only intentional server-side `sequence_edges` references after this task.
+- [x] Run `DB_NAME=planapp_test npm test -- --runInBand`; use a server-only `rg` sweep to confirm no `edgesRepo`, `assertCanConnect`, `toEdge`, edge route, or edge ownership references remain; then commit this task.
 
 ### Acceptance checks
 
@@ -199,11 +199,11 @@ Bring client state and optimistic mutations in line with the four-collection gra
 
 ### Steps
 
-- [ ] Update reducer and hook tests first for a graph with only `layers`, `sequences`, and `todos` collections. Remove `edges` from `COLLECTIONS`, initial state, loading, rollback snapshots, fixtures, and assertions while preserving immutable optimistic rollback behavior.
-- [ ] Remove `toggleEdge`, edge mutation tests, edge-removal cascade actions, move-sequence connection counting, and connection notices. Simplify `cascadeSequenceRemoval`, `cascadeLayerRemoval`, and `cascadeSequenceMove` while retaining todo freeing and dense-position actions.
-- [ ] Remove the now-unused notice action types/creators/state, `raiseNotice`/`dismissNotice`, notice toast markup/CSS, harness spies, and notice-specific tests. Keep action errors and their alert unchanged.
-- [ ] Remove `canConnect` and its remaining tests once the cascade no longer imports it. Clean edge-specific comments in `useProjectGraph`, mutation hooks, reducer rollback docs, cascade docs, and test harnesses.
-- [ ] Run the affected reducer/cascade/mutation/hook/component tests and the full `npm run test:client`, then commit this task.
+- [x] Update reducer and hook tests first for a graph with only `layers`, `sequences`, and `todos` collections. Remove `edges` from `COLLECTIONS`, initial state, loading, rollback snapshots, fixtures, and assertions while preserving immutable optimistic rollback behavior.
+- [x] Remove `toggleEdge`, edge mutation tests, edge-removal cascade actions, move-sequence connection counting, and connection notices. Simplify `cascadeSequenceRemoval`, `cascadeLayerRemoval`, and `cascadeSequenceMove` while retaining todo freeing and dense-position actions.
+- [x] Remove the now-unused notice action types/creators/state, `raiseNotice`/`dismissNotice`, notice toast markup/CSS, harness spies, and notice-specific tests. Keep action errors and their alert unchanged.
+- [x] Remove `canConnect` and its remaining tests once the cascade no longer imports it. Clean edge-specific comments in `useProjectGraph`, mutation hooks, reducer rollback docs, cascade docs, and test harnesses.
+- [x] Run the affected reducer/cascade/mutation/hook/component tests and the full `npm run test:client`, then commit this task.
 
 ### Acceptance checks
 
