@@ -22,6 +22,22 @@ export const entityUpdated = (collection, id, changes) => ({
     changes,
 });
 
+export const projectUpdated = (changes) => ({
+    type: PROJECT_ACTIONS.projectUpdated,
+    changes,
+});
+
+export const todosPinned = (todoIds, isPinned) => ({
+    type: PROJECT_ACTIONS.todosPinned,
+    todoIds,
+    isPinned,
+});
+
+export const todosReconciled = (todos) => ({
+    type: PROJECT_ACTIONS.todosReconciled,
+    todos,
+});
+
 export const entityRemoved = (collection, id) => ({
     type: PROJECT_ACTIONS.entityRemoved,
     collection,

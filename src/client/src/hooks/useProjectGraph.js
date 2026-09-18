@@ -12,7 +12,10 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
+    projectUpdated,
     rolledBack,
+    todosPinned,
+    todosReconciled,
 } from '../state/projectActions';
 
 // Loads a project's graph and applies changes to it optimistically
@@ -134,6 +137,32 @@ const useProjectGraph = (projectId) => {
     );
 
     /**
+     * Changes the project's own fields. The response is the projects-home CARD
+     * shape, which carries a `pinnedTodos` snapshot the graph does not own — pins
+     * live on the to-dos themselves, and nothing here would ever refresh that
+     * copy. Reconcile the project's fields and drop the card's extras.
+     */
+    const updateProject = useCallback(
+        (changes) =>
+            mutate({
+                apply: projectUpdated(changes),
+                send: () => api.patch(`/projects/${projectId}`, changes),
+                onSuccess: ({ pinnedTodos, ...projectFields }) => projectUpdated(projectFields),
+            }),
+        [mutate, projectId]
+    );
+
+    const setTodosPinned = useCallback(
+        (todoIds, isPinned) =>
+            mutate({
+                apply: todosPinned(todoIds, isPinned),
+                send: () => api.put(`/projects/${projectId}/todos/pins`, { todoIds, isPinned }),
+                onSuccess: ({ todos }) => todosReconciled(todos),
+            }),
+        [mutate, projectId]
+    );
+
+    /**
      * Deletes an entity. `also` carries the rest of the delete's fallout — the
      * sequences a layer takes with it, and the to-dos they return to the
      * unorganized panel.
@@ -158,6 +187,8 @@ const useProjectGraph = (projectId) => {
         reload: load,
         createEntity,
         updateEntity,
+        updateProject,
+        setTodosPinned,
         removeEntity,
         dismissActionError,
     };

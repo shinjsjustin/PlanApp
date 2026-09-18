@@ -24,6 +24,9 @@ export const PROJECT_ACTIONS = {
     loadFailed: 'loadFailed',
     entityAdded: 'entityAdded',
     entityUpdated: 'entityUpdated',
+    projectUpdated: 'projectUpdated',
+    todosPinned: 'todosPinned',
+    todosReconciled: 'todosReconciled',
     entityRemoved: 'entityRemoved',
     entityReconciled: 'entityReconciled',
     rolledBack: 'rolledBack',
@@ -135,6 +138,34 @@ const handlers = {
                 [id]: { ...state[collection][id], ...changes },
             },
         };
+    },
+
+    [PROJECT_ACTIONS.projectUpdated]: (state, { changes }) => ({
+        ...state,
+        project: { ...state.project, ...changes },
+    }),
+
+    [PROJECT_ACTIONS.todosPinned]: (state, { todoIds, isPinned }) => {
+        todoIds.forEach((id) => assertPresent(state, 'todos', id));
+        const selectedIds = new Set(todoIds.map(String));
+        const todos = Object.fromEntries(
+            Object.entries(state.todos).map(([id, todo]) => [
+                id,
+                selectedIds.has(id) ? { ...todo, isPinned } : todo,
+            ])
+        );
+
+        return { ...state, todos };
+    },
+
+    [PROJECT_ACTIONS.todosReconciled]: (state, { todos: savedTodos }) => {
+        savedTodos.forEach((todo) => assertPresent(state, 'todos', todo.id));
+        const savedById = keyById(savedTodos);
+        const todos = Object.fromEntries(
+            Object.entries(state.todos).map(([id, todo]) => [id, savedById[id] ?? todo])
+        );
+
+        return { ...state, todos };
     },
 
     [PROJECT_ACTIONS.entityRemoved]: (state, { collection, id }) => {
