@@ -58,10 +58,17 @@
      * short enough not to eat a half-hour booking's body. */
     --cal-resize-depth: 6px;
 
-    /* The column splits in half after the gutter: notes left, to-dos right
-     * (design 2026-09-16, section 8.1). One number, used by both halves, so they
-     * cannot disagree about where the boundary is. */
-    --cal-note-plane-width: 50%;
+    /* Where the column splits after the gutter: notes left, to-dos right
+     * (design 2026-09-16, section 8.1). One number, read by both halves, so they
+     * cannot disagree about where the boundary is — the notes plane is this much
+     * of what the gutter leaves, and a booking starts exactly where that ends.
+     *
+     * A bare multiplier rather than the `50%` it reads as, because `calc()`
+     * cannot multiply by a percentage: `calc(x * 50%)` is invalid and the whole
+     * declaration is dropped. The two uses below each multiply the same
+     * remainder by this, so half is `0.5` and moving the boundary is one edit
+     * here rather than two that have to be kept in step. */
+    --cal-note-plane-split: 0.5;
     /* The grab strips on a ribbon's ends. Same depth as a booking's, so the two
      * planes feel the same under the pointer. */
     --cal-note-edge-depth: var(--cal-resize-depth);
@@ -368,8 +375,13 @@
 
 .day-item-card {
     position: absolute;
-    /* The gutter, plus the notes plane. The to-do plane is the right half. */
-    left: calc(var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) * 0.5);
+    /* The gutter, plus the notes plane — the same expression `.note-plane` sizes
+     * itself by, off the same split, so a booking begins precisely where the
+     * notes end however that number is set. */
+    left: calc(
+        var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) *
+            var(--cal-note-plane-split)
+    );
     right: var(--space-xs);
     overflow: hidden;
     border-radius: var(--radius-sm);
@@ -482,8 +494,9 @@ button.day-item-name:hover {
     top: 0;
     bottom: 0;
     left: var(--cal-gutter-width);
-    /* Half of what is left after the gutter, so the two planes are equal. */
-    width: calc((100% - var(--cal-gutter-width)) * 0.5);
+    /* Its share of what is left after the gutter. The to-do plane starts where
+     * this ends, off the same number, so the two cannot overlap or leave a gap. */
+    width: calc((100% - var(--cal-gutter-width)) * var(--cal-note-plane-split));
     border-right: 1px dashed var(--border);
 }
 
