@@ -104,6 +104,28 @@ W0 (orchestrator)
                        T8 + T10 ─ T11 (E2E, dead-code scan, full gates)
 ```
 
+### 0.2.1 A task may only delete what it also owns the consumers of
+
+Three times now the runbook has told a task to delete something whose last consumer belongs to a
+different task. Each time, the deleting task's own gate could not see the breakage:
+
+- T3 was told to delete `src/shared/frontierFixtures.json`, still imported by a CLIENT test, while
+  T3's gate is the SERVER suite. Moved to a later task.
+- T4 was told to delete `readyFrontier`, `activeSequenceId` and the model's `next`/`then` while
+  `SequenceCard.js`, `Canvas.js` and `LayerRow.js` still read them — and those components belong
+  to T7. T4's gate IS the client suite, so it would have failed outright. T4 is now additive.
+
+Before dispatching any task that deletes an export, a module or a fixture, run:
+
+```bash
+rg -n "<symbol or filename>" src tests
+```
+
+and confirm every hit is inside that task's own file list. If a consumer lives in another task's
+files, the deletion belongs to whichever task owns the LAST consumer — never earlier. Adding the
+new API and removing the old one are allowed to be different tasks; a green gate at every step is
+worth more than a tidy intermediate diff.
+
 ### 0.3 Per-task loop
 
 1. Dispatch implementer (task block below).
@@ -498,10 +520,10 @@ stops compiling because you removed a helper, leave it and report it; the next t
 ### Files you own
 - src/client/src/lib/graph.js
 - src/client/src/lib/graph.test.js
-- DELETE: src/client/src/lib/graph.frontier.test.js
-- DELETE: src/shared/frontierFixtures.json (T4 is its last consumer; T3 deliberately left it)
 - src/client/src/lib/sequenceCard.js
 - src/client/src/lib/sequenceCard.test.js
+
+**T4 IS PURELY ADDITIVE. It deletes nothing.** See §0.2.1.
 
 ### Requirements
 
@@ -525,6 +547,12 @@ stops compiling because you removed a helper, leave it and report it; the next t
 
 3. Everything returns new values. Never mutate the inputs. Do not sort an input array in place —
    copy first.
+
+4. KEEP the existing `readyFrontier`, `activeSequenceId`, `nextTodoOf`, and the model's `next` and
+   `then`, untouched and still exported. `SequenceCard.js` reads `model.next`/`model.then`, and
+   `Canvas.js`/`LayerRow.js` read `activeSequenceId`. Those components are T7's, so removing the
+   old API here would red-line the client suite that is T4's own gate. T7 migrates the components
+   and deletes the old API in the same task.
 
 ### Tests (write them first)
 
@@ -721,6 +749,10 @@ Paste the real output. Then commit with a `feat:` message.
 - src/client/src/components/Styling/SequenceCard.css
 - src/client/src/components/Styling/Project.css
 - DELETE: src/client/src/components/Project/SequenceSpotlight.js
+- DELETE (inherited from T4, which is additive): `readyFrontier`, `activeSequenceId` and
+  `nextTodoOf` from `graph.js`; `next` and `then` from the `sequenceCardModel` return;
+  `src/client/src/lib/graph.frontier.test.js`; `src/shared/frontierFixtures.json`.
+  T7 is the task that migrates the last consumers, so it is the task that may remove them.
 - DELETE: src/client/src/hooks/useSequenceSpotlight.js and useSequenceSpotlight.test.js
   (only if no caller remains after this task — verify with rg, and report if a caller remains)
 - the colocated tests for each of the above, plus sequenceCardHarness.js if fixtures need pins
