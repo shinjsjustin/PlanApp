@@ -30,9 +30,9 @@ describe('readyFrontier against the shared fixture table', () => {
         test(testCase.name, () => {
             // Arrange & Act
             const frontier = readyFrontier({
+                layers: testCase.layers,
                 sequences: testCase.sequences,
                 todos: testCase.todos,
-                edges: testCase.edges,
             });
 
             // Assert

@@ -27,9 +27,9 @@ describe('readyFrontier against the shared fixture table', () => {
         test(testCase.name, () => {
             // Arrange & Act
             const frontier = readyFrontier({
+                layers: testCase.layers,
                 sequences: testCase.sequences,
                 todos: testCase.todos,
-                edges: testCase.edges,
             });
 
             // Assert
@@ -82,16 +82,17 @@ describe('sequenceStatus', () => {
 
 describe('readyFrontier immutability', () => {
     test('does not touch the arrays it is handed', () => {
-        // Arrange
+        // Arrange — the drone case, whose layers and sequences both need sorting.
         const [droneCase] = fixtures.cases.filter((testCase) => testCase.sequences.length > 3);
+        const layers = [...droneCase.layers];
         const sequences = [...droneCase.sequences];
         const todos = [...droneCase.todos];
-        const snapshot = JSON.stringify({ sequences, todos, edges: droneCase.edges });
+        const snapshot = JSON.stringify({ layers, sequences, todos });
 
         // Act
-        readyFrontier({ sequences, todos, edges: droneCase.edges });
+        readyFrontier({ layers, sequences, todos });
 
         // Assert
-        expect(JSON.stringify({ sequences, todos, edges: droneCase.edges })).toBe(snapshot);
+        expect(JSON.stringify({ layers, sequences, todos })).toBe(snapshot);
     });
 });

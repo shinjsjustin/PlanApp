@@ -29,8 +29,6 @@ const todo = (id, sequenceId, status, position = 0) => ({
     status,
     position,
 });
-const edge = (parentId, childId) => ({ id: parentId * 100 + childId, projectId: 1, parentId, childId });
-
 const LEARNING = layer(10, 0);
 const DESIGN = layer(20, 1);
 const BUILD = layer(30, 2);
@@ -103,13 +101,13 @@ describe('sequenceStatus', () => {
 });
 
 describe('readyFrontier', () => {
-    test('includes a sequence with no parents as soon as it is incomplete', () => {
+    test('includes the first sequence of a layer as soon as it is incomplete', () => {
         // Arrange
         const aerodynamics = sequence(1, LEARNING.id, { title: 'Learn aerodynamics' });
         const graph = {
+            layers: LAYERS,
             sequences: [aerodynamics],
             todos: [todo(101, 1, 'incomplete', 0)],
-            edges: [],
         };
 
         // Act
@@ -125,13 +123,13 @@ describe('readyFrontier', () => {
         // Arrange
         const seq = sequence(1, LEARNING.id);
         const graph = {
+            layers: LAYERS,
             sequences: [seq],
             todos: [
                 todo(103, 1, 'incomplete', 2),
                 todo(101, 1, 'complete', 0),
                 todo(102, 1, 'incomplete', 1),
             ],
-            edges: [],
         };
 
         // Act
@@ -146,25 +144,54 @@ describe('readyFrontier', () => {
         const seq = sequence(1, LEARNING.id);
 
         // Act
-        const frontier = readyFrontier({ sequences: [seq], todos: [], edges: [] });
+        const frontier = readyFrontier({ layers: LAYERS, sequences: [seq], todos: [] });
 
         // Assert
         expect(frontier).toEqual([{ sequence: seq, nextTodo: null }]);
     });
 
-    test('holds a child back while any parent is still incomplete', () => {
-        // Arrange — aerodynamics is done, electronics is not; both feed the rotor.
-        const aerodynamics = sequence(1, LEARNING.id);
-        const electronics = sequence(2, LEARNING.id);
+    test('offers one sequence per layer, in layer order', () => {
+        // Arrange — two layers with work outstanding in both.
+        const electronics = sequence(2, LEARNING.id, { position: 1 });
         const rotor = sequence(3, DESIGN.id);
         const graph = {
-            sequences: [aerodynamics, electronics, rotor],
-            todos: [
-                todo(101, 1, 'complete', 0),
-                todo(201, 2, 'incomplete', 0),
-                todo(301, 3, 'incomplete', 0),
-            ],
-            edges: [edge(1, 3), edge(2, 3)],
+            layers: LAYERS,
+            sequences: [rotor, electronics],
+            todos: [todo(201, 2, 'incomplete', 0), todo(301, 3, 'incomplete', 0)],
+        };
+
+        // Act
+        const frontier = readyFrontier(graph);
+
+        // Assert — learning first, design second, whatever order they arrive in.
+        expect(frontier.map((entry) => entry.sequence.id)).toEqual([2, 3]);
+    });
+
+    test('offers only the leftmost unfinished sequence of a layer', () => {
+        // Arrange — two sequences in the same layer, neither one finished.
+        const aerodynamics = sequence(1, LEARNING.id, { position: 0 });
+        const electronics = sequence(2, LEARNING.id, { position: 1 });
+        const graph = {
+            layers: LAYERS,
+            sequences: [aerodynamics, electronics],
+            todos: [todo(101, 1, 'incomplete', 0), todo(201, 2, 'incomplete', 0)],
+        };
+
+        // Act
+        const frontier = readyFrontier(graph);
+
+        // Assert
+        expect(frontier.map((entry) => entry.sequence.id)).toEqual([1]);
+    });
+
+    test('advances to the next sequence in the layer once the leftmost is complete', () => {
+        // Arrange
+        const aerodynamics = sequence(1, LEARNING.id, { position: 0 });
+        const electronics = sequence(2, LEARNING.id, { position: 1 });
+        const graph = {
+            layers: LAYERS,
+            sequences: [aerodynamics, electronics],
+            todos: [todo(101, 1, 'complete', 0), todo(201, 2, 'incomplete', 0)],
         };
 
         // Act
@@ -174,34 +201,12 @@ describe('readyFrontier', () => {
         expect(frontier.map((entry) => entry.sequence.id)).toEqual([2]);
     });
 
-    test('releases a child once every parent is complete', () => {
-        // Arrange
-        const aerodynamics = sequence(1, LEARNING.id);
-        const electronics = sequence(2, LEARNING.id);
-        const rotor = sequence(3, DESIGN.id);
-        const graph = {
-            sequences: [aerodynamics, electronics, rotor],
-            todos: [
-                todo(101, 1, 'complete', 0),
-                todo(201, 2, 'complete', 0),
-                todo(301, 3, 'incomplete', 0),
-            ],
-            edges: [edge(1, 3), edge(2, 3)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([3]);
-    });
-
     test('returns an empty frontier when every sequence is complete', () => {
         // Arrange
         const graph = {
+            layers: LAYERS,
             sequences: [sequence(1, LEARNING.id), sequence(2, DESIGN.id)],
             todos: [todo(101, 1, 'complete', 0), todo(201, 2, 'complete', 0)],
-            edges: [edge(1, 2)],
         };
 
         // Act & Assert
@@ -209,7 +214,7 @@ describe('readyFrontier', () => {
     });
 
     test('returns an empty frontier for a project with no sequences', () => {
-        expect(readyFrontier({ sequences: [], todos: [], edges: [] })).toEqual([]);
+        expect(readyFrontier({ layers: LAYERS, sequences: [], todos: [] })).toEqual([]);
     });
 
     test('leaves a blocked sequence out of the frontier, since spec section 3 keeps blocked work off the home page', () => {
@@ -219,23 +224,24 @@ describe('readyFrontier', () => {
 
         // Act
         const frontier = readyFrontier({
+            layers: LAYERS,
             sequences: [seq],
             todos: [todo(101, 1, 'incomplete', 0)],
-            edges: [],
         });
 
         // Assert
         expect(frontier.map((entry) => entry.sequence.id)).toEqual([]);
     });
 
-    test('leaves both a blocked parent and the child it holds back out of the frontier', () => {
-        // Arrange
-        const parent = sequence(1, LEARNING.id, { isBlocked: true });
-        const child = sequence(2, DESIGN.id);
+    test('does not skip past a blocked sequence to a later one in its layer', () => {
+        // Arrange — the block holds up its whole layer; the sequence behind it
+        // waits its turn rather than taking it.
+        const blocked = sequence(1, LEARNING.id, { isBlocked: true, position: 0 });
+        const behind = sequence(2, LEARNING.id, { position: 1 });
         const graph = {
-            sequences: [parent, child],
-            todos: [todo(101, 1, 'complete', 0), todo(201, 2, 'incomplete', 0)],
-            edges: [edge(1, 2)],
+            layers: LAYERS,
+            sequences: [blocked, behind],
+            todos: [todo(101, 1, 'incomplete', 0), todo(201, 2, 'incomplete', 0)],
         };
 
         // Act
@@ -243,6 +249,23 @@ describe('readyFrontier', () => {
 
         // Assert
         expect(frontier.map((entry) => entry.sequence.id)).toEqual([]);
+    });
+
+    test('lets a layer stand on its own when the one above it is blocked', () => {
+        // Arrange — layers no longer gate one another.
+        const blocked = sequence(1, LEARNING.id, { isBlocked: true });
+        const rotor = sequence(2, DESIGN.id);
+        const graph = {
+            layers: LAYERS,
+            sequences: [blocked, rotor],
+            todos: [todo(101, 1, 'incomplete', 0), todo(201, 2, 'incomplete', 0)],
+        };
+
+        // Act
+        const frontier = readyFrontier(graph);
+
+        // Assert
+        expect(frontier.map((entry) => entry.sequence.id)).toEqual([2]);
     });
 });
 
@@ -442,38 +465,25 @@ describe('activeSequenceId', () => {
         const todos = [todo(1, 1), todo(2, 2)];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges: [], layers })).toBe(1);
+        expect(activeSequenceId({ layers, sequences, todos })).toBe(1);
     });
 
-    test('breaks a tie within a layer by position, left to right', () => {
+    test('takes the leftmost sequence within a layer', () => {
         // Arrange
         const sequences = [sequence(2, 10, 1), sequence(1, 10, 0)];
         const todos = [todo(1, 1), todo(2, 2)];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges: [], layers })).toBe(1);
+        expect(activeSequenceId({ layers, sequences, todos })).toBe(1);
     });
 
-    // The ring says "start here". A sequence whose parent is unfinished cannot
-    // be started, so it never wears it.
-    test('skips a sequence whose parent is not finished', () => {
+    test('hands the ring on once the leftmost sequence is complete', () => {
         // Arrange
-        const sequences = [sequence(1, 10, 0), sequence(2, 20, 0)];
-        const todos = [todo(1, 1), todo(2, 2)];
-        const edges = [{ parentId: 1, childId: 2 }];
-
-        // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges, layers })).toBe(1);
-    });
-
-    test('hands the ring on once the parent is finished', () => {
-        // Arrange
-        const sequences = [sequence(1, 10, 0), sequence(2, 20, 0)];
+        const sequences = [sequence(1, 10, 0), sequence(2, 10, 1)];
         const todos = [todo(1, 1, 'complete'), todo(2, 2)];
-        const edges = [{ parentId: 1, childId: 2 }];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges, layers })).toBe(2);
+        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
     });
 
     // A blocked sequence shows the red waiting-on line, never the purple ring.
@@ -483,7 +493,18 @@ describe('activeSequenceId', () => {
         const todos = [todo(1, 1), todo(2, 2)];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges: [], layers })).toBe(2);
+        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
+    });
+
+    // The ring says "start here", and a layer led by a block is not started —
+    // the sequence behind it waits rather than taking its turn.
+    test('keeps the ring off a sequence sitting behind a blocked one in its layer', () => {
+        // Arrange — the only startable-looking sequence is behind the block.
+        const sequences = [sequence(1, 10, 0, true), sequence(2, 10, 1)];
+        const todos = [todo(1, 1), todo(2, 2)];
+
+        // Act & Assert
+        expect(activeSequenceId({ layers, sequences, todos })).toBeNull();
     });
 
     test('skips a sequence holding nothing to pick up', () => {
@@ -492,7 +513,7 @@ describe('activeSequenceId', () => {
         const todos = [todo(2, 2)];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges: [], layers })).toBe(2);
+        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
     });
 
     test('returns null when the whole project is finished', () => {
@@ -501,19 +522,19 @@ describe('activeSequenceId', () => {
         const todos = [todo(1, 1, 'complete')];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges: [], layers })).toBeNull();
+        expect(activeSequenceId({ layers, sequences, todos })).toBeNull();
     });
 
     test('returns null for a project with no sequences at all', () => {
-        expect(activeSequenceId({ sequences: [], todos: [], edges: [], layers })).toBeNull();
+        expect(activeSequenceId({ layers, sequences: [], todos: [] })).toBeNull();
     });
 
-    test('sorts a sequence whose layer is missing last rather than throwing', () => {
+    test('passes over a sequence whose layer is missing rather than throwing', () => {
         // Arrange
         const sequences = [sequence(1, 999, 0), sequence(2, 10, 0)];
         const todos = [todo(1, 1), todo(2, 2)];
 
         // Act & Assert
-        expect(activeSequenceId({ sequences, todos, edges: [], layers })).toBe(2);
+        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
     });
 });

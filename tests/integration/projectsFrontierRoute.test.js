@@ -3,7 +3,6 @@
 const request = require('supertest');
 
 const app = require('../../src/server');
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -34,11 +33,12 @@ const addTodo = async (conn, { projectId, sequenceId = null, text, status = 'inc
 };
 
 /**
- * The drone project from spec section 1, built for real in the database:
- * three parallel learning sequences, one of which skips the design layer.
+ * The drone project from spec section 1, built for real in the database: three
+ * layers, the first of them holding three sequences.
  *
- * Aerodynamics and network communications are finished, electronics is not — so
- * the rotor design stays gated while the wifi work is released.
+ * Aerodynamics is finished and electronics is not, so the learning layer offers
+ * electronics. Design and build each hold one unfinished sequence, and since
+ * layers do not gate one another, all three layers contribute a line.
  */
 const createDroneProject = async (conn, ownerId, title = 'Build a drone') => {
     const project = await projectsRepo.create(conn, { ownerId, title });
@@ -79,14 +79,7 @@ const createDroneProject = async (conn, ownerId, title = 'Build a drone') => {
     await todo(wifi.id, 'Bring up the radio', 'incomplete');
     await addTodo(conn, { projectId: project.id, text: 'Buy a soldering iron' });
 
-    const edge = (parentId, childId) =>
-        edgesRepo.create(conn, { projectId: project.id, parentId, childId });
-
-    await edge(aerodynamics.id, rotor.id);
-    await edge(electronics.id, rotor.id);
-    await edge(networking.id, wifi.id);
-
-    return { project, electronics, wifi };
+    return { project, electronics, rotor, wifi };
 };
 
 /**
@@ -126,7 +119,7 @@ const countStatements = async (conn, ownerId) => {
 };
 
 describe('GET /api/projects — ready frontier', () => {
-    test('surfaces one frontier line per ready sequence, with its next incomplete to-do', async () => {
+    test('surfaces one frontier line per layer, with its next incomplete to-do', async () => {
         // Arrange
         const conn = getConn();
         const ownerId = await createTestUser(conn);
@@ -135,14 +128,21 @@ describe('GET /api/projects — ready frontier', () => {
         // Act
         const response = await listProjects(ownerId);
 
-        // Assert — electronics is unblocked work; wifi is released by the skip
-        // edge from network communications. The rotor stays gated.
+        // Assert — learning has finished aerodynamics and moved on to
+        // electronics; design and build each offer their own first unfinished
+        // sequence, in layer order.
         expect(response.status).toBe(200);
         expect(response.body.data[0].frontier).toEqual([
             {
                 sequenceId: expect.any(Number),
                 sequenceTitle: 'Learn electronics',
                 nextTodo: { id: expect.any(Number), text: 'Understand ESCs' },
+                isStalled: false,
+            },
+            {
+                sequenceId: expect.any(Number),
+                sequenceTitle: 'Design rotor system',
+                nextTodo: { id: expect.any(Number), text: 'Pick a rotor size' },
                 isStalled: false,
             },
             {
@@ -246,10 +246,10 @@ describe('GET /api/projects — ready frontier', () => {
         });
     });
 
-    test('counts sequences that are blocked, apart from the ones merely gated behind them', async () => {
+    test('lets a blocked sequence suppress its own layer and no other', async () => {
         // Arrange — the drone project, with electronics marked blocked by hand.
-        // The rotor design sits behind electronics too, but it is gated, not
-        // itself blocked — only electronics should count.
+        // It is the learning layer's first unfinished sequence, so that layer
+        // goes quiet; the layers below it are untouched.
         const conn = getConn();
         const ownerId = await createTestUser(conn);
         const { electronics } = await createDroneProject(conn, ownerId);
@@ -258,7 +258,12 @@ describe('GET /api/projects — ready frontier', () => {
         // Act
         const response = await listProjects(ownerId);
 
-        // Assert
+        // Assert — and network communications, sitting behind the block in the
+        // same layer, does not take its turn.
+        expect(response.body.data[0].frontier.map((entry) => entry.sequenceTitle)).toEqual([
+            'Design rotor system',
+            'Connect drone to wifi',
+        ]);
         expect(response.body.data[0]).toMatchObject({
             sequenceCount: 5,
             blockedSequenceCount: 1,
@@ -316,14 +321,14 @@ describe('GET /api/projects — ready frontier', () => {
         const five = await countStatements(conn, ownerId);
 
         // Assert — the whole point of the batched load: five times the projects,
-        // five times the sequences and edges, and the same number of queries.
+        // five times the layers and sequences, and the same number of queries.
         expect(one.body.data).toHaveLength(1);
         expect(five.body.data).toHaveLength(5);
         expect(five.statements).toBe(one.statements);
 
         // And it is genuinely computing frontiers, not returning nothing.
         five.body.data.forEach((project) => {
-            expect(project.frontier).toHaveLength(2);
+            expect(project.frontier).toHaveLength(3);
         });
     });
 });
@@ -377,6 +382,7 @@ describe('the project payload shape is the same everywhere', () => {
         });
         expect(response.body.data.frontier.map((entry) => entry.sequenceTitle)).toEqual([
             'Learn electronics',
+            'Design rotor system',
             'Connect drone to wifi',
         ]);
     });
