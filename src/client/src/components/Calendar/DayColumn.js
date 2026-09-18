@@ -41,6 +41,19 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 // the wrapper that has the `DndContext`, so it supplies a fully wired plane and
 // the column simply gives it its place in the grid. Absent, the column draws a
 // read-only plane from `notes`.
+
+/**
+ * The empty day, shared.
+ *
+ * Module-level rather than a `notes = []` default, because a default parameter
+ * evaluates on every render and would hand `NotePlane` a new array each time —
+ * which is exactly what its `assignLanes` memo keys on, so the memo would
+ * recompute on every render of every column with no notes. The same reason
+ * `useCalendarNotes` keeps one `EMPTY_NOTES`, and the identity guarantee that
+ * hook makes reaches this far only if nothing downstream throws it away.
+ */
+const NO_NOTES = [];
+
 const DayColumn = ({
     day,
     index,
@@ -49,7 +62,7 @@ const DayColumn = ({
     droppable = null,
     cardFor = null,
     registerViewport = null,
-    notes = [],
+    notes = NO_NOTES,
     notePlane = null,
     children,
 }) => {

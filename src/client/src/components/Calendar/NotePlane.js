@@ -27,6 +27,16 @@ import { useDayGeometry } from '../../state/DayScaleContext';
  * `draft` is the create gesture in flight — `{ startMinutes, durationMinutes,
  * isAllowed }` — drawn as a ghost so the user can see the range they are
  * describing, and see it refused before they let go (design section 8.4).
+ *
+ * `droppable` is `{ setNodeRef, className }` from the wrapper that has the
+ * `DndContext`. ITS CLASSES ARE APPENDED TO THE PLANE'S OWN, never substituted
+ * for them: a caller passes whatever it wants to add — its own base plus a
+ * hover modifier, say — and `note-plane` is on the element regardless. A caller
+ * that assumed replacement would be quietly wrong, because the rules that
+ * position the plane, size it and make it a containing block for its lanes all
+ * hang off `note-plane` and would still be applying. `className` may be left
+ * off entirely, which adds nothing; this differs from `DayColumn`'s booking
+ * droppable, which has no class of its own and simply takes the caller's.
  */
 const NotePlane = ({
     dayId,
@@ -47,9 +57,15 @@ const NotePlane = ({
 
     return (
         <div
-            // The droppable contributes the "--over" class, so the plane has to
+            // The droppable contributes its hover class, so the plane has to
             // compose rather than own its className.
-            className={`note-plane${droppable ? ` ${droppable.className}` : ''}`}
+            //
+            // Keyed off the class rather than off `droppable`, because a
+            // droppable with nothing to add is a real case — the wrapper may
+            // only want the node ref — and `${undefined}` would put the literal
+            // string "undefined" in the class list, where it would sit looking
+            // like a rule somebody forgot to write.
+            className={`note-plane${droppable?.className ? ` ${droppable.className}` : ''}`}
             role="group"
             aria-label={label}
             data-day-id={dayId}
