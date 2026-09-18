@@ -78,7 +78,7 @@ const findDuplicateTodo = (placements) => {
  * Buckets by day, pushing into arrays this function owns and no caller ever
  * sees — rebuilding each bucket per placement would make grouping quadratic in
  * the number of bookings sharing a day. Matches `groupByProject` in
- * `./projectsFrontier`.
+ * `./projectsPinnedTodos`.
  */
 const groupByDay = (placements) => {
     const byDay = new Map();

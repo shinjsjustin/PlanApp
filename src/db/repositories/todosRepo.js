@@ -29,8 +29,10 @@ const UPDATABLE_COLUMNS = {
 const SELECT_COLUMNS =
     'id, project_id, sequence_id, text, status, completed_at, is_pinned, position, created_at, updated_at';
 
+// `project_id` is not part of the pinned wire shape, but carrying it here lets
+// the projects home payload group pins by project without a second read.
 const PINNED_SELECT_COLUMNS =
-    't.id, t.text, t.status, t.sequence_id, s.title AS sequence_title, t.position, t.is_pinned';
+    't.id, t.project_id, t.text, t.status, t.sequence_id, s.title AS sequence_title, t.position, t.is_pinned';
 
 const PINNED_FROM_JOINS = `FROM todos t
     LEFT JOIN sequences s ON s.id = t.sequence_id

@@ -98,6 +98,65 @@ describe('GET /api/calendar', () => {
             sequenceTitle: 'Session handling',
             startMinutes: 540,
             durationMinutes: 60,
+            isPinned: false,
+        });
+    });
+
+    test('reports current pin and status values without changing placement', async () => {
+        // Arrange
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn, { todoCount: 2 });
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[0].id,
+            startMinutes: 540,
+            durationMinutes: 60,
+        });
+        await calendarItemsRepo.upsert(conn, {
+            dayId: days[0].id,
+            todoId: todos[1].id,
+            startMinutes: 600,
+            durationMinutes: 30,
+        });
+
+        // Act
+        await todosRepo.setPinned(conn, [todos[0].id], true);
+        await todosRepo.update(conn, todos[0].id, { status: 'complete' });
+        await todosRepo.update(conn, todos[1].id, { status: 'blocked' });
+        const pinned = await request(app)
+            .get('/api/calendar')
+            .set('Authorization', authHeaderFor(ownerId));
+
+        await todosRepo.setPinned(conn, [todos[0].id], false);
+        const unpinned = await request(app)
+            .get('/api/calendar')
+            .set('Authorization', authHeaderFor(ownerId));
+
+        // Assert
+        expect(pinned.body.data.items).toEqual([
+            expect.objectContaining({
+                todoId: todos[0].id,
+                status: 'complete',
+                isPinned: true,
+                dayId: days[0].id,
+                startMinutes: 540,
+                durationMinutes: 60,
+            }),
+            expect.objectContaining({
+                todoId: todos[1].id,
+                status: 'blocked',
+                isPinned: false,
+                dayId: days[0].id,
+                startMinutes: 600,
+                durationMinutes: 30,
+            }),
+        ]);
+        expect(unpinned.body.data.items[0]).toMatchObject({
+            todoId: todos[0].id,
+            isPinned: false,
+            dayId: days[0].id,
+            startMinutes: 540,
+            durationMinutes: 60,
         });
     });
 

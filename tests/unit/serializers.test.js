@@ -4,7 +4,6 @@ const {
     toCalendarDay,
     toCalendarItem,
     toCalendarNote,
-    toFrontierEntry,
     toLayer,
     toProject,
     toPinnedTodo,
@@ -199,61 +198,6 @@ describe('serializers', () => {
         });
     });
 
-    /**
-     * `readyFrontier` skips a blocked to-do the way it skips a complete one
-     * (spec section 3), so a null `nextTodo` no longer means only "this sequence
-     * is empty". The entry carries which of the two it is, because the home card
-     * says different things about them.
-     */
-    describe('toFrontierEntry', () => {
-        const sequence = { id: 2, title: 'Learn aerodynamics' };
-
-        test('carries the next to-do, narrowed to its id and text', () => {
-            // Arrange
-            const nextTodo = { id: 202, sequenceId: 2, text: 'Read up on lift', position: 0 };
-
-            // Act & Assert — `position` and `status` stay off the wire.
-            expect(toFrontierEntry({ sequence, nextTodo }, [nextTodo])).toEqual({
-                sequenceId: 2,
-                sequenceTitle: 'Learn aerodynamics',
-                nextTodo: { id: 202, text: 'Read up on lift' },
-                isStalled: false,
-            });
-        });
-
-        test('reports a sequence holding no to-dos as not stalled', () => {
-            // Act & Assert — nothing to pick up because there is nothing in it.
-            expect(toFrontierEntry({ sequence, nextTodo: null }, [])).toMatchObject({
-                nextTodo: null,
-                isStalled: false,
-            });
-        });
-
-        test('reports a sequence whose outstanding work is all blocked as stalled', () => {
-            // Arrange — one done, one blocked, so nothing is startable.
-            const todos = [
-                { id: 201, sequenceId: 2, text: 'Read up on lift', status: 'complete' },
-                { id: 202, sequenceId: 2, text: 'Wait on the wind tunnel', status: 'blocked' },
-            ];
-
-            // Act & Assert
-            expect(toFrontierEntry({ sequence, nextTodo: null }, todos)).toMatchObject({
-                nextTodo: null,
-                isStalled: true,
-            });
-        });
-
-        test('ignores to-dos belonging to other sequences', () => {
-            // Arrange — the project's to-dos, none of them this sequence's.
-            const todos = [{ id: 301, sequenceId: 9, text: 'Learn to solder', status: 'blocked' }];
-
-            // Act & Assert
-            expect(toFrontierEntry({ sequence, nextTodo: null }, todos)).toMatchObject({
-                isStalled: false,
-            });
-        });
-    });
-
     describe('toCalendarDay', () => {
         test('maps a row and keeps owner_id server-side', () => {
             // Arrange
@@ -291,6 +235,7 @@ describe('serializers', () => {
                 duration_minutes: 60,
                 text: 'Wire up the token refresh',
                 status: 'incomplete',
+                is_pinned: 1,
                 project_id: 2,
                 project_title: 'Auth rewrite',
                 sequence_id: 9,
@@ -304,6 +249,7 @@ describe('serializers', () => {
                 todoId: 12,
                 text: 'Wire up the token refresh',
                 status: 'incomplete',
+                isPinned: true,
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
                 sequenceId: 9,
@@ -311,6 +257,11 @@ describe('serializers', () => {
                 startMinutes: 540,
                 durationMinutes: 60,
             });
+        });
+
+        test('serializes the current pin state as a boolean', () => {
+            expect(toCalendarItem({ is_pinned: 1 }).isPinned).toBe(true);
+            expect(toCalendarItem({ is_pinned: 0 }).isPinned).toBe(false);
         });
 
         test('nulls the sequence for a to-do returned to the unorganized panel', () => {
