@@ -13,6 +13,7 @@ const { z } = require('zod');
 const TITLE_MAX_LENGTH = 255;
 const DESCRIPTION_MAX_LENGTH = 2000;
 const TODO_TEXT_MAX_LENGTH = 500;
+const TODO_PIN_BATCH_MAX_SIZE = 100;
 
 /** Mirrors the `todos.status` enum in the schema. */
 const TODO_STATUSES = ['incomplete', 'complete', 'blocked'];
@@ -45,6 +46,23 @@ const todoStatusSchema = z.enum(TODO_STATUSES, {
     error: `status must be one of: ${TODO_STATUSES.join(', ')}`,
 });
 
+const todoPinIdSchema = z
+    .number({ error: 'todoIds must contain only positive integers' })
+    .int('todoIds must contain only positive integers')
+    .positive('todoIds must contain only positive integers');
+
+const todoPinsSchema = z.object({
+    todoIds: z
+        .array(todoPinIdSchema, { error: 'todoIds must be an array' })
+        .min(1, 'todoIds must contain at least one id')
+        .max(
+            TODO_PIN_BATCH_MAX_SIZE,
+            `todoIds must contain at most ${TODO_PIN_BATCH_MAX_SIZE} ids`
+        )
+        .transform((todoIds) => [...new Set(todoIds)]),
+    isPinned: z.boolean({ error: 'isPinned must be a boolean' }),
+});
+
 const idSchema = z.coerce
     .number({ error: 'id must be a positive integer' })
     .int('id must be a positive integer')
@@ -68,6 +86,7 @@ const requireSomeField = (schema, fields) =>
 module.exports = {
     DESCRIPTION_MAX_LENGTH,
     TITLE_MAX_LENGTH,
+    TODO_PIN_BATCH_MAX_SIZE,
     TODO_STATUSES,
     TODO_TEXT_MAX_LENGTH,
     descriptionSchema,
@@ -75,6 +94,7 @@ module.exports = {
     parseId,
     requireSomeField,
     titleSchema,
+    todoPinsSchema,
     todoStatusSchema,
     todoTextSchema,
 };

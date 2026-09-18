@@ -6,6 +6,7 @@ const { z } = require('zod');
 const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
 const assertSequenceInProject = require('../lib/assertSequenceInProject');
+const assertTodosInProject = require('../lib/assertTodosInProject');
 const layersRepo = require('../db/repositories/layersRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
@@ -22,6 +23,7 @@ const {
     parseId,
     requireSomeField,
     titleSchema,
+    todoPinsSchema,
     todoTextSchema,
 } = require('../lib/validation');
 const { withConnection, withTransaction } = require('../db/unitOfWork');
@@ -227,6 +229,33 @@ router.post(
         });
 
         res.sendData(toTodo(todo), 201);
+    })
+);
+
+/**
+ * PUT /api/projects/:id/todos/pins — applies one pin state to a selected batch.
+ *
+ * Project access and the complete to-do set are validated before the single
+ * UPDATE. The read-back shares the transaction so the response is the exact
+ * committed state, serialized in the regular full to-do shape.
+ */
+router.put(
+    '/:id/todos/pins',
+    asyncRoute(async (req, res) => {
+        const projectId = parseId(req.params.id);
+
+        const result = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'project', projectId, req.user.id);
+
+            const { todoIds, isPinned } = todoPinsSchema.parse(req.body ?? {});
+            await assertTodosInProject(conn, todoIds, projectId, req.user.id);
+            await todosRepo.setPinned(conn, todoIds, isPinned);
+
+            const todos = await todosRepo.findByIds(conn, todoIds);
+            return { todos: todos.map(toTodo) };
+        });
+
+        res.sendData(result);
     })
 );
 
