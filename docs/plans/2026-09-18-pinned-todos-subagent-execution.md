@@ -36,7 +36,27 @@ Flag meanings for this runbook:
 | `--background` | on | Tasks are multi-step and long-running |
 
 **Review tasks drop `--write`** — reviewers read and report, they do not edit.
-**Fix rounds after a review use `--write` and `--resume`** so the same Codex session applies its own fixes.
+
+### 0.1.1 NEVER use `--resume`. Always `--fresh` with full context.
+
+`--resume` maps to `--resume-last`, which resolves to the *latest tracked Codex thread for this
+repo* — not to the thread you meant. Any stray Codex invocation in between silently steals it.
+
+This already happened once: the forwarder ran `task --help` before forwarding a T1 resume, which
+created a throwaway thread; the resume then landed on that thread instead of T1's, arrived with no
+memory of the approved design, and started wandering through skill-cache files with `--write`
+enabled. It had to be cancelled.
+
+So every dispatch — first attempt, retry, or post-review fix round — uses `--fresh` and carries
+its complete context inline:
+
+- the Shared Context Block,
+- the full task block,
+- for a retry: what already happened, what is preserved on disk, and what changed,
+- for a fix round: the reviewer's findings quoted in full, plus the task block again.
+
+This is more prompt text per dispatch. It is also the only form that is not silently order-
+dependent. The runbook's self-contained task blocks exist precisely so this is cheap.
 
 ### 0.2 Ordering rule
 
@@ -64,7 +84,7 @@ W0 (orchestrator)
 2. Handle status: `DONE` → step 3. `DONE_WITH_CONCERNS` → read concerns, decide, then step 3.
    `NEEDS_CONTEXT` → supply it, re-dispatch. `BLOCKED` → change something (more context, smaller
    task, or escalate to the human); never re-run unchanged.
-3. Dispatch **spec compliance reviewer** (§12.1). Issues → same Codex session fixes (`--resume --write`) → re-review.
+3. Dispatch **spec compliance reviewer** (§12.1). Issues → dispatch a FRESH fix round (`--fresh --write`) carrying the task block plus the reviewer's findings verbatim → re-review.
 4. Only after spec review is clean, dispatch **code quality reviewer** (§12.2). Issues → fix → re-review.
 5. Record the task's HEAD SHA, tick it off, move to the next task.
 
