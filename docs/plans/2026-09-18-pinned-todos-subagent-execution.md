@@ -427,7 +427,12 @@ Paste the real output. Then commit with a `feat:` message.
 - src/routes/projects.js (payload shaping only — do not revisit T2's pin endpoint)
 - src/db/repositories/calendarItemsRepo.js
 - src/lib/serializers.js (toCalendarItem only)
-- DELETE: src/lib/frontier.js, src/lib/projectsFrontier.js, src/shared/frontierFixtures.json
+- DELETE: src/lib/frontier.js, src/lib/projectsFrontier.js
+- DO NOT delete `src/shared/frontierFixtures.json` here. The client test
+  `src/client/src/lib/graph.frontier.test.js` still imports it, and T4 owns that file.
+  Deleting the fixture in T3 would break the client suite for the whole gap between T3 and
+  T4, and T3's server-only gate would not notice. **T4 deletes the fixture and its last
+  consumer together.**
 - DELETE: tests/unit/frontier.test.js, tests/integration/projectsFrontierRoute.test.js
 - tests/integration/projectsRoutes.test.js, tests/integration/calendarItemsRepo.test.js,
   tests/integration/calendarRoutes.test.js, tests/unit/serializers.test.js
@@ -442,14 +447,19 @@ Paste the real output. Then commit with a `feat:` message.
    existing `todoCount` and `completedTodoCount` fields exactly as they are today.
    Query count must stay constant as project count grows — no per-project query in a loop.
 
-2. GET /api/projects, POST /api/projects, and PATCH /api/projects/:id must ALL return the same
+2. Remove THREE payload fields, not one: `frontier`, `sequenceCount` and
+   `blockedSequenceCount`. The latter two exist solely to tell three different
+   empty-frontier states apart on the project card, and that distinction is deleted with
+   them. `todoCount` and `completedTodoCount` are PRESERVED.
+
+3. GET /api/projects, POST /api/projects, and PATCH /api/projects/:id must ALL return the same
    card shape, with `pinnedTodos` present (an empty array when there are none).
 
-3. Calendar. Include `is_pinned` in the calendar item join in calendarItemsRepo, and expose
+4. Calendar. Include `is_pinned` in the calendar item join in calendarItemsRepo, and expose
    `isPinned` from `toCalendarItem`. A booking must report the to-do's CURRENT pin state without
    its placement changing.
 
-4. Only after the replacement tests pass, delete the server frontier code and its tests listed
+5. Only after the replacement tests pass, delete the server frontier code and its tests listed
    above, plus any frontier-only serializers, counts, and comments in files you own.
 
 ### Tests (write them first)
@@ -489,6 +499,7 @@ stops compiling because you removed a helper, leave it and report it; the next t
 - src/client/src/lib/graph.js
 - src/client/src/lib/graph.test.js
 - DELETE: src/client/src/lib/graph.frontier.test.js
+- DELETE: src/shared/frontierFixtures.json (T4 is its last consumer; T3 deliberately left it)
 - src/client/src/lib/sequenceCard.js
 - src/client/src/lib/sequenceCard.test.js
 
@@ -1098,8 +1109,8 @@ Then run `superpowers:finishing-a-development-branch`.
 ## 16. Task checklist
 
 - [ ] W0 — clean tree, branch `feat/pinned-todos`, baseline test run recorded
-- [ ] T1 — pin persistence (schema, repo, serializers)
-- [ ] T2 — atomic bulk pin endpoint
+- [x] T1 — pin persistence (schema, repo, serializers) — `40d7456`, review fix `313f8a6`
+- [x] T2 — atomic bulk pin endpoint — `f584bf7`
 - [ ] T3 — pinnedTodos payloads, calendar isPinned, server frontier removal
 - [ ] T4 — graph.js pin derivations, uniform sequenceCard model
 - [ ] T5 — projectUpdated action, setTodosPinned, updateProjectDescription
