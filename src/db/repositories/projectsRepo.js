@@ -103,7 +103,7 @@ const update = async (conn, id, patch) => {
  * fires `todos.sequence_id` ON DELETE SET NULL — MySQL rejects that update
  * because it revalidates `fk_todos_project` against a project row the same
  * statement is deleting. Removing the to-dos first leaves nothing for the SET
- * NULL to touch; `layers`, `sequences` and `sequence_edges` still cascade.
+ * NULL to touch; `layers` and `sequences` still cascade.
  *
  * Touches several tables, so callers run it inside a transaction.
  */

@@ -17,8 +17,8 @@ const { badRequest } = require('./httpError');
  * quietly.
  *
  * `field` names the request field being checked, so the 400 points at the one
- * the caller got wrong. `POST /projects/:id/edges` takes two sequences at once,
- * and "sequenceId is not in this project" would not say which.
+ * the caller got wrong: a request naming more than one sequence would otherwise
+ * say "sequenceId is not in this project" without saying which.
  */
 const assertSequenceInProject = async (
     conn,

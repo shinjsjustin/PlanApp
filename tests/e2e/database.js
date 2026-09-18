@@ -57,8 +57,8 @@ const OWNED_BY = 'SELECT id FROM users WHERE email = ?';
  * explicitly: two paths reach `todos` — deleted with their project, set to NULL
  * when their sequence goes — and InnoDB rejects the SET NULL because it
  * revalidates `fk_todos_project` against a project row the same cascade is
- * deleting. With the to-dos gone there is nothing for it to touch, and
- * `layers`, `sequences` and `sequence_edges` cascade from `projects` as usual.
+ * deleting. With the to-dos gone there is nothing for it to touch, and `layers`
+ * and `sequences` cascade from `projects` as usual.
  *
  * A cleanup that failed silently would leave rows behind for every future run
  * to trip over, so the error is left to propagate rather than swallowed.

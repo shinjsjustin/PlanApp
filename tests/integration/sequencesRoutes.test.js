@@ -3,7 +3,6 @@
 const request = require('supertest');
 
 const app = require('../../src/server');
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -356,26 +355,22 @@ describe('DELETE /api/sequences/:id', () => {
         expect(await sequencesRepo.findById(conn, first.id)).toMatchObject({ position: 0 });
     });
 
-    test('takes its edges with it', async () => {
+    test('leaves the sequences in the other layers alone', async () => {
         // Arrange
         const conn = getConn();
         const { ownerId, project, layer } = await createFixture(conn);
         const lower = await layersRepo.create(conn, { projectId: project.id, title: 'Design' });
-        const parent = await sequencesRepo.create(conn, { layerId: layer.id });
-        const child = await sequencesRepo.create(conn, { layerId: lower.id });
-        await edgesRepo.create(conn, {
-            projectId: project.id,
-            parentId: parent.id,
-            childId: child.id,
-        });
+        const doomed = await sequencesRepo.create(conn, { layerId: layer.id, title: 'Doomed' });
+        await sequencesRepo.create(conn, { layerId: lower.id, title: 'Elsewhere' });
 
         // Act
         await request(app)
-            .delete(`/api/sequences/${parent.id}`)
+            .delete(`/api/sequences/${doomed.id}`)
             .set('Authorization', authHeaderFor(ownerId));
 
-        // Assert
-        expect(await edgesRepo.listByProject(conn, project.id)).toEqual([]);
+        // Assert — layers are independent, so a deletion in one reaches no other.
+        expect(await sequenceOrder(conn, layer.id)).toEqual([]);
+        expect(await sequenceOrder(conn, lower.id)).toEqual([['Elsewhere', 0]]);
     });
 
     test('answers 404 for a sequence that is already gone', async () => {

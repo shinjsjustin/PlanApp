@@ -13,9 +13,8 @@ const todosRepo = require('./todosRepo');
  * never go stale. `is_collapsed` sits alongside it but is not status at all — it
  * is whether the card is folded shut, remembered per sequence.
  *
- * `move` is the one function here that touches another table: a sequence
- * changing layer can invalidate edges that were legal when they were made, and
- * they go with the move. See the note on `DELETE_INVALID_EDGES`.
+ * `remove` is the one function here that touches another table: the to-dos filed
+ * in a deleted sequence return to the unorganized panel and are reindexed there.
  */
 
 const TABLE = 'sequences';
@@ -151,27 +150,6 @@ const update = async (conn, id, patch) => {
 };
 
 /**
- * The SQL that drops every edge touching a sequence which no longer points
- * strictly downward.
- *
- * `assertCanConnect` is the rule at the boundary: a parent's layer must be
- * strictly above its child's. A sequence changing layer can break that for edges
- * that were valid when they were made — so they are deleted with the move rather
- * than left to make the graph mean something it does not (spec decision 2).
- *
- * Strictly: `>=` catches the same-layer case as well as the upward one. Two
- * sequences in one band are parallel work and neither gates the other.
- */
-const DELETE_INVALID_EDGES = `
-    DELETE e FROM sequence_edges e
-    JOIN sequences ps ON ps.id = e.parent_id
-    JOIN sequences cs ON cs.id = e.child_id
-    JOIN layers pl ON pl.id = ps.layer_id
-    JOIN layers cl ON cl.id = cs.layer_id
-    WHERE (e.parent_id = ? OR e.child_id = ?)
-      AND pl.position >= cl.position`;
-
-/**
  * Puts a sequence at a position in a layer — the verb behind dragging a card
  * from one band to another, and behind reordering one within its band.
  *
@@ -181,7 +159,7 @@ const DELETE_INVALID_EDGES = `
  *
  * The target index is validated BEFORE anything is written, so a bad position
  * cannot leave the sequence detached from the layer it came from. Callers run
- * this inside a transaction; it rewrites two tables.
+ * this inside a transaction; it rewrites two orderings.
  *
  * Trusts its caller on project membership: this does not check that `layerId`
  * belongs to the sequence's project (see `assertLayerInProject`, the route's
@@ -210,7 +188,6 @@ const move = async (conn, id, { layerId, position }) => {
     await conn.execute('UPDATE sequences SET layer_id = ? WHERE id = ?', [layerId, id]);
     await applyPositions(conn, TABLE, removeItem(sourceOrdering, id));
     await applyPositions(conn, TABLE, newTargetOrdering);
-    await conn.execute(DELETE_INVALID_EDGES, [id, id]);
 
     return findById(conn, id);
 };
@@ -218,7 +195,7 @@ const move = async (conn, id, { layerId, position }) => {
 /**
  * Deletes a sequence and closes the gap in its layer. Its to-dos are not deleted:
  * `todos.sequence_id` is ON DELETE SET NULL, so they return to the unorganized
- * panel. Its edges cascade away.
+ * panel.
  *
  * The database only nulls the column — it knows nothing about positions — so the
  * freed to-dos would keep the positions they held inside the sequence and

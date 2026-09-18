@@ -3,7 +3,6 @@
 const request = require('supertest');
 
 const app = require('../../src/server');
-const edgesRepo = require('../../src/db/repositories/edgesRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -21,7 +20,7 @@ const getConn = useTransaction();
 
 /**
  * The spec's worked example, small enough to assert on in full: a `learning`
- * layer feeding a `design` layer, one unorganized to-do left over.
+ * layer above a `design` layer, one unorganized to-do left over.
  */
 const buildDroneProject = async (conn, ownerId) => {
     const project = await projectsRepo.create(conn, {
@@ -46,12 +45,6 @@ const buildDroneProject = async (conn, ownerId) => {
         title: 'Design rotor system',
     });
 
-    const edge = await edgesRepo.create(conn, {
-        projectId: project.id,
-        parentId: aerodynamics.id,
-        childId: rotor.id,
-    });
-
     const organized = await todosRepo.create(conn, {
         projectId: project.id,
         sequenceId: aerodynamics.id,
@@ -69,7 +62,6 @@ const buildDroneProject = async (conn, ownerId) => {
         aerodynamics,
         electronics,
         rotor,
-        edge,
         organized,
         unorganized,
     };
@@ -140,22 +132,22 @@ describe('GET /api/projects/:id', () => {
         ]);
     });
 
-    test('returns the edges as parent/child pairs', async () => {
+    test('carries the project, layers, sequences and to-dos, and nothing else', async () => {
         // Arrange
         const conn = getConn();
         const ownerId = await createTestUser(conn);
-        const { project, aerodynamics, rotor, edge } = await buildDroneProject(conn, ownerId);
+        const { project } = await buildDroneProject(conn, ownerId);
 
         // Act
         const { body } = await fetchGraph(project.id, ownerId);
 
-        // Assert
-        expect(body.data.edges).toEqual([
-            expect.objectContaining({
-                id: edge.id,
-                parentId: aerodynamics.id,
-                childId: rotor.id,
-            }),
+        // Assert — the canvas draws layers and the sequences inside them, so the
+        // payload holds those four collections and no connection data.
+        expect(Object.keys(body.data).sort()).toEqual([
+            'layers',
+            'project',
+            'sequences',
+            'todos',
         ]);
     });
 
@@ -197,7 +189,7 @@ describe('GET /api/projects/:id', () => {
         const { body } = await fetchGraph(project.id, ownerId);
 
         // Assert
-        expect(body.data).toMatchObject({ layers: [], sequences: [], edges: [], todos: [] });
+        expect(body.data).toMatchObject({ layers: [], sequences: [], todos: [] });
     });
 
     test('never leaks another user\'s project through the graph payload', async () => {

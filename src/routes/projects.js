@@ -5,19 +5,17 @@ const { z } = require('zod');
 
 const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
-const assertCanConnect = require('../lib/assertCanConnect');
 const assertSequenceInProject = require('../lib/assertSequenceInProject');
-const edgesRepo = require('../db/repositories/edgesRepo');
 const layersRepo = require('../db/repositories/layersRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
-const { badRequest, conflict, notFound } = require('../lib/httpError');
+const { badRequest, notFound } = require('../lib/httpError');
 const {
     findProjectWithFrontier,
     listProjectsWithFrontier,
 } = require('../lib/projectsFrontier');
-const { toEdge, toLayer, toProject, toSequence, toTodo } = require('../lib/serializers');
+const { toLayer, toProject, toSequence, toTodo } = require('../lib/serializers');
 const {
     descriptionSchema,
     idSchema,
@@ -66,14 +64,6 @@ const createTodoSchema = z.object({
     sequenceId: idSchema.nullish(),
 });
 
-// Both ends of an edge are required. The layer-ordering rule between them is a
-// database question rather than a shape question, so it is checked in
-// `assertCanConnect` once the sequences have been loaded.
-const edgePairSchema = z.object({
-    parentId: idSchema,
-    childId: idSchema,
-});
-
 // GET /api/projects — the caller's projects, each with its to-do progress and
 // its ready frontier, from one batched set of queries (see projectsFrontier).
 router.get(
@@ -116,7 +106,7 @@ router.post(
 /**
  * Everything the project page needs, in one payload (spec section 4.4).
  *
- * Five queries, each covering a whole collection — never one per layer or one
+ * Four queries, each covering a whole collection — never one per layer or one
  * per sequence. They run in sequence rather than through `Promise.all` because a
  * single mysql2 connection executes one statement at a time.
  *
@@ -128,14 +118,12 @@ const loadProjectGraph = async (conn, id) => {
 
     const layers = await layersRepo.listByProject(conn, id);
     const sequences = await sequencesRepo.listByProject(conn, id);
-    const edges = await edgesRepo.listByProject(conn, id);
     const todos = await todosRepo.listByProject(conn, id);
 
     return {
         project: toProject(project),
         layers: layers.map(toLayer),
         sequences: sequences.map(toSequence),
-        edges: edges.map(toEdge),
         todos: todos.map(toTodo),
     };
 };
@@ -242,78 +230,8 @@ router.post(
     })
 );
 
-/**
- * POST /api/projects/:id/edges — "the parent must finish before the child can
- * start" (spec section 4.4).
- *
- * `assertCanConnect` is the gate: both sequences in this project, and the
- * parent's layer strictly above the child's. The client only offers legal pairs,
- * but the client is not what decides.
- *
- * A pair that is already connected is a 409, not a 500 — the request was well
- * formed and allowed, the graph simply already says this. The unique constraint
- * is what detects it, so two simultaneous clicks cannot both get through.
- */
-router.post(
-    '/:id/edges',
-    asyncRoute(async (req, res) => {
-        const projectId = parseId(req.params.id);
-        const { parentId, childId } = edgePairSchema.parse(req.body ?? {});
-
-        try {
-            const edge = await withTransaction(async (conn) => {
-                await assertOwnership(conn, 'project', projectId, req.user.id);
-                await assertCanConnect(conn, {
-                    parentId,
-                    childId,
-                    projectId,
-                    userId: req.user.id,
-                });
-
-                return edgesRepo.create(conn, { projectId, parentId, childId });
-            });
-
-            res.sendData(toEdge(edge), 201);
-        } catch (err) {
-            if (edgesRepo.isDuplicateEdge(err)) throw conflict(err.message);
-
-            throw err;
-        }
-    })
-);
-
-/**
- * DELETE /api/projects/:id/edges?parentId=&childId=
- *
- * The pair is the identity of an edge, so it is named in the query string rather
- * than by a surrogate id the client would have to look up first — and in the
- * query string rather than a body, which DELETE is not reliably allowed one.
- *
- * A pair with no edge is a 404 rather than a quiet success: connect mode toggles
- * on what the client believes the graph holds, and being wrong about that is
- * worth hearing.
- */
-router.delete(
-    '/:id/edges',
-    asyncRoute(async (req, res) => {
-        const projectId = parseId(req.params.id);
-        const { parentId, childId } = edgePairSchema.parse(req.query ?? {});
-
-        const removed = await withTransaction(async (conn) => {
-            await assertOwnership(conn, 'project', projectId, req.user.id);
-            await assertCanConnect(conn, { parentId, childId, projectId, userId: req.user.id });
-
-            return edgesRepo.remove(conn, parentId, childId);
-        });
-
-        if (!removed) throw notFound('Edge');
-
-        res.sendData({ parentId, childId });
-    })
-);
-
-// DELETE /api/projects/:id — cascades through layers, sequences, to-dos and
-// edges, so it runs in a transaction (see the note in projectsRepo.remove).
+// DELETE /api/projects/:id — cascades through layers, sequences and to-dos, so
+// it runs in a transaction (see the note in projectsRepo.remove).
 router.delete(
     '/:id',
     asyncRoute(async (req, res) => {

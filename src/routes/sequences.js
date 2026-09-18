@@ -32,8 +32,8 @@ const { withTransaction } = require('../db/unitOfWork');
  * sequence like any other, and it travels on the same optimistic path.
  *
  * `PUT /:id/move` is the exception to "one PATCH": a placement is not a field
- * edit. It replaces where the sequence lives outright, touches two ordered lists
- * and may delete edges, which is more than a partial update should ever mean.
+ * edit. It replaces where the sequence lives outright and touches two ordered
+ * lists, which is more than a partial update should ever mean.
  */
 
 const router = express.Router();
@@ -103,10 +103,8 @@ router.patch(
 // layer. Reordering a sequence within its band and moving it to another are the
 // same operation over one or two ordered lists, so they are one endpoint.
 //
-// Edges the move leaves pointing upward are deleted with it, inside the same
-// transaction: an edge means "this must finish before that can start", and one
-// running up the canvas would mean nothing. The client derives the same set from
-// the same rule, so nothing about that travels in this response.
+// Both lists are reindexed inside the same transaction, so a move is never
+// visible as a hole in the layer it left or a collision in the one it joined.
 router.put(
     '/:id/move',
     asyncRoute(async (req, res) => {

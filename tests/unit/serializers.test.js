@@ -4,7 +4,6 @@ const {
     toCalendarDay,
     toCalendarItem,
     toCalendarNote,
-    toEdge,
     toFrontierEntry,
     toLayer,
     toProject,
@@ -131,22 +130,6 @@ describe('serializers', () => {
 
         test('reports a to-do that was never completed as null, not undefined', () => {
             expect(toTodo({ status: 'incomplete' }).completedAt).toBeNull();
-        });
-    });
-
-    describe('toEdge', () => {
-        test('maps an edge row to its camelCase payload', () => {
-            // Arrange
-            const row = { id: 31, project_id: 3, parent_id: 11, child_id: 12, created_at: 'then' };
-
-            // Act & Assert
-            expect(toEdge(row)).toEqual({
-                id: 31,
-                projectId: 3,
-                parentId: 11,
-                childId: 12,
-                createdAt: 'then',
-            });
         });
     });
 
