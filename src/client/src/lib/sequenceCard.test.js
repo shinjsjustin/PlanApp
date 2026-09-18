@@ -18,7 +18,7 @@ const sequence = (overrides = {}) => ({
     ...overrides,
 });
 
-const todo = (id, status = 'incomplete', position = id) => ({
+const todo = (id, status = 'incomplete', position = id, overrides = {}) => ({
     id,
     projectId: 1,
     sequenceId: 1,
@@ -26,6 +26,8 @@ const todo = (id, status = 'incomplete', position = id) => ({
     status,
     completedAt: null,
     position,
+    isPinned: false,
+    ...overrides,
 });
 
 describe('sequenceCardModel', () => {
@@ -116,6 +118,33 @@ describe('sequenceCardModel', () => {
             expect(model.then).toEqual([]);
         });
 
+        test('returns every non-complete to-do in outstanding, in position order', () => {
+            // Act
+            const model = sequenceCardModel({
+                sequence: sequence(),
+                todos: [
+                    todo(3, 'blocked', 3),
+                    todo(1, 'incomplete', 1),
+                    todo(2, 'incomplete', 2),
+                ],
+            });
+
+            // Assert
+            expect(model.outstanding.map((item) => item.id)).toEqual([1, 2, 3]);
+        });
+
+        test('keeps complete to-dos out of outstanding and in done', () => {
+            // Act
+            const model = sequenceCardModel({
+                sequence: sequence(),
+                todos: [todo(1, 'complete'), todo(2, 'incomplete')],
+            });
+
+            // Assert
+            expect(model.outstanding.map((item) => item.id)).toEqual([2]);
+            expect(model.done.map((item) => item.id)).toEqual([1]);
+        });
+
         test('keeps the whole list too, for the things that count in it', () => {
             // Act — drop targets and the delete prompt work in the stored order.
             const model = sequenceCardModel({
@@ -152,6 +181,28 @@ describe('sequenceCardModel', () => {
 
             // Assert
             expect(todos.map((t) => t.id)).toEqual(before);
+        });
+
+        test('exposes the top pinned to-do id', () => {
+            // Act
+            const model = sequenceCardModel({
+                sequence: sequence(),
+                todos: [
+                    todo(2, 'incomplete', 2, { isPinned: true }),
+                    todo(1, 'complete', 1, { isPinned: true }),
+                ],
+            });
+
+            // Assert
+            expect(model.topPinnedTodoId).toBe(1);
+        });
+
+        test('exposes null when the sequence has no pin', () => {
+            // Act
+            const model = sequenceCardModel({ sequence: sequence(), todos: [todo(1)] });
+
+            // Assert
+            expect(model.topPinnedTodoId).toBeNull();
         });
     });
 

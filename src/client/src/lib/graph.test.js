@@ -1,9 +1,12 @@
 import {
     SEQUENCE_STATUS,
+    activeSequenceIds,
     activeSequenceId,
+    pinnedTodosOf,
     readyFrontier,
     sequenceStatus,
     sortByPosition,
+    topPinnedTodoOf,
     todoCountsOf,
 } from './graph';
 
@@ -19,13 +22,15 @@ const sequence = (id, layerId, overrides = {}) => ({
     position: 0,
     ...overrides,
 });
-const todo = (id, sequenceId, status, position = 0) => ({
+const todo = (id, sequenceId, status, position = 0, overrides = {}) => ({
     id,
     projectId: 1,
     sequenceId,
     text: `To-do ${id}`,
     status,
     position,
+    isPinned: false,
+    ...overrides,
 });
 const LEARNING = layer(10, 0);
 const DESIGN = layer(20, 1);
@@ -286,6 +291,163 @@ describe('sortByPosition', () => {
         // Assert
         expect(sorted).not.toBe(items);
         expect(items.map((item) => item.id)).toEqual([3, 1]);
+    });
+});
+
+describe('pin derivations', () => {
+    test('activeSequenceIds returns every sequence containing a pin, not just one', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id), sequence(2, DESIGN.id), sequence(3, BUILD.id)];
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(201, 2, 'complete', 0, { isPinned: true }),
+            todo(301, 3, 'blocked', 0, { isPinned: true }),
+        ];
+
+        // Act
+        const activeIds = activeSequenceIds(sequences, todos);
+
+        // Assert
+        expect(activeIds).toEqual(new Set([1, 2, 3]));
+    });
+
+    test('activeSequenceIds returns two ids when two sequences each hold a pin', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id), sequence(2, DESIGN.id)];
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(201, 2, 'incomplete', 0, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(activeSequenceIds(sequences, todos)).toEqual(new Set([1, 2]));
+    });
+
+    test('activeSequenceIds returns an empty Set when nothing is pinned', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id)];
+        const todos = [todo(101, 1, 'incomplete', 0)];
+
+        // Act & Assert
+        expect(activeSequenceIds(sequences, todos)).toEqual(new Set());
+    });
+
+    test('activeSequenceIds ignores a pinned to-do that belongs to no sequence', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id)];
+        const todos = [todo(999, null, 'incomplete', 0, { isPinned: true })];
+
+        // Act & Assert
+        expect(activeSequenceIds(sequences, todos)).toEqual(new Set());
+    });
+
+    test('topPinnedTodoOf picks the smallest position regardless of status', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(102, 1, 'incomplete', 2, { isPinned: true }),
+            todo(101, 1, 'incomplete', 1, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos).id).toBe(101);
+    });
+
+    test('topPinnedTodoOf picks a complete pinned to-do when it has the smallest position', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(102, 1, 'incomplete', 2, { isPinned: true }),
+            todo(101, 1, 'complete', 1, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos).id).toBe(101);
+    });
+
+    test('topPinnedTodoOf picks a blocked pinned to-do when it has the smallest position', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(102, 1, 'incomplete', 2, { isPinned: true }),
+            todo(101, 1, 'blocked', 1, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos).id).toBe(101);
+    });
+
+    test('topPinnedTodoOf returns null when the sequence has no pin', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [todo(101, 1, 'incomplete', 0)];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos)).toBeNull();
+    });
+
+    test("pinnedTodosOf returns the sequence's pins in position order", () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(103, 1, 'incomplete', 3, { isPinned: true }),
+            todo(101, 1, 'complete', 1, { isPinned: true }),
+            todo(102, 1, 'blocked', 2, { isPinned: true }),
+        ];
+
+        // Act
+        const pinned = pinnedTodosOf(seq, todos);
+
+        // Assert
+        expect(pinned.map((item) => item.id)).toEqual([101, 102, 103]);
+    });
+
+    test('pinnedTodosOf ignores pins belonging to another sequence', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(201, 2, 'incomplete', 0, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(pinnedTodosOf(seq, todos).map((item) => item.id)).toEqual([101]);
+    });
+
+    test('pinnedTodosOf ignores unorganized pins', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(999, null, 'incomplete', 0, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(pinnedTodosOf(seq, todos).map((item) => item.id)).toEqual([101]);
+    });
+
+    test('new helpers leave unsorted sequences and to-dos untouched', () => {
+        // Arrange
+        const sequences = [
+            sequence(2, DESIGN.id, { position: 2 }),
+            sequence(1, LEARNING.id, { position: 1 }),
+        ];
+        const todos = [
+            todo(202, 2, 'blocked', 2, { isPinned: true }),
+            todo(101, 1, 'complete', 1, { isPinned: true }),
+            todo(201, 2, 'incomplete', 1, { isPinned: true }),
+        ];
+        const sequencesBefore = JSON.parse(JSON.stringify(sequences));
+        const todosBefore = JSON.parse(JSON.stringify(todos));
+
+        // Act
+        pinnedTodosOf(sequences[0], todos);
+        topPinnedTodoOf(sequences[0], todos);
+        activeSequenceIds(sequences, todos);
+
+        // Assert
+        expect(sequences).toEqual(sequencesBefore);
+        expect(todos).toEqual(todosBefore);
     });
 });
 

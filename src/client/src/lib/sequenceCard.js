@@ -16,7 +16,13 @@
 // "complete" while every other surface called it "blocked" would be the worse
 // answer.
 
-import { SEQUENCE_STATUS, TODO_STATUS, sortByPosition, todoCountsOf } from './graph';
+import {
+    SEQUENCE_STATUS,
+    TODO_STATUS,
+    sortByPosition,
+    todoCountsOf,
+    topPinnedTodoOf,
+} from './graph';
 
 /** The four faces of a card. `active` is the one in operation — at most one. */
 export const CARD_STATE = {
@@ -54,6 +60,7 @@ const cardStateOf = ({ sequence, counts, isActive }) => {
 export const sequenceCardModel = ({ sequence, todos, isActive = false }) => {
     const own = sortByPosition(todos.filter((todo) => todo.sequenceId === sequence.id));
     const counts = todoCountsOf(sequence, todos);
+    const topPinnedTodo = topPinnedTodoOf(sequence, todos);
 
     const done = own.filter((todo) => todo.status === TODO_STATUS.complete);
     const outstanding = own.filter((todo) => todo.status !== TODO_STATUS.complete);
@@ -65,6 +72,8 @@ export const sequenceCardModel = ({ sequence, todos, isActive = false }) => {
         // The whole of the sequence's to-dos in display order, for the callers
         // that still think in one list: the drop targets and the delete prompt.
         own,
+        outstanding,
+        topPinnedTodoId: topPinnedTodo?.id ?? null,
         next,
         // What the THEN section lists: everything outstanding bar the one in the
         // spotlight, so no to-do is ever drawn twice.
