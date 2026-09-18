@@ -24,12 +24,4 @@ const forbidden = (message = 'You do not have permission to access this resource
 
 const notFound = (resource = 'Resource') => new HttpError(404, `${resource} not found`);
 
-// The request was well formed and permitted, but the current state refuses it.
-// Distinct from a 400: nothing about the request needs fixing, and re-sending it
-// later could succeed.
-//
-// No route raises this today — the edge API was its only caller, and that is
-// gone. Kept as part of the status vocabulary the other helpers make up.
-const conflict = (message) => new HttpError(409, message);
-
-module.exports = { HttpError, badRequest, conflict, forbidden, notFound };
+module.exports = { HttpError, badRequest, forbidden, notFound };
