@@ -3,9 +3,33 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import DayColumn from './DayColumn';
+import { assignLanes } from '../../lib/noteLanes';
 import { CalendarProvider } from '../../state/CalendarContext';
 import { INITIAL_SCROLL_MINUTES, PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
 import { loadStylesheets, containingBlockOf } from '../../testUtils/stylesheet';
+
+/**
+ * The real lane picker, counted.
+ *
+ * Wrapping rather than stubbing: every other test in this file renders real
+ * ribbons in real lanes, and a stub would quietly take that away. All this adds
+ * is a call count, which is the only way from out here to see whether the memo
+ * inside `NotePlane` is holding.
+ */
+jest.mock('../../lib/noteLanes', () => {
+    const actual = jest.requireActual('../../lib/noteLanes');
+
+    return { ...actual, assignLanes: jest.fn(actual.assignLanes) };
+});
+
+/**
+ * The implementation has to be put back before every test, not just the count
+ * cleared: CRA's Jest config sets `resetMocks`, which strips a `jest.fn`'s
+ * implementation between tests. Left alone, the wrapper above would return
+ * `undefined` from the second test onwards and every ribbon in this file would
+ * fail on a lane map that was not there.
+ */
+const { assignLanes: realAssignLanes } = jest.requireActual('../../lib/noteLanes');
 
 const { minutesToPx } = createDayGeometry(PX_PER_SLOT_MIN);
 
@@ -56,6 +80,10 @@ const noteOnThisDay = (id, overrides = {}) => ({
 });
 
 describe('DayColumn', () => {
+    beforeEach(() => {
+        assignLanes.mockImplementation(realAssignLanes);
+    });
+
     test('pins its delete bubble to the column rather than the page', () => {
         // Arrange — DeleteBubble.css absolutely positions the x and states the
         // host contract it relies on: the host carries `has-delete-bubble` AND
@@ -184,6 +212,33 @@ describe('DayColumn', () => {
         // Assert
         expect(screen.getByTestId('wired-plane')).toBeInTheDocument();
         expect(container.querySelector('.note-plane')).not.toBeInTheDocument();
+    });
+
+    test('hands an empty day the same notes twice, so its lanes are worked out once', () => {
+        // Arrange — `NotePlane` memoises its lane assignment on the identity of
+        // the notes array, and `useCalendarNotes` goes to the trouble of
+        // returning one stable array per day to make that memo hold. A default
+        // parameter here would undo it for every column with no notes: `[]`
+        // evaluates afresh on each render, so the memo would miss every time.
+        const { rerender } = renderColumn();
+        expect(assignLanes).toHaveBeenCalledTimes(1);
+
+        // Act — render again with nothing changed
+        rerender(
+            <CalendarProvider
+                value={{
+                    deleteDay: jest.fn(),
+                    completeTodo: jest.fn(),
+                    isUnsavedDay: () => false,
+                    state: { days: [day], items: [] },
+                }}
+            >
+                <DayColumn day={day} index={0} items={[]} onOpenSource={jest.fn()} />
+            </CalendarProvider>
+        );
+
+        // Assert
+        expect(assignLanes).toHaveBeenCalledTimes(1);
     });
 
     test('hangs both planes off one clock face', () => {

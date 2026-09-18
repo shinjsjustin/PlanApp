@@ -66,6 +66,88 @@ describe('NotePlane', () => {
         expect(ribbons.map((ribbon) => ribbon.style.right)).toEqual(['0%', '25%']);
     });
 
+    test('re-lanes its notes when the day’s notes change', () => {
+        // Arrange — one note, alone in lane 0
+        const { container, rerender } = renderPlane({
+            dayId: OTHER_DAY_ID,
+            notes: [onOtherDay(1)],
+        });
+        const rightsNow = () =>
+            [...container.querySelectorAll('.note-ribbon')].map((ribbon) => ribbon.style.right);
+
+        expect(rightsNow()).toEqual(['0%']);
+
+        // Act — a second note arrives over the same hour, so the first no longer
+        // has the plane to itself
+        rerender(
+            <DayScaleProvider value={createDayGeometry(PX_PER_SLOT_MIN)}>
+                <NotePlane
+                    dayId={OTHER_DAY_ID}
+                    notes={[onOtherDay(1), onOtherDay(2)]}
+                />
+            </DayScaleProvider>
+        );
+
+        // Assert — lanes held over from the previous render would leave the new
+        // note unplaced and drawn on top of the old one.
+        expect(rightsNow()).toEqual(['0%', '25%']);
+    });
+
+    test('re-lanes when a note moves, though the count has not changed', () => {
+        // Arrange — two notes over the same hour, so they are in lanes 0 and 1
+        const { container, rerender } = renderPlane({
+            dayId: OTHER_DAY_ID,
+            notes: [onOtherDay(1), onOtherDay(2)],
+        });
+        const rightsNow = () =>
+            [...container.querySelectorAll('.note-ribbon')].map((ribbon) => ribbon.style.right);
+
+        expect(rightsNow()).toEqual(['0%', '25%']);
+
+        // Act — one is dragged clear of the other. Nothing is added or removed,
+        // which is what a move always looks like: watching the count rather than
+        // the notes themselves would see no change at all here.
+        rerender(
+            <DayScaleProvider value={createDayGeometry(PX_PER_SLOT_MIN)}>
+                <NotePlane
+                    dayId={OTHER_DAY_ID}
+                    notes={[onOtherDay(1), onOtherDay(2, { startMinutes: 700 })]}
+                />
+            </DayScaleProvider>
+        );
+
+        // Assert — neither note overlaps anything now, so both sit against the
+        // boundary
+        expect(rightsNow()).toEqual(['0%', '0%']);
+    });
+
+    test('keeps a ribbon with its note when the notes reorder', () => {
+        // Arrange — two notes, the later one second
+        const early = onOtherDay(1, { startMinutes: 540 });
+        const late = onOtherDay(2, { startMinutes: 600 });
+        const { container, rerender } = renderPlane({
+            dayId: OTHER_DAY_ID,
+            notes: [early, late],
+        });
+        const firstRibbon = container.querySelector('.note-ribbon');
+
+        // Act — a move drags the second note earlier, so the array reorders.
+        // Keyed by position rather than by note, React would reuse the first
+        // ribbon's DOM node for a different note and remount the other — which
+        // mid-drag means the node under the pointer is swapped out from under it.
+        const moved = { ...late, startMinutes: 480 };
+        rerender(
+            <DayScaleProvider value={createDayGeometry(PX_PER_SLOT_MIN)}>
+                <NotePlane dayId={OTHER_DAY_ID} notes={[moved, early]} />
+            </DayScaleProvider>
+        );
+
+        // Assert — note 1's ribbon is the same element it was
+        const ribbons = [...container.querySelectorAll('.note-ribbon')];
+        const stillEarly = ribbons.find((ribbon) => ribbon.textContent === 'note 1');
+        expect(stillEarly).toBe(firstRibbon);
+    });
+
     test('is labelled for the day it belongs to', () => {
         // Act
         renderPlane({ label: 'Notes for Day 1' });
@@ -89,8 +171,11 @@ describe('NotePlane', () => {
             <div key={aNote.id} data-testid="custom">{`${aNote.text} @ ${lane}`}</div>
         );
 
-        // Act
-        renderPlane({ notes: [note(1)], ribbonFor });
+        // Act — on a day whose id is nothing like the note's, because this is
+        // the branch production takes once the drag wrapper supplies a wired
+        // plane, and a lane looked up by the wrong id would reach every ribbon
+        // on the page.
+        renderPlane({ dayId: OTHER_DAY_ID, notes: [onOtherDay(1)], ribbonFor });
 
         // Assert
         expect(screen.getByTestId('custom')).toHaveTextContent('note 1 @ 0');
@@ -170,21 +255,36 @@ describe('NotePlane', () => {
         // Arrange
         const setNodeRef = jest.fn();
 
-        // Act
+        // Act — the classes the drag wrapper really passes: its own base plus a
+        // hover modifier, which the plane appends to `note-plane` rather than
+        // being replaced by.
         const { container } = renderPlane({
-            droppable: { setNodeRef, className: 'note-plane--over' },
+            droppable: { setNodeRef, className: 'note-plane-drop note-plane-drop--over' },
         });
 
         // Assert — dnd-kit measures the node it is handed, so it must be the
         // plane itself and not some inner box.
         const plane = container.querySelector('.note-plane');
         expect(setNodeRef).toHaveBeenCalledWith(plane);
-        expect(plane).toHaveClass('note-plane--over');
+        expect(plane).toHaveClass('note-plane', 'note-plane-drop', 'note-plane-drop--over');
     });
 
     test('carries no droppable class when nothing is dropping on it', () => {
         // Act
         const { container } = renderPlane();
+
+        // Assert
+        expect(container.querySelector('.note-plane').className).toBe('note-plane');
+    });
+
+    test('adds nothing when a droppable has no class to add', () => {
+        // Arrange — a wrapper may want only the node ref. Interpolating an
+        // absent class would put the word "undefined" in the class list, where
+        // it reads like a rule somebody forgot to write.
+        const droppable = { setNodeRef: jest.fn() };
+
+        // Act
+        const { container } = renderPlane({ droppable });
 
         // Assert
         expect(container.querySelector('.note-plane').className).toBe('note-plane');
@@ -264,6 +364,32 @@ describe('NotePlane', () => {
             const surface = getComputedStyle(container.querySelector('.note-plane-surface'));
             expect(surface.position).toBe('absolute');
             expect(surface.getPropertyValue('inset')).toBe('0');
+            // The only thing that says an empty plane can be pressed at all:
+            // there is no button, no outline and no hint text, so the cursor is
+            // the whole affordance.
+            expect(surface.cursor).toBe('crosshair');
+        } finally {
+            unload();
+        }
+    });
+
+    test('lets the pointer through the draft it is drawing', () => {
+        // Arrange — the ghost tracks the gesture, so for the whole of a create
+        // it sits directly under the pointer. Taking pointer events it would
+        // swallow the very moves that size it, and the draft would stick at
+        // whatever height it had when it first reached the cursor.
+        const unload = loadStylesheets('Calendar.css');
+
+        try {
+            // Act
+            const { container } = renderPlane({
+                dayId: OTHER_DAY_ID,
+                draft: { startMinutes: 600, durationMinutes: 30, isAllowed: true },
+            });
+
+            // Assert
+            const draft = getComputedStyle(container.querySelector('.note-draft'));
+            expect(draft.pointerEvents).toBe('none');
         } finally {
             unload();
         }
