@@ -31,7 +31,6 @@ const graphValue = (sequences) => ({
         layers: { 10: layer, 20: { id: 20, projectId: 1, title: 'Design', position: 1 } },
         sequences: Object.fromEntries(sequences.map((s) => [s.id, s])),
         todos: {},
-        edges: {},
     },
     createEntity: jest.fn(),
     updateEntity: jest.fn(),

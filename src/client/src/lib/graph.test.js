@@ -1,7 +1,6 @@
 import {
     SEQUENCE_STATUS,
     activeSequenceId,
-    canConnect,
     readyFrontier,
     sequenceStatus,
     sortByPosition,
@@ -265,49 +264,6 @@ describe('readyFrontier', () => {
 
         // Assert
         expect(frontier.map((entry) => entry.sequence.id)).toEqual([2]);
-    });
-});
-
-describe('canConnect', () => {
-    test('allows an edge to the next layer down', () => {
-        expect(canConnect(sequence(1, LEARNING.id), sequence(2, DESIGN.id), LAYERS)).toBe(true);
-    });
-
-    test('allows an edge that skips a layer', () => {
-        // Arrange — network comms feeds straight past the design layer (spec 1).
-        expect(canConnect(sequence(1, LEARNING.id), sequence(2, BUILD.id), LAYERS)).toBe(true);
-    });
-
-    test('rejects an edge within the same layer', () => {
-        expect(canConnect(sequence(1, LEARNING.id), sequence(2, LEARNING.id), LAYERS)).toBe(false);
-    });
-
-    test('rejects an upward edge', () => {
-        expect(canConnect(sequence(1, DESIGN.id), sequence(2, LEARNING.id), LAYERS)).toBe(false);
-    });
-
-    test('rejects a sequence connecting to itself', () => {
-        const seq = sequence(1, LEARNING.id);
-        expect(canConnect(seq, seq, LAYERS)).toBe(false);
-    });
-
-    test('rejects a pair from two different projects', () => {
-        // Arrange — same layer positions, different projects.
-        const theirLayer = { id: 40, projectId: 2, title: 'Theirs', position: 5 };
-        const parent = sequence(1, LEARNING.id);
-        const child = { ...sequence(2, theirLayer.id), projectId: 2 };
-
-        // Act & Assert
-        expect(canConnect(parent, child, [...LAYERS, theirLayer])).toBe(false);
-    });
-
-    test('rejects a pair whose layers are not in the list', () => {
-        expect(canConnect(sequence(1, 999), sequence(2, DESIGN.id), LAYERS)).toBe(false);
-    });
-
-    test('rejects a missing parent or child rather than throwing', () => {
-        expect(canConnect(null, sequence(2, DESIGN.id), LAYERS)).toBe(false);
-        expect(canConnect(sequence(1, LEARNING.id), null, LAYERS)).toBe(false);
     });
 });
 

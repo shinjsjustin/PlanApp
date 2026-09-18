@@ -37,7 +37,6 @@ const graphValue = (todos) => ({
             },
         },
         todos: Object.fromEntries(todos.map((entry) => [entry.id, entry])),
-        edges: {},
     },
     createEntity: jest.fn(),
     updateEntity: jest.fn(),

@@ -27,7 +27,7 @@ import '../Styling/Todos.css';
 const ProjectPage = () => {
     const { id } = useParams();
     const graph = useProjectGraph(id);
-    const { state, reload, dismissActionError, dismissNotice } = graph;
+    const { state, reload, dismissActionError } = graph;
 
     // Arriving from the calendar's "where did this come from?". The wait starts
     // from the graph being ready, because there is no card to flash before then.
@@ -45,24 +45,13 @@ const ProjectPage = () => {
                 )}
             </header>
 
-            {/* Both toasts stay mounted and toggle `hidden` rather than being
+            {/* The toast stays mounted and toggles `hidden` rather than being
                 conditionally rendered. A live region inserted into the DOM
                 already holding its message is not reliably announced; one that
                 is already there when the text changes is. */}
             <div className="project-toast" role="alert" hidden={!state.actionError}>
                 <p>{state.actionError}</p>
                 <button type="button" onClick={dismissActionError} aria-label="Dismiss error">
-                    Dismiss
-                </button>
-            </div>
-
-            <div
-                className="project-toast project-toast--notice"
-                role="status"
-                hidden={!state.notice}
-            >
-                <p>{state.notice}</p>
-                <button type="button" onClick={dismissNotice} aria-label="Dismiss notice">
                     Dismiss
                 </button>
             </div>

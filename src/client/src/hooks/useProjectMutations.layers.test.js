@@ -92,7 +92,7 @@ describe('renameLayer', () => {
 });
 
 describe('deleteLayer', () => {
-    test('takes its sequences and edges, and frees their to-dos', async () => {
+    test('takes its sequences with it, and frees their to-dos', async () => {
         // Arrange
         const { result, stateOf } = await renderMutations();
         api.delete.mockResolvedValue({ id: 10 });
@@ -106,7 +106,6 @@ describe('deleteLayer', () => {
         expect(api.delete).toHaveBeenCalledWith('/layers/10');
         expect(stateOf().layers[10]).toBeUndefined();
         expect(Object.keys(stateOf().sequences)).toEqual(['200']);
-        expect(stateOf().edges).toEqual({});
         expect(stateOf().todos[1001]).toMatchObject({ sequenceId: null, position: 1 });
         expect(positionsIn(stateOf().layers)).toEqual([[20, 0]]);
     });

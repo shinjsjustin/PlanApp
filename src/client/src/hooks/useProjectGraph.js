@@ -12,8 +12,6 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
-    noticeCleared,
-    noticeRaised,
     rolledBack,
 } from '../state/projectActions';
 
@@ -137,8 +135,8 @@ const useProjectGraph = (projectId) => {
 
     /**
      * Deletes an entity. `also` carries the rest of the delete's fallout — the
-     * sequences a layer takes with it, the to-dos they return to the unorganized
-     * panel, the edges that no longer have both ends.
+     * sequences a layer takes with it, and the to-dos they return to the
+     * unorganized panel.
      */
     const removeEntity = useCallback(
         (collection, id, { path, also = [] }) =>
@@ -151,14 +149,9 @@ const useProjectGraph = (projectId) => {
         [mutate]
     );
 
+    // Dismissed by hand. No timer: a toast that vanishes on its own is one more
+    // race for the E2E suite and one more thing to miss.
     const dismissActionError = useCallback(() => dispatch(actionErrorCleared()), []);
-
-    // Raised by a mutation that succeeded but cost something worth mentioning,
-    // and dismissed by hand like the error above it. No timer: a toast that
-    // vanishes on its own is one more race for the E2E suite and one more thing
-    // to miss.
-    const raiseNotice = useCallback((message) => dispatch(noticeRaised(message)), []);
-    const dismissNotice = useCallback(() => dispatch(noticeCleared()), []);
 
     return {
         state,
@@ -167,8 +160,6 @@ const useProjectGraph = (projectId) => {
         updateEntity,
         removeEntity,
         dismissActionError,
-        raiseNotice,
-        dismissNotice,
     };
 };
 

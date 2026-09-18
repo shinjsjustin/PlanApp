@@ -65,7 +65,6 @@ const GRAPH = {
             position: 0,
         },
     ],
-    edges: [],
     todos: [
         {
             id: 1000,

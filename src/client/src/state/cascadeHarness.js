@@ -21,10 +21,6 @@ export const GRAPH = {
         { id: 102, projectId: 1, layerId: 10, title: 'Learn network comms', description: null, isBlocked: false, position: 2 },
         { id: 200, projectId: 1, layerId: 20, title: 'Design rotor system', description: null, isBlocked: false, position: 0 },
     ],
-    edges: [
-        { id: 500, projectId: 1, parentId: 100, childId: 200 },
-        { id: 501, projectId: 1, parentId: 101, childId: 200 },
-    ],
     todos: [
         { id: 1000, projectId: 1, sequenceId: null, text: 'Loose', status: 'incomplete', position: 0 },
         { id: 1001, projectId: 1, sequenceId: 100, text: 'Read about lift', status: 'incomplete', position: 0 },

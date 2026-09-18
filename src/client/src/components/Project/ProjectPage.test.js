@@ -37,7 +37,6 @@ const GRAPH = {
             position: 0,
         },
     ],
-    edges: [],
     todos: [
         {
             id: 1000,
@@ -166,6 +165,23 @@ describe('ProjectPage', () => {
 
         // Assert
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    // The calmer second toast reported what a change cost in connections. There
+    // are no connections to cost, so the page carries the error toast alone.
+    test('carries no notice toast', async () => {
+        // Arrange
+        api.get.mockResolvedValue(GRAPH);
+
+        // Act
+        const { container } = renderPage();
+        await screen.findByDisplayValue('Learn aerodynamics');
+
+        // Assert
+        expect(container.querySelector('.project-toast--notice')).toBeNull();
+        expect(
+            screen.queryByRole('button', { name: /dismiss notice/i, hidden: true })
+        ).not.toBeInTheDocument();
     });
 
     // A create is on screen under a temporary id and re-keyed to the server's

@@ -44,9 +44,6 @@ export const graphValue = (sequence, todos) => ({
         layers: { 10: { id: 10, projectId: 1, title: 'Learning', position: 0 } },
         sequences: { [sequence.id]: sequence },
         todos: Object.fromEntries(todos.map((t) => [t.id, t])),
-        // Nothing the card renders reads this, but deleting a sequence still
-        // runs the removal cascade, which does.
-        edges: {},
     },
     createEntity: jest.fn(),
     updateEntity: jest.fn(),

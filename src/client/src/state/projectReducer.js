@@ -16,7 +16,7 @@ export const PROJECT_STATUS = {
 };
 
 /** The normalised collections. Doubles as the allow-list for entity actions. */
-export const COLLECTIONS = ['layers', 'sequences', 'todos', 'edges'];
+export const COLLECTIONS = ['layers', 'sequences', 'todos'];
 
 export const PROJECT_ACTIONS = {
     loadStarted: 'loadStarted',
@@ -28,8 +28,6 @@ export const PROJECT_ACTIONS = {
     entityReconciled: 'entityReconciled',
     rolledBack: 'rolledBack',
     actionErrorCleared: 'actionErrorCleared',
-    noticeRaised: 'noticeRaised',
-    noticeCleared: 'noticeCleared',
 };
 
 export const initialProjectState = {
@@ -38,14 +36,10 @@ export const initialProjectState = {
     loadError: null,
     // A mutation failed and was rolled back — the page raises a toast.
     actionError: null,
-    // A mutation succeeded but cost something worth mentioning — the page
-    // raises a second, calmer toast.
-    notice: null,
     project: null,
     layers: {},
     sequences: {},
     todos: {},
-    edges: {},
 };
 
 /** The part of the state a rollback restores: the graph, not the UI status. */
@@ -54,7 +48,6 @@ export const snapshotOf = (state) => ({
     layers: state.layers,
     sequences: state.sequences,
     todos: state.todos,
-    edges: state.edges,
 });
 
 /**
@@ -114,7 +107,6 @@ const handlers = {
         layers: keyById(graph.layers),
         sequences: keyById(graph.sequences),
         todos: keyById(graph.todos),
-        edges: keyById(graph.edges),
     }),
 
     [PROJECT_ACTIONS.loadFailed]: (state, { error }) => ({
@@ -170,22 +162,13 @@ const handlers = {
 
     // The mutation failed: put back the snapshot taken before it was applied and
     // hand the message to the page to surface.
-    //
-    // Any standing notice goes with it. A notice describes what a change cost —
-    // "2 connections were removed" — and a rolled-back change cost nothing, so
-    // leaving it up would be a lie about a graph that has just been restored.
     [PROJECT_ACTIONS.rolledBack]: (state, { snapshot, error }) => ({
         ...state,
         ...snapshot,
         actionError: error,
-        notice: null,
     }),
 
     [PROJECT_ACTIONS.actionErrorCleared]: (state) => ({ ...state, actionError: null }),
-
-    [PROJECT_ACTIONS.noticeRaised]: (state, { message }) => ({ ...state, notice: message }),
-
-    [PROJECT_ACTIONS.noticeCleared]: (state) => ({ ...state, notice: null }),
 };
 
 export const projectReducer = (state, action) => {

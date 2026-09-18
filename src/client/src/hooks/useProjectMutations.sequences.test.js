@@ -171,15 +171,37 @@ describe('setSequenceCollapsed', () => {
     });
 });
 
-// The notice a move raises is glue: `cascadeSequenceMove` derives which edges
-// break (tested on its own) and the reducer stores/clears a notice (tested on
-// its own) — what is untested anywhere else is the counting and pluralization
-// in between, so these three cases characterise it directly rather than
-// through the one path `criticalFlow.spec.js` happens to drag through.
+// A move is the one verb that reindexes two lists at once, so both ends are
+// asserted here: the layer the card left closes up behind it, and the one it
+// joins opens a slot for it. Nothing else follows a move — a card carries no
+// connections to lose any more, so it costs the user nothing to report.
 describe('moveSequence', () => {
-    test('raises no notice when the move costs no connections', async () => {
-        // Arrange — a same-layer reorder of a sequence with no edges of its own
-        const { result, raiseNotice } = await renderMutations();
+    test('reindexes both layers when a card changes layer', async () => {
+        // Arrange — "Learn aerodynamics" leaves the front of Learning for the
+        // front of Design.
+        const { result, stateOf } = await renderMutations();
+        api.put.mockResolvedValue({ ...GRAPH.sequences[0], layerId: 20, position: 0 });
+
+        // Act
+        await act(async () => {
+            await result.current.moveSequence(100, { layerId: 20, position: 0 });
+        });
+
+        // Assert
+        expect(api.put).toHaveBeenCalledWith('/sequences/100/move', {
+            layerId: 20,
+            position: 0,
+        });
+        expect(positionsIn(stateOf().sequences, (s) => s.layerId === 10)).toEqual([[101, 0]]);
+        expect(positionsIn(stateOf().sequences, (s) => s.layerId === 20)).toEqual([
+            [100, 0],
+            [200, 1],
+        ]);
+    });
+
+    test('shifts only the cards passed over in a same-layer reorder', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
         api.put.mockResolvedValue({ ...GRAPH.sequences[1], position: 0 });
 
         // Act
@@ -188,50 +210,29 @@ describe('moveSequence', () => {
         });
 
         // Assert
-        expect(raiseNotice).not.toHaveBeenCalled();
+        expect(positionsIn(stateOf().sequences, (s) => s.layerId === 10)).toEqual([
+            [101, 0],
+            [100, 1],
+        ]);
     });
 
-    test('raises a singular notice when exactly one connection is removed', async () => {
-        // Arrange — moving "Learn aerodynamics" into Design leaves its one edge
-        // pointing sideways instead of down
-        const { result, raiseNotice } = await renderMutations();
-        api.put.mockResolvedValue({ ...GRAPH.sequences[0], layerId: 20, position: 1 });
+    test('puts both layers back when the request fails', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
+        api.put.mockRejectedValue(new ApiError('Move failed.', 500));
 
         // Act
         await act(async () => {
-            await result.current.moveSequence(100, { layerId: 20, position: 1 });
+            await result.current.moveSequence(100, { layerId: 20, position: 0 });
         });
 
         // Assert
-        expect(raiseNotice).toHaveBeenCalledTimes(1);
-        const [message] = raiseNotice.mock.calls[0];
-        expect(message).toContain('Learn aerodynamics');
-        expect(message).toContain('1 connection was removed');
-        expect(message).not.toContain('1 connections');
-    });
-
-    test('raises a plural notice when two or more connections are removed', async () => {
-        // Arrange — tether "Design rotor system" to both learning sequences,
-        // then move it down where neither can reach it any more
-        const { result, raiseNotice } = await renderMutations();
-        api.post.mockResolvedValue({ id: 501, projectId: 1, parentId: 101, childId: 200 });
-
-        await act(async () => {
-            await result.current.toggleEdge(101, 200);
-        });
-
-        api.put.mockResolvedValue({ ...GRAPH.sequences[2], layerId: 10, position: 2 });
-
-        // Act
-        await act(async () => {
-            await result.current.moveSequence(200, { layerId: 10, position: 2 });
-        });
-
-        // Assert
-        expect(raiseNotice).toHaveBeenCalledTimes(1);
-        const [message] = raiseNotice.mock.calls[0];
-        expect(message).toContain('Design rotor system');
-        expect(message).toContain('2 connections were removed');
+        expect(positionsIn(stateOf().sequences, (s) => s.layerId === 10)).toEqual([
+            [100, 0],
+            [101, 1],
+        ]);
+        expect(positionsIn(stateOf().sequences, (s) => s.layerId === 20)).toEqual([[200, 0]]);
+        expect(stateOf().actionError).toBe('Move failed.');
     });
 });
 
@@ -249,7 +250,6 @@ describe('deleteSequence', () => {
         // Assert
         expect(api.delete).toHaveBeenCalledWith('/sequences/100');
         expect(stateOf().todos[1001]).toMatchObject({ sequenceId: null, position: 1 });
-        expect(stateOf().edges).toEqual({});
         expect(positionsIn(stateOf().sequences, (s) => s.layerId === 10)).toEqual([[101, 0]]);
     });
 

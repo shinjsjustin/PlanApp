@@ -108,15 +108,4 @@ describe('deleting a layer', () => {
         ]);
         expect(Object.keys(next.todos)).toHaveLength(4);
     });
-
-    test('takes every edge touching its sequences with it', () => {
-        // Arrange
-        const state = loaded();
-
-        // Act
-        const next = apply(state, [entityRemoved('layers', 10), ...cascadeLayerRemoval(state, 10)]);
-
-        // Assert
-        expect(next.edges).toEqual({});
-    });
 });
