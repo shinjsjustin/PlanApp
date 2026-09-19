@@ -732,7 +732,20 @@ Paste the real output. Then commit with a `feat:` message.
 
 ---
 
-## 8. T7 — Uniform sequence lists, active sequences, Unorganized relocation
+## 8. T7 — split into T7a and T7b
+
+T7 as written bundled the frontier removal with unrelated presentation work. It is the largest
+task in the runbook, and a dropped Codex connection during T6 cost sixteen hours, so it is split
+so each half has its own green gate:
+
+- **T7a** — the coupled core: migrate `Canvas`/`LayerRow` to `activeSequenceIds`, migrate
+  `SequenceCard` off `next`/`then` to the flat `outstanding` list, add top-pin emphasis, then
+  delete the old API. These cannot be separated: the deletions are only safe once the last
+  consumers are migrated, in the same change (§0.2.1).
+- **T7b** — independent presentation: collapsed cards show descriptions and their top pin, and the
+  Unorganized panel moves bottom-right and starts closed. Touches no frontier code.
+
+## 8a. T7a — Uniform sequence lists, active sequences, frontier removal
 
 **Depends on:** T6 · **Gate:** `npm run test:client`
 
@@ -753,8 +766,11 @@ Paste the real output. Then commit with a `feat:` message.
   `nextTodoOf` from `graph.js`; `next` and `then` from the `sequenceCardModel` return;
   `src/client/src/lib/graph.frontier.test.js`; `src/shared/frontierFixtures.json`.
   T7 is the task that migrates the last consumers, so it is the task that may remove them.
-- DELETE: src/client/src/hooks/useSequenceSpotlight.js and useSequenceSpotlight.test.js
-  (only if no caller remains after this task — verify with rg, and report if a caller remains)
+- **DO NOT DELETE `src/client/src/hooks/useSequenceSpotlight.js`.** Despite the name, it is NOT
+  the NEXT STEP spotlight. It is the calendar deep-link flash: arriving at `?sequence=9` briefly
+  highlights that card, then clears the parameter. It has nothing to do with pins or the frontier,
+  and removing it would delete a working, unrelated feature. Only the `SequenceSpotlight.js`
+  COMPONENT goes. Keep the hook, its test, and its use in `ProjectPage`.
 - the colocated tests for each of the above, plus sequenceCardHarness.js if fixtures need pins
 
 ### Requirements
