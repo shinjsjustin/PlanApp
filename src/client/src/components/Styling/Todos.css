@@ -377,3 +377,80 @@ button.todo-check--done:hover {
 .drop-zone--over {
     background: #4a7dbd;
 }
+
+/* -- Pinning ---------------------------------------------------------------
+ *
+ * Pinned to-dos are what a project card shows on the projects home, so a row
+ * has to say whether it is one of them — all the time, not only while a
+ * selection is running, or the reader would have to start one to find out.
+ *
+ * Choosing them is a batch: pick the rows, then confirm once. That is two
+ * buttons in the header, and, for as long as it lasts, one control over every
+ * row the operation could change. See `PinRow.js` for why it is a control on
+ * top of the row rather than a handler on the row itself.
+ */
+
+.pin-controls {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* The marker itself: quiet, small, and never in the way of the text. It sits
+ * in the row's flow rather than in the reserved right padding, which already
+ * holds the ⋯ and the delete ×. */
+.todo-pin-icon {
+    flex: 0 0 auto;
+    font-size: var(--font-sm);
+    line-height: 1;
+}
+
+/* The row's own content, wrapped only so it can be switched off in one move.
+ * It lays out nothing at all, so the row measures and reads exactly as it did
+ * before a selection started — and exactly as it will once one ends. */
+.todo-item-content {
+    display: contents;
+}
+
+/* Only a covered row is the overlay's containing block. Most rows are one
+ * already because they position their delete ×; the spotlight band is not, and
+ * this is what makes it one for as long as it is being chosen. */
+.is-pin-selectable {
+    position: relative;
+}
+
+/* Transparent on purpose. The row underneath is the thing being chosen, so the
+ * control draws nothing of its own until it is pointed at, focused, or in the
+ * batch — at which point the row it covers is outlined, because what is being
+ * confirmed is a set of rows and the reader has to be able to count them. */
+.pin-select-control {
+    position: absolute;
+    inset: 0;
+    /* Above the delete bubble's 3, which is the highest thing a row stacks.
+     * `inert` is what actually makes those controls unreachable; this is so the
+     * control the reader can see is also the one under the pointer. */
+    z-index: 4;
+    width: 100%;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: none;
+    cursor: pointer;
+}
+
+.pin-select-control:hover,
+.pin-select-control:focus-visible {
+    border-color: var(--color-accent);
+}
+
+.pin-select-control[aria-pressed='true'] {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* A covered row keeps its hover affordances down. The ⋯ and the × appear when
+ * the row is hovered, and a row being chosen is hovered the whole time — they
+ * are inert either way, and a row should not show two things it cannot do. */
+.is-pin-selectable .todo-item-menu-toggle,
+.is-pin-selectable .delete-bubble {
+    opacity: 0;
+}

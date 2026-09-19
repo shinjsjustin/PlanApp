@@ -4,6 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click, type } from '../../testUtils/interact';
 
+import { PinSelectionProvider } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
 
 // The floating panel of loose to-dos.
@@ -13,12 +14,16 @@ import UnorganizedPanel from './UnorganizedPanel';
 // that: filed to-dos never appear here, and to-dos freed by a deleted sequence
 // would show up without the panel being told anything.
 
-const todo = (id, { sequenceId = null, text = `To-do ${id}`, position = 0 } = {}) => ({
+const todo = (
+    id,
+    { sequenceId = null, text = `To-do ${id}`, position = 0, isPinned = false } = {}
+) => ({
     id,
     projectId: 1,
     sequenceId,
     text,
     status: 'incomplete',
+    isPinned,
     position,
 });
 
@@ -43,12 +48,22 @@ const graphValue = (todos) => ({
     removeEntity: jest.fn(),
 });
 
-const renderPanel = (todos = []) => {
+const idleSelection = {
+    mode: 'idle',
+    selectedTodoIds: new Set(),
+    isEligible: () => false,
+    isSelected: () => false,
+    toggle: jest.fn(),
+};
+
+const renderPanel = (todos = [], selection = idleSelection) => {
     const value = graphValue(todos);
 
     const rendered = render(
         <ProjectProvider value={value}>
-            <UnorganizedPanel />
+            <PinSelectionProvider value={selection}>
+                <UnorganizedPanel />
+            </PinSelectionProvider>
         </ProjectProvider>
     );
 
@@ -135,6 +150,24 @@ describe('UnorganizedPanel', () => {
 
         // Assert
         expect(listedTexts()).toEqual(['Buy propellers']);
+    });
+
+    test('makes an eligible unorganized row selectable', async () => {
+        // Arrange
+        const selection = {
+            mode: 'pin',
+            selectedTodoIds: new Set(),
+            isEligible: (entry) => !entry.isPinned,
+            isSelected: () => false,
+            toggle: jest.fn(),
+        };
+        renderPanel([todo(1000, { text: 'Buy propellers' })], selection);
+
+        // Act
+        await click(screen.getByRole('button', { name: 'Pin “Buy propellers”' }));
+
+        // Assert
+        expect(selection.toggle).toHaveBeenCalledWith(1000);
     });
 
     test('says so when nothing is waiting to be filed', () => {

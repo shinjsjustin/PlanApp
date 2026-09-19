@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 
 import Canvas from './Canvas';
 import DragDropArea from './DragDropArea';
+import PinControls from './PinControls';
+import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
 import useProjectGraph from '../../hooks/useProjectGraph';
 import useSequenceSpotlight from '../../hooks/useSequenceSpotlight';
@@ -28,6 +30,7 @@ const ProjectPage = () => {
     const { id } = useParams();
     const graph = useProjectGraph(id);
     const { state, reload, dismissActionError } = graph;
+    const pinSelection = usePinSelectionState(graph.setTodosPinned);
 
     // Arriving from the calendar's "where did this come from?". The wait starts
     // from the graph being ready, because there is no card to flash before then.
@@ -42,6 +45,9 @@ const ProjectPage = () => {
                 {state.project && <h1>{state.project.title}</h1>}
                 {state.project?.description && (
                     <p className="project-description">{state.project.description}</p>
+                )}
+                {state.status === PROJECT_STATUS.ready && (
+                    <PinControls selection={pinSelection} />
                 )}
             </header>
 
@@ -74,12 +80,14 @@ const ProjectPage = () => {
 
             {state.status === PROJECT_STATUS.ready && (
                 <ProjectProvider value={graph}>
-                    <DragDropArea>
-                        <div className="project-body">
-                            <UnorganizedPanel />
-                            <Canvas highlightedSequenceId={highlightedSequenceId} />
-                        </div>
-                    </DragDropArea>
+                    <PinSelectionProvider value={pinSelection}>
+                        <DragDropArea>
+                            <div className="project-body">
+                                <UnorganizedPanel />
+                                <Canvas highlightedSequenceId={highlightedSequenceId} />
+                            </div>
+                        </DragDropArea>
+                    </PinSelectionProvider>
                 </ProjectProvider>
             )}
         </main>
