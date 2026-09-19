@@ -4,9 +4,9 @@ import { PIN_MODE, usePinSelectionContext } from './PinSelectionContext';
 
 // The pin, as a row wears it.
 //
-// A to-do is pinned in three different places — loose in the panel, under THEN
-// in an open card, in the spotlight band, in the DONE group — and none of those
-// rows share a component. What they do share is exactly two things, which is why
+// A to-do is pinned in three places — loose in the panel, in an open card's
+// outstanding list, or in the DONE group — and not all of those rows share a
+// component. What they do share is exactly two things, which is why
 // they are here rather than copied four times: the marker a pinned to-do carries
 // all the time, and the one control it offers while a selection is running.
 //

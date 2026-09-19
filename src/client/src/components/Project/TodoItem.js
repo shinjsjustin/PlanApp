@@ -5,7 +5,7 @@ import useProjectMutations from '../../hooks/useProjectMutations';
 import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 import { TODO_STATUS } from '../../lib/graph';
 
-// One to-do, in the unorganized panel or under THEN inside an open sequence card.
+// One to-do, in the unorganized panel or the outstanding list of a sequence card.
 //
 // The status control is a checkbox rather than the three-state cycle it was. A
 // list is read as done or not done, and the card around it is built on that
@@ -47,7 +47,7 @@ const STATUS_LABELS = {
 
 const CHECK = '✓';
 
-const TodoItem = ({ todo, drag = null }) => {
+const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
     const { setTodoStatus, moveTodoToUnorganized, deleteTodo } = useProjectMutations();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const pinRow = usePinRow(todo);
@@ -87,6 +87,7 @@ const TodoItem = ({ todo, drag = null }) => {
         'has-delete-bubble',
         `todo-item--${todo.status}`,
         drag?.isDragging ? 'todo-item--dragging' : '',
+        isTopPinned ? 'todo-row--top-pinned' : '',
         pinRow.rowClassName,
     ]
         .filter(Boolean)

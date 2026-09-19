@@ -35,10 +35,15 @@ const CHECK = '✓';
  * has to read the selection, and a hook cannot be called from inside the `map`
  * that produces it.
  */
-const DoneTodoRow = ({ todo, onReopenTodo, onDeleteTodo }) => {
+const DoneTodoRow = ({ todo, isTopPinned, onReopenTodo, onDeleteTodo }) => {
     const pinRow = usePinRow(todo);
     const day = completedOnLabel(todo.completedAt);
-    const className = ['sequence-done-item', 'has-delete-bubble', pinRow.rowClassName]
+    const className = [
+        'sequence-done-item',
+        'has-delete-bubble',
+        isTopPinned ? 'todo-row--top-pinned' : '',
+        pinRow.rowClassName,
+    ]
         .filter(Boolean)
         .join(' ');
 
@@ -76,7 +81,7 @@ const DoneTodoRow = ({ todo, onReopenTodo, onDeleteTodo }) => {
     );
 };
 
-const SequenceDoneGroup = ({ todos, onReopenTodo, onDeleteTodo }) => {
+const SequenceDoneGroup = ({ todos, topPinnedTodoId = null, onReopenTodo, onDeleteTodo }) => {
     const [isOpen, setIsOpen] = useState(todos.length <= OPEN_BY_DEFAULT_LIMIT);
 
     if (todos.length === 0) return null;
@@ -100,6 +105,7 @@ const SequenceDoneGroup = ({ todos, onReopenTodo, onDeleteTodo }) => {
                         <DoneTodoRow
                             key={todo.id}
                             todo={todo}
+                            isTopPinned={todo.id === topPinnedTodoId}
                             onReopenTodo={onReopenTodo}
                             onDeleteTodo={onDeleteTodo}
                         />

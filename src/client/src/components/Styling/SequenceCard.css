@@ -1,7 +1,7 @@
 /* The sequence card, top to bottom.
  *
  * Split out of Project.css, which owns the page and the canvas the cards sit on:
- * the card grew a folded face, a spotlight band, a DONE group and a footer, and
+ * the card grew a folded face, a sortable list, a DONE group and a footer, and
  * keeping all of that next to the layer layout would have made one file nobody
  * could find anything in.
  *
@@ -32,9 +32,7 @@
     --seq-text-ghost: #b0b0b8;
     --seq-text-ghosted: #c4c4cb;
 
-    /* The sequence in operation. The checkbox circles are the design's accent
-     * too, but they are styled in Todos.css beside the rows that share them —
-     * the values live there rather than being declared twice. */
+    /* Pin activity and top-pin emphasis. */
     --seq-accent-strong: oklch(0.52 0.14 295);
     --seq-accent-bg: oklch(0.972 0.014 295);
     --seq-accent-border: oklch(0.9 0.04 295);
@@ -94,11 +92,10 @@
     box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
 }
 
-/* The regions a card click deliberately passes over say so: a to-do, the
- * spotlight, the add row and the DONE group are worked in, not aimed at. */
+/* The regions a card click deliberately passes over say so: a to-do, the add
+ * row and the DONE group are worked in, not aimed at. */
 .sequence-card .todo-item,
 .sequence-card .todo-add-row,
-.sequence-card .sequence-spotlight,
 .sequence-card .sequence-done {
     cursor: default;
 }
@@ -109,24 +106,19 @@
     }
 }
 
-/* -- The four faces --------------------------------------------------------
- *
- * The state a card wears, from `lib/sequenceCard`. Only one card on the canvas
- * ever carries the ring, which is what makes it a focal point rather than a
- * decoration — the exclusivity is enforced in `Canvas`, not here.
- */
+/* -- Lifecycle faces and pin activity ------------------------------------- */
 
-.sequence-card--state-active {
+.sequence-card--active {
     border-color: var(--seq-accent-card-border);
 }
 
-.sequence-card--state-active.sequence-card--folded {
+.sequence-card--active.sequence-card--folded {
     box-shadow:
         0 1px 2px rgba(16, 16, 24, 0.04),
         0 0 0 3px var(--seq-accent-ring);
 }
 
-.sequence-card--state-active.sequence-card--open {
+.sequence-card--active.sequence-card--open {
     box-shadow:
         0 1px 2px rgba(16, 16, 24, 0.04),
         0 8px 24px -16px rgba(16, 16, 24, 0.18),
@@ -144,7 +136,7 @@
     background: var(--seq-surface-done);
 }
 
-.sequence-card--state-complete.sequence-card--folded {
+.sequence-card--state-complete.sequence-card--folded:not(.sequence-card--active) {
     box-shadow: none;
 }
 
@@ -253,14 +245,14 @@
 }
 
 /* The smallest the circle is worn. The status line of a folded card is one line
- * of a glance, and the 24px spotlight ring would own the card. */
+ * of a glance, so its marker stays quieter than the list controls. */
 .sequence-card-collapsed-line .todo-check {
     width: 16px;
     height: 16px;
     border-width: 2px;
 }
 
-/* NEXT / WAITING ON — the label that says which of the two lines this is. */
+/* WAITING ON — the label that explains the blocked card's second line. */
 .sequence-card-collapsed-label {
     flex: 0 0 auto;
     font-size: 10px;
@@ -357,87 +349,7 @@
     color: var(--seq-danger);
 }
 
-/* -- Open: the spotlight (2B.2) -------------------------------------------- */
-
-/* The only tinted area on the card, and the largest type on it: this is the one
- * thing the reader is meant to act on. */
-.sequence-spotlight {
-    margin: 2px 12px 4px;
-    padding: 14px 16px;
-    border: 1px solid var(--seq-accent-border);
-    border-radius: var(--seq-radius-band);
-    background: var(--seq-accent-bg);
-}
-
-.sequence-spotlight--blocked {
-    border-color: var(--seq-danger-edge);
-    background: var(--seq-danger-band);
-}
-
-.sequence-spotlight-eyebrow {
-    margin-bottom: 7px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--seq-accent-strong);
-}
-
-.sequence-spotlight--blocked .sequence-spotlight-eyebrow {
-    color: var(--seq-danger);
-}
-
-.sequence-spotlight-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-/* Present but quiet: the band is the thing being pointed at, so the handle only
- * comes forward once the pointer is in it or something inside has focus. */
-.sequence-spotlight-handle {
-    opacity: 0;
-    transition: opacity 120ms ease;
-}
-
-.sequence-spotlight:hover .sequence-spotlight-handle,
-.sequence-spotlight:focus-within .sequence-spotlight-handle {
-    opacity: 1;
-}
-
-.sequence-spotlight--dragging {
-    opacity: 0.4;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .sequence-spotlight-handle {
-        transition: none;
-    }
-}
-
-.sequence-spotlight-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow-wrap: anywhere;
-    font-size: 19px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-    color: var(--seq-text);
-}
-
-.sequence-spotlight--blocked .sequence-spotlight-text {
-    color: var(--seq-danger-text);
-}
-
-/* The gap above the band, which is how a to-do is promoted into it by drag. It
- * takes no room until a drop that this sequence would accept is in flight. */
-.sequence-card-spotlight-slot {
-    margin: 0 12px;
-    padding: 0;
-    list-style: none;
-}
-
-/* -- Open: THEN (2B.3) ----------------------------------------------------- */
+/* -- Open: outstanding work ----------------------------------------------- */
 
 /* The header, the band and the footer draw their own separation; the body
  * between them is just the column of rows. */
@@ -445,17 +357,14 @@
     padding: 0;
 }
 
-.sequence-card-then {
+.sequence-card-outstanding {
     padding: 6px 12px 4px;
 }
 
-/* THEN and DONE — the two quiet headings inside an open card. */
-.sequence-card-section-label {
-    padding: 6px 8px 4px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--seq-text-ghost);
+/* The earliest pin gets a quiet band without changing the row's status color,
+ * strike-through or controls. */
+.todo-row--top-pinned {
+    background: var(--bg-alt);
 }
 
 /* -- Open: the DONE group (2B.5) ------------------------------------------- */

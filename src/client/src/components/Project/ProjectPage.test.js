@@ -204,7 +204,9 @@ describe('ProjectPage', () => {
         expect(api.patch).not.toHaveBeenCalled();
         expect(api.delete).not.toHaveBeenCalled();
         expect(screen.queryByRole('button', { name: 'Pin “Read about lift”' })).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Complete “Read about lift”' })).toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: 'Complete “Read about lift” (Incomplete)' })
+        ).toBeInTheDocument();
     });
 
     test('offers a retry instead of a blank canvas when the load fails', async () => {

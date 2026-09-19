@@ -114,24 +114,19 @@ const renderPage = async () => {
  * sensor has no geometry to step through. Stacking the rows of an expanded card
  * gives it the layout a browser would have provided.
  *
- * The spotlight band is one of those rows: since the redesign the first
- * outstanding to-do is drawn there rather than in the list, and it is sortable
- * like any other, so the sensor needs a rect for it too. `querySelectorAll`
- * returns them in document order, which is the order they are stacked in.
+ * Every outstanding to-do is one of those rows. `querySelectorAll` returns them
+ * in document order, which is the order they are stacked in.
  *
  * This is not an assertion about pixels — nothing below checks a coordinate. It
  * is the floor the library needs before its own logic can run at all, and where
  * the real geometry matters the phase 9 Playwright flow measures it for real.
  */
 const ROW_HEIGHT_PX = 40;
-const BAND_HEIGHT_PX = 72;
 const GAP_HEIGHT_PX = 4;
 const ROW_WIDTH_PX = 200;
 
 const heightOf = (row) => {
     if (row.classList.contains('drop-zone')) return GAP_HEIGHT_PX;
-    if (row.classList.contains('sequence-spotlight')) return BAND_HEIGHT_PX;
-
     return ROW_HEIGHT_PX;
 };
 
@@ -139,7 +134,7 @@ const layOutRows = () => {
     let top = 0;
 
     document
-        .querySelectorAll('.drop-zone, .todo-item, .sequence-spotlight')
+        .querySelectorAll('.drop-zone, .todo-item')
         .forEach((row) => {
         const height = heightOf(row);
         const rect = {
@@ -200,19 +195,9 @@ const todoTexts = (listLabel) =>
     ).map((node) => node.textContent);
 
 /**
- * A card's outstanding to-dos top to bottom, across the two places the redesign
- * draws them: the next step in its band, then the rest under THEN. One stored
- * list read two ways, so this is what "the order" means on screen now.
+ * A card's outstanding to-dos top to bottom in its one sortable list.
  */
-const cardTodoTexts = (title) => {
-    const card = document.querySelector(`[data-sequence-title="${title}"]`);
-    const spotlight = card.querySelector('.sequence-spotlight-text');
-
-    return [
-        ...(spotlight ? [spotlight.textContent] : []),
-        ...todoTexts(`To-dos in ${title}`),
-    ];
-};
+const cardTodoTexts = (title) => todoTexts(`To-dos in ${title}`);
 
 const cardsMarked = (state) =>
     Array.from(document.querySelectorAll(`[data-drop="${state}"]`)).map(
@@ -236,14 +221,11 @@ describe('drag handles', () => {
         // Act — sequence cards render open, so its to-dos are already listed.
         await renderPage();
 
-        // Assert — the one under THEN.
+        // Assert
         expect(dragHandleFor('Read about drag')).toBeInTheDocument();
     });
 
-    // The next step is an incomplete to-do and dragging reorders those, so the
-    // band carries a handle as well: otherwise the first row on every card
-    // would be the one nobody could move.
-    test('gives the to-do in the spotlight one too', async () => {
+    test('gives the first outstanding to-do a handle too', async () => {
         // Act
         await renderPage();
 

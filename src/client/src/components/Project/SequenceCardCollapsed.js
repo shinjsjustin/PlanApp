@@ -2,22 +2,15 @@ import React from 'react';
 
 import { CARD_STATE } from '../../lib/sequenceCard';
 
-// The folded card (design 2A). One title and, depending on the state, one line
-// of status underneath it — which is the whole point of the redesign: a
-// zoomed-out canvas should say what to do next without being opened.
+// The folded card (design 2A). One title and, for a blocked sequence, the first
+// outstanding item it is waiting on. Pin activity is expressed by the card ring
+// around this content rather than by replacing the lifecycle summary.
 //
 // The state decides the second line, and only the state:
 //
-//   active       the next step, behind a purple NEXT label and a live checkbox
 //   blocked      what it is waiting on, in red, with an inert circle
 //   not started  nothing — just the title and how many to-dos are filed
 //   complete     nothing — a check badge, a grey title, and the final count
-//
-// The checkbox on an active card is real: the next step can be ticked off
-// without opening the card, which is the fastest path through a plan and the
-// reason the folded card carries a control at all. A blocked card's circle is
-// deliberately not one — the thing to do about a blocked sequence is unblock it,
-// not tick its first to-do.
 //
 // `children` is the chevron, and `grip` is the drag handle, both passed in
 // rather than rendered here: each is the card's own control, carries state the
@@ -33,15 +26,15 @@ const summaryOf = (state, counts) => {
     return `${counts.total} to-do${counts.total === 1 ? '' : 's'}`;
 };
 
-const SequenceCardCollapsed = ({ model, title, onCompleteTodo, children, grip }) => {
-    const { state, counts, next } = model;
+const SequenceCardCollapsed = ({ model, title, children, grip }) => {
+    const { state, counts, outstanding } = model;
+    const [firstOutstanding = null] = outstanding;
 
     // A status line needs both a state that wants one and something to put in
     // it. A blocked sequence with nothing outstanding has nothing to wait on, so
     // it falls back to the quiet face rather than printing an empty line.
-    const isActive = state === CARD_STATE.active;
     const isWaiting = state === CARD_STATE.blocked;
-    const hasStatusLine = (isActive || isWaiting) && next !== null;
+    const hasStatusLine = isWaiting && firstOutstanding !== null;
 
     if (!hasStatusLine) {
         return (
@@ -77,25 +70,14 @@ const SequenceCardCollapsed = ({ model, title, onCompleteTodo, children, grip })
                 </div>
 
                 <div className="sequence-card-collapsed-line">
-                    {/* Only the active card's circle is a control. On a blocked
-                        card it is a marker: the same shape, in red, with nothing
-                        behind it, because ticking the first to-do is not what
-                        unblocks a sequence. */}
-                    {isActive ? (
-                        <button
-                            type="button"
-                            className="todo-check todo-check--next"
-                            aria-label={`Complete “${next.text}”`}
-                            onClick={() => onCompleteTodo(next)}
-                        />
-                    ) : (
-                        <span className="todo-check todo-check--waiting" aria-hidden="true" />
-                    )}
+                    {/* A blocked card's circle is a marker, not a control:
+                        ticking the first to-do is not what unblocks a sequence. */}
+                    <span className="todo-check todo-check--waiting" aria-hidden="true" />
 
-                    <span className="sequence-card-collapsed-label">
-                        {isActive ? 'NEXT' : 'WAITING ON'}
+                    <span className="sequence-card-collapsed-label">WAITING ON</span>
+                    <span className="sequence-card-collapsed-next">
+                        {firstOutstanding.text}
                     </span>
-                    <span className="sequence-card-collapsed-next">{next.text}</span>
                 </div>
             </div>
         </div>

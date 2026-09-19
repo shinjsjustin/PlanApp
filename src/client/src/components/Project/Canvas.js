@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 
 import LayerRow from './LayerRow';
 import useProjectMutations from '../../hooks/useProjectMutations';
-import { activeSequenceId, sortByPosition } from '../../lib/graph';
+import { activeSequenceIds, sortByPosition } from '../../lib/graph';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useProjectContext } from '../../state/ProjectContext';
 
@@ -15,32 +15,27 @@ import { useProjectContext } from '../../state/ProjectContext';
 // only add-layer button that belongs here is the one for a project with no
 // layers for it to sit under.
 //
-// It is also where the sequence *in operation* is picked. A card cannot work
-// that out for itself — the answer depends on every other card in every layer —
-// and the spotlight has to be exclusive, so exactly one card is told it is the
-// active one and every other is told it is not.
+// It is also where pin activity is derived. A card cannot work that out from its
+// own props alone, so the canvas computes the Set once and every row asks it the
+// same question. Any number of sequences may be active at once.
 
 const Canvas = ({ highlightedSequenceId = null }) => {
     const { state } = useProjectContext();
     const { addLayer } = useProjectMutations();
 
     // Each collection is derived once per change rather than once per render,
-    // because the active sequence is memoised on them and rebuilding them every
+    // because the active sequence Set is memoised on them and rebuilding them every
     // time would defeat that.
     const layers = useMemo(() => sortByPosition(Object.values(state.layers)), [state.layers]);
     const sequences = useMemo(() => Object.values(state.sequences), [state.sequences]);
     const todos = useMemo(() => Object.values(state.todos), [state.todos]);
 
     /**
-     * The one card that carries the spotlight, or null when there is nothing to
-     * start. Recomputed with the graph rather than stored, like every other
-     * derived value here, so ticking the last to-do of the active sequence hands
-     * the ring straight to whatever became startable.
+     * Every card containing a pin. Recomputed with the graph rather than stored,
+     * so pinning and unpinning update all cards without lifecycle or layer-order
+     * rules leaking into activity.
      */
-    const activeId = useMemo(
-        () => activeSequenceId({ layers, sequences, todos }),
-        [layers, sequences, todos]
-    );
+    const activeIds = useMemo(() => activeSequenceIds(sequences, todos), [sequences, todos]);
 
     if (layers.length === 0) {
         return (
@@ -62,7 +57,7 @@ const Canvas = ({ highlightedSequenceId = null }) => {
                     layer={layer}
                     sequences={sequences}
                     todos={todos}
-                    activeSequenceId={activeId}
+                    activeSequenceIds={activeIds}
                     highlightedSequenceId={highlightedSequenceId}
                 />
             ))}

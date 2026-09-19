@@ -113,8 +113,8 @@ describe('SequenceCard', () => {
     // The card surface is a convenience layer over the expander button: the
     // whole inert face of a card opens it, because a card is the thing being
     // aimed at, not the chevron in its corner. Anything a person can operate —
-    // the title field, a to-do, the spotlight, the blocked toggle, the add row —
-    // must stay operable, so a click that lands on one of those never toggles.
+    // the title field, a to-do, the blocked toggle, the add row — must stay
+    // operable, so a click that lands on one of those never toggles.
 
     test('folds when the inert card surface is clicked', async () => {
         // Arrange — the footer's status word is inert face, not a control.
@@ -143,7 +143,7 @@ describe('SequenceCard', () => {
     });
 
     test('stays open when a to-do inside it is clicked', async () => {
-        // Arrange — two to-dos, so one is in the spotlight and one in the list.
+        // Arrange
         const { value } = renderCard({
             todos: [todo(1, 'incomplete'), todo(2, 'incomplete')],
         });
@@ -155,7 +155,7 @@ describe('SequenceCard', () => {
         expect(value.updateEntity).not.toHaveBeenCalled();
     });
 
-    test('stays open when the spotlight is clicked', async () => {
+    test('stays open when the first to-do is clicked', async () => {
         // Arrange
         const { value } = renderCard({ todos: [todo(1, 'incomplete')] });
 
@@ -238,6 +238,35 @@ describe('SequenceCard', () => {
         // open card shows both, and they read the same word.
         expect(container.querySelector('.sequence-card-status')).toHaveTextContent('Blocked');
         expect(container.querySelector('.sequence-card--blocked')).toBeInTheDocument();
+    });
+
+    test('keeps blocked lifecycle status when the sequence is active through a pin', () => {
+        // Act
+        const { container } = renderCard({
+            sequence: { ...baseSequence, isBlocked: true },
+            todos: [todo(1, 'blocked', { isPinned: true })],
+            isActive: true,
+        });
+
+        // Assert
+        const card = container.querySelector('.sequence-card');
+        expect(card).toHaveClass('sequence-card--active', 'sequence-card--state-blocked');
+        expect(card).toHaveAttribute('data-state', 'blocked');
+        expect(container.querySelector('.sequence-card-status')).toHaveTextContent('Blocked');
+    });
+
+    test('keeps complete lifecycle status when the sequence is active through a pin', () => {
+        // Act
+        const { container } = renderCard({
+            todos: [todo(1, 'complete', { isPinned: true })],
+            isActive: true,
+        });
+
+        // Assert
+        const card = container.querySelector('.sequence-card');
+        expect(card).toHaveClass('sequence-card--active', 'sequence-card--state-complete');
+        expect(card).toHaveAttribute('data-state', 'complete');
+        expect(container.querySelector('.sequence-card-status')).toHaveTextContent('Complete');
     });
 
     test('sets the blocked override from the footer toggle', async () => {
