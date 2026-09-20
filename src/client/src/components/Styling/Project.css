@@ -55,9 +55,35 @@
     margin: 0;
 }
 
-.project-description {
+.inline-description {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     margin: 0;
-    color: #555;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    white-space: pre-wrap;
+    resize: vertical;
+}
+
+.inline-description::placeholder {
+    color: var(--text-secondary);
+    opacity: 1;
+}
+
+.inline-description:hover {
+    border-color: var(--border);
+}
+
+.inline-description:focus {
+    border-color: var(--color-primary);
+    background: var(--bg-input);
+    outline: 2px solid var(--color-primary);
+    outline-offset: var(--space-xs);
 }
 
 .project-loading,
@@ -107,7 +133,7 @@
  * layers the page has scrolled, and the canvas underneath keeps the full width
  * of the page instead of being pushed into the remainder.
  *
- * It floats over the bottom-left of the canvas at every window width, since the
+ * It floats over the bottom-right of the canvas at every window width, since the
  * page went full-bleed and there is no margin beside a content column to sit in
  * any more. That is what the collapse is for: folded, it is a pill in the corner
  * and the canvas under it is whole again.
@@ -121,14 +147,14 @@
     position: fixed;
     /* Over the canvas and its cards, under the confirm dialog. */
     z-index: 15;
-    /* Anchored to the bottom-left corner and growing upwards. The corner is
+    /* Anchored to the bottom-right corner and growing upwards. The corner is
      * chosen rather than the top one because the top-left of the canvas is
      * where the first layer's title and its cards are: a dock that opened over
      * those would need collapsing before the page could be used at all. */
     bottom: var(--page-pad);
     /* Simply the page's own inset. There is no margin beside the content column
      * to park in any more, because there is no content column. */
-    left: var(--page-pad);
+    right: var(--page-pad);
     display: flex;
     flex-direction: column;
     width: var(--panel-width);

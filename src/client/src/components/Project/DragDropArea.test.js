@@ -212,6 +212,7 @@ describe('drag handles', () => {
     test('gives a to-do waiting in the unorganized panel one', async () => {
         // Arrange & Act
         await renderPage();
+        await click(screen.getByRole('button', { name: 'Unorganized (1)' }));
 
         // Assert
         expect(dragHandleFor('Buy propellers')).toBeInTheDocument();
@@ -242,6 +243,7 @@ describe('drag handles', () => {
     test('leaves the status control clickable rather than swallowing it', async () => {
         // Arrange
         await renderPage();
+        await click(screen.getByRole('button', { name: 'Unorganized (1)' }));
         api.patch.mockResolvedValue({ ...GRAPH.todos[0], status: 'complete' });
 
         // Act
@@ -331,6 +333,7 @@ describe('while a loose to-do is in flight', () => {
     test('marks every sequence eligible, because any of them may take it', async () => {
         // Arrange
         await renderPage();
+        await click(screen.getByRole('button', { name: 'Unorganized (1)' }));
         const handle = dragHandleFor('Buy propellers');
 
         // Act

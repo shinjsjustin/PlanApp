@@ -255,6 +255,7 @@ const SequenceCard = ({
             {isCollapsed ? (
                 <SequenceCardCollapsed
                     model={model}
+                    description={sequence.description}
                     title={title}
                     grip={grip}
                 >
@@ -274,12 +275,14 @@ const SequenceCard = ({
                                 aside about the sequence. */}
                             <p
                                 className={`sequence-card-description${
-                                    sequence.description
+                                    sequence.description?.trim()
                                         ? ''
                                         : ' sequence-card-description--empty'
                                 }`}
                             >
-                                {sequence.description || 'No description yet.'}
+                                {sequence.description?.trim()
+                                    ? sequence.description
+                                    : 'What problem are you trying to solve?'}
                             </p>
                         </div>
 

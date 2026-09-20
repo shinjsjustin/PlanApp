@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { CARD_STATE } from '../../lib/sequenceCard';
+import { CARD_STATE, STATUS_LABELS } from '../../lib/sequenceCard';
+import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 
 // The folded card (design 2A). One title and, for a blocked sequence, the first
 // outstanding item it is waiting on. Pin activity is expressed by the card ring
@@ -26,7 +27,7 @@ const summaryOf = (state, counts) => {
     return `${counts.total} to-do${counts.total === 1 ? '' : 's'}`;
 };
 
-const SequenceCardCollapsed = ({ model, title, children, grip }) => {
+const CollapsedSummary = ({ model, title, children, grip }) => {
     const { state, counts, outstanding } = model;
     const [firstOutstanding = null] = outstanding;
 
@@ -81,6 +82,46 @@ const SequenceCardCollapsed = ({ model, title, children, grip }) => {
                 </div>
             </div>
         </div>
+    );
+};
+
+// A preview is read-only except for the same batch-selection overlay used by
+// expanded rows. It never acquires completion, drag, or delete controls.
+const PinnedPreview = ({ todo }) => {
+    const pinRow = usePinRow(todo);
+
+    return (
+        <div
+            role="group"
+            aria-label="Top pinned to-do"
+            className={`sequence-card-pinned-preview sequence-card-pinned-preview--${todo.status} ${pinRow.rowClassName}`}
+        >
+            <PinRowContent isSelectable={pinRow.isSelectable}>
+                <PinIcon todo={todo} />
+                <span className="sequence-card-pinned-preview-text">{todo.text}</span>
+                <span className="sequence-card-pinned-preview-status">
+                    {STATUS_LABELS[todo.status]}
+                </span>
+            </PinRowContent>
+            {pinRow.control}
+        </div>
+    );
+};
+
+const SequenceCardCollapsed = ({ model, description, ...summaryProps }) => {
+    const topPinnedTodo = model.own.find((todo) => todo.id === model.topPinnedTodoId);
+    const hasDescription = Boolean(description?.trim());
+
+    return (
+        <>
+            <CollapsedSummary model={model} {...summaryProps} />
+            <div className="sequence-card-collapsed-details">
+                <p className={`sequence-card-description${hasDescription ? '' : ' sequence-card-description--empty'}`}>
+                    {hasDescription ? description : 'What problem are you trying to solve?'}
+                </p>
+                {topPinnedTodo ? <PinnedPreview todo={topPinnedTodo} /> : null}
+            </div>
+        </>
     );
 };
 

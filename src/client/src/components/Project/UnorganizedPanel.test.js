@@ -1,5 +1,7 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click, type } from '../../testUtils/interact';
@@ -78,17 +80,36 @@ const listedTexts = () =>
         .map((item) => item.querySelector('.todo-item-text').textContent);
 
 describe('UnorganizedPanel', () => {
-    test('starts open, since it is where loose to-dos are collected', () => {
+    test('docks to the bottom-right using the page inset', () => {
+        const css = readFileSync(join(__dirname, '../Styling/Project.css'), 'utf8');
+        const style = document.createElement('style');
+        style.textContent = css;
+        document.head.appendChild(style);
+
+        const rule = Array.from(style.sheet.cssRules).find(
+            (entry) => entry.selectorText === '.unorganized-panel'
+        );
+        expect(rule.style.getPropertyValue('position')).toBe('fixed');
+        expect(rule.style.getPropertyValue('bottom')).toBe('var(--page-pad)');
+        expect(rule.style.getPropertyValue('right')).toBe('var(--page-pad)');
+        expect(rule.style.getPropertyValue('left')).toBe('');
+        style.remove();
+    });
+
+    test('starts collapsed with its list and composer hidden', () => {
         // Act
         renderPanel();
 
         // Assert
-        expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+        expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.queryByRole('list')).not.toBeInTheDocument();
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     });
 
     test('collapses out of the way when its header is clicked', async () => {
         // Arrange
         renderPanel([todo(1000)]);
+        await click(toggle());
 
         // Act
         await click(toggle());
@@ -98,10 +119,9 @@ describe('UnorganizedPanel', () => {
         expect(screen.queryByRole('list', { name: /unorganized to-dos/i })).not.toBeInTheDocument();
     });
 
-    test('opens again when its header is clicked a second time', async () => {
+    test('opens when its initially collapsed header is clicked', async () => {
         // Arrange
         renderPanel();
-        await click(toggle());
 
         // Act
         await click(toggle());
@@ -110,12 +130,9 @@ describe('UnorganizedPanel', () => {
         expect(toggle()).toHaveAttribute('aria-expanded', 'true');
     });
 
-    test('still reports how much is waiting once it is collapsed', async () => {
+    test('reports the loose count in the initially collapsed pill', () => {
         // Arrange
         renderPanel([todo(1000, { position: 0 }), todo(1001, { position: 1 })]);
-
-        // Act
-        await click(toggle());
 
         // Assert
         expect(toggle()).toHaveAccessibleName(/unorganized.*2/i);
@@ -129,7 +146,7 @@ describe('UnorganizedPanel', () => {
         expect(toggle()).toHaveAccessibleName(/unorganized.*0/i);
     });
 
-    test('lists the loose to-dos in position order', () => {
+    test('lists the loose to-dos in position order', async () => {
         // Arrange + Act — deliberately supplied out of order.
         renderPanel([
             todo(1002, { text: 'Third', position: 2 }),
@@ -137,16 +154,20 @@ describe('UnorganizedPanel', () => {
             todo(1001, { text: 'Second', position: 1 }),
         ]);
 
+        await click(toggle());
+
         // Assert
         expect(listedTexts()).toEqual(['First', 'Second', 'Third']);
     });
 
-    test('leaves out the to-dos that are filed in a sequence', () => {
+    test('leaves out the to-dos that are filed in a sequence', async () => {
         // Act
         renderPanel([
             todo(1000, { text: 'Buy propellers' }),
             todo(1001, { sequenceId: 100, text: 'Read about lift' }),
         ]);
+
+        await click(toggle());
 
         // Assert
         expect(listedTexts()).toEqual(['Buy propellers']);
@@ -162,6 +183,7 @@ describe('UnorganizedPanel', () => {
             toggle: jest.fn(),
         };
         renderPanel([todo(1000, { text: 'Buy propellers' })], selection);
+        await click(toggle());
 
         // Act
         await click(screen.getByRole('button', { name: 'Pin “Buy propellers”' }));
@@ -170,9 +192,10 @@ describe('UnorganizedPanel', () => {
         expect(selection.toggle).toHaveBeenCalledWith(1000);
     });
 
-    test('says so when nothing is waiting to be filed', () => {
+    test('says so when nothing is waiting to be filed', async () => {
         // Act
         renderPanel();
+        await click(toggle());
 
         // Assert
         expect(screen.getByText(/nothing waiting/i)).toBeInTheDocument();
@@ -181,6 +204,7 @@ describe('UnorganizedPanel', () => {
     test('adds a to-do straight into the panel rather than a sequence', async () => {
         // Arrange
         const { value } = renderPanel([todo(1000)]);
+        await click(toggle());
 
         // Act
         await type(
@@ -201,6 +225,7 @@ describe('UnorganizedPanel', () => {
     test('takes the composer away with the rest of the body when collapsed', async () => {
         // Arrange
         renderPanel();
+        await click(toggle());
 
         // Act
         await click(toggle());

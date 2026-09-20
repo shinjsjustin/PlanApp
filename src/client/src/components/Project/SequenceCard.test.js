@@ -46,7 +46,7 @@ describe('SequenceCard', () => {
 
         // Assert
         expect(expander()).toHaveAttribute('aria-expanded', 'false');
-        expect(screen.queryByText(baseSequence.description)).not.toBeInTheDocument();
+        expect(screen.getByText(baseSequence.description)).toBeInTheDocument();
     });
 
     // A folded card is the default zoomed-out view, and the whole point of it is
@@ -107,7 +107,7 @@ describe('SequenceCard', () => {
 
         // Assert
         expect(expander()).toHaveAttribute('aria-expanded', 'false');
-        expect(screen.queryByText(baseSequence.description)).not.toBeInTheDocument();
+        expect(screen.getByText(baseSequence.description)).toBeInTheDocument();
     });
 
     // The card surface is a convenience layer over the expander button: the
@@ -198,7 +198,7 @@ describe('SequenceCard', () => {
         renderCard({ sequence: { ...baseSequence, description: null } });
 
         // Assert
-        expect(screen.getByText(/no description/i)).toBeInTheDocument();
+        expect(screen.getByText('What problem are you trying to solve?')).toBeInTheDocument();
     });
 
     test('shows a derived status of incomplete for an empty sequence', () => {

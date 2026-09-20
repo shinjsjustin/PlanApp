@@ -296,6 +296,43 @@
     line-height: 1;
 }
 
+.sequence-card-collapsed-details {
+    padding: 0 var(--space-md) var(--space-md);
+}
+
+.sequence-card-pinned-preview {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    border: 1px solid var(--seq-accent-strong);
+    border-radius: var(--radius-sm);
+    color: var(--seq-text);
+    font-size: var(--font-sm);
+}
+
+.sequence-card-pinned-preview-text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.sequence-card-pinned-preview-status {
+    flex-shrink: 0;
+    color: var(--seq-text-secondary);
+}
+
+.sequence-card-pinned-preview--blocked {
+    border-color: var(--seq-danger);
+    color: var(--seq-danger-text);
+}
+
+.sequence-card-pinned-preview--complete .sequence-card-pinned-preview-text {
+    text-decoration: line-through;
+    color: var(--seq-text-secondary);
+}
+
 /* -- Open: header (2B.1) -------------------------------------------------- */
 
 .sequence-card-header {
@@ -318,6 +355,7 @@
 }
 
 .sequence-card-description {
+    white-space: pre-wrap;
     margin: 2px 0 0;
     /* A description is typed by whoever owns the plan, so a long unbroken run of
      * characters has to wrap rather than push out of the card. */
