@@ -1156,16 +1156,19 @@ Then run `superpowers:finishing-a-development-branch`.
 
 ## 16. Task checklist
 
-- [ ] W0 — clean tree, branch `feat/pinned-todos`, baseline test run recorded
+**Last updated:** 2026-09-20 — paused at a clean boundary after T10. T11 and the final integrator review remain.
+
+- [x] W0 — clean tree, branch `feat/pinned-todos`, baseline test run recorded
 - [x] T1 — pin persistence (schema, repo, serializers) — `40d7456`, review fix `313f8a6`
 - [x] T2 — atomic bulk pin endpoint — `f584bf7`
-- [ ] T3 — pinnedTodos payloads, calendar isPinned, server frontier removal
-- [ ] T4 — graph.js pin derivations, uniform sequenceCard model
-- [ ] T5 — projectUpdated action, setTodosPinned, updateProjectDescription
-- [ ] T6 — PinSelectionContext, PinControls, selectable rows
-- [ ] T7 — uniform sequence lists, active sequences, Unorganized relocation
-- [ ] T8 — InlineDescription
-- [ ] T9 — Projects Home pinned block
-- [ ] T10 — Calendar pinned pool and status styling
+- [x] T3 — pinnedTodos payloads, calendar isPinned, server frontier removal — `03e9fea`
+- [x] T4 — graph.js pin derivations, uniform sequenceCard model — `1891220`
+- [x] T5 — projectUpdated action, setTodosPinned, updateProjectDescription — `628315f`, concurrency fix `0b1ae5d`
+- [x] T6 — PinSelectionContext, PinControls, selectable rows — `36f1d70`, pending-confirm fix `0b1ae5d`
+- [x] T7a — uniform sequence lists, active sequences, frontier removal — `588b8bc`
+- [x] T7b — collapsed descriptions/top pin and Unorganized relocation — `51baac9`
+- [x] T8 — InlineDescription — `edf56ce`
+- [x] T9 — Projects Home pinned block — `69c8759`
+- [x] T10 — Calendar pinned pool and status styling — `3307e32`
 - [ ] T11 — E2E, dead-code sweep, full gates
 - [ ] Final integrator review + finishing-a-development-branch

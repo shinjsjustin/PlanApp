@@ -1,7 +1,7 @@
 # Pinned To-Dos, Unified Sequence Lists, and Editable Descriptions
 
 **Date:** 2026-09-18  
-**Status:** Implementation-ready plan  
+**Status:** In progress — T1–T10 complete; T11 and final integration review pending (2026-09-20)
 **Scope:** Database, API, Project detail, Projects Home, Calendar, automated tests
 
 ## 1. Goal
