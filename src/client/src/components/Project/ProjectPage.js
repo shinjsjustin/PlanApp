@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import Canvas from './Canvas';
 import DragDropArea from './DragDropArea';
+import InlineDescription from './InlineDescription';
 import PinControls from './PinControls';
 import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
@@ -43,8 +44,10 @@ const ProjectPage = () => {
             <header className="project-header">
                 <Link to="/projects">← All projects</Link>
                 {state.project && <h1>{state.project.title}</h1>}
-                {state.project?.description && (
-                    <p className="project-description">{state.project.description}</p>
+                {state.status === PROJECT_STATUS.ready && (
+                    <ProjectProvider value={graph}>
+                        <InlineDescription key={id} value={state.project.description} />
+                    </ProjectProvider>
                 )}
                 {state.status === PROJECT_STATUS.ready && (
                     <PinControls selection={pinSelection} />
