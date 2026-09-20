@@ -120,6 +120,50 @@ describe('usePinSelectionState', () => {
         expect(result.current.isSaving).toBe(false);
     });
 
+    test('ignores draft changes and duplicate confirmation while saving, even before rerender', async () => {
+        let finish;
+        const save = jest.fn(() => new Promise((resolve) => { finish = resolve; }));
+        const { result } = renderSelection(save);
+        act(() => result.current.startPin());
+        act(() => result.current.toggle(1));
+        act(() => {
+            result.current.confirm();
+            result.current.confirm();
+            result.current.toggle(2);
+            result.current.cancel();
+            result.current.startUnpin();
+        });
+        expect(save).toHaveBeenCalledTimes(1);
+        expect(result.current.mode).toBe('pin');
+        expect(result.current.selectedTodoIds).toEqual(new Set([1]));
+        await act(async () => finish({ todos: [] }));
+    });
+
+    test('clears the old project draft and ignores its pending confirmation after navigation', async () => {
+        let finishOld, finishNew;
+        const oldSave = jest.fn(() => new Promise((resolve) => { finishOld = resolve; }));
+        const newSave = jest.fn(() => new Promise((resolve) => { finishNew = resolve; }));
+        const { result, rerender } = renderHook(({ save }) => usePinSelectionState(save), {
+            initialProps: { save: oldSave },
+        });
+        act(() => result.current.startPin());
+        act(() => result.current.toggle(1));
+        act(() => { result.current.confirm(); });
+        rerender({ save: newSave });
+        expect(result.current.mode).toBe('idle');
+        expect(result.current.isSaving).toBe(false);
+        expect(result.current.selectedTodoIds.size).toBe(0);
+        act(() => result.current.startUnpin());
+        act(() => result.current.toggle(2));
+        act(() => { result.current.confirm(); });
+        await act(async () => finishOld(null));
+        expect(result.current.mode).toBe('unpin');
+        expect(result.current.isSaving).toBe(true);
+        expect(result.current.selectedTodoIds).toEqual(new Set([2]));
+        await act(async () => finishNew({ todos: [] }));
+        expect(result.current.mode).toBe('idle');
+    });
+
     test('cancels the draft without sending a request', () => {
         // Arrange
         const { result, setTodosPinned } = renderSelection();

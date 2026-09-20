@@ -406,10 +406,8 @@ button.todo-check--done:hover {
     position: relative;
 }
 
-/* Transparent on purpose. The row underneath is the thing being chosen, so the
- * control draws nothing of its own until it is pointed at, focused, or in the
- * batch — at which point the row it covers is outlined, because what is being
- * confirmed is a set of rows and the reader has to be able to count them. */
+/* Outline every eligible row immediately; selected rows also get a tint.
+ * The transparent surface keeps blocked/complete styling visible underneath. */
 .pin-select-control {
     position: absolute;
     inset: 0;
@@ -419,10 +417,14 @@ button.todo-check--done:hover {
     z-index: 4;
     width: 100%;
     padding: 0;
-    border: 1px solid transparent;
+    border: 1px dashed var(--color-accent);
     border-radius: var(--radius-md);
     background: none;
     cursor: pointer;
+}
+
+.pin-select-control:disabled {
+    cursor: wait;
 }
 
 .pin-select-control:hover,
@@ -431,6 +433,7 @@ button.todo-check--done:hover {
 }
 
 .pin-select-control[aria-pressed='true'] {
+    border-style: solid;
     border-color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }

@@ -74,7 +74,7 @@ export const PinRowContent = ({ isSelectable, children }) => (
  * renders exactly what it rendered before any of this existed.
  */
 export const usePinRow = (todo) => {
-    const { mode, isEligible, isSelected, toggle } = usePinSelectionContext();
+    const { mode, isEligible, isSelected, toggle, isSaving } = usePinSelectionContext();
     const isSelectable = isEligible(todo);
 
     if (!isSelectable) return { isSelectable: false, rowClassName: '', control: null };
@@ -86,6 +86,7 @@ export const usePinRow = (todo) => {
             <button
                 type="button"
                 className="pin-select-control"
+                disabled={isSaving}
                 aria-pressed={isSelected(todo.id)}
                 aria-label={`${OPERATION_LABELS[mode]} “${todo.text}”`}
                 onClick={() => toggle(todo.id)}

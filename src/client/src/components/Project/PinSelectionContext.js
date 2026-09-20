@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const EMPTY_SELECTION = new Set();
 
@@ -39,8 +39,21 @@ export const usePinSelectionState = (setTodosPinned) => {
     const [mode, setMode] = useState(PIN_MODE.idle);
     const [selectedTodoIds, setSelectedTodoIds] = useState(() => new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const savingRef = useRef(false);
+    const generationRef = useRef(0);
+
+    // The graph's mutation callback is stable within a project, and changes on
+    // navigation. Drafts and pending confirmations belong to that project only.
+    useEffect(() => {
+        setMode(PIN_MODE.idle);
+        setSelectedTodoIds(new Set());
+        setIsSaving(false);
+        savingRef.current = false;
+        return () => { generationRef.current += 1; };
+    }, [setTodosPinned]);
 
     const begin = useCallback((nextMode) => {
+        if (savingRef.current) return;
         setMode(nextMode);
         setSelectedTodoIds(new Set());
     }, []);
@@ -49,15 +62,17 @@ export const usePinSelectionState = (setTodosPinned) => {
     const startUnpin = useCallback(() => begin(PIN_MODE.unpin), [begin]);
 
     const cancel = useCallback(() => {
+        if (savingRef.current) return;
         setMode(PIN_MODE.idle);
         setSelectedTodoIds(new Set());
     }, []);
 
     const isEligible = useCallback(
         (todo) =>
+            (isSaving && selectedTodoIds.has(todo.id)) ||
             (mode === PIN_MODE.pin && !todo.isPinned) ||
             (mode === PIN_MODE.unpin && Boolean(todo.isPinned)),
-        [mode]
+        [mode, isSaving, selectedTodoIds]
     );
 
     const isSelected = useCallback(
@@ -66,32 +81,33 @@ export const usePinSelectionState = (setTodosPinned) => {
     );
 
     const toggle = useCallback((todoId) => {
-        setSelectedTodoIds((current) => {
-            const next = new Set(current);
-
-            if (next.has(todoId)) next.delete(todoId);
-            else next.add(todoId);
-
-            return next;
-        });
+        if (savingRef.current) return;
+        setSelectedTodoIds((current) => current.has(todoId)
+            ? new Set([...current].filter((id) => id !== todoId))
+            : new Set([...current, todoId]));
     }, []);
 
     const confirm = useCallback(async () => {
-        if (mode === PIN_MODE.idle || selectedTodoIds.size === 0 || isSaving) return false;
+        if (mode === PIN_MODE.idle || selectedTodoIds.size === 0 || savingRef.current) return false;
 
+        const generation = generationRef.current;
+        savingRef.current = true;
         setIsSaving(true);
 
         try {
             const saved = await setTodosPinned([...selectedTodoIds], mode === PIN_MODE.pin);
-            if (saved === null) return false;
+            if (generationRef.current !== generation || saved === null) return false;
 
             setMode(PIN_MODE.idle);
             setSelectedTodoIds(new Set());
             return true;
         } finally {
-            setIsSaving(false);
+            if (generationRef.current === generation) {
+                savingRef.current = false;
+                setIsSaving(false);
+            }
         }
-    }, [isSaving, mode, selectedTodoIds, setTodosPinned]);
+    }, [mode, selectedTodoIds, setTodosPinned]);
 
     return useMemo(
         () => ({

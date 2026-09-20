@@ -73,6 +73,13 @@ export const clientKeyOf = (entity) => entity.clientKey ?? entity.id;
 const keyById = (entities) =>
     entities.reduce((byId, entity) => ({ ...byId, [entity.id]: entity }), {});
 
+// Authoritative reloads replace server fields, but must not remount rows created
+// in this session. Never carry identity across projects or resurrect absent rows.
+const loadedCollection = (state, graph, collection) => keyById(graph[collection].map((entity) => {
+    const previous = state.project?.id === graph.project.id ? state[collection][entity.id] : null;
+    return previous?.clientKey === undefined ? entity : { ...entity, clientKey: previous.clientKey };
+}));
+
 const assertCollection = (collection) => {
     if (!COLLECTIONS.includes(collection)) {
         throw new Error(
@@ -107,9 +114,9 @@ const handlers = {
         status: PROJECT_STATUS.ready,
         loadError: null,
         project: graph.project,
-        layers: keyById(graph.layers),
-        sequences: keyById(graph.sequences),
-        todos: keyById(graph.todos),
+        layers: loadedCollection(state, graph, 'layers'),
+        sequences: loadedCollection(state, graph, 'sequences'),
+        todos: loadedCollection(state, graph, 'todos'),
     }),
 
     [PROJECT_ACTIONS.loadFailed]: (state, { error }) => ({
@@ -162,7 +169,10 @@ const handlers = {
         savedTodos.forEach((todo) => assertPresent(state, 'todos', todo.id));
         const savedById = keyById(savedTodos);
         const todos = Object.fromEntries(
-            Object.entries(state.todos).map(([id, todo]) => [id, savedById[id] ?? todo])
+            Object.entries(state.todos).map(([id, todo]) => [
+                id,
+                savedById[id] ? { ...todo, ...savedById[id] } : todo,
+            ])
         );
 
         return { ...state, todos };
