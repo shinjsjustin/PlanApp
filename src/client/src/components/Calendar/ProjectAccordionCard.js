@@ -9,14 +9,13 @@ import PanelTodoRow from './PanelTodoRow';
 // hover behaviour, deliberately: the panel is a drag source, and a card that
 // opened under the pointer during a drag would move the very rows being aimed at.
 //
-// The count is unscheduled work only. It measures planning progress — how much
-// startable work is still unbooked — and ticks down as days fill (decision 5).
+// The count is unscheduled pinned work only. It ticks down as pins are booked.
 // It is left off entirely when the calendar has not loaded, because then there is
 // no answer to give rather than an answer of zero.
 //
 // Whether a card is open is browser-local and not persisted. Unlike a sequence
 // card's `is_collapsed`, nothing here is worth a column: the pool is rebuilt from
-// the frontier on every visit anyway. It is held by the page rather than here,
+// project pins on every visit anyway. It is held by the page rather than here,
 // though: this card is remounted whenever the calendar crosses between its failed
 // and ready branches, and state held here would not survive a retry.
 
@@ -47,7 +46,7 @@ const ProjectAccordionCard = ({
 
             {isExpanded &&
                 (project.todos.length === 0 ? (
-                    <p className="pool-card-empty">Nothing startable in this project.</p>
+                    <p className="pool-card-empty">No pinned to-dos yet.</p>
                 ) : (
                     <ul className="pool-card-todos">
                         {project.todos.map((todo) => (

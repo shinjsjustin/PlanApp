@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { isInaccessible, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import DayItemCard from './DayItemCard';
+import { loadStylesheets } from '../../testUtils/stylesheet';
 import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
 
 const { minutesToPx } = createDayGeometry(PX_PER_SLOT_MIN);
@@ -31,6 +32,49 @@ const renderCard = (overrides = {}, handlers = {}) =>
     );
 
 describe('DayItemCard', () => {
+    test.each([
+        ['incomplete', true, 'Pinned.'],
+        ['blocked', true, 'Pinned. Blocked.'],
+        ['complete', true, 'Pinned. Complete.'],
+        ['blocked', false, 'Blocked.'],
+        ['complete', false, 'Complete.'],
+    ])('exposes status text for a %s booking with pin %s', (status, isPinned, expected) => {
+        const { container } = renderCard({ status, isPinned });
+
+        const statusText = screen.getByText(expected);
+        expect(statusText).toHaveClass('calendar-sr-only');
+        expect(isInaccessible(statusText)).toBe(false);
+        expect(statusText).not.toHaveTextContent('Wire up the token refresh');
+        expect(container.querySelector('.day-item-card')).not.toHaveAttribute('aria-label');
+        expect(screen.getByRole('button', { name: 'Wire up the token refresh' })).toHaveTextContent('Wire up the token refresh');
+        expect(screen.getAllByText('Wire up the token refresh')).toHaveLength(1);
+        const pin = container.querySelector('.calendar-pin-icon');
+        if (isPinned) expect(pin).toHaveAttribute('aria-hidden', 'true');
+        else expect(pin).toBeNull();
+    });
+
+    test('does not announce a pin or special status for an unpinned incomplete booking', () => {
+        const { container } = renderCard({ isPinned: false });
+        expect(container.querySelector('.calendar-sr-only')).toBeNull();
+    });
+
+    test('a blocked pinned booking has the blocked modifier and a pin icon', () => {
+        const { container } = renderCard({ status: 'blocked', isPinned: true });
+        expect(container.querySelector('.day-item-card')).toHaveClass('day-item-card--blocked');
+        expect(container.querySelector('.calendar-pin-icon')).toBeInTheDocument();
+    });
+
+    test('a complete pinned booking remains crossed out', () => {
+        const unload = loadStylesheets('Calendar.css');
+        try {
+            const { container } = renderCard({ status: 'complete', isPinned: true });
+            expect(getComputedStyle(container.querySelector('.day-item-name')).textDecoration).toBe('line-through');
+            expect(container.querySelector('.calendar-pin-icon')).toBeInTheDocument();
+        } finally {
+            unload();
+        }
+    });
+
     test('sits at its start time and is as tall as its duration', () => {
         // Act
         const { container } = renderCard();

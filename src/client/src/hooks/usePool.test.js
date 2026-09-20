@@ -14,26 +14,24 @@ jest.mock('../lib/api', () => {
     };
 });
 
+const pinnedTodo = (id, text, overrides = {}) => ({
+    id,
+    text,
+    status: 'incomplete',
+    sequenceId: 9,
+    sequenceTitle: 'Session handling',
+    position: 0,
+    isPinned: true,
+    ...overrides,
+});
+
 const projects = [
     {
         id: 2,
         title: 'Auth rewrite',
-        frontier: [
-            {
-                sequenceId: 9,
-                sequenceTitle: 'Session handling',
-                nextTodo: { id: 7, text: 'Wire up the token refresh' },
-                isStalled: false,
-            },
-            {
-                sequenceId: 10,
-                sequenceTitle: 'Blocked work',
-                nextTodo: null,
-                isStalled: true,
-            },
-        ],
+        pinnedTodos: [pinnedTodo(7, 'Wire up the token refresh')],
     },
-    { id: 3, title: 'Empty project', frontier: [] },
+    { id: 3, title: 'Empty project', pinnedTodos: [] },
 ];
 
 /** Renders the hook with the pool already loaded. */
@@ -46,30 +44,23 @@ const renderReady = async () => {
     return view;
 };
 
-/** One project offering exactly one startable to-do, for telling reads apart. */
-const frontierOf = (todoId, text) => [
+/** One project offering exactly one pin, for telling reads apart. */
+const pinnedProjectsOf = (todoId, text, overrides) => [
     {
         id: 2,
         title: 'Auth rewrite',
-        frontier: [
-            {
-                sequenceId: 9,
-                sequenceTitle: 'Session handling',
-                nextTodo: { id: todoId, text },
-                isStalled: false,
-            },
-        ],
+        pinnedTodos: [pinnedTodo(todoId, text, overrides)],
     },
 ];
 
-/** What the frontier answers once to-do 7 has been ticked off. */
-const nextStepProjects = frontierOf(8, 'Rotate the signing keys');
+/** Another pinned selection, for distinguishing concurrent reads. */
+const updatedProjects = pinnedProjectsOf(8, 'Rotate the signing keys');
 
 const OLDER_FAILED = 'The older read could not reach the server.';
 const NEWER_FAILED = 'The newer read could not reach the server.';
 
-const LANDS_OLD = { projects: nextStepProjects };
-const LANDS_NEW = { projects: frontierOf(9, 'Expire the old sessions') };
+const LANDS_OLD = { projects: updatedProjects };
+const LANDS_NEW = { projects: pinnedProjectsOf(9, 'Expire the old sessions') };
 
 /**
  * Two reads in the air, settling in either order with either ending each. One
@@ -168,7 +159,7 @@ beforeEach(() => {
 });
 
 describe('usePool', () => {
-    test('offers one to-do per ready sequence', async () => {
+    test('maps pinned to-dos without changing their order', async () => {
         // Arrange + Act
         const { result } = await renderReady();
 
@@ -178,6 +169,8 @@ describe('usePool', () => {
             {
                 todoId: 7,
                 text: 'Wire up the token refresh',
+                status: 'incomplete',
+                isPinned: true,
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
                 sequenceId: 9,
@@ -186,70 +179,47 @@ describe('usePool', () => {
         ]);
     });
 
-    test('leaves out a stalled sequence, which has nothing to schedule', async () => {
-        // Arrange — every sequence in this project is stalled, so the
-        // assertion below is about the filter alone: nothing here is a ready
-        // sequence for the first test's fixture to already have pinned.
-        api.get.mockResolvedValue([
-            {
-                id: 6,
-                title: 'Every path blocked',
-                frontier: [
-                    {
-                        sequenceId: 20,
-                        sequenceTitle: 'Waiting on design',
-                        nextTodo: null,
-                        isStalled: true,
-                    },
-                    {
-                        sequenceId: 21,
-                        sequenceTitle: 'Waiting on legal',
-                        nextTodo: null,
-                        isStalled: true,
-                    },
-                ],
-            },
-        ]);
+    test('includes complete, blocked, and unorganized pins', async () => {
+        api.get.mockResolvedValue([{
+            id: 6,
+            title: 'Every kind of pin',
+            pinnedTodos: [
+                pinnedTodo(20, 'Done', { status: 'complete' }),
+                pinnedTodo(2, 'Waiting', { status: 'blocked' }),
+                pinnedTodo(3, 'Loose', { sequenceId: null, sequenceTitle: null }),
+            ],
+        }]);
 
-        // Act
         const { result } = renderHook(() => usePool());
         await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
 
-        // Assert
-        expect(result.current.projects[0].todos).toEqual([]);
+        expect(result.current.projects[0].todos.map((todo) => ({
+            todoId: todo.todoId,
+            status: todo.status,
+            sequenceId: todo.sequenceId,
+        }))).toEqual([
+            { todoId: 20, status: 'complete', sequenceId: 9 },
+            { todoId: 2, status: 'blocked', sequenceId: 9 },
+            { todoId: 3, status: 'incomplete', sequenceId: null },
+        ]);
     });
 
-    test('leaves out a ready sequence with no to-dos at all, which is startable but empty', async () => {
-        // Arrange — `nextTodo: null` with `isStalled: false`: `readyFrontier`
-        // lists an incomplete sequence with zero to-dos as ready, same as any
-        // other. A filter reading `!entry.isStalled` instead of `entry.nextTodo`
-        // would let this entry through and then crash dereferencing `nextTodo.id`
-        // on `null` — this is the case that substitution cannot see, since
-        // nothing about it is stalled.
-        api.get.mockResolvedValue([
-            {
-                id: 7,
-                title: 'Nothing planned yet',
-                frontier: [
-                    {
-                        sequenceId: 30,
-                        sequenceTitle: 'Untouched',
-                        nextTodo: null,
-                        isStalled: false,
-                    },
-                ],
-            },
-        ]);
+    test('maps frozen pinned payloads without mutating the server response', async () => {
+        const source = Object.freeze([Object.freeze({
+            id: 2,
+            title: 'Auth rewrite',
+            pinnedTodos: Object.freeze([Object.freeze(pinnedTodo(7, 'Pinned work'))]),
+        })]);
+        api.get.mockResolvedValue(source);
 
-        // Act
         const { result } = renderHook(() => usePool());
         await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
 
-        // Assert
-        expect(result.current.projects[0].todos).toEqual([]);
+        expect(result.current.projects[0].todos[0]).not.toBe(source[0].pinnedTodos[0]);
+        expect(source[0].pinnedTodos[0]).toEqual(pinnedTodo(7, 'Pinned work'));
     });
 
-    test('keeps a project with nothing startable, so it can say so', async () => {
+    test('keeps a project with no pins, so it can say so', async () => {
         // Arrange + Act
         const { result } = await renderReady();
 
@@ -321,26 +291,13 @@ describe('usePool', () => {
 
         // Act — and the answer replaces the rows without a reload.
         await act(async () => {
-            resolve([
-                {
-                    id: 2,
-                    title: 'Auth rewrite',
-                    frontier: [
-                        {
-                            sequenceId: 9,
-                            sequenceTitle: 'Session handling',
-                            nextTodo: { id: 8, text: 'Rotate the signing keys' },
-                            isStalled: false,
-                        },
-                    ],
-                },
-            ]);
+            resolve(pinnedProjectsOf(7, 'Wire up the token refresh', { status: 'complete' }));
             await promise;
         });
 
         // Assert
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+        expect(result.current.projects[0].todos[0]).toMatchObject({ todoId: 7, status: 'complete', isPinned: true });
     });
 
     test('a failed refresh says so without taking the rows down with it', async () => {
@@ -391,20 +348,7 @@ describe('usePool', () => {
         });
 
         await act(async () => {
-            fresh.resolve([
-                {
-                    id: 2,
-                    title: 'Auth rewrite',
-                    frontier: [
-                        {
-                            sequenceId: 9,
-                            sequenceTitle: 'Session handling',
-                            nextTodo: { id: 8, text: 'Rotate the signing keys' },
-                            isStalled: false,
-                        },
-                    ],
-                },
-            ]);
+            fresh.resolve(updatedProjects);
             await fresh.promise;
         });
         expect(result.current.projects[0].todos[0].todoId).toBe(8);
@@ -513,7 +457,7 @@ describe('usePool', () => {
         });
 
         await act(async () => {
-            refill.resolve(nextStepProjects);
+            refill.resolve(updatedProjects);
             await refill.promise;
         });
         await act(async () => {

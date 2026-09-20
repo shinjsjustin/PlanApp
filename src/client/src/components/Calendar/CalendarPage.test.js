@@ -56,6 +56,13 @@ const mockNotesFailure = (message) => {
     notesError = message;
 };
 
+const pin = (overrides = {}) => ({
+    id: 7, text: 'Wire up the token refresh', status: 'incomplete', isPinned: true,
+    sequenceId: 9, sequenceTitle: 'Session handling', position: 0, ...overrides,
+});
+
+const pinnedProjects = (todos = [pin()]) => [{ id: 2, title: 'Auth rewrite', pinnedTodos: todos }];
+
 /** One day, in the shape `GET /api/calendar` answers with. */
 const day = (id) => ({ id, position: id - 1, createdAt: '2026-09-16T08:00:00.000Z' });
 
@@ -69,6 +76,53 @@ beforeEach(() => {
 });
 
 describe('CalendarPage', () => {
+    test('complete pins are inert while blocked unscheduled pins remain drag sources', async () => {
+        poolAnswer = pinnedProjects([
+            pin({ status: 'complete' }),
+            pin({ id: 8, text: 'Blocked pin', status: 'blocked', sequenceId: null, sequenceTitle: null }),
+        ]);
+        renderPage();
+        await userEvent.click(await screen.findByRole('button', { name: /Auth rewrite/ }));
+
+        const complete = screen.getByText('Wire up the token refresh').closest('li');
+        const blocked = screen.getByText('Blocked pin').closest('li');
+        expect(complete).toHaveClass('panel-todo-row--complete');
+        expect(complete.querySelector('[draggable="true"]')).toBeNull();
+        expect(complete.querySelector('[role="button"]')).toBeNull();
+        expect(blocked).toHaveClass('panel-todo-row--blocked');
+        expect(blocked.querySelector('[draggable="true"]')).toBeInTheDocument();
+        expect(blocked).toHaveTextContent('Unorganized');
+        expect(blocked.querySelector('.calendar-pin-icon')).toBeInTheDocument();
+    });
+
+    test('a booking remains after unpinning and loses its icon on the next calendar read', async () => {
+        const booking = {
+            id: 40, todoId: 7, dayId: 1, text: 'Booked pin', status: 'blocked',
+            isPinned: true, projectId: 2, projectTitle: 'Auth rewrite',
+            sequenceId: 9, sequenceTitle: 'Session handling',
+            startMinutes: 540, durationMinutes: 60,
+        };
+        mockCalendar({ days: [day(1)], items: [booking] });
+        poolAnswer = pinnedProjects([pin({ text: 'Booked pin', status: 'blocked' })]);
+        const first = renderPage();
+        await screen.findByRole('region', { name: 'Days' });
+        expect(first.container.querySelector('.day-item-card .calendar-pin-icon')).toBeInTheDocument();
+        first.unmount();
+
+        mockCalendar({ days: [day(1)], items: [{ ...booking, isPinned: false }] });
+        poolAnswer = pinnedProjects([]);
+        const second = renderPage();
+        await screen.findByText('Booked pin');
+        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
+
+        const card = second.container.querySelector('.day-item-card');
+        expect(card).toHaveClass('day-item-card--blocked');
+        expect(card).toHaveTextContent('Booked pin');
+        expect(card.querySelector('.calendar-pin-icon')).toBeNull();
+        expect(screen.getByText('No pinned to-dos yet.')).toBeInTheDocument();
+        expect(api.delete).not.toHaveBeenCalled();
+    });
+
     test('keeps the action toast out of the page until there is something to say', async () => {
         // Arrange — the toast is permanently mounted and toggles `hidden`, so
         // the UA's `[hidden] { display: none }` is what has to win. It has the
@@ -147,20 +201,7 @@ describe('CalendarPage', () => {
         // cannot leave behind is an answer: with no calendar, every booked to-do
         // would otherwise be counted as unscheduled and the pill would read a
         // number that is simply wrong.
-        const projects = [
-            {
-                id: 2,
-                title: 'Auth rewrite',
-                frontier: [
-                    {
-                        sequenceId: 9,
-                        sequenceTitle: 'Session handling',
-                        isStalled: false,
-                        nextTodo: { id: 7, text: 'Wire up the token refresh' },
-                    },
-                ],
-            },
-        ];
+        const projects = pinnedProjects();
         mockCalendarFailure('Could not reach the server.');
         poolAnswer = projects;
 
@@ -202,23 +243,7 @@ describe('CalendarPage', () => {
         expect(container.querySelector('.panel-todo-badge')).toHaveTextContent('Day 1');
     });
 
-    test('ticking a booking refills the pool with the sequence next step', async () => {
-        // Arrange — design section “The bubble”: completing work is how the pool
-        // refills, because the pool is each ready sequence's next step.
-        const frontierOf = (nextTodo) => [
-            {
-                id: 2,
-                title: 'Auth rewrite',
-                frontier: [
-                    {
-                        sequenceId: 9,
-                        sequenceTitle: 'Session handling',
-                        isStalled: false,
-                        nextTodo,
-                    },
-                ],
-            },
-        ];
+    test('completing a booking refreshes the same pin as complete and keeps its Day badge', async () => {
         mockCalendar({
             days: [{ id: 1, position: 0 }],
             items: [
@@ -237,7 +262,7 @@ describe('CalendarPage', () => {
                 },
             ],
         });
-        poolAnswer = frontierOf({ id: 7, text: 'Wire up the token refresh' });
+        poolAnswer = pinnedProjects();
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
 
         const { container } = renderPage();
@@ -246,21 +271,21 @@ describe('CalendarPage', () => {
         expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
 
         mockCalendarFailure('The calendar is not asked again.');
-        poolAnswer = frontierOf({ id: 8, text: 'Rotate the signing keys' });
+        poolAnswer = pinnedProjects([pin({ status: 'complete' })]);
 
         // Act
         await userEvent.click(
             screen.getByRole('button', { name: 'Complete “Wire up the token refresh”' })
         );
 
-        // Assert — the finished to-do is gone from the panel, the next step is
-        // there in its place and counted. Reading the rows at all is itself the
-        // check that the card never closed underneath the pointer: a refresh
-        // that dropped the pool to loading would unmount it and fold it back up.
-        const panel = within(screen.getByRole('region', { name: 'Projects' }));
-        expect(await panel.findByText('Rotate the signing keys')).toBeInTheDocument();
-        expect(panel.queryByText('Wire up the token refresh')).not.toBeInTheDocument();
-        expect(container.querySelector('.pool-card-count')).toHaveTextContent('1');
+        // Assert — the same row remains in the open panel and on its booked day.
+        const row = container.querySelector('.panel-todo-row');
+        await waitFor(() => expect(row).toHaveClass('panel-todo-row--complete'));
+        expect(row).toHaveTextContent('Wire up the token refresh');
+        expect(row).toHaveTextContent('Day 1');
+        expect(row.querySelector('.calendar-pin-icon')).toBeInTheDocument();
+        expect(container.querySelector('.day-item-card')).toHaveClass('day-item-card--complete');
+        expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
     });
 
     test('a refill that fails says so and leaves the open pool alone', async () => {
@@ -285,20 +310,7 @@ describe('CalendarPage', () => {
                 },
             ],
         });
-        poolAnswer = [
-            {
-                id: 2,
-                title: 'Auth rewrite',
-                frontier: [
-                    {
-                        sequenceId: 9,
-                        sequenceTitle: 'Session handling',
-                        isStalled: false,
-                        nextTodo: { id: 7, text: 'Wire up the token refresh' },
-                    },
-                ],
-            },
-        ];
+        poolAnswer = pinnedProjects();
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
 
         const { container } = renderPage();
@@ -344,20 +356,7 @@ describe('CalendarPage', () => {
                 },
             ],
         });
-        poolAnswer = [
-            {
-                id: 2,
-                title: 'Auth rewrite',
-                frontier: [
-                    {
-                        sequenceId: 9,
-                        sequenceTitle: 'Session handling',
-                        isStalled: false,
-                        nextTodo: { id: 7, text: 'Wire up the token refresh' },
-                    },
-                ],
-            },
-        ];
+        poolAnswer = pinnedProjects();
 
         // Act
         const { container } = renderPage();

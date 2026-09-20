@@ -10,8 +10,8 @@ import { CALENDAR_STATUS } from '../../state/calendarReducer';
 import { CalendarProvider } from '../../state/CalendarContext';
 import '../Styling/Calendar.css';
 
-// The calendar: a strip of day columns on the left, the pool of startable work
-// on the right (design section 8).
+// The calendar: a strip of day columns on the left, the pool of pinned work on
+// the right (design section 8).
 //
 // Two requests, two failure states. The calendar and the pool are loaded
 // separately and each reports its own trouble in its own panel, because a
@@ -27,9 +27,8 @@ const CalendarPage = () => {
     const navigate = useNavigate();
 
     // The two hooks meet here and nowhere else: neither knows the other exists,
-    // and the page is what tells the pool that a booking was ticked off — the
-    // frontier has moved on, so the sequence's next step is what belongs in the
-    // panel now (design section “The bubble”).
+    // and the page is what tells the pool that a booking was ticked off, so the
+    // same pinned row can refresh into its completed state.
     const pool = usePool();
     const notes = useCalendarNotes();
     const calendar = useCalendar({
@@ -71,9 +70,9 @@ const CalendarPage = () => {
     /**
      * "Where did this come from?" — the project, and the sequence within it.
      *
-     * Both are read off the booking itself rather than looked up in the pool: a
-     * completed to-do has left the frontier and is no longer in the pool, and it
-     * is exactly then that a user is most likely to ask.
+     * Both are read off the booking itself rather than looked up in the pool:
+     * bookings remain useful even after their to-do is unpinned, and that is
+     * exactly when a user may need to find its source.
      *
      * A booking whose to-do has since been returned to the unorganized panel has
      * no sequence to point at, so it simply arrives at the project.
