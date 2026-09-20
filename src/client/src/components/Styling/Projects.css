@@ -121,7 +121,7 @@
 }
 
 /* Title block: just the project's name at rest. Everything else — progress,
- * description, frontier — lives in `.project-card-reveal` below. */
+ * description, pins — lives in `.project-card-reveal` below. */
 .project-card-heading {
     display: flex;
     align-items: baseline;
@@ -179,68 +179,68 @@
     font-variant-numeric: tabular-nums;
 }
 
-/*
- * The ready frontier — the point of the card. One line per sequence that can be
- * started right now, with the to-do to pick up in it stacked underneath.
- */
-.project-card-frontier-heading {
-    margin: 0 0 0.35rem;
-    font-size: 0.75rem;
+/* Pinned work stays in the server's project order. Status styling is additive:
+ * blocked rows keep their warning border and complete rows stay crossed out. */
+.project-card-pins-heading {
+    margin: 0 0 var(--space-xs);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #777;
 }
 
-.project-card-frontier ul {
+.project-card-pins ul {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: var(--space-xs);
     list-style: none;
     margin: 0;
     padding: 0;
 }
 
-.frontier-line {
-    display: flex;
-    flex-direction: column;
+.pinned-line {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 var(--space-xs);
     min-width: 0;
-    padding-left: 0.6rem;
-    border-left: 3px solid #4a7bd0;
-    overflow-wrap: break-word;
+    padding: var(--space-xs);
+    border-left: 3px solid var(--color-accent);
+    overflow-wrap: anywhere;
 }
 
-.frontier-sequence {
-    font-size: 0.85rem;
-    font-weight: 600;
+.pinned-line--blocked {
+    border-color: var(--color-danger);
 }
 
-.frontier-todo {
-    color: #555;
-    font-size: 0.85rem;
+.project-card-pin-icon {
+    grid-row: 1 / span 2;
 }
 
-/*
- * All three mean "the frontier is empty", and they must not read alike: a
- * finished project, one nobody has planned yet, and one that is stuck behind
- * blocked work are three different situations for three different colors.
- */
-.project-card-complete {
+.pinned-todo,
+.pinned-sequence {
+    min-width: 0;
+}
+
+.pinned-todo {
+    color: var(--text-primary);
+    font-size: var(--font-sm);
+}
+
+.pinned-sequence {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+.pinned-line--complete .pinned-todo {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.project-card-pins-empty {
     margin: 0;
-    color: #2e7d32;
-    font-size: 0.85rem;
-}
-
-.project-card-unplanned {
-    margin: 0;
-    color: #777;
-    font-size: 0.85rem;
-}
-
-.project-card-blocked {
-    margin: 0;
-    color: #b25a00;
-    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
 }
 
 .project-card-rename {
@@ -275,7 +275,7 @@
 /* -- The card's drop-down --------------------------------------------------
  *
  * A card at rest is a name. Everything else — the progress line, the
- * description, the ready frontier — hangs below it and appears while the card is
+ * description, the pinned work — hangs below it and appears while the card is
  * pointed at or its title is focused.
  *
  * It DROPS rather than expands: an in-flow panel would grow the card and reflow

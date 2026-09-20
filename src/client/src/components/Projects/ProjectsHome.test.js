@@ -12,23 +12,23 @@ jest.mock('../../lib/api', () => ({
     ApiError: class ApiError extends Error {},
 }));
 
-// The shape `GET /api/projects` serves, frontier and all. `POST` and `PATCH`
-// answer in the same shape, which is what lets the grid drop their responses
-// straight in — see `src/lib/projectsFrontier.js`.
+// `GET`, `POST`, and `PATCH` all serve this card shape, which lets the grid
+// drop mutation responses straight in without another request.
 const aProject = (overrides = {}) => ({
     id: 1,
     title: 'Build a drone',
     description: 'Layered plan',
     todoCount: 4,
     completedTodoCount: 1,
-    sequenceCount: 5,
-    frontier: [
-        {
-            sequenceId: 2,
-            sequenceTitle: 'Learn electronics',
-            nextTodo: { id: 202, text: 'Understand ESCs' },
-        },
-    ],
+    pinnedTodos: [{
+        id: 202,
+        text: 'Understand ESCs',
+        status: 'incomplete',
+        sequenceId: 2,
+        sequenceTitle: 'Learn electronics',
+        position: 0,
+        isPinned: true,
+    }],
     createdAt: '2026-08-27T10:00:00.000Z',
     updatedAt: '2026-08-27T10:00:00.000Z',
     ...overrides,
@@ -80,8 +80,7 @@ describe('ProjectsHome', () => {
                 title: 'Write the spec',
                 todoCount: 0,
                 completedTodoCount: 0,
-                sequenceCount: 0,
-                frontier: [],
+                pinnedTodos: [],
             }),
         ]);
 
@@ -90,7 +89,7 @@ describe('ProjectsHome', () => {
         await waitForLoadToFinish();
 
         // Assert — counted by card heading rather than by list item, since the
-        // frontier inside a card is a list of its own.
+        // pinned rows inside a card form a list of their own.
         expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2);
         expect(screen.getByRole('heading', { name: 'Build a drone' })).toBeInTheDocument();
         expect(screen.getByText('1/4 to-dos done')).toBeInTheDocument();
@@ -128,8 +127,7 @@ describe('ProjectsHome', () => {
                 title: 'Fresh project',
                 todoCount: 0,
                 completedTodoCount: 0,
-                sequenceCount: 0,
-                frontier: [],
+                pinnedTodos: [],
             })
         );
         renderHome();
@@ -170,9 +168,9 @@ describe('ProjectsHome', () => {
         ).toBeInTheDocument();
     });
 
-    test('keeps the renamed card\'s frontier on screen', async () => {
-        // Arrange — a title change cannot alter what is ready, and the card must
-        // not lose the frontier just because the grid swapped the object in.
+    test('keeps the renamed card\'s pins on screen', async () => {
+        // Arrange — a title change cannot alter the pins, and the card must not
+        // lose them just because the grid swapped the object in.
         api.get.mockResolvedValue([aProject()]);
         api.patch.mockResolvedValue(aProject({ title: 'Build a better drone' }));
         renderHome();
@@ -187,7 +185,7 @@ describe('ProjectsHome', () => {
 
         // Assert
         await screen.findByRole('heading', { name: 'Build a better drone' });
-        expect(screen.getByRole('list', { name: /ready now/i })).toHaveTextContent(
+        expect(screen.getByRole('list', { name: /^pinned$/i })).toHaveTextContent(
             'Learn electronics'
         );
     });

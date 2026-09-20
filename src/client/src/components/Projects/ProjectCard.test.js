@@ -6,25 +6,32 @@ import { clear, click, type } from '../../testUtils/interact';
 
 import ProjectCard from './ProjectCard';
 
-// The drone project from spec section 1, as `GET /api/projects` serves it: two
-// threads of work are ready, the rotor design is still gated behind electronics.
+// The card contract returned by every project endpoint. Pins are already in the
+// deterministic order the server chose and the card must preserve it.
 const project = {
     id: 1,
     title: 'Build a drone',
     description: 'Layered plan',
     todoCount: 4,
     completedTodoCount: 1,
-    sequenceCount: 5,
-    frontier: [
+    pinnedTodos: [
         {
+            id: 202,
+            text: 'Understand ESCs',
+            status: 'incomplete',
             sequenceId: 2,
             sequenceTitle: 'Learn electronics',
-            nextTodo: { id: 202, text: 'Understand ESCs' },
+            position: 0,
+            isPinned: true,
         },
         {
+            id: 502,
+            text: 'Bring up the radio',
+            status: 'blocked',
             sequenceId: 5,
             sequenceTitle: 'Connect drone to wifi',
-            nextTodo: { id: 502, text: 'Bring up the radio' },
+            position: 0,
+            isPinned: true,
         },
     ],
     createdAt: '2026-08-27T10:00:00.000Z',
@@ -96,8 +103,8 @@ const stretchedLinkTargetFor = (element) => {
     return card.querySelector('.project-card-title a');
 };
 
-/** The frontier list, addressed by its label rather than by the card's own <li>. */
-const frontierList = () => screen.getByRole('list', { name: /ready now/i });
+/** The pinned list, addressed by its label rather than by the card's own <li>. */
+const pinnedList = () => screen.getByRole('list', { name: /^pinned$/i });
 
 describe('ProjectCard', () => {
     test('shows the title, description and progress', () => {
@@ -142,7 +149,7 @@ describe('ProjectCard', () => {
             expect(target).toHaveAttribute('href', '/projects/1');
         });
 
-        test('a click on the frontier lands on the link too', () => {
+        test('a click on a pinned row lands on the link too', () => {
             // Arrange
             renderCard();
 
@@ -207,28 +214,17 @@ describe('ProjectCard', () => {
         });
     });
 
-    test('keeps the frontier in a reveal panel rather than on the collapsed face', () => {
+    test('keeps pins in a reveal panel rather than on the collapsed face', () => {
         // Arrange & Act
-        renderCard({
-            project: {
-                ...project,
-                frontier: [
-                    {
-                        sequenceId: 7,
-                        sequenceTitle: 'Learn electronics',
-                        nextTodo: { id: 1, text: 'Learn to solder' },
-                    },
-                ],
-            },
-        });
+        renderCard();
 
         // Assert — the title is the card's face; everything else is in the reveal,
         // which is present for a screen reader and hidden only by CSS.
         const title = screen.getByRole('link', { name: project.title });
         expect(title.closest('.project-card-reveal')).toBeNull();
 
-        const frontierEntry = screen.getByText('Learn electronics');
-        expect(frontierEntry.closest('.project-card-reveal')).not.toBeNull();
+        const pinnedEntry = screen.getByText('Learn electronics');
+        expect(pinnedEntry.closest('.project-card-reveal')).not.toBeNull();
     });
 
     test('keeps the progress line out of the collapsed face too', () => {
@@ -240,125 +236,67 @@ describe('ProjectCard', () => {
         expect(progress.closest('.project-card-reveal')).not.toBeNull();
     });
 
-    describe('the ready frontier', () => {
-        test('lists one line per ready sequence, naming its next incomplete to-do', () => {
+    describe('the pinned list', () => {
+        test('shows each pin icon, text, and filed sequence in server order', () => {
             // Arrange & Act
             renderCard();
 
             // Assert
-            const lines = within(frontierList()).getAllByRole('listitem');
+            const lines = within(pinnedList()).getAllByRole('listitem');
             expect(lines).toHaveLength(2);
-            expect(lines[0]).toHaveTextContent('Learn electronics');
-            expect(lines[0]).toHaveTextContent('Understand ESCs');
-            expect(lines[1]).toHaveTextContent('Connect drone to wifi');
-            expect(lines[1]).toHaveTextContent('Bring up the radio');
+            expect(lines[0]).toHaveTextContent('📌Understand ESCsLearn electronics');
+            expect(lines[1]).toHaveTextContent('📌Bring up the radioConnect drone to wifi');
         });
 
-        test('says so when a ready sequence has no to-dos in it yet', () => {
-            // Arrange & Act — ready, and genuinely empty.
+        test('labels an unorganized pin', () => {
             renderCard({
                 project: {
-                    frontier: [
-                        {
-                            sequenceId: 2,
-                            sequenceTitle: 'Learn electronics',
-                            nextTodo: null,
-                            isStalled: false,
-                        },
-                    ],
+                    pinnedTodos: [{
+                        id: 9,
+                        text: 'Buy propellers',
+                        status: 'incomplete',
+                        sequenceId: null,
+                        sequenceTitle: null,
+                        position: 0,
+                        isPinned: true,
+                    }],
                 },
             });
 
-            // Assert
-            const [line] = within(frontierList()).getAllByRole('listitem');
-            expect(line).toHaveTextContent('Learn electronics');
-            expect(line).toHaveTextContent(/no to-dos yet/i);
+            const [line] = within(pinnedList()).getAllByRole('listitem');
+            expect(line).toHaveTextContent('Buy propellers');
+            expect(line).toHaveTextContent('Unorganized');
         });
 
-        /**
-         * Since blocked to-dos stopped counting as a next step (spec section 3)
-         * a sequence holding nothing but blocked work also arrives with a null
-         * `nextTodo`, and calling that "No to-dos yet" would be false about a
-         * sequence that is full of them.
-         */
-        test('says the work is blocked when a ready sequence has nothing startable', () => {
-            // Arrange & Act
+        test('keeps a complete pin listed and crossed out', () => {
             renderCard({
                 project: {
-                    frontier: [
-                        {
-                            sequenceId: 2,
-                            sequenceTitle: 'Learn aerodynamics',
-                            nextTodo: null,
-                            isStalled: true,
-                        },
-                    ],
+                    pinnedTodos: [{ ...project.pinnedTodos[0], status: 'complete' }],
                 },
             });
 
-            // Assert
-            const [line] = within(frontierList()).getAllByRole('listitem');
-            expect(line).toHaveTextContent('Learn aerodynamics');
-            expect(line).toHaveTextContent(/blocked/i);
-            expect(line).not.toHaveTextContent(/no to-dos yet/i);
+            const [line] = within(pinnedList()).getAllByRole('listitem');
+            expect(line).toHaveClass('pinned-line--complete');
+            expect(within(line).getByText('Understand ESCs')).toBeInTheDocument();
         });
 
-        test('shows a completed state when nothing is left to start', () => {
-            // Arrange & Act — an empty frontier, but the project does hold work,
-            // and none of it is blocked.
+        test('marks a blocked pin without removing it', () => {
             renderCard({
                 project: {
-                    frontier: [],
-                    sequenceCount: 5,
-                    blockedSequenceCount: 0,
-                    todoCount: 4,
-                    completedTodoCount: 4,
+                    pinnedTodos: [{ ...project.pinnedTodos[0], status: 'blocked' }],
                 },
             });
 
-            // Assert
-            expect(screen.getByText(/every sequence is complete/i)).toBeInTheDocument();
-            expect(screen.queryByRole('list', { name: /ready now/i })).not.toBeInTheDocument();
-            expect(screen.queryByText(/no sequences yet/i)).not.toBeInTheDocument();
-            expect(screen.queryByText(/nothing can be started/i)).not.toBeInTheDocument();
+            const [line] = within(pinnedList()).getAllByRole('listitem');
+            expect(line).toHaveClass('pinned-line--blocked');
+            expect(within(line).getByText('Understand ESCs')).toBeInTheDocument();
         });
 
-        test('shows a blocked state, not a completed one, when everything left is blocked', () => {
-            // Arrange & Act — an empty frontier, but the project still holds
-            // sequences, and some of what's left is blocked.
-            renderCard({
-                project: {
-                    frontier: [],
-                    sequenceCount: 5,
-                    blockedSequenceCount: 2,
-                    todoCount: 4,
-                    completedTodoCount: 1,
-                },
-            });
+        test('shows one explicit empty state for a project without pins', () => {
+            renderCard({ project: { pinnedTodos: [] } });
 
-            // Assert — this must NOT read as "every sequence is complete": a
-            // stuck project is not a finished one.
-            expect(screen.getByText(/nothing can be started/i)).toBeInTheDocument();
-            expect(screen.queryByText(/every sequence is complete/i)).not.toBeInTheDocument();
-            expect(screen.queryByText(/no sequences yet/i)).not.toBeInTheDocument();
-            expect(screen.queryByRole('list', { name: /ready now/i })).not.toBeInTheDocument();
-        });
-
-        test('distinguishes a project with no sequences from a completed one', () => {
-            // Arrange & Act — also an empty frontier, but nothing has been planned.
-            renderCard({
-                project: {
-                    frontier: [],
-                    sequenceCount: 0,
-                    todoCount: 1,
-                    completedTodoCount: 0,
-                },
-            });
-
-            // Assert
-            expect(screen.getByText(/no sequences yet/i)).toBeInTheDocument();
-            expect(screen.queryByText(/every sequence is complete/i)).not.toBeInTheDocument();
-            expect(screen.queryByRole('list', { name: /ready now/i })).not.toBeInTheDocument();
+            expect(screen.getByText('No pinned to-dos yet.')).toBeInTheDocument();
+            expect(screen.queryByRole('list', { name: /^pinned$/i })).not.toBeInTheDocument();
         });
     });
 

@@ -9,9 +9,9 @@ import DeleteBubble from '../common/DeleteBubble';
 //
 // At rest the card is the project's name and nothing else. Hovering it — or
 // tabbing to its title — drops a panel down holding the overall to-do progress,
-// the description, and the ready frontier: what can be started right now (spec
-// section 4.8). The frontier itself is computed server-side, in
-// `src/lib/frontier.js`; the card only renders what `GET /api/projects` hands it.
+// the description, and the to-dos the user pinned. The server supplies pins in
+// project order; the card preserves that order rather than inventing a second
+// priority model.
 //
 // The reveal is entirely CSS, in `Styling/Projects.css`. Nothing here knows
 // whether the panel is open, because nothing here needs to: it holds no
@@ -34,71 +34,27 @@ const EDITING = 'project-card--editing';
 // which would fight it for `position`.
 const HAS_BUBBLE = 'has-delete-bubble';
 
-/**
- * What a frontier line says after the sequence's name.
- *
- * A ready sequence without a next to-do is two different situations, and calling
- * both of them "No to-dos yet" would say something false about the second:
- *   - it holds nothing at all — an empty sequence, waiting to be filled in;
- *   - it holds outstanding work and every piece of it is blocked, so there is
- *     nothing here to pick up even though the sequence itself is ready.
- * `isStalled` is what tells them apart; see `toFrontierEntry` in
- * `src/lib/serializers.js`, which is where the distinction is drawn.
- */
-const nextStepOf = (entry) => {
-    if (entry.nextTodo) return entry.nextTodo.text;
+const PinnedBlock = ({ project }) => {
+    const headingId = `pinned-${project.id}`;
 
-    return entry.isStalled ? 'Everything left here is blocked' : 'No to-dos yet';
-};
-
-/**
- * The body of the card: the ready frontier, or why there is nothing in it.
- *
- * An empty frontier has three quite different meanings, and running them
- * together would be the one thing this page exists to avoid:
- *   - no sequences at all — the project has not been planned yet;
- *   - sequences, none of them blocked, all of them complete — the project is
- *     done;
- *   - sequences, but everything still open is blocked, or waiting behind
- *     something blocked — the project is stuck, not finished.
- * `sequenceCount` and `blockedSequenceCount` are what tell the three apart:
- * no sequences beats everything else, then any blocked sequence beats
- * "complete", so a stuck project never reads as a finished one.
- */
-const FrontierBlock = ({ project }) => {
-    const headingId = `ready-now-${project.id}`;
-
-    if (project.frontier.length === 0) {
-        if (project.sequenceCount === 0) {
-            return (
-                <p className="project-card-unplanned">
-                    No sequences yet — open the project to plan the first layer of work.
-                </p>
-            );
-        }
-
-        if (project.blockedSequenceCount > 0) {
-            return (
-                <p className="project-card-blocked">
-                    Nothing can be started: what's left is blocked, or waiting on something
-                    blocked.
-                </p>
-            );
-        }
-
-        return <p className="project-card-complete">Every sequence is complete. Nothing left to start.</p>;
+    if (project.pinnedTodos.length === 0) {
+        return <p className="project-card-pins-empty">No pinned to-dos yet.</p>;
     }
 
     return (
-        <div className="project-card-frontier">
-            <h4 className="project-card-frontier-heading" id={headingId}>
-                Ready now
-            </h4>
+        <div className="project-card-pins">
+            <h4 className="project-card-pins-heading" id={headingId}>Pinned</h4>
             <ul aria-labelledby={headingId}>
-                {project.frontier.map((entry) => (
-                    <li key={entry.sequenceId} className="frontier-line">
-                        <span className="frontier-sequence">{entry.sequenceTitle}</span>
-                        <span className="frontier-todo">{nextStepOf(entry)}</span>
+                {project.pinnedTodos.map((todo) => (
+                    <li
+                        key={todo.id}
+                        className={`pinned-line pinned-line--${todo.status}`}
+                    >
+                        <span className="project-card-pin-icon" aria-hidden="true">📌</span>
+                        <span className="pinned-todo">{todo.text}</span>
+                        <span className="pinned-sequence">
+                            {todo.sequenceTitle ?? 'Unorganized'}
+                        </span>
                     </li>
                 ))}
             </ul>
@@ -234,7 +190,7 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
                             <p className="project-card-description">{project.description}</p>
                         )}
 
-                        <FrontierBlock project={project} />
+                        <PinnedBlock project={project} />
                     </div>
                 </>
             )}
