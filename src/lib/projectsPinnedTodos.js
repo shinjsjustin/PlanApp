@@ -23,23 +23,21 @@ const { toPinnedTodo, toProject } = require('./serializers');
  */
 
 /**
- * Groups pinned rows into a Map keyed by `project_id`. Every project gets an
- * entry, so a project with no pins still serializes an empty array.
- *
- * Buckets are pushed into rather than rebuilt: the Map and its arrays are owned
- * by this function and no caller ever sees them, and rebuilding each bucket per
- * row would make grouping quadratic in the number of pins.
+ * The repository returns contiguous project groups, each in pinned-list order.
+ * Yield fresh slices in one linear scan; neither buckets nor a Map are mutated.
  */
-const groupByProject = (pinnedRows, projectIds) => {
-    const grouped = new Map(projectIds.map((id) => [id, []]));
-
-    pinnedRows.forEach((row) => {
-        const bucket = grouped.get(row.project_id);
-        if (bucket) bucket.push(row);
-    });
-
-    return grouped;
-};
+function* projectGroups(pinnedRows) {
+    let start = 0;
+    while (start < pinnedRows.length) {
+        const projectId = pinnedRows[start].project_id;
+        let end = start + 1;
+        while (end < pinnedRows.length && pinnedRows[end].project_id === projectId) {
+            end += 1;
+        }
+        yield [projectId, pinnedRows.slice(start, end)];
+        start = end;
+    }
+}
 
 /**
  * Attaches the pinned list to already-serialized projects. The one place the
@@ -47,14 +45,11 @@ const groupByProject = (pinnedRows, projectIds) => {
  * single-project one. The pinned query's own ordering is preserved.
  */
 const attachPinnedTodos = (projects, pinnedRows) => {
-    const pinnedByProject = groupByProject(
-        pinnedRows,
-        projects.map((project) => project.id)
-    );
+    const pinnedByProject = new Map(projectGroups(pinnedRows));
 
     return projects.map((project) => ({
         ...project,
-        pinnedTodos: pinnedByProject.get(project.id).map(toPinnedTodo),
+        pinnedTodos: (pinnedByProject.get(project.id) ?? []).map(toPinnedTodo),
     }));
 };
 

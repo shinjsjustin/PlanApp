@@ -50,8 +50,8 @@ const findById = async (conn, id) => {
     return firstRow(rows);
 };
 
-/** Finds the named to-dos in one batched read. */
-const findByIds = async (conn, todoIds) => {
+/** Use a current locking read for transactional reconciliation, even on no-op updates. */
+const findByIds = async (conn, todoIds, { forUpdate = false } = {}) => {
     if (todoIds.length === 0) return [];
 
     const placeholders = todoIds.map(() => '?').join(', ');
@@ -59,7 +59,7 @@ const findByIds = async (conn, todoIds) => {
     const [rows] = await conn.query(
         `SELECT ${SELECT_COLUMNS} FROM todos
          WHERE id IN (${placeholders})
-         ORDER BY id`,
+         ORDER BY id${forUpdate ? ' FOR UPDATE' : ''}`,
         todoIds
     );
 
@@ -94,14 +94,14 @@ const listByOwner = async (conn, ownerId) => {
     return rows;
 };
 
-/** Every pinned to-do belonging to the owner, including unorganized rows. */
+/** Owner's pins, contiguous by project and in pinned-list order within each group. */
 const listPinnedByOwner = async (conn, ownerId) => {
     const [rows] = await conn.execute(
         `SELECT ${PINNED_SELECT_COLUMNS}
          ${PINNED_FROM_JOINS}
          JOIN projects p ON p.id = t.project_id
          WHERE p.owner_id = ? AND t.is_pinned = 1
-         ORDER BY ${PINNED_ORDER}`,
+         ORDER BY t.project_id, ${PINNED_ORDER}`,
         [ownerId]
     );
 

@@ -251,7 +251,7 @@ router.put(
             await assertTodosInProject(conn, todoIds, projectId, req.user.id);
             await todosRepo.setPinned(conn, todoIds, isPinned);
 
-            const todos = await todosRepo.findByIds(conn, todoIds);
+            const todos = await todosRepo.findByIds(conn, todoIds, { forUpdate: true });
             return { todos: todos.map(toTodo) };
         });
 

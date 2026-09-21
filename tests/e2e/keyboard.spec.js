@@ -3,7 +3,7 @@
 const { test, expect } = require('@playwright/test');
 
 const { deleteUserByEmail } = require('./database');
-const { attachDiagnostics, newCredentials, seedPlan } = require('./helpers');
+const { addTodo, attachDiagnostics, dataOf, newCredentials, seedPlan } = require('./helpers');
 
 // The gestures that would otherwise need a pointer, done with keys only (spec
 // section 4.7).
@@ -37,6 +37,18 @@ const PLAN = {
 const press = async (page, key) => {
     await page.keyboard.press(key);
     await page.waitForTimeout(KEY_STEP_SETTLE_MS);
+};
+
+/** A bounded real Tab walk: never programmatically focus the destination. */
+const MAX_TAB_STOPS = 80;
+const tabTo = async (page, target) => {
+    for (let step = 0; step < MAX_TAB_STOPS; step += 1) {
+        await page.keyboard.press('Tab');
+        // Covered row controls must never enter the browser's focus order.
+        await expect(page.locator('.is-pin-selectable .todo-item-content :focus')).toHaveCount(0);
+        if (await target.evaluate((element) => element === document.activeElement)) return;
+    }
+    await expect(target, 'Target must be reachable with Tab alone').toBeFocused();
 };
 
 const credentials = newCredentials();
@@ -157,5 +169,150 @@ test('the composer, the fold toggle and the drags all work without a mouse', asy
 
         await expect(outstanding.first()).toContainText(PLAN.secondTodo);
         await expect(outstanding.last()).toContainText(PLAN.todo);
+    });
+});
+
+const seedKeyboardPins = async (page, pinCredentials) => {
+    const { projectId, headers, parent } = await seedPlan(page, pinCredentials, 'Keyboard pins');
+    const first = await addTodo(page, headers, projectId, 'Keyboard first pin', parent.id);
+    const second = await addTodo(page, headers, projectId, 'Keyboard second pin', parent.id);
+    const readGraph = async () => dataOf(
+        await page.request.get(`/api/projects/${projectId}`, { headers })
+    );
+    const initial = await readGraph();
+    const card = page.locator(`li[data-sequence-title="${parent.title}"]`);
+    const firstRow = card.locator('.todo-item').filter({ hasText: first.text });
+    const secondRow = card.locator('.todo-item').filter({ hasText: second.text });
+    const button = (name) => page.getByRole('button', { name, exact: true });
+    const overlay = (operation, todo) => button(`${operation} “${todo.text}”`);
+    let mutations = [];
+    page.on('request', (request) => {
+        if (request.url().includes('/api/') && request.method() !== 'GET') {
+            mutations = [...mutations, { method: request.method(), url: request.url() }];
+        }
+    });
+    await page.goto(`/projects/${projectId}`);
+    await expect(firstRow).toBeVisible();
+    return {
+        projectId, parent, first, second, readGraph, initial, card,
+        firstRow, secondRow, button, overlay, readMutations: () => mutations,
+    };
+};
+
+const selectPinsWithKeyboard = async (page, {
+    button, overlay, first, second, firstRow, secondRow, card, parent,
+}) => {
+    await tabTo(page, button('Pin'));
+    await page.keyboard.press('Enter');
+    await expect(button('Confirm')).toBeDisabled();
+    await expect(firstRow.locator('.todo-item-content')).toHaveAttribute('inert', '');
+    await expect(secondRow.locator('.todo-item-content')).toHaveAttribute('inert', '');
+    await tabTo(page, overlay('Pin', first));
+    await expect(overlay('Pin', first)).toBeFocused();
+    await expect(overlay('Pin', first)).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Space');
+    await expect(overlay('Pin', first)).toHaveAttribute('aria-pressed', 'true');
+    await expect(button('Confirm')).toBeEnabled();
+    await page.keyboard.press('Enter');
+    await expect(overlay('Pin', first)).toHaveAttribute('aria-pressed', 'false');
+    await expect(button('Confirm')).toBeDisabled();
+    await page.keyboard.press('Enter');
+    await expect(overlay('Pin', first)).toHaveAttribute('aria-pressed', 'true');
+    // Adjacent rows contribute exactly one Tab stop each, not their underlying buttons.
+    await page.keyboard.press('Tab');
+    await expect(overlay('Pin', second)).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(overlay('Pin', second)).toHaveAttribute('aria-pressed', 'true');
+    await expect(card.locator('.todo-item-menu')).toHaveCount(0);
+    await expect(card).not.toHaveAttribute('data-drop', /.+/);
+    await expect(button(`Collapse ${parent.title}`)).toBeVisible();
+};
+
+const cancelPinsWithKeyboard = async (page, { button, readGraph, initial, readMutations, card }) => {
+    await tabTo(page, button('Cancel'));
+    await page.keyboard.press('Space');
+    await expect(button('Pin')).toBeVisible();
+    await expect(page.locator('.pin-select-control')).toHaveCount(0);
+    expect(await readGraph()).toEqual(initial);
+    expect(readMutations()).toEqual([]);
+    await expect(card.locator('.todo-pin-icon')).toHaveCount(0);
+};
+
+/** Confirm via a real keypress and verify the exact bulk-write request. */
+const confirmPinsWithKeyboard = async (page, { projectId, button }, { key, todoIds, isPinned }) => {
+    await tabTo(page, button('Confirm'));
+    const saved = page.waitForResponse((response) =>
+        response.url().endsWith(`/api/projects/${projectId}/todos/pins`) &&
+        response.request().method() === 'PUT');
+    await page.keyboard.press(key);
+    const response = await saved;
+    expect(response.ok()).toBe(true);
+    expect(response.request().postDataJSON()).toEqual({ todoIds, isPinned });
+    return response;
+};
+
+const persistPinWithKeyboard = async (page, fixture) => {
+    const { button, overlay, first, second, readGraph, initial, firstRow, secondRow } = fixture;
+    await tabTo(page, button('Pin'));
+    await page.keyboard.press('Space');
+    await tabTo(page, overlay('Pin', first));
+    await expect(overlay('Pin', first)).toHaveAttribute('aria-pressed', 'false');
+    await expect(overlay('Pin', second)).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Space');
+    await expect(overlay('Pin', first)).toHaveAttribute('aria-pressed', 'true');
+    await confirmPinsWithKeyboard(page, fixture, { key: 'Enter', todoIds: [first.id], isPinned: true });
+    await expect(button('Pin')).toBeVisible();
+    const persisted = await readGraph();
+    expect(persisted.todos).toEqual(initial.todos.map((todo) =>
+        todo.id === first.id
+            ? { ...todo, isPinned: true, updatedAt: expect.any(String) }
+            : todo));
+    await expect(firstRow.locator('.todo-pin-icon')).toHaveCount(1);
+    await expect(secondRow.locator('.todo-pin-icon')).toHaveCount(0);
+};
+
+const persistUnpinWithKeyboard = async (page, fixture) => {
+    const { button, overlay, first, second, firstRow, readGraph, initial, card, readMutations } = fixture;
+    await tabTo(page, button('Unpin'));
+    await page.keyboard.press('Enter');
+    await expect(button('Confirm')).toBeDisabled();
+    await expect(overlay('Unpin', second)).toHaveCount(0);
+    await expect(firstRow.locator('.todo-item-content')).toHaveAttribute('inert', '');
+    await tabTo(page, overlay('Unpin', first));
+    await expect(overlay('Unpin', first)).toBeFocused();
+    await expect(overlay('Unpin', first)).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Enter');
+    await expect(overlay('Unpin', first)).toHaveAttribute('aria-pressed', 'true');
+    const response = await confirmPinsWithKeyboard(page, fixture, {
+        key: 'Space', todoIds: [first.id], isPinned: false,
+    });
+    await expect(button('Unpin')).toBeVisible();
+    // A real pin write advances updatedAt; all other row fields must survive unchanged.
+    expect((await readGraph()).todos).toEqual(initial.todos.map((todo) =>
+        todo.id === first.id ? { ...todo, updatedAt: expect.any(String) } : todo));
+    await expect(card.locator('.todo-pin-icon')).toHaveCount(0);
+    expect(readMutations()).toEqual([
+        { method: 'PUT', url: response.url() },
+        { method: 'PUT', url: response.url() },
+    ]);
+};
+
+test.describe('keyboard-only pin selection', () => {
+    const pinCredentials = newCredentials();
+
+    test.afterAll(async () => {
+        await deleteUserByEmail(pinCredentials.email);
+    });
+
+    test('Tab reaches overlays, selection cancels unchanged, and confirmation persists Pin and Unpin', async ({ page }) => {
+        const fixture = await seedKeyboardPins(page, pinCredentials);
+        await test.step('Tab skips covered drag, completion, menu and delete controls', () =>
+            selectPinsWithKeyboard(page, fixture));
+        await test.step('keyboard cancellation discards the draft without a write', () =>
+            cancelPinsWithKeyboard(page, fixture));
+        await test.step('keyboard confirmation persists only the selected pin', () =>
+            persistPinWithKeyboard(page, fixture));
+        await test.step('keyboard Unpin reaches the overlay and removes the persisted pin', () =>
+            persistUnpinWithKeyboard(page, fixture));
     });
 });

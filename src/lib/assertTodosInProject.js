@@ -5,7 +5,9 @@ const { badRequest, forbidden, notFound } = require('./httpError');
 /**
  * Confirms a set of to-dos exists, belongs to the caller, and is in one project.
  *
- * The complete set is checked in one query before a bulk operation can write.
+ * Requires the caller's transaction. A current locking read checks the complete
+ * set and holds the selected todo rows against deletion/moves through commit.
+ * Joined projects stay unlocked so unrelated child inserts can take FK shared locks.
  * Missing rows are reported first, then foreign ownership, then a caller-owned
  * row from the wrong project. Deduplication keeps repeated ids from defeating
  * the result-count check.
@@ -20,7 +22,8 @@ const assertTodosInProject = async (conn, todoIds, projectId, userId) => {
         `SELECT t.id, t.project_id, p.owner_id
          FROM todos t
          JOIN projects p ON p.id = t.project_id
-         WHERE t.id IN (${placeholders})`,
+         WHERE t.id IN (${placeholders})
+         FOR UPDATE OF t`,
         unique
     );
 

@@ -94,9 +94,8 @@ const toCalendarDay = (row) => ({
  *
  * A day column has to draw a name, tick a bubble and link to a project and a
  * sequence, and it cannot get those from the right-hand pool: a to-do leaves the
- * pool the moment it is completed, which is precisely when its card is specified
- * to stay on screen. An item that could not name itself after being ticked would
- * go blank as a result of the user finishing it.
+ * pool when it is unpinned, while its booking stays on screen. The booking must
+ * retain its own display data; completion removes neither the pin nor the booking.
  *
  * `sequenceId` is null when the to-do has since been returned to the unorganized
  * panel — `todos.sequence_id` is nullable, and nothing stops a to-do being

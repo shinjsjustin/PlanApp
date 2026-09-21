@@ -187,6 +187,29 @@ describe('project pinnedTodos payloads', () => {
         ]);
     });
 
+    test('keeps every project bucket and its pin order when positions overlap across projects', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const first = await createPinnedProject(conn, ownerId, 'One');
+        const second = await createPinnedProject(conn, ownerId, 'Two');
+        const empty = await projectsRepo.create(conn, { ownerId, title: 'Empty' });
+        const firstLoose = await createPinnedTodo(conn, {
+            projectId: first.project.id, text: 'One loose',
+        });
+        const secondLoose = await createPinnedTodo(conn, {
+            projectId: second.project.id, text: 'Two loose',
+        });
+
+        const response = await listProjects(ownerId);
+
+        expect(response.status).toBe(200);
+        const pins = new Map(response.body.data.map((project) =>
+            [project.id, project.pinnedTodos.map((todo) => todo.id)]));
+        expect(pins.get(first.project.id)).toEqual([first.todo.id, firstLoose.id]);
+        expect(pins.get(second.project.id)).toEqual([second.todo.id, secondLoose.id]);
+        expect(pins.get(empty.id)).toEqual([]);
+    });
+
     test('returns an empty pinnedTodos array on every project without pins', async () => {
         // Arrange
         const conn = getConn();

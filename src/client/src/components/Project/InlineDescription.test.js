@@ -106,6 +106,43 @@ test('does not overwrite typing on stored updates and Escape restores the latest
     expect(field()).toHaveValue('Updated');
 });
 
+test('shows the normalized stored value after saving in StrictMode', () => {
+    const { rerender } = render(
+        <React.StrictMode><InlineDescription value="Stored" /></React.StrictMode>
+    );
+    edit('  First\n\nSecond  ');
+    fireEvent.blur(field());
+    advance();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith('  First\n\nSecond  ');
+
+    rerender(
+        <React.StrictMode><InlineDescription value={'First\n\nSecond'} /></React.StrictMode>
+    );
+    expect(field()).toHaveValue('First\n\nSecond');
+});
+
+test('shows the stored rollback value after a failed save in StrictMode', () => {
+    const { rerender } = render(
+        <React.StrictMode><InlineDescription value="Stored" /></React.StrictMode>
+    );
+    edit('Optimistic draft');
+    fireEvent.blur(field());
+    advance();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith('Optimistic draft');
+
+    // The mutation hook supplies optimistic and rollback values through the graph.
+    rerender(
+        <React.StrictMode><InlineDescription value="Optimistic draft" /></React.StrictMode>
+    );
+    expect(field()).toHaveValue('Optimistic draft');
+    rerender(
+        <React.StrictMode><InlineDescription value="Stored" /></React.StrictMode>
+    );
+    expect(field()).toHaveValue('Stored');
+});
+
 test('flushes a committed draft on unmount so navigation cannot discard it', () => {
     const { unmount } = render(<InlineDescription value="Stored" />);
     edit('Draft');

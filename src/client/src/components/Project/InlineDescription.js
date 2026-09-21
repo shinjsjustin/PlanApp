@@ -14,7 +14,10 @@ const InlineDescription = ({ value }) => {
     const [draft, setDraft] = useState(null);
     const hasEditRef = useRef(false);
     const isMountedRef = useRef(true);
-    useEffect(() => () => { isMountedRef.current = false; }, []);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
     const { run: save, cancel } = useDebouncedCallback((description) => {
         if (isMountedRef.current) setDraft(null);
         updateProjectDescription(description);
