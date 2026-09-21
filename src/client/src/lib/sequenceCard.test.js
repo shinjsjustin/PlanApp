@@ -50,7 +50,7 @@ describe('sequenceCardModel', () => {
             expect(model.done.map((t) => t.id)).toEqual([1, 3]);
         });
 
-        test('does not expose the deleted frontier partitions', () => {
+        test('does not expose obsolete priority partitions', () => {
             // Act
             const model = sequenceCardModel({ sequence: sequence(), todos: [todo(1), todo(2)] });
 

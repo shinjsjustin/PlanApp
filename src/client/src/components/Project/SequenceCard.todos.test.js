@@ -54,7 +54,7 @@ describe('SequenceCard to-dos', () => {
         expect(document.querySelectorAll('.todo-item')).toHaveLength(3);
     });
 
-    test('renders no frontier labels around the outstanding list', () => {
+    test('renders no obsolete priority labels around the outstanding list', () => {
         // Act
         renderCard({ todos: [filed(1), filed(2, { position: 1 })] });
 

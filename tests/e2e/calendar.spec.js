@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const { newCredentials, seedPlan, addTodo, dragOnto } = require('./helpers');
+const { newCredentials, seedPlan, addTodo, dragOnto, setPins, poolGrip } = require('./helpers');
 
 // One flow, chosen because it is the only one that exercises the whole feature
 // at once: the cascade, the spill, and the day it creates.
@@ -10,25 +10,15 @@ const { newCredentials, seedPlan, addTodo, dragOnto } = require('./helpers');
 // none of those can prove is that a pointer dragged across a real layout produces
 // the schedule the arithmetic says it should.
 
-/** A signed-in account whose frontier offers exactly `Refresh tokens`. */
+/** A signed-in account with exactly one pinned pool item: `Refresh tokens`. */
 const seedCalendarWork = async (page) => {
     const { projectId, headers, parent } = await seedPlan(page, newCredentials(), 'Auth rewrite');
 
-    await addTodo(page, headers, projectId, 'Refresh tokens', parent.id);
+    const todo = await addTodo(page, headers, projectId, 'Refresh tokens', parent.id);
+    await setPins(page, headers, projectId, [todo.id]);
 
     return { projectId };
 };
-
-/**
- * The grip of a pool row, which is the only part of it `@dnd-kit` listens on.
- *
- * `PanelTodoRow` spreads the listeners onto `.panel-todo-grip` alone, so a
- * pointerdown anywhere else in the row — the text, say — starts no drag at all.
- * Scoped from the row rather than by class alone so the grip is addressed as the
- * one belonging to *this* to-do.
- */
-const poolGrip = (page, text) =>
-    page.locator('.panel-todo-row').filter({ hasText: text }).getByRole('button');
 
 /**
  * Opens the calendar with one empty day the server has actually stored.
@@ -126,7 +116,7 @@ test.describe('Calendar', () => {
 
         const column = page.getByRole('region', { name: 'Day 1' });
 
-        // Act — open the project card and drag its next step into the day
+        // Act — open the project card and drag its pin into the day
         await page.getByRole('button', { name: /Auth rewrite/ }).click();
         await dragOnto(page, poolGrip(page, 'Refresh tokens'), column);
 

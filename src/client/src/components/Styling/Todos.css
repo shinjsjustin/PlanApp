@@ -399,9 +399,9 @@ button.todo-check--done:hover {
     display: contents;
 }
 
-/* Only a covered row is the overlay's containing block. Most rows are one
- * already because they position their delete ×; the spotlight band is not, and
- * this is what makes it one for as long as it is being chosen. */
+/* Only a covered row is the overlay's containing block. Most rows already
+ * position their delete ×; this keeps every eligible row consistent while it
+ * is being chosen. */
 .is-pin-selectable {
     position: relative;
 }

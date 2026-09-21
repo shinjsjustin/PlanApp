@@ -9,8 +9,8 @@ import { TODO_STATUS } from '../../lib/graph';
 //
 // The status control is a checkbox rather than the three-state cycle it was. A
 // list is read as done or not done, and the card around it is built on that
-// reading — the next step, what is left, what is finished — so the control on a
-// row answers the same question the card does, in one click either way.
+// reading — what is outstanding and what is finished — so the control on a row
+// answers the same question the card does, in one click either way.
 //
 // `blocked` did not go away with the cycle; it moved into the menu. It is a real
 // thing to say about a to-do and it is still said — a blocked row keeps its own

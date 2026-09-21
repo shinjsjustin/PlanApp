@@ -16,8 +16,8 @@ const getConn = useTransaction();
  *
  * The danger is never the sequence landing in the wrong place. It is the layer
  * it left keeping a hole, or the layer it joined ending up with two sequences
- * claiming one position — a layer's order is what the canvas draws and what the
- * ready frontier reads, so a gap or a collision in it is visible everywhere.
+ * claiming one position — a layer's order drives both the canvas and pinned
+ * list ordering, so a gap or a collision affects both surfaces.
  */
 
 /**

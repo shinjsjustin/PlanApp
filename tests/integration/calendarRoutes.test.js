@@ -102,6 +102,48 @@ describe('GET /api/calendar', () => {
         });
     });
 
+    test('keeps a booking through completion and unpinning until the to-do is deleted', async () => {
+        const conn = getConn();
+        const { ownerId, project, todos, days } = await createWorld(conn, { todoCount: 1 });
+        const authorization = authHeaderFor(ownerId);
+        const todoId = todos[0].id;
+        const placement = { todoId, dayId: days[0].id, startMinutes: 540, durationMinutes: 60 };
+        await calendarItemsRepo.upsert(conn, placement);
+        const setPin = (isPinned) => request(app)
+            .put(`/api/projects/${project.id}/todos/pins`)
+            .set('Authorization', authorization).send({ todoIds: [todoId], isPinned });
+        const readItems = () => request(app).get('/api/calendar').set('Authorization', authorization);
+        const readPins = () => request(app).get('/api/projects').set('Authorization', authorization);
+
+        expect((await setPin(true)).status).toBe(200);
+        expect((await request(app).patch(`/api/todos/${todoId}`)
+            .set('Authorization', authorization).send({ status: 'complete' })).status).toBe(200);
+        const completed = await readItems();
+        expect(completed.status).toBe(200);
+        expect(completed.body.data.items).toEqual([
+            expect.objectContaining({ ...placement, isPinned: true, status: 'complete' }),
+        ]);
+        const pinned = await readPins();
+        expect(pinned.status).toBe(200);
+        expect(pinned.body.data[0].pinnedTodos).toEqual([
+            expect.objectContaining({ id: todoId, isPinned: true, status: 'complete' }),
+        ]);
+
+        expect((await setPin(false)).status).toBe(200);
+        const unpinned = await readItems();
+        expect(unpinned.status).toBe(200);
+        expect(unpinned.body.data.items).toEqual([
+            expect.objectContaining({ ...placement, isPinned: false, status: 'complete' }),
+        ]);
+        expect((await readPins()).body.data[0].pinnedTodos).toEqual([]);
+
+        expect((await request(app).delete(`/api/todos/${todoId}`)
+            .set('Authorization', authorization)).status).toBe(200);
+        const deleted = await readItems();
+        expect(deleted.status).toBe(200);
+        expect(deleted.body.data.items).toEqual([]);
+    });
+
     test('reports current pin and status values without changing placement', async () => {
         // Arrange
         const conn = getConn();

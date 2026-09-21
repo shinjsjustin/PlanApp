@@ -265,7 +265,7 @@
     color: var(--seq-danger);
 }
 
-/* One line, always: a folded card is a glance, and a next step that wrapped
+/* One line, always: a folded card is a glance, and a pin preview that wrapped
  * would make two cards different heights for no reason the reader cares about. */
 .sequence-card-collapsed-next {
     flex: 1 1 auto;

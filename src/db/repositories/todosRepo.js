@@ -79,9 +79,7 @@ const listByProject = async (conn, projectId) => {
 
 /**
  * Every to-do belonging to a user, across all their projects, filed and
- * unorganized alike — the batched input to the ready frontier on the projects
- * home page (spec section 4.4). One query for the whole page rather than one
- * per project or one per sequence.
+ * unorganized alike. One query rather than one per project or sequence.
  */
 const listByOwner = async (conn, ownerId) => {
     const [rows] = await conn.execute(

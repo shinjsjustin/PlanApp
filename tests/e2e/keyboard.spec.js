@@ -53,6 +53,7 @@ test('the composer, the fold toggle and the drags all work without a mouse', asy
     const { projectId, parent, child } = await seedPlan(page, credentials, PLAN.project);
 
     await page.goto(`/projects/${projectId}`);
+    await page.getByRole('button', { name: 'Unorganized (0)', exact: true }).click();
 
     await test.step('the composer files a to-do on Enter alone', async () => {
         const composer = page.getByLabel('New unorganized to-do');
@@ -118,17 +119,14 @@ test('the composer, the fold toggle and the drags all work without a mouse', asy
 
         await expect(page.getByRole('button', { name: 'Unorganized (0)' })).toBeVisible();
 
-        // It is its sequence's only outstanding to-do, so it lands as the next
-        // step and is drawn in the spotlight band rather than in the list.
+        // The filed to-do lands in the sequence's outstanding list.
         const landedIn = page.locator('li.sequence-card', {
-            has: page.locator('.sequence-spotlight-text', { hasText: PLAN.todo }),
+            has: page.locator('.todo-item-text', { hasText: PLAN.todo }),
         });
 
         await expect(landedIn).toHaveCount(1);
 
-        // Pinned to a title now rather than kept as "the card holding this
-        // to-do": the reorder below moves that to-do out of the band, and a
-        // locator defined by where it is would stop matching the moment it did.
+        // Keep the destination title for the reorder assertions below.
         filedTitle = await landedIn.getAttribute('data-sequence-title');
     });
 
@@ -142,10 +140,8 @@ test('the composer, the fold toggle and the drags all work without a mouse', asy
         await page.keyboard.press('Enter');
         await page.keyboard.press('Escape');
 
-        // The card draws its outstanding to-dos in two places since the
-        // redesign: the next step in the spotlight band, the rest under THEN.
-        // The order on screen runs through both, so this reads both.
-        const outstanding = card.locator('.sequence-spotlight-text, .todo-item-text');
+        // Outstanding to-dos share one ordered list.
+        const outstanding = card.locator('.todo-item-text');
 
         await expect(outstanding).toHaveCount(2);
         await expect(outstanding.first()).toContainText(PLAN.todo);

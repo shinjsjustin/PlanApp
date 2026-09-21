@@ -539,8 +539,8 @@
 /* -- Sequence card --------------------------------------------------------
  *
  * The card itself lives in `SequenceCard.css`, imported alongside this file.
- * It grew a folded face, a spotlight band, a DONE group and a footer with the
- * redesign, and none of that is about the page or the canvas this file owns.
+ * It grew a folded face, a DONE group and a footer with the redesign, and none
+ * of that is about the page or the canvas this file owns.
  */
 
 /* -- Confirmation --------------------------------------------------------- */

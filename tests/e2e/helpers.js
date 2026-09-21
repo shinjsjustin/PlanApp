@@ -94,12 +94,20 @@ const attachDiagnostics = (page) => {
 
 /** Unwraps the `{ success, data, error }` envelope, or says what went wrong. */
 const dataOf = async (response) => {
-    const envelope = await response.json();
+    let envelope;
 
-    if (!response.ok() || envelope.success === false) {
+    try {
+        envelope = await response.json();
+    } catch (error) {
         throw new Error(
-            `Seeding failed: ${response.request().method()} ${response.url()} ` +
-                `-> ${response.status()} ${envelope.error ?? ''}`
+            `Seeding failed: ${response.url()} -> ${response.status()} returned non-JSON: ` +
+                error.message
+        );
+    }
+
+    if (!response.ok() || !envelope || envelope.success === false) {
+        throw new Error(
+            `Seeding failed: ${response.url()} -> ${response.status()} ${envelope?.error ?? ''}`
         );
     }
 
@@ -163,9 +171,8 @@ const addSequence = async (page, headers, layerId, sequenceTitle) => {
  * A to-do, either loose in the unorganized panel (`sequenceId` left null) or
  * already filed in a sequence.
  *
- * Seeded rather than typed, for the same reason the sequences are: a test whose
- * subject is one gesture should not re-assert the composer the critical flow
- * already covers.
+ * Seeded rather than typed because a test whose subject is one gesture should
+ * not re-assert the composer behavior covered by the keyboard browser flow.
  */
 const addTodo = async (page, headers, projectId, text, sequenceId = null) =>
     dataOf(
@@ -179,10 +186,9 @@ const addTodo = async (page, headers, projectId, text, sequenceId = null) =>
  * Registers an account and builds a two-layer plan through the API, then leaves
  * the browser signed in as that user.
  *
- * For tests whose subject is one interaction rather than the whole journey.
- * Clicking through the setup again would only re-assert what the critical flow
- * already covers, and every step of it is another way for an unrelated failure
- * to be blamed on the gesture under test.
+ * For tests whose subject is one interaction rather than plan construction.
+ * The onboarding browser flow covers the UI setup controls; repeating that
+ * setup would give each gesture more unrelated ways to fail.
  */
 const seedPlan = async (page, credentials, title) => {
     const { headers } = await registerAndLogin(page, credentials);
@@ -267,7 +273,21 @@ const openProject = async (page, projectId) => {
     await page.locator('.canvas-layer').first().waitFor();
 };
 
+/** Persist a pin batch through the same endpoint used by the selection UI. */
+const setPins = async (page, headers, projectId, todoIds, isPinned = true) =>
+    dataOf(await page.request.put(`/api/projects/${projectId}/todos/pins`, {
+        headers, data: { todoIds, isPinned },
+    }));
+
+const poolGrip = (page, text) =>
+    page.locator('.panel-todo-row')
+        .filter({ has: page.getByText(text, { exact: true }) })
+        .locator('.panel-todo-grip');
+
 module.exports = {
+    dataOf,
+    setPins,
+    poolGrip,
     attachDiagnostics,
     addTodo,
     seedPlan,
