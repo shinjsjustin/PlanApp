@@ -1156,7 +1156,9 @@ Then run `superpowers:finishing-a-development-branch`.
 
 ## 16. Task checklist
 
-**Last updated:** 2026-09-20 — paused at a clean boundary after T10. T11 and the final integrator review remain.
+**Last updated:** 2026-09-20 — implementation and final integrator review complete.
+
+Final validation: server 35 suites / 478 tests; client 71 suites / 1,006 tests; production build compiled; Chromium E2E 18 tests. The dead-code scan retains only the explicitly preserved calendar deep-link `useSequenceSpotlight`, plural `activeSequenceIds`, and negative regression assertions for removed priority labels.
 
 - [x] W0 — clean tree, branch `feat/pinned-todos`, baseline test run recorded
 - [x] T1 — pin persistence (schema, repo, serializers) — `40d7456`, review fix `313f8a6`
@@ -1170,5 +1172,5 @@ Then run `superpowers:finishing-a-development-branch`.
 - [x] T8 — InlineDescription — `edf56ce`
 - [x] T9 — Projects Home pinned block — `69c8759`
 - [x] T10 — Calendar pinned pool and status styling — `3307e32`
-- [ ] T11 — E2E, dead-code sweep, full gates
-- [ ] Final integrator review + finishing-a-development-branch
+- [x] T11 — E2E, dead-code sweep, full gates — `f7b5d94`
+- [x] Final integrator review and hardening fixes — `83344b2`
