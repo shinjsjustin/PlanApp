@@ -88,6 +88,24 @@ describe('useDebouncedCallback', () => {
         expect(save).not.toHaveBeenCalled();
     });
 
+    test('flushes the pending call on unmount when requested', () => {
+        // Arrange
+        const save = jest.fn();
+        const { result, unmount } = renderHook(() =>
+            useDebouncedCallback(save, DELAY, { shouldFlushOnUnmount: true })
+        );
+        act(() => result.current.run('Learning'));
+
+        // Act
+        unmount();
+
+        // Assert
+        expect(save).toHaveBeenCalledTimes(1);
+        expect(save).toHaveBeenCalledWith('Learning');
+        advance(DELAY * 2);
+        expect(save).toHaveBeenCalledTimes(1);
+    });
+
     test('calls the latest callback, not the one captured when the timer started', () => {
         // Arrange
         const first = jest.fn();

@@ -6,15 +6,16 @@ const { z } = require('zod');
 const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
 const assertSequenceInProject = require('../lib/assertSequenceInProject');
+const assertTodosInProject = require('../lib/assertTodosInProject');
 const layersRepo = require('../db/repositories/layersRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
 const { badRequest, notFound } = require('../lib/httpError');
 const {
-    findProjectWithFrontier,
-    listProjectsWithFrontier,
-} = require('../lib/projectsFrontier');
+    findProjectWithPinnedTodos,
+    listProjectsWithPinnedTodos,
+} = require('../lib/projectsPinnedTodos');
 const { toLayer, toProject, toSequence, toTodo } = require('../lib/serializers');
 const {
     descriptionSchema,
@@ -22,6 +23,7 @@ const {
     parseId,
     requireSomeField,
     titleSchema,
+    todoPinsSchema,
     todoTextSchema,
 } = require('../lib/validation');
 const { withConnection, withTransaction } = require('../db/unitOfWork');
@@ -31,8 +33,8 @@ const { withConnection, withTransaction } = require('../db/unitOfWork');
  * always the authenticated owner; every route that takes an id runs it through
  * `assertOwnership` before touching the row.
  *
- * `GET /:id` returns the whole graph in one payload; `GET /` returns the list
- * with each project's ready frontier, batched in `lib/projectsFrontier.js`.
+ * `GET /:id` returns the whole graph in one payload; `GET /` returns project
+ * cards with their pinned to-dos batched in `lib/projectsPinnedTodos.js`.
  */
 
 const router = express.Router();
@@ -65,12 +67,12 @@ const createTodoSchema = z.object({
 });
 
 // GET /api/projects — the caller's projects, each with its to-do progress and
-// its ready frontier, from one batched set of queries (see projectsFrontier).
+// pinned to-dos, from one batched set of queries (see projectsPinnedTodos).
 router.get(
     '/',
     asyncRoute(async (req, res) => {
         const projects = await withConnection((conn) =>
-            listProjectsWithFrontier(conn, req.user.id)
+            listProjectsWithPinnedTodos(conn, req.user.id)
         );
 
         res.sendData(projects);
@@ -80,8 +82,8 @@ router.get(
 // POST /api/projects — the project and its first layer are one atomic unit: a
 // project with no layer has nowhere to put a sequence.
 //
-// It answers in the list's shape, frontier and all, so the home page can prepend
-// the response to the grid without a second round trip.
+// It answers in the list's card shape so the home page can prepend the response
+// to the grid without a second round trip.
 router.post(
     '/',
     asyncRoute(async (req, res) => {
@@ -96,7 +98,7 @@ router.post(
 
             await layersRepo.create(conn, { projectId: created.id });
 
-            return findProjectWithFrontier(conn, created.id);
+            return findProjectWithPinnedTodos(conn, created.id);
         });
 
         res.sendData(project, 201);
@@ -146,8 +148,8 @@ router.get(
     })
 );
 
-// PATCH /api/projects/:id — also in the list's shape, so a rename replaces the
-// card in the grid without dropping the frontier the title change cannot affect.
+// PATCH /api/projects/:id — also in the list's card shape, so a rename replaces
+// the existing card without a second request.
 router.patch(
     '/:id',
     asyncRoute(async (req, res) => {
@@ -158,7 +160,7 @@ router.patch(
             await assertOwnership(conn, 'project', id, req.user.id);
             await projectsRepo.update(conn, id, patch);
 
-            return findProjectWithFrontier(conn, id);
+            return findProjectWithPinnedTodos(conn, id);
         });
 
         if (!project) throw notFound('Project');
@@ -227,6 +229,33 @@ router.post(
         });
 
         res.sendData(toTodo(todo), 201);
+    })
+);
+
+/**
+ * PUT /api/projects/:id/todos/pins — applies one pin state to a selected batch.
+ *
+ * Project access and the complete to-do set are validated before the single
+ * UPDATE. The read-back shares the transaction so the response is the exact
+ * committed state, serialized in the regular full to-do shape.
+ */
+router.put(
+    '/:id/todos/pins',
+    asyncRoute(async (req, res) => {
+        const projectId = parseId(req.params.id);
+
+        const result = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'project', projectId, req.user.id);
+
+            const { todoIds, isPinned } = todoPinsSchema.parse(req.body ?? {});
+            await assertTodosInProject(conn, todoIds, projectId, req.user.id);
+            await todosRepo.setPinned(conn, todoIds, isPinned);
+
+            const todos = await todosRepo.findByIds(conn, todoIds, { forUpdate: true });
+            return { todos: todos.map(toTodo) };
+        });
+
+        res.sendData(result);
     })
 );
 

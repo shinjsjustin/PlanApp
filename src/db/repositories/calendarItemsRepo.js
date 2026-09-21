@@ -30,7 +30,7 @@
 
 const SELECT_COLUMNS = `ci.id, ci.day_id, ci.todo_id, ci.start_minutes, ci.duration_minutes,
             ci.created_at, ci.updated_at,
-            t.text, t.status, t.project_id, t.sequence_id,
+            t.text, t.status, t.is_pinned, t.project_id, t.sequence_id,
             p.title AS project_title, s.title AS sequence_title`;
 
 const FROM_JOINS = `FROM calendar_items ci

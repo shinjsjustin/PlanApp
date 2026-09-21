@@ -6,8 +6,8 @@
  * belong to neither. Imported once from ProjectPage.js, like its sibling. */
 
 
-/* One row for a to-do, in the unorganized panel or under THEN inside an open
- * card. The menu and the delete × are positioned against this row, so they
+/* One row for a to-do, in the unorganized panel or the outstanding list inside
+ * an open card. The menu and the delete × are positioned against this row, so they
  * anchor to their own to-do rather than to whichever list it happens to be in.
  *
  * The row is centred rather than baseline-aligned now that it leads with a
@@ -64,8 +64,8 @@
 
 /* -- The checkbox ----------------------------------------------------------
  *
- * One circle, worn at four sizes: 16px on a folded card's status line, 19px in
- * a list and on the add row, 24px in the spotlight, 18px as the complete badge.
+ * One circle, worn at three sizes: 16px on a folded card's status line, 19px in
+ * a list and on the add row, and 18px as the complete badge.
  * The base is the list size, and each context sets its own.
  *
  * `::after` is the hit target rather than padding, which would move the circle
@@ -98,18 +98,6 @@
 
 button.todo-check:hover {
     border-color: oklch(0.58 0.15 295);
-}
-
-/* The one in operation: heavier ring, and filling it on hover is the preview of
- * the click. */
-.todo-check--next {
-    width: 24px;
-    height: 24px;
-    border: 2px solid oklch(0.58 0.15 295);
-}
-
-button.todo-check--next:hover {
-    background: oklch(0.58 0.15 295);
 }
 
 /* Waiting on something. The same shape in red, and deliberately not a button:
@@ -322,7 +310,7 @@ button.todo-check--done:hover {
     font-size: 0.8rem;
 }
 
-/* The card's own list has no margin of its own: `.sequence-card-then` around it
+/* The card's own list has no margin of its own: `.sequence-card-outstanding` around it
  * sets the inset, so the rows' hover fills bleed wider than the text column. */
 .sequence-card-todo-list {
     margin: 0;
@@ -376,4 +364,84 @@ button.todo-check--done:hover {
 
 .drop-zone--over {
     background: #4a7dbd;
+}
+
+/* -- Pinning ---------------------------------------------------------------
+ *
+ * Pinned to-dos are what a project card shows on the projects home, so a row
+ * has to say whether it is one of them — all the time, not only while a
+ * selection is running, or the reader would have to start one to find out.
+ *
+ * Choosing them is a batch: pick the rows, then confirm once. That is two
+ * buttons in the header, and, for as long as it lasts, one control over every
+ * row the operation could change. See `PinRow.js` for why it is a control on
+ * top of the row rather than a handler on the row itself.
+ */
+
+.pin-controls {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* The marker itself: quiet, small, and never in the way of the text. It sits
+ * in the row's flow rather than in the reserved right padding, which already
+ * holds the ⋯ and the delete ×. */
+.todo-pin-icon {
+    flex: 0 0 auto;
+    font-size: var(--font-sm);
+    line-height: 1;
+}
+
+/* The row's own content, wrapped only so it can be switched off in one move.
+ * It lays out nothing at all, so the row measures and reads exactly as it did
+ * before a selection started — and exactly as it will once one ends. */
+.todo-item-content {
+    display: contents;
+}
+
+/* Only a covered row is the overlay's containing block. Most rows already
+ * position their delete ×; this keeps every eligible row consistent while it
+ * is being chosen. */
+.is-pin-selectable {
+    position: relative;
+}
+
+/* Outline every eligible row immediately; selected rows also get a tint.
+ * The transparent surface keeps blocked/complete styling visible underneath. */
+.pin-select-control {
+    position: absolute;
+    inset: 0;
+    /* Above the delete bubble's 3, which is the highest thing a row stacks.
+     * `inert` is what actually makes those controls unreachable; this is so the
+     * control the reader can see is also the one under the pointer. */
+    z-index: 4;
+    width: 100%;
+    padding: 0;
+    border: 1px dashed var(--color-accent);
+    border-radius: var(--radius-md);
+    background: none;
+    cursor: pointer;
+}
+
+.pin-select-control:disabled {
+    cursor: wait;
+}
+
+.pin-select-control:hover,
+.pin-select-control:focus-visible {
+    border-color: var(--color-accent);
+}
+
+.pin-select-control[aria-pressed='true'] {
+    border-style: solid;
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* A covered row keeps its hover affordances down. The ⋯ and the × appear when
+ * the row is hovered, and a row being chosen is hovered the whole time — they
+ * are inert either way, and a row should not show two things it cannot do. */
+.is-pin-selectable .todo-item-menu-toggle,
+.is-pin-selectable .delete-bubble {
+    opacity: 0;
 }

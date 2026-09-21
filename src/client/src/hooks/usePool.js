@@ -2,18 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../lib/api';
 
-// The right panel's supply of schedulable work.
+// The right panel's pinned work, including completed pins for review.
 //
-// There is no calendar endpoint behind this. `GET /api/projects` already answers
-// with every project's ready frontier and the next to-do in each ready sequence,
-// which is exactly what the pool is (design decision 3) — the same response the
-// projects home page renders its cards from.
-//
-// One to-do per ready sequence, not every open to-do in it. That keeps the
-// calendar honest to the app's central idea: the frontier is what you may start,
-// and within a sequence that is one thing. It also means the pool refills as
-// items are ticked off, which is what makes the completion bubble part of the
-// planning loop rather than a dead end.
+// There is no calendar-specific pool endpoint. `GET /api/projects` already
+// carries each project's pinned to-dos, which are the same explicit choices the
+// projects home page shows. Every pin stays visible regardless of lifecycle
+// status or whether it belongs to a sequence.
 //
 // Loaded separately from the calendar, and failing separately: a calendar you
 // cannot schedule into is still worth reading, and a pool you cannot drag from
@@ -27,35 +21,21 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
-/**
- * A frontier entry with no `nextTodo` is a sequence that is ready but has
- * nothing that can be picked up. That covers two entries the server tells
- * apart with `isStalled`: one whose outstanding to-dos are all blocked
- * (`isStalled: true`), and one that is ready but holds no to-dos at all
- * (`isStalled: false` — `readyFrontier` still lists an empty sequence, since
- * incomplete is not the same as finished). Both have nothing to schedule, so
- * the filter below reads `entry.nextTodo` rather than `!entry.isStalled`: the
- * latter lets the empty-sequence entry through, and the map after it
- * dereferences `nextTodo.id` unconditionally, so that would throw instead of
- * skipping it.
- *
- * A project with no startable work at all is kept, because the panel still has
- * to show its name and a count of zero rather than silently vanishing.
- */
+/** A project with no pins is kept so its card can say so explicitly. */
 const toPoolProjects = (projects) =>
     projects.map((project) => ({
         id: project.id,
         title: project.title,
-        todos: project.frontier
-            .filter((entry) => entry.nextTodo)
-            .map((entry) => ({
-                todoId: entry.nextTodo.id,
-                text: entry.nextTodo.text,
-                projectId: project.id,
-                projectTitle: project.title,
-                sequenceId: entry.sequenceId,
-                sequenceTitle: entry.sequenceTitle,
-            })),
+        todos: project.pinnedTodos.map((todo) => ({
+            todoId: todo.id,
+            text: todo.text,
+            status: todo.status,
+            isPinned: todo.isPinned,
+            projectId: project.id,
+            projectTitle: project.title,
+            sequenceId: todo.sequenceId,
+            sequenceTitle: todo.sequenceTitle,
+        })),
     }));
 
 /**
@@ -105,8 +85,8 @@ const INITIAL_POOL = {
     refreshError: '',
 };
 
-/** Reads the frontier, turning either ending into a value rather than a throw. */
-const readFrontier = async () => {
+/** Reads pinned projects, turning either ending into a value rather than a throw. */
+const readPinnedProjects = async () => {
     try {
         return { projects: toPoolProjects(await api.get('/projects')) };
     } catch (err) {
@@ -126,7 +106,7 @@ const usePool = () => {
         const requestId = requestRef.current + 1;
         requestRef.current = requestId;
 
-        const outcome = await readFrontier();
+        const outcome = await readPinnedProjects();
 
         if (requestId < settledRef.current) return;
 
@@ -156,7 +136,7 @@ const usePool = () => {
     }, [load]);
 
     // The quiet re-read behind rows already on screen, after work was ticked off
-    // and the frontier moved on. It is the bare read: what a failure means is
+    // and its pin changed status. It is the bare read: what a failure means is
     // `settledFrom`'s decision, taken from what is on screen rather than from
     // which caller asked.
     return { ...pool, reload: load, refresh: read };

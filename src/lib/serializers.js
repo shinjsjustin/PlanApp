@@ -61,31 +61,21 @@ const toTodo = (row) => ({
     text: row.text,
     status: row.status,
     completedAt: row.completed_at ?? null,
+    isPinned: Boolean(row.is_pinned),
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
 
-/**
- * One line of the ready frontier on the projects home page (spec section 4.8):
- * a sequence the caller can start now, and the to-do to pick up in it.
- *
- * Deliberately narrow. The home page lists a name and a next step; sending whole
- * sequence and to-do objects for every project would put most of every graph on
- * the wire to render two lines of text.
- *
- * `nextTodo` is null for two quite different reasons, and the card has to say
- * different things about them: the sequence holds no to-dos at all, or it holds
- * outstanding ones and every one of them is blocked — `readyFrontier` skips a
- * blocked to-do the way it skips a complete one (spec section 3). `isStalled` is
- * the second of those: ready, but with nothing in it that can be picked up.
- * `todos` is the project's to-dos, the same array the frontier was derived from.
- */
-const toFrontierEntry = ({ sequence, nextTodo }, todos) => ({
-    sequenceId: sequence.id,
-    sequenceTitle: sequence.title,
-    nextTodo: nextTodo ? { id: nextTodo.id, text: nextTodo.text } : null,
-    isStalled: !nextTodo && todos.some((todo) => todo.sequenceId === sequence.id),
+/** One pinned to-do in the deliberately narrow pinned-list wire shape. */
+const toPinnedTodo = (row) => ({
+    id: row.id,
+    text: row.text,
+    status: row.status,
+    sequenceId: row.sequence_id ?? null,
+    sequenceTitle: row.sequence_title ?? null,
+    position: row.position,
+    isPinned: Boolean(row.is_pinned),
 });
 
 /**
@@ -102,12 +92,10 @@ const toCalendarDay = (row) => ({
 /**
  * One booking, with the display data the day column needs folded in.
  *
- * Deliberately *not* narrow, unlike `toFrontierEntry`. A day column has to draw
- * a name, tick a bubble and link to a project and a sequence, and it cannot get
- * those from the right-hand pool: a to-do leaves the pool the moment it is
- * completed, which is precisely when its card is specified to stay on screen. An
- * item that could not name itself after being ticked would go blank as a result
- * of the user finishing it.
+ * A day column has to draw a name, tick a bubble and link to a project and a
+ * sequence, and it cannot get those from the right-hand pool: a to-do leaves the
+ * pool when it is unpinned, while its booking stays on screen. The booking must
+ * retain its own display data; completion removes neither the pin nor the booking.
  *
  * `sequenceId` is null when the to-do has since been returned to the unorganized
  * panel — `todos.sequence_id` is nullable, and nothing stops a to-do being
@@ -123,6 +111,7 @@ const toCalendarItem = (row) => ({
     todoId: row.todo_id,
     text: row.text,
     status: row.status,
+    isPinned: Boolean(row.is_pinned),
     projectId: row.project_id,
     projectTitle: row.project_title,
     sequenceId: row.sequence_id ?? null,
@@ -157,8 +146,8 @@ module.exports = {
     toCalendarDay,
     toCalendarItem,
     toCalendarNote,
-    toFrontierEntry,
     toLayer,
+    toPinnedTodo,
     toProject,
     toSequence,
     toTodo,

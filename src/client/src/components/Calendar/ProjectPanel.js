@@ -3,7 +3,7 @@ import React from 'react';
 import ProjectAccordionCard from './ProjectAccordionCard';
 import { POOL_STATUS } from '../../hooks/usePool';
 
-// The right panel: every project, with the work it says can be started now.
+// The right panel: every project and the to-dos explicitly pinned in it.
 //
 // Its own loading and failure states rather than the page's. The calendar and
 // the pool are separate requests and either can fail alone; a calendar you cannot

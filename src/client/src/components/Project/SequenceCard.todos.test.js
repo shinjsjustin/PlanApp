@@ -3,13 +3,10 @@ import { screen, within } from '@testing-library/react';
 import { click, type } from '../../testUtils/interact';
 import { baseSequence, collapse, renderCard } from './sequenceCardHarness';
 
-// The to-dos inside an open card, in the three places the redesign puts them:
-// the next step in its spotlight band, what is left under THEN, and everything
-// finished in the DONE group at the bottom (design 2B).
-//
-// The split is purely visual. One list is stored, in one order, and the card
-// reads it three ways — which is why every drop still counts in the whole list's
-// indices and nothing about dragging had to change.
+// The to-dos inside an open card: every outstanding item uses one sortable row
+// in stored position order, while finished work stays in the DONE group. The
+// split is lifecycle-only, so a pin changes emphasis without moving a row or
+// replacing the status it already carries.
 
 const filed = (
     id,
@@ -19,6 +16,7 @@ const filed = (
         sequenceId = 100,
         status = 'incomplete',
         completedAt = null,
+        isPinned = false,
     } = {}
 ) => ({
     id,
@@ -28,35 +26,20 @@ const filed = (
     status,
     completedAt,
     position,
+    isPinned,
 });
 
-/** What THEN lists — the outstanding to-dos bar the one in the spotlight. */
-const thenTexts = () =>
+const outstandingTexts = () =>
     within(screen.getByRole('list', { name: /to-dos in learn aerodynamics/i }))
         .getAllByRole('listitem')
         .map((item) => item.querySelector('.todo-item-text')?.textContent)
         .filter(Boolean);
 
-const spotlight = () => document.querySelector('.sequence-spotlight');
 const doneTexts = () =>
     [...document.querySelectorAll('.sequence-done-text')].map((node) => node.textContent);
 
 describe('SequenceCard to-dos', () => {
-    test('puts the first outstanding to-do in the spotlight', () => {
-        // Act
-        renderCard({
-            todos: [
-                filed(1, { text: 'First', position: 0 }),
-                filed(2, { text: 'Second', position: 1 }),
-            ],
-        });
-
-        // Assert
-        expect(spotlight()).toHaveTextContent('NEXT STEP');
-        expect(spotlight()).toHaveTextContent('First');
-    });
-
-    test('lists the rest under THEN, in position order', () => {
+    test('renders every outstanding to-do through the same row in position order', () => {
         // Act — deliberately supplied out of order.
         renderCard({
             todos: [
@@ -66,43 +49,64 @@ describe('SequenceCard to-dos', () => {
             ],
         });
 
-        // Assert — "First" is in the band above, not in this list.
-        expect(thenTexts()).toEqual(['Second', 'Third']);
+        // Assert
+        expect(outstandingTexts()).toEqual(['First', 'Second', 'Third']);
+        expect(document.querySelectorAll('.todo-item')).toHaveLength(3);
     });
 
-    // The heading earns its place only when it separates two things.
-    test('leaves out the THEN heading when the spotlight is all there is', () => {
+    test('renders no obsolete priority labels around the outstanding list', () => {
         // Act
-        renderCard({ todos: [filed(1, { text: 'Only one' })] });
+        renderCard({ todos: [filed(1), filed(2, { position: 1 })] });
 
         // Assert
+        expect(screen.queryByText('NEXT STEP')).not.toBeInTheDocument();
+        expect(screen.queryByText('NEXT')).not.toBeInTheDocument();
         expect(screen.queryByText('THEN')).not.toBeInTheDocument();
     });
 
-    test('shows the THEN heading once something follows the spotlight', () => {
+    test('emphasizes the row matching the top pinned to-do id', () => {
         // Act
         renderCard({
-            todos: [filed(1, { position: 0 }), filed(2, { position: 1 })],
+            todos: [
+                filed(1, { position: 0 }),
+                filed(2, { position: 1, isPinned: true }),
+                filed(3, { position: 2, isPinned: true }),
+            ],
         });
 
         // Assert
-        expect(screen.getByText('THEN')).toBeInTheDocument();
+        expect(screen.getByText('To-do 2').closest('.todo-item')).toHaveClass(
+            'todo-row--top-pinned'
+        );
+        expect(screen.getByText('To-do 3').closest('.todo-item')).not.toHaveClass(
+            'todo-row--top-pinned'
+        );
     });
 
-    test('renders no spotlight when every to-do is finished', () => {
+    test('keeps blocked styling alongside top-pin emphasis', () => {
         // Act
-        renderCard({ todos: [filed(1, { status: 'complete' })] });
+        renderCard({ todos: [filed(1, { status: 'blocked', isPinned: true })] });
 
         // Assert
-        expect(spotlight()).toBeNull();
+        expect(screen.getByText('To-do 1').closest('.todo-item')).toHaveClass(
+            'todo-item--blocked',
+            'todo-row--top-pinned'
+        );
     });
 
-    test('renders no spotlight for a sequence holding nothing yet', () => {
+    test('keeps a complete top pin crossed out and emphasized in DONE', () => {
         // Act
-        renderCard();
+        renderCard({
+            todos: [filed(1, { status: 'complete', isPinned: true })],
+        });
 
         // Assert
-        expect(spotlight()).toBeNull();
+        const text = screen.getByText('To-do 1');
+        expect(text).toHaveClass('sequence-done-text');
+        expect(text.closest('.sequence-done-item')).toHaveClass('todo-row--top-pinned');
+        expect(text.closest('.sequence-done-item')).toContainElement(
+            document.querySelector('.todo-pin-icon')
+        );
     });
 
     test('leaves out to-dos belonging elsewhere', () => {
@@ -117,8 +121,7 @@ describe('SequenceCard to-dos', () => {
         });
 
         // Assert
-        expect(spotlight()).toHaveTextContent('Mine');
-        expect(thenTexts()).toEqual(['Mine too']);
+        expect(outstandingTexts()).toEqual(['Mine', 'Mine too']);
     });
 
     test('takes the to-dos out of sight when the card is folded', async () => {
@@ -130,8 +133,7 @@ describe('SequenceCard to-dos', () => {
         // Act
         await collapse(rerenderWith);
 
-        // Assert — the folded card names its next step, so this asserts the
-        // list is gone rather than the words.
+        // Assert — the sortable list itself is gone.
         expect(
             screen.queryByRole('list', { name: /to-dos in learn aerodynamics/i })
         ).not.toBeInTheDocument();
@@ -139,7 +141,7 @@ describe('SequenceCard to-dos', () => {
 
     // -- Completing ---------------------------------------------------------
 
-    test('completes the spotlight to-do from its circle', async () => {
+    test('completes an outstanding to-do from its circle', async () => {
         // Arrange
         const { value } = renderCard({ todos: [filed(1, { text: 'Read about lift' })] });
 
@@ -154,9 +156,8 @@ describe('SequenceCard to-dos', () => {
         );
     });
 
-    test('promotes the next to-do into the spotlight once the first is done', () => {
-        // Arrange — the same list, with the first already ticked. Nothing was
-        // stored to make this happen; the card re-reads on every render.
+    test('keeps the remaining outstanding list uniform once the first is done', () => {
+        // Arrange — the same list, with the first already ticked.
         renderCard({
             todos: [
                 filed(1, { text: 'First', position: 0, status: 'complete' }),
@@ -165,8 +166,7 @@ describe('SequenceCard to-dos', () => {
         });
 
         // Assert
-        expect(spotlight()).toHaveTextContent('Second');
-        expect(thenTexts()).toEqual([]);
+        expect(outstandingTexts()).toEqual(['Second']);
     });
 
     // -- The DONE group -----------------------------------------------------
@@ -182,7 +182,7 @@ describe('SequenceCard to-dos', () => {
 
         // Assert
         expect(doneTexts()).toEqual(['Done one']);
-        expect(thenTexts()).not.toContain('Done one');
+        expect(outstandingTexts()).not.toContain('Done one');
     });
 
     test('counts them in the group heading', () => {

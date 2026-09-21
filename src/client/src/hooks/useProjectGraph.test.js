@@ -14,6 +14,7 @@ jest.mock('../lib/api', () => {
             get: jest.fn(),
             post: jest.fn(),
             patch: jest.fn(),
+            put: jest.fn(),
             delete: jest.fn(),
         },
     };
@@ -188,6 +189,45 @@ describe('useProjectGraph', () => {
             // Assert
             expect(result.current.state.sequences[100].title).toBe('Learn aerodynamics');
             expect(result.current.state.actionError).toBe('Rename failed.');
+        });
+    });
+
+    describe('updateProject', () => {
+        test('applies project changes and reconciles the card-shaped response', async () => {
+            // Arrange
+            const { result } = await renderLoaded();
+            const saved = { ...GRAPH.project, description: 'Saved', todoCount: 3 };
+            api.patch.mockResolvedValue(saved);
+
+            // Act
+            await act(async () => {
+                await result.current.updateProject({ description: 'Draft' });
+            });
+
+            // Assert
+            expect(api.patch).toHaveBeenCalledWith('/projects/1', { description: 'Draft' });
+            expect(result.current.state.project).toEqual(saved);
+            expect(result.current.state.layers[10]).toEqual(GRAPH.layers[0]);
+        });
+
+        test('keeps the card-only pinned list out of the graph project', async () => {
+            // Arrange — PATCH answers in the projects-home card shape, which
+            // carries a pinnedTodos snapshot nothing here would ever refresh.
+            const { result } = await renderLoaded();
+            api.patch.mockResolvedValue({
+                ...GRAPH.project,
+                description: 'Saved',
+                pinnedTodos: [{ id: 1000, text: 'A pin from the card payload' }],
+            });
+
+            // Act
+            await act(async () => {
+                await result.current.updateProject({ description: 'Draft' });
+            });
+
+            // Assert
+            expect(result.current.state.project.description).toBe('Saved');
+            expect(result.current.state.project).not.toHaveProperty('pinnedTodos');
         });
     });
 

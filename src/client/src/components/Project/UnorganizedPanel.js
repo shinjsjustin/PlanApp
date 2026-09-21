@@ -14,15 +14,14 @@ import { useProjectContext } from '../../state/ProjectContext';
 // being told anything, because the only thing that changed is a column.
 //
 // It floats over the canvas rather than taking a column beside it, so the page
-// is one thing and it scrolls as one thing. It is docked to the bottom-left
+// is one thing and it scrolls as one thing. It is docked to the bottom-right
 // corner: the top-left is where the first layer's title and its cards are, and a
 // panel that opened over those would have to be closed before the page could be
 // used. Being an overlay is what makes collapsing worth having — folded down it
 // is a pill in the corner, and whatever it was covering is whole again.
 //
-// It starts open because it is where new to-dos land — keeping the count in the
-// header, so what is waiting is still visible once the list itself is out of
-// sight.
+// It starts collapsed to keep the canvas clear. The header count keeps loose
+// to-dos visible even while the list itself is out of sight.
 //
 // Its to-dos can be dragged out into a sequence, but nothing can be dropped back
 // in: the panel registers no droppable of its own, and a to-do leaves a sequence
@@ -30,7 +29,7 @@ import { useProjectContext } from '../../state/ProjectContext';
 
 const UnorganizedPanel = () => {
     const { state } = useProjectContext();
-    const [isExpanded, setIsExpanded] = useState(true);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const todos = sortByPosition(
         Object.values(state.todos).filter((todo) => todo.sequenceId === null)

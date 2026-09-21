@@ -9,7 +9,7 @@ import { MAX_NOTE_LANES, assignLanes } from './noteLanes';
  *
  * Neither side can import the other — this bundle is ESM behind CRA's module
  * scope and the server is CommonJS under the root Jest config — so both read one
- * table, exactly as the ready frontier already does in `graph.frontier.test.js`.
+ * shared fixture table to verify the same cases.
  *
  * The server twin of this file is `tests/unit/calendarNoteLanes.test.js`.
  */

@@ -1,41 +1,31 @@
 // What a sequence card is showing, as a pure function of the graph.
 //
-// This is the card's *visual* state, which is a finer thing than the status in
-// `graph.js`: `sequenceStatus` answers "how is this sequence doing", and every
-// consumer of that — the projects home page, the ready frontier, the server's
-// mirrored copy — keeps answering it exactly as before. This answers "which of
-// the four faces does this card wear", which the redesign added a fourth case to:
-// the one sequence in operation looks different from the ones merely waiting.
-//
-// The precedence is the app's, not the mock's. The design handoff orders it
-// complete → blocked → active → not started; here `blocked` still wins over
-// everything, because that is what `sequenceStatus` has always said and what the
-// footer's status text, the frontier and the server all agree on. The two only
-// disagree about a sequence that is manually blocked *and* has every to-do
-// ticked — a state the mock never draws — and letting the card call that one
-// "complete" while every other surface called it "blocked" would be the worse
-// answer.
+// This is the card's lifecycle face, separate from pin activity. A pin adds
+// emphasis to a card and one row; it never changes whether the work is blocked,
+// complete or still outstanding.
 
-import { SEQUENCE_STATUS, TODO_STATUS, sortByPosition, todoCountsOf } from './graph';
+import {
+    SEQUENCE_STATUS,
+    TODO_STATUS,
+    sortByPosition,
+    todoCountsOf,
+    topPinnedTodoOf,
+} from './graph';
 
-/** The four faces of a card. `active` is the one in operation — at most one. */
+/** The lifecycle faces of a card. Pin activity is rendered independently. */
 export const CARD_STATE = {
-    active: 'active',
     blocked: 'blocked',
     complete: 'complete',
     notStarted: 'not-started',
 };
 
 /**
- * Which face to wear. `blocked` first (see the note at the top of this file),
- * then a finished sequence, then the one in operation, and otherwise the quiet
- * default — a sequence with work outstanding that is not the one to do next.
+ * Which lifecycle face to wear. The manual block wins over completion, matching
+ * `sequenceStatus`; everything else with work left wears the quiet default.
  */
-const cardStateOf = ({ sequence, counts, isActive }) => {
+const cardStateOf = ({ sequence, counts }) => {
     if (sequence.isBlocked) return CARD_STATE.blocked;
     if (counts.total > 0 && counts.done === counts.total) return CARD_STATE.complete;
-    if (isActive) return CARD_STATE.active;
-
     return CARD_STATE.notStarted;
 };
 
@@ -45,30 +35,23 @@ const cardStateOf = ({ sequence, counts, isActive }) => {
  * `todos` may be the whole project's; the sequence's own are picked out here so
  * no caller has to group them first, exactly as `sequenceStatus` does.
  *
- * `isActive` is decided above the card by `activeSequenceId`, because only the
- * canvas can see the whole graph and the ring has to be exclusive. A card
- * rendered outside a canvas — a test, a future preview — simply is not active.
- *
  * The returned lists are new arrays; nothing here touches its input.
  */
-export const sequenceCardModel = ({ sequence, todos, isActive = false }) => {
+export const sequenceCardModel = ({ sequence, todos }) => {
     const own = sortByPosition(todos.filter((todo) => todo.sequenceId === sequence.id));
     const counts = todoCountsOf(sequence, todos);
+    const topPinnedTodo = topPinnedTodoOf(sequence, todos);
 
     const done = own.filter((todo) => todo.status === TODO_STATUS.complete);
     const outstanding = own.filter((todo) => todo.status !== TODO_STATUS.complete);
-    const [next = null, ...then] = outstanding;
-
     return {
-        state: cardStateOf({ sequence, counts, isActive }),
+        state: cardStateOf({ sequence, counts }),
         counts,
         // The whole of the sequence's to-dos in display order, for the callers
         // that still think in one list: the drop targets and the delete prompt.
         own,
-        next,
-        // What the THEN section lists: everything outstanding bar the one in the
-        // spotlight, so no to-do is ever drawn twice.
-        then,
+        outstanding,
+        topPinnedTodoId: topPinnedTodo?.id ?? null,
         done,
     };
 };

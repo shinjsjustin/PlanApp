@@ -9,8 +9,9 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 // `cancel` exists because Escape has to take a pending save back, not just
 // restore the text on screen.
 
-const useDebouncedCallback = (callback, delay) => {
+const useDebouncedCallback = (callback, delay, { shouldFlushOnUnmount = false } = {}) => {
     const timerRef = useRef(null);
+    const argsRef = useRef([]);
 
     // The timer outlives the render that started it, so the callback is read
     // from a ref when it fires rather than captured in the closure. Otherwise a
@@ -23,22 +24,34 @@ const useDebouncedCallback = (callback, delay) => {
 
         clearTimeout(timerRef.current);
         timerRef.current = null;
+        argsRef.current = [];
     }, []);
 
-    // A save that lands after the card is gone would dispatch into an unmounted
-    // reducer, so the pending one is dropped on the way out.
-    useEffect(() => cancel, [cancel]);
+    const flush = useCallback(() => {
+        if (timerRef.current === null) return;
+
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        const args = argsRef.current;
+        argsRef.current = [];
+        callbackRef.current(...args);
+    }, []);
+
+    // Inline fields normally drop a pending save when their row disappears.
+    // Page-level fields can opt into flushing so navigation cannot discard a
+    // committed edit after blur.
+    useEffect(
+        () => () => shouldFlushOnUnmount ? flush() : cancel(),
+        [cancel, flush, shouldFlushOnUnmount]
+    );
 
     const run = useCallback(
         (...args) => {
             cancel();
-
-            timerRef.current = setTimeout(() => {
-                timerRef.current = null;
-                callbackRef.current(...args);
-            }, delay);
+            argsRef.current = args;
+            timerRef.current = setTimeout(flush, delay);
         },
-        [cancel, delay]
+        [cancel, delay, flush]
     );
 
     return useMemo(() => ({ run, cancel }), [run, cancel]);

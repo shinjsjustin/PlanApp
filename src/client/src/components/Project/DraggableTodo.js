@@ -2,7 +2,6 @@ import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 
-import SequenceSpotlight from './SequenceSpotlight';
 import TodoItem from './TodoItem';
 import { DROP_TARGET } from '../../lib/dragDrop';
 
@@ -45,7 +44,7 @@ export const DraggableTodo = ({ todo }) => {
  * A to-do inside an expanded sequence card. `index` is its place in the list as
  * displayed, which is exactly what a drop onto it means: take this one's place.
  */
-export const SortableTodo = ({ todo, index }) => {
+export const SortableTodo = ({ todo, index, isTopPinned = false }) => {
     const sortable = useSortable({
         id: todo.id,
         data: {
@@ -54,35 +53,5 @@ export const SortableTodo = ({ todo, index }) => {
         },
     });
 
-    return <TodoItem todo={todo} drag={dragProps(sortable)} />;
-};
-
-/**
- * The next step, in its spotlight band. It is the same sortable as any other
- * outstanding to-do — the design draws no handle in the band, but the rule it
- * writes down is that dragging reorders every incomplete item, and the one at
- * the front is incomplete. A card whose first to-do could not be moved would
- * have exactly one row nobody can reorder, which is the odder answer.
- *
- * The handle is faint until the band is hovered, like the ones in the list
- * below it, so the band still reads as the thing being pointed at rather than
- * as another row.
- */
-export const SortableSpotlight = ({ todo, index, isBlocked, onComplete }) => {
-    const sortable = useSortable({
-        id: todo.id,
-        data: {
-            todoId: todo.id,
-            dropTarget: { kind: DROP_TARGET.item, sequenceId: todo.sequenceId, index },
-        },
-    });
-
-    return (
-        <SequenceSpotlight
-            todo={todo}
-            isBlocked={isBlocked}
-            onComplete={onComplete}
-            drag={dragProps(sortable)}
-        />
-    );
+    return <TodoItem todo={todo} drag={dragProps(sortable)} isTopPinned={isTopPinned} />;
 };

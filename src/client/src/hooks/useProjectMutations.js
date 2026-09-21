@@ -34,7 +34,14 @@ const todosIn = (state, sequenceId) =>
     Object.values(state.todos).filter((todo) => todo.sequenceId === sequenceId);
 
 const useProjectMutations = () => {
-    const { state, createEntity, updateEntity, removeEntity } = useProjectContext();
+    const {
+        state,
+        createEntity,
+        updateEntity,
+        updateProject,
+        setTodosPinned,
+        removeEntity,
+    } = useProjectContext();
 
     const projectId = state.project?.id;
 
@@ -197,6 +204,15 @@ const useProjectMutations = () => {
         [updateEntity]
     );
 
+    const updateProjectDescription = useCallback(
+        (description) => {
+            const trimmedDescription = description.trim();
+
+            return updateProject({ description: trimmedDescription || null });
+        },
+        [updateProject]
+    );
+
     /**
      * Puts a to-do at a position in a list — the verb behind every drop, and
      * behind the menu action below (spec section 4.7).
@@ -249,6 +265,8 @@ const useProjectMutations = () => {
             moveSequence,
             addTodo,
             setTodoStatus,
+            setTodosPinned,
+            updateProjectDescription,
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
@@ -265,6 +283,8 @@ const useProjectMutations = () => {
             moveSequence,
             addTodo,
             setTodoStatus,
+            setTodosPinned,
+            updateProjectDescription,
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,

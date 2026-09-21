@@ -66,10 +66,9 @@ const listByProject = async (conn, projectId) => {
 };
 
 /**
- * Every sequence belonging to a user, across all their projects — the batched
- * input to the ready frontier on the projects home page (spec section 4.4).
+ * Every sequence belonging to a user, across all their projects.
  *
- * One query for the whole home page, not one per project: the join walks up to
+ * One query, not one per project: the join walks up to
  * `projects.owner_id` so the caller groups the rows in memory instead of asking
  * the database N times.
  */

@@ -370,8 +370,8 @@ describe('useCalendar.completeTodo', () => {
     });
 
     test('tells the page to refill the pool once the server has taken it', async () => {
-        // Arrange — the frontier moves on when work is ticked off, so the
-        // sequence's next step is what belongs in the panel afterwards.
+        // Arrange — a pin changes status when work is ticked off, so the
+        // same pinned row should display its completed state afterwards.
         const onTodoCompleted = jest.fn();
         const { result } = await renderReady({ onTodoCompleted });
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
@@ -384,7 +384,7 @@ describe('useCalendar.completeTodo', () => {
     });
 
     test('does not refill the pool when the completion was rolled back', async () => {
-        // Arrange — nothing was completed, so the frontier has not moved and
+        // Arrange — nothing was completed, so the pin has not changed and
         // there is nothing to read again.
         const onTodoCompleted = jest.fn();
         const { result } = await renderReady({ onTodoCompleted });

@@ -4,6 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click } from '../../testUtils/interact';
 
+import { PinSelectionProvider } from './PinSelectionContext';
 import TodoItem from './TodoItem';
 
 // One to-do, wherever it is filed.
@@ -60,14 +61,24 @@ const graphValue = (todos) => ({
     removeEntity: jest.fn(),
 });
 
-const renderItem = (todo = filedTodo, siblings = []) => {
+const idleSelection = {
+    mode: 'idle',
+    selectedTodoIds: new Set(),
+    isEligible: () => false,
+    isSelected: () => false,
+    toggle: jest.fn(),
+};
+
+const renderItem = (todo = filedTodo, siblings = [], selection = idleSelection) => {
     const value = graphValue([todo, ...siblings]);
 
     const rendered = render(
         <ProjectProvider value={value}>
-            <ul>
-                <TodoItem todo={todo} />
-            </ul>
+            <PinSelectionProvider value={selection}>
+                <ul>
+                    <TodoItem todo={todo} />
+                </ul>
+            </PinSelectionProvider>
         </ProjectProvider>
     );
 
@@ -125,6 +136,78 @@ describe('TodoItem', () => {
 
         // Assert
         expect(container.querySelector('.todo-item--blocked')).toBeInTheDocument();
+    });
+
+    test('shows a persistent decorative pin on a pinned to-do outside selection mode', () => {
+        // Act
+        const { container } = renderItem({ ...filedTodo, isPinned: true });
+
+        // Assert
+        const icon = container.querySelector('.todo-pin-icon');
+        expect(icon).toBeInTheDocument();
+        expect(icon).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    describe('pin selection mode', () => {
+        const pinSelection = () => ({
+            mode: 'pin',
+            selectedTodoIds: new Set(),
+            isEligible: (todo) => !todo.isPinned,
+            isSelected: () => false,
+            toggle: jest.fn(),
+        });
+
+        test('uses one keyboard-reachable control with pressed state for the row', () => {
+            // Arrange
+            const selection = pinSelection();
+            const { container } = renderItem(filedTodo, [], selection);
+
+            // Act
+            const control = screen.getByRole('button', { name: 'Pin “Read about lift”' });
+            control.focus();
+
+            // Assert
+            expect(control).toHaveFocus();
+            expect(control).toHaveAttribute('aria-pressed', 'false');
+            expect(container.querySelector('.todo-item-content')).toHaveAttribute('inert');
+        });
+
+        test('selects the row without toggling its completion control', async () => {
+            // Arrange
+            const selection = pinSelection();
+            const { value } = renderItem(filedTodo, [], selection);
+
+            // Act
+            await click(screen.getByRole('button', { name: 'Pin “Read about lift”' }));
+
+            // Assert
+            expect(selection.toggle).toHaveBeenCalledWith(1001);
+            expect(value.updateEntity).not.toHaveBeenCalled();
+        });
+
+        test('selects the row without opening its action menu', async () => {
+            // Arrange
+            const selection = pinSelection();
+            renderItem(filedTodo, [], selection);
+
+            // Act
+            await click(screen.getByRole('button', { name: 'Pin “Read about lift”' }));
+
+            // Assert
+            expect(menuToggle()).toHaveAttribute('aria-expanded', 'false');
+        });
+
+        test('selects the row without deleting it', async () => {
+            // Arrange
+            const selection = pinSelection();
+            const { value } = renderItem(filedTodo, [], selection);
+
+            // Act
+            await click(screen.getByRole('button', { name: 'Pin “Read about lift”' }));
+
+            // Assert
+            expect(value.removeEntity).not.toHaveBeenCalled();
+        });
     });
 
     test('completes an incomplete to-do', async () => {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import DeleteBubble from '../common/DeleteBubble';
+import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 import { completedOnLabel } from '../../lib/dates';
 
 // Finished to-dos, demoted (design 2B.5). They never sit in the main flow again:
@@ -19,11 +20,68 @@ import { completedOnLabel } from '../../lib/dates';
 //
 // A row's checkbox un-completes it, which is the only way back: clicking it
 // returns the to-do to the end of the outstanding list, and the group re-counts.
+//
+// A done to-do can still be pinned, so these rows join a selection like any
+// other. They are written out here rather than borrowed from `TodoItem` — a done
+// row has a day in its margin and no menu, and it never had enough in common to
+// share — so the covering control is added to them separately, out of the same
+// `PinRow` pieces.
 
 const OPEN_BY_DEFAULT_LIMIT = 3;
 const CHECK = '✓';
 
-const SequenceDoneGroup = ({ todos, onReopenTodo, onDeleteTodo }) => {
+/**
+ * One finished to-do. Split out because it is the only part of the group that
+ * has to read the selection, and a hook cannot be called from inside the `map`
+ * that produces it.
+ */
+const DoneTodoRow = ({ todo, isTopPinned, onReopenTodo, onDeleteTodo }) => {
+    const pinRow = usePinRow(todo);
+    const day = completedOnLabel(todo.completedAt);
+    const className = [
+        'sequence-done-item',
+        'has-delete-bubble',
+        isTopPinned ? 'todo-row--top-pinned' : '',
+        pinRow.rowClassName,
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    return (
+        <li className={className}>
+            <PinRowContent isSelectable={pinRow.isSelectable}>
+                {/* The handle slot is kept empty rather than removed: done rows
+                    do not reorder, but the text still has to line up with the
+                    live rows above it. */}
+                <span className="todo-item-handle-slot" aria-hidden="true" />
+
+                <button
+                    type="button"
+                    className="todo-check todo-check--done"
+                    aria-label={`Mark “${todo.text}” incomplete`}
+                    onClick={() => onReopenTodo(todo)}
+                >
+                    <span aria-hidden="true">{CHECK}</span>
+                </button>
+
+                <span className="sequence-done-text">{todo.text}</span>
+
+                <PinIcon todo={todo} />
+
+                {day && <span className="sequence-done-day">{day}</span>}
+
+                <DeleteBubble
+                    label={`Delete “${todo.text}”`}
+                    onDelete={() => onDeleteTodo(todo)}
+                />
+            </PinRowContent>
+
+            {pinRow.control}
+        </li>
+    );
+};
+
+const SequenceDoneGroup = ({ todos, topPinnedTodoId = null, onReopenTodo, onDeleteTodo }) => {
     const [isOpen, setIsOpen] = useState(todos.length <= OPEN_BY_DEFAULT_LIMIT);
 
     if (todos.length === 0) return null;
@@ -43,37 +101,15 @@ const SequenceDoneGroup = ({ todos, onReopenTodo, onDeleteTodo }) => {
 
             {isOpen && (
                 <ul className="sequence-done-list">
-                    {todos.map((todo) => {
-                        const day = completedOnLabel(todo.completedAt);
-
-                        return (
-                            <li key={todo.id} className="sequence-done-item has-delete-bubble">
-                                {/* The handle slot is kept empty rather than
-                                    removed: done rows do not reorder, but the
-                                    text still has to line up with the live rows
-                                    above it. */}
-                                <span className="todo-item-handle-slot" aria-hidden="true" />
-
-                                <button
-                                    type="button"
-                                    className="todo-check todo-check--done"
-                                    aria-label={`Mark “${todo.text}” incomplete`}
-                                    onClick={() => onReopenTodo(todo)}
-                                >
-                                    <span aria-hidden="true">{CHECK}</span>
-                                </button>
-
-                                <span className="sequence-done-text">{todo.text}</span>
-
-                                {day && <span className="sequence-done-day">{day}</span>}
-
-                                <DeleteBubble
-                                    label={`Delete “${todo.text}”`}
-                                    onDelete={() => onDeleteTodo(todo)}
-                                />
-                            </li>
-                        );
-                    })}
+                    {todos.map((todo) => (
+                        <DoneTodoRow
+                            key={todo.id}
+                            todo={todo}
+                            isTopPinned={todo.id === topPinnedTodoId}
+                            onReopenTodo={onReopenTodo}
+                            onDeleteTodo={onDeleteTodo}
+                        />
+                    ))}
                 </ul>
             )}
         </div>

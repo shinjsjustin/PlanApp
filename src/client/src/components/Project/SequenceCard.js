@@ -10,27 +10,24 @@ import SequenceCardCollapsed from './SequenceCardCollapsed';
 import SequenceCardFooter from './SequenceCardFooter';
 import SequenceDoneGroup from './SequenceDoneGroup';
 import TodoAddRow from './TodoAddRow';
-import { SortableSpotlight, SortableTodo } from './DraggableTodo';
+import { SortableTodo } from './DraggableTodo';
 import useProjectMutations from '../../hooks/useProjectMutations';
 import { DROP_TARGET, isEligibleDropTarget } from '../../lib/dragDrop';
 import { TODO_STATUS, sequenceStatus } from '../../lib/graph';
-import { CARD_STATE, STATUS_LABELS, sequenceCardModel } from '../../lib/sequenceCard';
+import { STATUS_LABELS, sequenceCardModel } from '../../lib/sequenceCard';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragTodo } from '../../state/DragContext';
 
 // One sequence on the canvas.
 //
 // The card is built around its to-do list, because that is what a person works
-// from: the next step is the biggest thing on an open card, what is left sits
-// under it in one plain column, and everything already done drops out of that
-// column into a group at the bottom. A folded card keeps one line of that — the
-// next step, or what it is waiting on — so a canvas read at arm's length still
-// says where the work is.
+// from: every outstanding item sits in one sortable column, and everything
+// already done drops out of that column into a group at the bottom. The earliest
+// pin is emphasized without replacing the row or its lifecycle styling.
 //
-// Four faces, decided in `lib/sequenceCard` and never stored: the one sequence
-// in operation, a blocked one, a finished one, and the quiet default. Only the
-// first carries the ring, and `Canvas` is what makes that exclusive — a card
-// cannot see the rest of the graph, so it is told whether it is the active one.
+// Lifecycle faces are decided in `lib/sequenceCard` and never stored: blocked,
+// finished, or the quiet default. Pin activity is separate and additive; Canvas
+// tells each card whether it belongs to the active Set.
 //
 // Whether the card is folded *is* stored, on the sequence, so a canvas comes back
 // the way it was left. It is the one piece of card chrome that is: the DONE
@@ -45,10 +42,8 @@ import { useActiveDragTodo } from '../../state/DragContext';
 // What a click must never toggle the card for. Everything a person operates is
 // here — the controls themselves, and the regions built out of them — because
 // the card surface is a convenience over the expander button, not a control that
-// competes with the ones inside it. The three regions are named as well as the
-// controls in them: the spotlight's text, a done row's text and the add row's
-// placeholder are all things to read or aim at, and folding the card away under
-// a stray click on one of them would be the wrong answer to any of those.
+// competes with the ones inside it. A to-do row, a done row and the add row are
+// all things to read or aim at, and a stray click must not fold them away.
 //
 // Anything left over is inert face: the header padding, the footer's status
 // word, the whitespace of an open body.
@@ -61,7 +56,6 @@ const INTERACTIVE_WITHIN_CARD = [
     'select',
     '.todo-item',
     '.todo-add-row',
-    '.sequence-spotlight',
     '.sequence-done',
     '.confirm-dialog',
 ].join(', ');
@@ -112,9 +106,9 @@ const SequenceCard = ({
     });
 
     // Everything the card draws, derived from the graph on every render. The
-    // status word underneath is still `sequenceStatus`'s, unchanged: the card
-    // grew a fourth face, but what the app *says* about a sequence did not.
-    const model = sequenceCardModel({ sequence, todos, isActive });
+    // status word underneath is still `sequenceStatus`'s, unchanged: pin
+    // activity adds emphasis, but what the app says about lifecycle does not.
+    const model = sequenceCardModel({ sequence, todos });
     const status = sequenceStatus(sequence, todos);
 
     const isCollapsed = Boolean(sequence.isCollapsed);
@@ -136,14 +130,11 @@ const SequenceCard = ({
      * counts in — `resolveTodoPlacement` works over every to-do in the sequence,
      * complete ones included, because that is the order the server stores.
      *
-     * The card no longer renders that list in one piece: the first outstanding
-     * to-do is in the spotlight, the rest are under THEN, and the finished ones
-     * are in the group below. Mapping back through this keeps the split purely
-     * visual, so nothing about a drop had to change.
+     * The card renders outstanding and finished work separately. Mapping either
+     * group back through the whole stored list keeps drag placement stable.
      */
     const indexOf = (todo) => model.own.findIndex((candidate) => candidate.id === todo.id);
 
-    const completeTodo = (todo) => setTodoStatus(todo.id, TODO_STATUS.complete);
     const reopenTodo = (todo) => setTodoStatus(todo.id, TODO_STATUS.incomplete);
 
     // The card itself opens and closes, so the whole of it is the target rather
@@ -183,6 +174,7 @@ const SequenceCard = ({
         'has-delete-bubble',
         `sequence-card--${status}`,
         `sequence-card--state-${model.state}`,
+        isActive ? 'sequence-card--active' : '',
         isCollapsed ? 'sequence-card--folded' : 'sequence-card--open',
         activeDragTodo ? `sequence-card--${isEligibleTarget ? 'eligible' : 'ineligible'}` : '',
         isOver ? 'sequence-card--over' : '',
@@ -263,8 +255,8 @@ const SequenceCard = ({
             {isCollapsed ? (
                 <SequenceCardCollapsed
                     model={model}
+                    description={sequence.description}
                     title={title}
-                    onCompleteTodo={completeTodo}
                     grip={grip}
                 >
                     {chevron}
@@ -283,12 +275,14 @@ const SequenceCard = ({
                                 aside about the sequence. */}
                             <p
                                 className={`sequence-card-description${
-                                    sequence.description
+                                    sequence.description?.trim()
                                         ? ''
                                         : ' sequence-card-description--empty'
                                 }`}
                             >
-                                {sequence.description || 'No description yet.'}
+                                {sequence.description?.trim()
+                                    ? sequence.description
+                                    : 'What problem are you trying to solve?'}
                             </p>
                         </div>
 
@@ -301,54 +295,27 @@ const SequenceCard = ({
                         </span>
                     </div>
 
-                    {/* The gap above the spotlight: dropping here makes a to-do
-                        the next step, which is the only way to promote one by
-                        hand. The band itself carries no handle — it is the thing
-                        being pointed at, not one of the rows. */}
-                    {model.next && (
-                        <>
-                            <ul className="sequence-card-spotlight-slot">
-                                <DropZone
-                                    sequenceId={sequence.id}
-                                    index={indexOf(model.next)}
-                                />
-                            </ul>
-
-                            <SortableSpotlight
-                                todo={model.next}
-                                index={indexOf(model.next)}
-                                isBlocked={model.state === CARD_STATE.blocked}
-                                onComplete={completeTodo}
-                            />
-                        </>
-                    )}
-
                     <div className="sequence-card-body" ref={setNodeRef}>
-                        <div className="sequence-card-then">
-                            {/* The label earns its place only when it separates
-                                two things. With one outstanding to-do there is
-                                nothing under the spotlight to head. */}
-                            {model.then.length > 0 && (
-                                <div className="sequence-card-section-label">THEN</div>
-                            )}
-
+                        <div className="sequence-card-outstanding">
                             <SortableContext
-                                items={[model.next, ...model.then]
-                                    .filter(Boolean)
-                                    .map((todo) => todo.id)}
+                                items={model.outstanding.map((todo) => todo.id)}
                                 strategy={verticalListSortingStrategy}
                             >
                                 <ul
                                     className="sequence-card-todo-list"
                                     aria-label={`To-dos in ${sequence.title}`}
                                 >
-                                    {model.then.map((todo) => (
+                                    {model.outstanding.map((todo) => (
                                         <React.Fragment key={clientKeyOf(todo)}>
                                             <DropZone
                                                 sequenceId={sequence.id}
                                                 index={indexOf(todo)}
                                             />
-                                            <SortableTodo todo={todo} index={indexOf(todo)} />
+                                            <SortableTodo
+                                                todo={todo}
+                                                index={indexOf(todo)}
+                                                isTopPinned={todo.id === model.topPinnedTodoId}
+                                            />
                                         </React.Fragment>
                                     ))}
 
@@ -364,6 +331,7 @@ const SequenceCard = ({
 
                         <SequenceDoneGroup
                             todos={model.done}
+                            topPinnedTodoId={model.topPinnedTodoId}
                             onReopenTodo={reopenTodo}
                             onDeleteTodo={(todo) => deleteTodo(todo.id)}
                         />

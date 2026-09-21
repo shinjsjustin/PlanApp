@@ -24,6 +24,9 @@ export const PROJECT_ACTIONS = {
     loadFailed: 'loadFailed',
     entityAdded: 'entityAdded',
     entityUpdated: 'entityUpdated',
+    projectUpdated: 'projectUpdated',
+    todosPinned: 'todosPinned',
+    todosReconciled: 'todosReconciled',
     entityRemoved: 'entityRemoved',
     entityReconciled: 'entityReconciled',
     rolledBack: 'rolledBack',
@@ -70,6 +73,13 @@ export const clientKeyOf = (entity) => entity.clientKey ?? entity.id;
 const keyById = (entities) =>
     entities.reduce((byId, entity) => ({ ...byId, [entity.id]: entity }), {});
 
+// Authoritative reloads replace server fields, but must not remount rows created
+// in this session. Never carry identity across projects or resurrect absent rows.
+const loadedCollection = (state, graph, collection) => keyById(graph[collection].map((entity) => {
+    const previous = state.project?.id === graph.project.id ? state[collection][entity.id] : null;
+    return previous?.clientKey === undefined ? entity : { ...entity, clientKey: previous.clientKey };
+}));
+
 const assertCollection = (collection) => {
     if (!COLLECTIONS.includes(collection)) {
         throw new Error(
@@ -104,9 +114,9 @@ const handlers = {
         status: PROJECT_STATUS.ready,
         loadError: null,
         project: graph.project,
-        layers: keyById(graph.layers),
-        sequences: keyById(graph.sequences),
-        todos: keyById(graph.todos),
+        layers: loadedCollection(state, graph, 'layers'),
+        sequences: loadedCollection(state, graph, 'sequences'),
+        todos: loadedCollection(state, graph, 'todos'),
     }),
 
     [PROJECT_ACTIONS.loadFailed]: (state, { error }) => ({
@@ -135,6 +145,37 @@ const handlers = {
                 [id]: { ...state[collection][id], ...changes },
             },
         };
+    },
+
+    [PROJECT_ACTIONS.projectUpdated]: (state, { changes }) => ({
+        ...state,
+        project: { ...state.project, ...changes },
+    }),
+
+    [PROJECT_ACTIONS.todosPinned]: (state, { todoIds, isPinned }) => {
+        todoIds.forEach((id) => assertPresent(state, 'todos', id));
+        const selectedIds = new Set(todoIds.map(String));
+        const todos = Object.fromEntries(
+            Object.entries(state.todos).map(([id, todo]) => [
+                id,
+                selectedIds.has(id) ? { ...todo, isPinned } : todo,
+            ])
+        );
+
+        return { ...state, todos };
+    },
+
+    [PROJECT_ACTIONS.todosReconciled]: (state, { todos: savedTodos }) => {
+        savedTodos.forEach((todo) => assertPresent(state, 'todos', todo.id));
+        const savedById = keyById(savedTodos);
+        const todos = Object.fromEntries(
+            Object.entries(state.todos).map(([id, todo]) => [
+                id,
+                savedById[id] ? { ...todo, ...savedById[id] } : todo,
+            ])
+        );
+
+        return { ...state, todos };
     },
 
     [PROJECT_ACTIONS.entityRemoved]: (state, { collection, id }) => {

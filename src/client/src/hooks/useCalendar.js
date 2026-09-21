@@ -155,8 +155,8 @@ const reconcileSpilledDays = (schedule, optimistic, saved) => {
 
 /**
  * `onTodoCompleted` is called after a completion the server accepted, and is how
- * the pool refills: the frontier moves on when work is ticked off, and only the
- * page above both hooks knows they are on screen together. It is optional
+ * the pool refreshes the same pin into its completed state. Only the page above
+ * both hooks knows the calendar and pool are on screen together. It is optional
  * because the hook is complete without it — a calendar with no pool beside it
  * still ticks bookings off.
  */
@@ -463,10 +463,9 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
      * The same `PATCH /api/todos/:id` the project page sends, so a to-do
      * completed here is completed everywhere.
      *
-     * A completion the server took also moves the frontier: the sequence this
-     * to-do belonged to now offers its next step, so the pool is asked to read
-     * itself again (design section “The bubble”). Only on success — a rolled-back
-     * completion changed nothing to refill from.
+     * A completion the server took also changes the pinned row's status, so the
+     * pool is asked to read itself again. Only on success — a rolled-back
+     * completion changed nothing to refresh.
      */
     const completeTodo = useCallback(
         async (todoId) => {

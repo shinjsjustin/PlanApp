@@ -15,10 +15,8 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 // to a "done" pile would take that away — so the item stays exactly where it is
 // and is struck through.
 //
-// The bubble only ever completes. Un-ticking is a project-page action: the pool
-// here offers a sequence's *next* step, so a to-do un-ticked on the calendar
-// would have nowhere coherent to reappear, and the card would be claiming to
-// schedule work the frontier no longer offers.
+// The bubble only ever completes. Un-ticking remains a project-page action;
+// the booked card is calendar history and stays where it was placed.
 
 const TODO_COMPLETE = 'complete';
 
@@ -36,9 +34,18 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
 
     const isComplete = item.status === TODO_COMPLETE;
 
-    const className = ['day-item-card', isComplete ? 'day-item-card--complete' : '']
+    const className = [
+        'day-item-card',
+        isComplete ? 'day-item-card--complete' : '',
+        item.status === 'blocked' ? 'day-item-card--blocked' : '',
+    ]
         .filter(Boolean)
         .join(' ');
+    const statusText = [
+        item.isPinned ? 'Pinned.' : '',
+        item.status === 'blocked' ? 'Blocked.' : '',
+        isComplete ? 'Complete.' : '',
+    ].filter(Boolean).join(' ');
 
     return (
         <div
@@ -59,6 +66,11 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
             )}
 
             <div className="day-item-row">
+                {item.isPinned ? (
+                    <span className="calendar-pin-icon" aria-hidden="true">📌</span>
+                ) : null}
+                {statusText ? <span className="calendar-sr-only">{statusText}</span> : null}
+
                 {isComplete ? (
                     <button
                         type="button"

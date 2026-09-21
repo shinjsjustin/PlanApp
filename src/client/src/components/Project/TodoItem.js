@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 
 import DeleteBubble from '../common/DeleteBubble';
 import useProjectMutations from '../../hooks/useProjectMutations';
+import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 import { TODO_STATUS } from '../../lib/graph';
 
-// One to-do, in the unorganized panel or under THEN inside an open sequence card.
+// One to-do, in the unorganized panel or the outstanding list of a sequence card.
 //
 // The status control is a checkbox rather than the three-state cycle it was. A
 // list is read as done or not done, and the card around it is built on that
-// reading — the next step, what is left, what is finished — so the control on a
-// row answers the same question the card does, in one click either way.
+// reading — what is outstanding and what is finished — so the control on a row
+// answers the same question the card does, in one click either way.
 //
 // `blocked` did not go away with the cycle; it moved into the menu. It is a real
 // thing to say about a to-do and it is still said — a blocked row keeps its own
@@ -32,6 +33,11 @@ import { TODO_STATUS } from '../../lib/graph';
 // drag surface would have to guess which presses were meant for them; a separate
 // handle never has to. A row with no handle still reserves its width, so text in
 // the panel lines up with text in a card.
+//
+// None of those is offered while a pin selection is running. The row is covered
+// by a single control and everything under it is made inert, because being asked
+// “is this one of them?” and being able to tick, move or delete the same row in
+// the same breath are two different rows. `PinRow` has the rest of the why.
 
 const STATUS_LABELS = {
     [TODO_STATUS.incomplete]: 'Incomplete',
@@ -41,9 +47,10 @@ const STATUS_LABELS = {
 
 const CHECK = '✓';
 
-const TodoItem = ({ todo, drag = null }) => {
+const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
     const { setTodoStatus, moveTodoToUnorganized, deleteTodo } = useProjectMutations();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const pinRow = usePinRow(todo);
 
     const isFiled = todo.sequenceId !== null;
     const isComplete = todo.status === TODO_STATUS.complete;
@@ -80,6 +87,8 @@ const TodoItem = ({ todo, drag = null }) => {
         'has-delete-bubble',
         `todo-item--${todo.status}`,
         drag?.isDragging ? 'todo-item--dragging' : '',
+        isTopPinned ? 'todo-row--top-pinned' : '',
+        pinRow.rowClassName,
     ]
         .filter(Boolean)
         .join(' ');
@@ -94,85 +103,93 @@ const TodoItem = ({ todo, drag = null }) => {
 
     return (
         <li className={className} ref={drag?.setNodeRef} style={drag?.style}>
-            {drag ? (
+            <PinRowContent isSelectable={pinRow.isSelectable}>
+                {drag ? (
+                    <button
+                        type="button"
+                        className="todo-item-drag-handle"
+                        {...drag.handleProps}
+                        aria-label={`Drag “${todo.text}”`}
+                    >
+                        ⠿
+                    </button>
+                ) : (
+                    <span className="todo-item-handle-slot" aria-hidden="true" />
+                )}
+
+                {/* The label says the state and what the click will do, because
+                    the circle carries no text of its own and a `checkbox` role
+                    would promise a third state this control does not have. */}
                 <button
                     type="button"
-                    className="todo-item-drag-handle"
-                    {...drag.handleProps}
-                    aria-label={`Drag “${todo.text}”`}
+                    className={checkClassName}
+                    aria-pressed={isComplete}
+                    aria-label={
+                        isComplete
+                            ? `Mark “${todo.text}” incomplete`
+                            : `Complete “${todo.text}” (${statusLabel})`
+                    }
+                    onClick={toggleComplete}
                 >
-                    ⠿
+                    {isComplete && <span aria-hidden="true">{CHECK}</span>}
                 </button>
-            ) : (
-                <span className="todo-item-handle-slot" aria-hidden="true" />
-            )}
 
-            {/* The label says the state and what the click will do, because the
-                circle carries no text of its own and a `checkbox` role would
-                promise a third state this control does not have. */}
-            <button
-                type="button"
-                className={checkClassName}
-                aria-pressed={isComplete}
-                aria-label={
-                    isComplete
-                        ? `Mark “${todo.text}” incomplete`
-                        : `Complete “${todo.text}” (${statusLabel})`
-                }
-                onClick={toggleComplete}
-            >
-                {isComplete && <span aria-hidden="true">{CHECK}</span>}
-            </button>
+                <span className="todo-item-text">{todo.text}</span>
 
-            <span className="todo-item-text">{todo.text}</span>
+                <PinIcon todo={todo} />
 
-            <button
-                type="button"
-                className="todo-item-menu-toggle"
-                aria-expanded={isMenuOpen}
-                aria-label={`Actions for “${todo.text}”`}
-                onClick={() => setIsMenuOpen((open) => !open)}
-            >
-                ⋯
-            </button>
-
-            {/* A to-do has nothing filed under it, so there is nothing to warn
-                about: the × deletes it outright, as the menu entry always did. */}
-            <DeleteBubble
-                label={`Delete “${todo.text}”`}
-                onDelete={() => deleteTodo(todo.id)}
-            />
-
-            {/*
-                A disclosure of plain buttons rather than an ARIA `menu`. A real
-                menu widget promises arrow-key navigation and managed focus;
-                claiming the role without them would mislead a screen reader
-                more than the toggle's `aria-expanded` already tells it.
-            */}
-            {isMenuOpen && (
-                <ul
-                    className="todo-item-menu"
-                    aria-label={`Actions menu for “${todo.text}”`}
-                    onKeyDown={handleMenuKeyDown}
+                <button
+                    type="button"
+                    className="todo-item-menu-toggle"
+                    aria-expanded={isMenuOpen}
+                    aria-label={`Actions for “${todo.text}”`}
+                    onClick={() => setIsMenuOpen((open) => !open)}
                 >
-                    <li>
-                        <button type="button" onClick={toggleBlocked}>
-                            {isBlocked ? 'Clear blocked' : 'Mark blocked'}
-                        </button>
-                    </li>
+                    ⋯
+                </button>
 
-                    {/* Only a filed to-do has somewhere to go; one already in
-                        the panel is offered no move rather than a move onto the
-                        list it is already on. */}
-                    {isFiled && (
+                {/* A to-do has nothing filed under it, so there is nothing to
+                    warn about: the × deletes it outright, as the menu entry
+                    always did. */}
+                <DeleteBubble
+                    label={`Delete “${todo.text}”`}
+                    onDelete={() => deleteTodo(todo.id)}
+                />
+
+                {/*
+                    A disclosure of plain buttons rather than an ARIA `menu`. A
+                    real menu widget promises arrow-key navigation and managed
+                    focus; claiming the role without them would mislead a screen
+                    reader more than the toggle's `aria-expanded` already tells
+                    it.
+                */}
+                {isMenuOpen && (
+                    <ul
+                        className="todo-item-menu"
+                        aria-label={`Actions menu for “${todo.text}”`}
+                        onKeyDown={handleMenuKeyDown}
+                    >
                         <li>
-                            <button type="button" onClick={moveOut}>
-                                Move to unorganized
+                            <button type="button" onClick={toggleBlocked}>
+                                {isBlocked ? 'Clear blocked' : 'Mark blocked'}
                             </button>
                         </li>
-                    )}
-                </ul>
-            )}
+
+                        {/* Only a filed to-do has somewhere to go; one already
+                            in the panel is offered no move rather than a move
+                            onto the list it is already on. */}
+                        {isFiled && (
+                            <li>
+                                <button type="button" onClick={moveOut}>
+                                    Move to unorganized
+                                </button>
+                            </li>
+                        )}
+                    </ul>
+                )}
+            </PinRowContent>
+
+            {pinRow.control}
         </li>
     );
 };

@@ -28,13 +28,14 @@ export const baseSequence = {
     position: 0,
 };
 
-export const todo = (id, status, { completedAt = null } = {}) => ({
+export const todo = (id, status, { completedAt = null, isPinned = false } = {}) => ({
     id,
     projectId: 1,
     sequenceId: 100,
     text: `To-do ${id}`,
     status,
     completedAt,
+    isPinned,
     position: id,
 });
 

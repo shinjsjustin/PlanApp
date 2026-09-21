@@ -158,6 +158,148 @@ describe('setTodoStatus', () => {
     });
 });
 
+describe('setTodosPinned', () => {
+    test('sends one request and pins every selected to-do before the response', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
+        let resolveRequest;
+        api.put.mockReturnValue(
+            new Promise((resolve) => {
+                resolveRequest = resolve;
+            })
+        );
+
+        // Act
+        let request;
+        await act(async () => {
+            request = result.current.setTodosPinned([1000, 1001], true);
+        });
+
+        // Assert
+        expect(api.put).toHaveBeenCalledTimes(1);
+        expect(api.put).toHaveBeenCalledWith('/projects/1/todos/pins', {
+            todoIds: [1000, 1001],
+            isPinned: true,
+        });
+        expect(stateOf().todos[1000].isPinned).toBe(true);
+        expect(stateOf().todos[1001].isPinned).toBe(true);
+
+        await act(async () => {
+            resolveRequest({
+                todos: [
+                    { ...GRAPH.todos[0], isPinned: true },
+                    { ...GRAPH.todos[1], isPinned: true },
+                ],
+            });
+            await request;
+        });
+    });
+
+    test('reconciles the returned rows onto the graph', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
+        api.put.mockResolvedValue({
+            todos: [
+                { ...GRAPH.todos[0], text: 'Server text', isPinned: true },
+                { ...GRAPH.todos[1], isPinned: true },
+            ],
+        });
+
+        // Act
+        await act(async () => {
+            await result.current.setTodosPinned([1000, 1001], true);
+        });
+
+        // Assert
+        expect(stateOf().todos[1000].text).toBe('Server text');
+        expect(stateOf().todos[1000].isPinned).toBe(true);
+        expect(stateOf().todos[1001].isPinned).toBe(true);
+    });
+
+    test('rolls the whole batch back and raises actionError when the request fails', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
+        api.put.mockRejectedValue(new ApiError('Pinning failed', 500));
+
+        // Act
+        await act(async () => {
+            await result.current.setTodosPinned([1000, 1001], true);
+        });
+
+        // Assert
+        expect(stateOf().todos[1000].isPinned).toBeUndefined();
+        expect(stateOf().todos[1001].isPinned).toBeUndefined();
+        expect(stateOf().actionError).toBe('Pinning failed');
+    });
+
+    test('unpins every selected to-do', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
+        api.put.mockResolvedValue({
+            todos: [
+                { ...GRAPH.todos[0], isPinned: false },
+                { ...GRAPH.todos[1], isPinned: false },
+            ],
+        });
+
+        // Act
+        await act(async () => {
+            await result.current.setTodosPinned([1000, 1001], false);
+        });
+
+        // Assert
+        expect(stateOf().todos[1000].isPinned).toBe(false);
+        expect(stateOf().todos[1001].isPinned).toBe(false);
+    });
+});
+
+describe('updateProjectDescription', () => {
+    test('sends a trimmed multiline value with internal newlines intact', async () => {
+        // Arrange
+        const { result } = await renderMutations();
+        api.patch.mockResolvedValue({ ...GRAPH.project, description: 'First line\n\nSecond line' });
+
+        // Act
+        await act(async () => {
+            await result.current.updateProjectDescription('  First line\n\nSecond line  ');
+        });
+
+        // Assert
+        expect(api.patch).toHaveBeenCalledWith('/projects/1', {
+            description: 'First line\n\nSecond line',
+        });
+    });
+
+    test.each(['', '   \n  '])('sends null for a blank draft %#', async (draft) => {
+        // Arrange
+        const { result } = await renderMutations();
+        api.patch.mockResolvedValue({ ...GRAPH.project, description: null });
+
+        // Act
+        await act(async () => {
+            await result.current.updateProjectDescription(draft);
+        });
+
+        // Assert
+        expect(api.patch).toHaveBeenCalledWith('/projects/1', { description: null });
+    });
+
+    test('rolls back and raises actionError when the PATCH fails', async () => {
+        // Arrange
+        const { result, stateOf } = await renderMutations();
+        api.patch.mockRejectedValue(new ApiError('Description failed', 500));
+
+        // Act
+        await act(async () => {
+            await result.current.updateProjectDescription('Draft');
+        });
+
+        // Assert
+        expect(stateOf().project.description).toBeNull();
+        expect(stateOf().actionError).toBe('Description failed');
+    });
+});
+
 describe('moveTodoToUnorganized', () => {
     test('sends it to the end of the panel and leaves both lists dense', async () => {
         // Arrange

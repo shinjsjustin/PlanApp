@@ -118,6 +118,7 @@ test.describe('a drag let go over the other drag’s droppable', () => {
         await addTodo(page, headers, projectId, LOOSE_TODO);
 
         await openProject(page, projectId);
+        await page.getByRole('button', { name: 'Unorganized (1)', exact: true }).click();
 
         const card = sequenceCard(page, parent.title);
         const header = card.locator('.sequence-card-header');
@@ -131,7 +132,7 @@ test.describe('a drag let go over the other drag’s droppable', () => {
         // list, and the drop has to file the to-do rather than vanish.
         await dragOnto(page, handle, header);
 
-        await expect(card.locator('.sequence-spotlight-text')).toContainText(LOOSE_TODO);
+        await expect(card.locator('.todo-item-text')).toContainText(LOOSE_TODO);
         await expect(page.getByRole('button', { name: 'Unorganized (0)' })).toBeVisible();
     });
 });

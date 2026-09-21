@@ -1,9 +1,10 @@
 import {
     SEQUENCE_STATUS,
-    activeSequenceId,
-    readyFrontier,
+    activeSequenceIds,
+    pinnedTodosOf,
     sequenceStatus,
     sortByPosition,
+    topPinnedTodoOf,
     todoCountsOf,
 } from './graph';
 
@@ -19,13 +20,15 @@ const sequence = (id, layerId, overrides = {}) => ({
     position: 0,
     ...overrides,
 });
-const todo = (id, sequenceId, status, position = 0) => ({
+const todo = (id, sequenceId, status, position = 0, overrides = {}) => ({
     id,
     projectId: 1,
     sequenceId,
     text: `To-do ${id}`,
     status,
     position,
+    isPinned: false,
+    ...overrides,
 });
 const LEARNING = layer(10, 0);
 const DESIGN = layer(20, 1);
@@ -98,175 +101,6 @@ describe('sequenceStatus', () => {
     });
 });
 
-describe('readyFrontier', () => {
-    test('includes the first sequence of a layer as soon as it is incomplete', () => {
-        // Arrange
-        const aerodynamics = sequence(1, LEARNING.id, { title: 'Learn aerodynamics' });
-        const graph = {
-            layers: LAYERS,
-            sequences: [aerodynamics],
-            todos: [todo(101, 1, 'incomplete', 0)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert
-        expect(frontier).toEqual([
-            { sequence: aerodynamics, nextTodo: expect.objectContaining({ id: 101 }) },
-        ]);
-    });
-
-    test('takes the first incomplete to-do by position, not the first to-do', () => {
-        // Arrange
-        const seq = sequence(1, LEARNING.id);
-        const graph = {
-            layers: LAYERS,
-            sequences: [seq],
-            todos: [
-                todo(103, 1, 'incomplete', 2),
-                todo(101, 1, 'complete', 0),
-                todo(102, 1, 'incomplete', 1),
-            ],
-        };
-
-        // Act
-        const [entry] = readyFrontier(graph);
-
-        // Assert
-        expect(entry.nextTodo.id).toBe(102);
-    });
-
-    test('reports a ready but empty sequence with no next to-do', () => {
-        // Arrange
-        const seq = sequence(1, LEARNING.id);
-
-        // Act
-        const frontier = readyFrontier({ layers: LAYERS, sequences: [seq], todos: [] });
-
-        // Assert
-        expect(frontier).toEqual([{ sequence: seq, nextTodo: null }]);
-    });
-
-    test('offers one sequence per layer, in layer order', () => {
-        // Arrange — two layers with work outstanding in both.
-        const electronics = sequence(2, LEARNING.id, { position: 1 });
-        const rotor = sequence(3, DESIGN.id);
-        const graph = {
-            layers: LAYERS,
-            sequences: [rotor, electronics],
-            todos: [todo(201, 2, 'incomplete', 0), todo(301, 3, 'incomplete', 0)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert — learning first, design second, whatever order they arrive in.
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([2, 3]);
-    });
-
-    test('offers only the leftmost unfinished sequence of a layer', () => {
-        // Arrange — two sequences in the same layer, neither one finished.
-        const aerodynamics = sequence(1, LEARNING.id, { position: 0 });
-        const electronics = sequence(2, LEARNING.id, { position: 1 });
-        const graph = {
-            layers: LAYERS,
-            sequences: [aerodynamics, electronics],
-            todos: [todo(101, 1, 'incomplete', 0), todo(201, 2, 'incomplete', 0)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([1]);
-    });
-
-    test('advances to the next sequence in the layer once the leftmost is complete', () => {
-        // Arrange
-        const aerodynamics = sequence(1, LEARNING.id, { position: 0 });
-        const electronics = sequence(2, LEARNING.id, { position: 1 });
-        const graph = {
-            layers: LAYERS,
-            sequences: [aerodynamics, electronics],
-            todos: [todo(101, 1, 'complete', 0), todo(201, 2, 'incomplete', 0)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([2]);
-    });
-
-    test('returns an empty frontier when every sequence is complete', () => {
-        // Arrange
-        const graph = {
-            layers: LAYERS,
-            sequences: [sequence(1, LEARNING.id), sequence(2, DESIGN.id)],
-            todos: [todo(101, 1, 'complete', 0), todo(201, 2, 'complete', 0)],
-        };
-
-        // Act & Assert
-        expect(readyFrontier(graph)).toEqual([]);
-    });
-
-    test('returns an empty frontier for a project with no sequences', () => {
-        expect(readyFrontier({ layers: LAYERS, sequences: [], todos: [] })).toEqual([]);
-    });
-
-    test('leaves a blocked sequence out of the frontier, since spec section 3 keeps blocked work off the home page', () => {
-        // Arrange — a manual block is "not this, not yet", not something to
-        // start, so it no longer surfaces on the card.
-        const seq = sequence(1, LEARNING.id, { isBlocked: true });
-
-        // Act
-        const frontier = readyFrontier({
-            layers: LAYERS,
-            sequences: [seq],
-            todos: [todo(101, 1, 'incomplete', 0)],
-        });
-
-        // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([]);
-    });
-
-    test('does not skip past a blocked sequence to a later one in its layer', () => {
-        // Arrange — the block holds up its whole layer; the sequence behind it
-        // waits its turn rather than taking it.
-        const blocked = sequence(1, LEARNING.id, { isBlocked: true, position: 0 });
-        const behind = sequence(2, LEARNING.id, { position: 1 });
-        const graph = {
-            layers: LAYERS,
-            sequences: [blocked, behind],
-            todos: [todo(101, 1, 'incomplete', 0), todo(201, 2, 'incomplete', 0)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([]);
-    });
-
-    test('lets a layer stand on its own when the one above it is blocked', () => {
-        // Arrange — layers no longer gate one another.
-        const blocked = sequence(1, LEARNING.id, { isBlocked: true });
-        const rotor = sequence(2, DESIGN.id);
-        const graph = {
-            layers: LAYERS,
-            sequences: [blocked, rotor],
-            todos: [todo(101, 1, 'incomplete', 0), todo(201, 2, 'incomplete', 0)],
-        };
-
-        // Act
-        const frontier = readyFrontier(graph);
-
-        // Assert
-        expect(frontier.map((entry) => entry.sequence.id)).toEqual([2]);
-    });
-});
-
 describe('sortByPosition', () => {
     test('orders items by their position', () => {
         // Arrange
@@ -289,11 +123,166 @@ describe('sortByPosition', () => {
     });
 });
 
-// -- What a card counts, and which card is in operation ---------------------
+describe('pin derivations', () => {
+    test('activeSequenceIds returns every sequence containing a pin, not just one', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id), sequence(2, DESIGN.id), sequence(3, BUILD.id)];
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(201, 2, 'complete', 0, { isPinned: true }),
+            todo(301, 3, 'blocked', 0, { isPinned: true }),
+        ];
+
+        // Act
+        const activeIds = activeSequenceIds(sequences, todos);
+
+        // Assert
+        expect(activeIds).toEqual(new Set([1, 2, 3]));
+    });
+
+    test('activeSequenceIds returns two ids when two sequences each hold a pin', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id), sequence(2, DESIGN.id)];
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(201, 2, 'incomplete', 0, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(activeSequenceIds(sequences, todos)).toEqual(new Set([1, 2]));
+    });
+
+    test('activeSequenceIds returns an empty Set when nothing is pinned', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id)];
+        const todos = [todo(101, 1, 'incomplete', 0)];
+
+        // Act & Assert
+        expect(activeSequenceIds(sequences, todos)).toEqual(new Set());
+    });
+
+    test('activeSequenceIds ignores a pinned to-do that belongs to no sequence', () => {
+        // Arrange
+        const sequences = [sequence(1, LEARNING.id)];
+        const todos = [todo(999, null, 'incomplete', 0, { isPinned: true })];
+
+        // Act & Assert
+        expect(activeSequenceIds(sequences, todos)).toEqual(new Set());
+    });
+
+    test('topPinnedTodoOf picks the smallest position regardless of status', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(102, 1, 'incomplete', 2, { isPinned: true }),
+            todo(101, 1, 'incomplete', 1, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos).id).toBe(101);
+    });
+
+    test('topPinnedTodoOf picks a complete pinned to-do when it has the smallest position', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(102, 1, 'incomplete', 2, { isPinned: true }),
+            todo(101, 1, 'complete', 1, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos).id).toBe(101);
+    });
+
+    test('topPinnedTodoOf picks a blocked pinned to-do when it has the smallest position', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(102, 1, 'incomplete', 2, { isPinned: true }),
+            todo(101, 1, 'blocked', 1, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos).id).toBe(101);
+    });
+
+    test('topPinnedTodoOf returns null when the sequence has no pin', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [todo(101, 1, 'incomplete', 0)];
+
+        // Act & Assert
+        expect(topPinnedTodoOf(seq, todos)).toBeNull();
+    });
+
+    test("pinnedTodosOf returns the sequence's pins in position order", () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(103, 1, 'incomplete', 3, { isPinned: true }),
+            todo(101, 1, 'complete', 1, { isPinned: true }),
+            todo(102, 1, 'blocked', 2, { isPinned: true }),
+        ];
+
+        // Act
+        const pinned = pinnedTodosOf(seq, todos);
+
+        // Assert
+        expect(pinned.map((item) => item.id)).toEqual([101, 102, 103]);
+    });
+
+    test('pinnedTodosOf ignores pins belonging to another sequence', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(201, 2, 'incomplete', 0, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(pinnedTodosOf(seq, todos).map((item) => item.id)).toEqual([101]);
+    });
+
+    test('pinnedTodosOf ignores unorganized pins', () => {
+        // Arrange
+        const seq = sequence(1, LEARNING.id);
+        const todos = [
+            todo(101, 1, 'incomplete', 0, { isPinned: true }),
+            todo(999, null, 'incomplete', 0, { isPinned: true }),
+        ];
+
+        // Act & Assert
+        expect(pinnedTodosOf(seq, todos).map((item) => item.id)).toEqual([101]);
+    });
+
+    test('new helpers leave unsorted sequences and to-dos untouched', () => {
+        // Arrange
+        const sequences = [
+            sequence(2, DESIGN.id, { position: 2 }),
+            sequence(1, LEARNING.id, { position: 1 }),
+        ];
+        const todos = [
+            todo(202, 2, 'blocked', 2, { isPinned: true }),
+            todo(101, 1, 'complete', 1, { isPinned: true }),
+            todo(201, 2, 'incomplete', 1, { isPinned: true }),
+        ];
+        const sequencesBefore = JSON.parse(JSON.stringify(sequences));
+        const todosBefore = JSON.parse(JSON.stringify(todos));
+
+        // Act
+        pinnedTodosOf(sequences[0], todos);
+        topPinnedTodoOf(sequences[0], todos);
+        activeSequenceIds(sequences, todos);
+
+        // Assert
+        expect(sequences).toEqual(sequencesBefore);
+        expect(todos).toEqual(todosBefore);
+    });
+});
+
+// -- What a card counts -----------------------------------------------------
 //
-// `todoCountsOf` feeds every count on a card; `activeSequenceId` decides the one
-// card that carries the spotlight. Both are derived on every render — nothing
-// here is ever stored, so none of it can go stale.
+// Derived on every render, so none of it can go stale.
 
 describe('todoCountsOf', () => {
     const sequence = { id: 1, isBlocked: false };
@@ -324,105 +313,5 @@ describe('todoCountsOf', () => {
 
         // Act & Assert
         expect(todoCountsOf(sequence, todos)).toEqual({ done: 1, total: 1, remaining: 0 });
-    });
-});
-
-describe('activeSequenceId', () => {
-    const layers = [
-        { id: 10, position: 0 },
-        { id: 20, position: 1 },
-    ];
-
-    const sequence = (id, layerId, position, isBlocked = false) => ({
-        id,
-        layerId,
-        position,
-        isBlocked,
-    });
-
-    const todo = (id, sequenceId, status = 'incomplete') => ({
-        id,
-        sequenceId,
-        status,
-        position: id,
-    });
-
-    test('picks the startable sequence in the topmost layer', () => {
-        // Arrange
-        const sequences = [sequence(2, 20, 0), sequence(1, 10, 0)];
-        const todos = [todo(1, 1), todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBe(1);
-    });
-
-    test('takes the leftmost sequence within a layer', () => {
-        // Arrange
-        const sequences = [sequence(2, 10, 1), sequence(1, 10, 0)];
-        const todos = [todo(1, 1), todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBe(1);
-    });
-
-    test('hands the ring on once the leftmost sequence is complete', () => {
-        // Arrange
-        const sequences = [sequence(1, 10, 0), sequence(2, 10, 1)];
-        const todos = [todo(1, 1, 'complete'), todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
-    });
-
-    // A blocked sequence shows the red waiting-on line, never the purple ring.
-    test('never picks a blocked sequence', () => {
-        // Arrange
-        const sequences = [sequence(1, 10, 0, true), sequence(2, 20, 0)];
-        const todos = [todo(1, 1), todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
-    });
-
-    // The ring says "start here", and a layer led by a block is not started —
-    // the sequence behind it waits rather than taking its turn.
-    test('keeps the ring off a sequence sitting behind a blocked one in its layer', () => {
-        // Arrange — the only startable-looking sequence is behind the block.
-        const sequences = [sequence(1, 10, 0, true), sequence(2, 10, 1)];
-        const todos = [todo(1, 1), todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBeNull();
-    });
-
-    test('skips a sequence holding nothing to pick up', () => {
-        // Arrange — sequence 1 is startable but empty, so there is no next step.
-        const sequences = [sequence(1, 10, 0), sequence(2, 20, 0)];
-        const todos = [todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
-    });
-
-    test('returns null when the whole project is finished', () => {
-        // Arrange
-        const sequences = [sequence(1, 10, 0)];
-        const todos = [todo(1, 1, 'complete')];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBeNull();
-    });
-
-    test('returns null for a project with no sequences at all', () => {
-        expect(activeSequenceId({ layers, sequences: [], todos: [] })).toBeNull();
-    });
-
-    test('passes over a sequence whose layer is missing rather than throwing', () => {
-        // Arrange
-        const sequences = [sequence(1, 999, 0), sequence(2, 10, 0)];
-        const todos = [todo(1, 1), todo(2, 2)];
-
-        // Act & Assert
-        expect(activeSequenceId({ layers, sequences, todos })).toBe(2);
     });
 });

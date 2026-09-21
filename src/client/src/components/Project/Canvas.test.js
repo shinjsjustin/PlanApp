@@ -18,13 +18,15 @@ const sequence = (id, layerId, title, position = 0) => ({
     position,
 });
 
-const todo = (id, sequenceId, status, position = 0) => ({
+const todo = (id, sequenceId, status, position = 0, overrides = {}) => ({
     id,
     projectId: 1,
     sequenceId,
     text: `To-do ${id}`,
     status,
     position,
+    isPinned: false,
+    ...overrides,
 });
 
 const graphState = (overrides = {}) => ({
@@ -168,12 +170,8 @@ describe('Canvas', () => {
         });
     });
 
-    // The ring is exclusive and the canvas is the only thing that can see enough
-    // of the graph to place it: one frontier sequence per layer, top to bottom,
-    // and the first of those holding something to pick up wears it.
-    test('gives the spotlight to the first startable sequence', () => {
-        // Arrange — the top layer's sequence is finished, so the ring belongs to
-        // the layer below it.
+    test('marks every sequence containing a pin active at the same time', () => {
+        // Arrange
         const state = graphState({
             layers: { 10: layer(10, 'Learning', 0), 20: layer(20, 'Design', 1) },
             sequences: {
@@ -181,8 +179,8 @@ describe('Canvas', () => {
                 200: sequence(200, 20, 'Design rotor system'),
             },
             todos: {
-                1: todo(1, 100, 'complete'),
-                2: todo(2, 200, 'incomplete'),
+                1: todo(1, 100, 'complete', 0, { isPinned: true }),
+                2: todo(2, 200, 'blocked', 0, { isPinned: true }),
             },
         });
 
@@ -190,8 +188,24 @@ describe('Canvas', () => {
         const { container } = renderCanvas(state);
 
         // Assert
-        const active = container.querySelectorAll('[data-state="active"]');
-        expect(active).toHaveLength(1);
-        expect(active[0]).toHaveAttribute('data-sequence-title', 'Design rotor system');
+        const active = [...container.querySelectorAll('.sequence-card--active')].map(
+            (card) => card.dataset.sequenceTitle
+        );
+        expect(active).toEqual(['Learn aerodynamics', 'Design rotor system']);
+    });
+
+    test('does not mark a sequence active when it contains no pin', () => {
+        // Arrange
+        const state = graphState({
+            layers: { 10: layer(10, 'Learning', 0) },
+            sequences: { 100: sequence(100, 10, 'Learn aerodynamics') },
+            todos: { 1: todo(1, 100, 'incomplete') },
+        });
+
+        // Act
+        const { container } = renderCanvas(state);
+
+        // Assert
+        expect(container.querySelector('.sequence-card--active')).toBeNull();
     });
 });

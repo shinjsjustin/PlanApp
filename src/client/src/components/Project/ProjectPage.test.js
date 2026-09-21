@@ -13,7 +13,13 @@ jest.mock('../../lib/api', () => {
 
     return {
         ...actual,
-        api: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
+        api: {
+            get: jest.fn(),
+            post: jest.fn(),
+            patch: jest.fn(),
+            put: jest.fn(),
+            delete: jest.fn(),
+        },
     };
 });
 
@@ -59,6 +65,8 @@ const CREATED_SEQUENCE = {
     isBlocked: false,
     position: 1,
 };
+
+const graphWithTodos = (...todos) => ({ ...GRAPH, todos });
 
 const renderPage = () =>
     render(
@@ -109,6 +117,96 @@ describe('ProjectPage', () => {
         expect(await screen.findByDisplayValue('Learn aerodynamics')).toBeInTheDocument();
         expect(screen.getByRole('region', { name: 'Learning' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /unorganized/i })).toBeInTheDocument();
+    });
+
+    test('offers pin and unpin selection controls once loaded', async () => {
+        // Arrange
+        api.get.mockResolvedValue(GRAPH);
+
+        // Act
+        renderPage();
+        await screen.findByRole('heading', { name: 'Build a drone' });
+
+        // Assert
+        expect(screen.getByRole('button', { name: 'Pin' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Unpin' })).toBeInTheDocument();
+    });
+
+    test('pins several selected rows with one request and exits after success', async () => {
+        // Arrange
+        const todos = [
+            GRAPH.todos[0],
+            {
+                ...GRAPH.todos[0],
+                id: 1001,
+                text: 'Build a paper prototype',
+                position: 1,
+            },
+        ];
+        api.get.mockResolvedValue(graphWithTodos(...todos));
+        api.put.mockResolvedValue({
+            todos: todos.map((todo) => ({ ...todo, isPinned: true })),
+        });
+        renderPage();
+        await screen.findByRole('heading', { name: 'Build a drone' });
+        await click(screen.getByRole('button', { name: 'Pin' }));
+        await click(screen.getByRole('button', { name: 'Pin “Read about lift”' }));
+        await click(screen.getByRole('button', { name: 'Pin “Build a paper prototype”' }));
+
+        // Act
+        await click(screen.getByRole('button', { name: 'Confirm' }));
+
+        // Assert
+        expect(api.put).toHaveBeenCalledTimes(1);
+        expect(api.put).toHaveBeenCalledWith('/projects/7/todos/pins', {
+            todoIds: [1000, 1001],
+            isPinned: true,
+        });
+        expect(screen.getByRole('button', { name: 'Pin' })).toBeInTheDocument();
+    });
+
+    test('keeps the selected draft when pinning fails', async () => {
+        // Arrange
+        api.get.mockResolvedValue(GRAPH);
+        api.put.mockRejectedValue(new ApiError('Those to-dos could not be pinned.', 500));
+        renderPage();
+        await screen.findByRole('heading', { name: 'Build a drone' });
+        await click(screen.getByRole('button', { name: 'Pin' }));
+        await click(screen.getByRole('button', { name: 'Pin “Read about lift”' }));
+
+        // Act
+        await click(screen.getByRole('button', { name: 'Confirm' }));
+
+        // Assert
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Those to-dos could not be pinned.'
+        );
+        expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Pin “Read about lift”' })).toHaveAttribute(
+            'aria-pressed',
+            'true'
+        );
+    });
+
+    test('cancels selection without touching the graph or sending a request', async () => {
+        // Arrange
+        api.get.mockResolvedValue(GRAPH);
+        renderPage();
+        await screen.findByRole('heading', { name: 'Build a drone' });
+        await click(screen.getByRole('button', { name: 'Pin' }));
+        await click(screen.getByRole('button', { name: 'Pin “Read about lift”' }));
+
+        // Act
+        await click(screen.getByRole('button', { name: 'Cancel' }));
+
+        // Assert
+        expect(api.put).not.toHaveBeenCalled();
+        expect(api.patch).not.toHaveBeenCalled();
+        expect(api.delete).not.toHaveBeenCalled();
+        expect(screen.queryByRole('button', { name: 'Pin “Read about lift”' })).not.toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: 'Complete “Read about lift” (Incomplete)' })
+        ).toBeInTheDocument();
     });
 
     test('offers a retry instead of a blank canvas when the load fails', async () => {

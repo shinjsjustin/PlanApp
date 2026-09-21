@@ -37,10 +37,8 @@ const listByProject = async (conn, projectId) => {
 };
 
 /**
- * Every layer belonging to a user, across all their projects — the batched input
- * to the ready frontier on the projects home page (spec section 4.4). One query
- * for the whole page rather than one per project, ordered so each project's
- * layers arrive top to bottom.
+ * Every layer belonging to a user, across all their projects, in one query
+ * rather than one per project. Each project's layers arrive top to bottom.
  */
 const listByOwner = async (conn, ownerId) => {
     const [rows] = await conn.execute(

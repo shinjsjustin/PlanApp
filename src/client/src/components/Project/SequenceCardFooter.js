@@ -11,9 +11,8 @@ import React from 'react';
 // It stays a real toggle to anything that is not a mouse: `aria-pressed` is what
 // says on or off, so a screen reader hears the same two states the fill shows.
 //
-// The status word is `sequenceStatus`'s, unchanged — the same sentence the
-// projects home page and the server's frontier tell about this sequence. Only
-// the place it is printed moved.
+// The status word is `sequenceStatus`'s, unchanged by pin activity. Only the
+// place it is printed moved.
 
 const SequenceCardFooter = ({ isBlocked, statusLabel, onToggleBlocked }) => (
     <div className="sequence-card-footer">

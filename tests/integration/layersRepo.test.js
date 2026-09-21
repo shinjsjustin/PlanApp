@@ -106,8 +106,7 @@ describe('layersRepo', () => {
     });
 
     /**
-     * The batched input to the ready frontier on the projects home page: every
-     * layer the caller owns, in one query, grouped by project in memory.
+     * Every layer the caller owns, in one query, grouped by project in memory.
      */
     test('lists every layer a user owns, ordered by project and position', async () => {
         // Arrange
