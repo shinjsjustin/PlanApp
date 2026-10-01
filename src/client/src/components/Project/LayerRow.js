@@ -2,10 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 
+import ContextMenu from '../common/ContextMenu';
 import ConfirmDialog from './ConfirmDialog';
+import ImportDialog from './ImportDialog';
 import DeleteBubble from '../common/DeleteBubble';
 import InlineTitle from './InlineTitle';
 import SequenceCard from './SequenceCard';
+import useContextMenu from '../../hooks/useContextMenu';
 import useProjectMutations from '../../hooks/useProjectMutations';
 import { DROP_TARGET } from '../../lib/dragDrop';
 import { sortByPosition } from '../../lib/graph';
@@ -14,6 +17,13 @@ import { useActiveDragSequence } from '../../state/DragContext';
 
 const EMPTY_ACTIVE_SEQUENCE_IDS = new Set();
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+const LAYER_IMPORT_HINT =
+    'Paste a plan: "## layer" starts a layer, "### sequence" starts a sequence, ' +
+    'and "- todo" adds a to-do. To-dos before the first ### go to Unorganized.';
+const SEQUENCE_IMPORT_HINT =
+    'Paste sequences: "### sequence" starts a sequence and "- todo" adds a to-do. ' +
+    'To-dos before the first ### go to Unorganized.';
 
 const prefersReducedMotion = () =>
     typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches;
@@ -43,8 +53,12 @@ const LayerRow = ({
     activeSequenceIds = EMPTY_ACTIVE_SEQUENCE_IDS,
     highlightedSequenceId = null,
 }) => {
-    const { addLayer, addSequence, deleteLayer, renameLayer } = useProjectMutations();
+    const { addLayer, addSequence, deleteLayer, renameLayer, importLayer, importSequences } =
+        useProjectMutations();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+    const [importing, setImporting] = useState(null);
+    const layerMenu = useContextMenu();
+    const sequenceMenu = useContextMenu();
 
     const own = sortByPosition(sequences.filter((sequence) => sequence.layerId === layer.id));
 
@@ -165,6 +179,7 @@ const LayerRow = ({
                         type="button"
                         className="canvas-gutter-button"
                         aria-label={`Add a sequence to ${layer.title}`}
+                        {...sequenceMenu.triggerProps}
                         onClick={() => {
                             isRevealRequested.current = true;
                             addSequence(layer.id);
@@ -184,6 +199,7 @@ const LayerRow = ({
                     type="button"
                     className="layer-divider"
                     aria-label={`Add a layer below ${layer.title}`}
+                    {...layerMenu.triggerProps}
                     onClick={() => addLayer(layer.id)}
                 >
                     <span className="layer-divider-glyph" aria-hidden="true">
@@ -191,6 +207,41 @@ const LayerRow = ({
                     </span>
                 </button>
             </div>
+
+            {layerMenu.menu && (
+                <ContextMenu
+                    x={layerMenu.menu.x}
+                    y={layerMenu.menu.y}
+                    label="Layer actions"
+                    items={[{ label: 'Import layer…', onSelect: () => setImporting('layer') }]}
+                    onClose={layerMenu.close}
+                />
+            )}
+            {sequenceMenu.menu && (
+                <ContextMenu
+                    x={sequenceMenu.menu.x}
+                    y={sequenceMenu.menu.y}
+                    label="Sequence actions"
+                    items={[{ label: 'Import sequences…', onSelect: () => setImporting('sequences') }]}
+                    onClose={sequenceMenu.close}
+                />
+            )}
+            {importing === 'layer' && (
+                <ImportDialog
+                    title="Import layer"
+                    hint={LAYER_IMPORT_HINT}
+                    onImport={(text) => importLayer(text, layer.id)}
+                    onClose={() => setImporting(null)}
+                />
+            )}
+            {importing === 'sequences' && (
+                <ImportDialog
+                    title="Import sequences"
+                    hint={SEQUENCE_IMPORT_HINT}
+                    onImport={(text) => importSequences(layer.id, text)}
+                    onClose={() => setImporting(null)}
+                />
+            )}
 
             {isConfirmingDelete && (
                 <ConfirmDialog

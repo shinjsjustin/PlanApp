@@ -1,6 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
+import ContextMenu from '../common/ContextMenu';
+import ImportDialog from './ImportDialog';
 import LayerRow from './LayerRow';
+import useContextMenu from '../../hooks/useContextMenu';
 import useProjectMutations from '../../hooks/useProjectMutations';
 import { activeSequenceIds, sortByPosition } from '../../lib/graph';
 import { clientKeyOf } from '../../state/projectReducer';
@@ -19,9 +22,15 @@ import { useProjectContext } from '../../state/ProjectContext';
 // own props alone, so the canvas computes the Set once and every row asks it the
 // same question. Any number of sequences may be active at once.
 
+const IMPORT_HINT =
+    'Paste a plan: "## layer" starts a layer, "### sequence" starts a sequence, ' +
+    'and "- todo" adds a to-do. To-dos before the first ### go to Unorganized.';
+
 const Canvas = ({ highlightedSequenceId = null }) => {
     const { state } = useProjectContext();
-    const { addLayer } = useProjectMutations();
+    const { addLayer, importLayer } = useProjectMutations();
+    const [isImporting, setIsImporting] = useState(false);
+    const { menu, close, triggerProps } = useContextMenu();
 
     // Each collection is derived once per change rather than once per render,
     // because the active sequence Set is memoised on them and rebuilding them every
@@ -42,9 +51,26 @@ const Canvas = ({ highlightedSequenceId = null }) => {
             <div className="canvas canvas--empty">
                 <p>No layers yet.</p>
                 <p>A layer is one band of parallel work — the first one starts the plan.</p>
-                <button type="button" onClick={() => addLayer()}>
+                <button type="button" onClick={() => addLayer()} {...triggerProps}>
                     Add the first layer
                 </button>
+                {menu && (
+                    <ContextMenu
+                        x={menu.x}
+                        y={menu.y}
+                        label="Layer actions"
+                        items={[{ label: 'Import layer…', onSelect: () => setIsImporting(true) }]}
+                        onClose={close}
+                    />
+                )}
+                {isImporting && (
+                    <ImportDialog
+                        title="Import layer"
+                        hint={IMPORT_HINT}
+                        onImport={(text) => importLayer(text)}
+                        onClose={() => setIsImporting(false)}
+                    />
+                )}
             </div>
         );
     }
