@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
 import { ApiError, api } from '../lib/api';
 import { toBulkRequest } from '../lib/calendarRequest';
-import { appendDay, removeDay, unscheduleItem } from '../lib/schedule';
+import { appendDay, refOfKey, removeDay, unscheduleItem } from '../lib/schedule';
 import { isTempId } from '../lib/tempIds';
 import { calendarReducer, initialCalendarState, scheduleOf } from '../state/calendarReducer';
 import {
@@ -32,8 +32,6 @@ import {
 const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
 const TODO_COMPLETE = 'complete';
-
-const SEQUENCE_KEY_PREFIX = 'sequence:';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
@@ -453,12 +451,16 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
         (ref) =>
             mutate({
                 apply: (previous) => unscheduleItem(previous, ref),
-                send: () =>
-                    api.delete(
-                        typeof ref === 'string' && ref.startsWith(SEQUENCE_KEY_PREFIX)
-                            ? `/calendar/items/sequences/${ref.slice(SEQUENCE_KEY_PREFIX.length)}`
-                            : `/calendar/items/${ref}`
-                    ),
+                send: () => {
+                    const { kind, sequenceId, todoId } =
+                        typeof ref === 'string' ? refOfKey(ref) : { todoId: ref };
+
+                    return api.delete(
+                        kind === 'sequence'
+                            ? `/calendar/items/sequences/${sequenceId}`
+                            : `/calendar/items/${todoId}`
+                    );
+                },
             }),
         [mutate]
     );

@@ -72,20 +72,40 @@ export const boundDuration = (durationMinutes) =>
         ? Math.min(Math.max(durationMinutes, MIN_DURATION), MAX_DURATION)
         : durationMinutes;
 
+export const todoKeyOf = (todoId) => `todo:${todoId}`;
+
+export const sequenceKeyOf = (sequenceId) => `sequence:${sequenceId}`;
+
+const KEY_PATTERN = /^(todo|sequence):(\d+)$/;
+
+/** The schedule ref a key names; the inverse of `todoKeyOf` and `sequenceKeyOf`. */
+export const refOfKey = (key) => {
+    const match = typeof key === 'string' ? KEY_PATTERN.exec(key) : null;
+
+    if (!match) throw new Error(`${JSON.stringify(key)} is not an item key`);
+
+    const id = Number(match[2]);
+
+    return match[1] === 'sequence' ? { kind: 'sequence', sequenceId: id } : { todoId: id };
+};
+
 /**
  * An item's identity. A to-do booking's `sequenceId` is its parent sequence, so
  * `sequenceId` only identifies an item when `kind` says it is a sequence booking.
  */
 export const itemKeyOf = (item) =>
-    item.kind === 'sequence' ? `sequence:${item.sequenceId}` : `todo:${item.todoId}`;
+    item.kind === 'sequence' ? sequenceKeyOf(item.sequenceId) : todoKeyOf(item.todoId);
 
 /** A string that already starts with a kind is a key; anything else is a todoId. */
 const keyOfRef = (ref) =>
-    typeof ref === 'string' && /^(todo|sequence):/.test(ref) ? ref : `todo:${ref}`;
+    typeof ref === 'string' && /^(todo|sequence):/.test(ref) ? ref : todoKeyOf(ref);
 
 /** The item named the way the error messages always have, by kind. */
-const nameOfKey = (key) =>
-    key.startsWith('sequence:') ? `Sequence ${key.slice(9)}` : `To-do ${key.slice(5)}`;
+const nameOfKey = (key) => {
+    const { kind, sequenceId, todoId } = refOfKey(key);
+
+    return kind === 'sequence' ? `Sequence ${sequenceId}` : `To-do ${todoId}`;
+};
 
 const endOf = (item) => item.startMinutes + item.durationMinutes;
 
