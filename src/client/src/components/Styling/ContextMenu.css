@@ -1,0 +1,34 @@
+/* Floating menu opened by `useContextMenu`; positioned inline at the pointer. */
+
+.context-menu {
+    position: fixed;
+    z-index: var(--z-modal);
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    padding: var(--space-xs);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    font-family: var(--font-family);
+    font-size: var(--font-base);
+}
+
+.context-menu-item {
+    padding: var(--space-sm) var(--space-md);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+    background: var(--bg-alt);
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+}
