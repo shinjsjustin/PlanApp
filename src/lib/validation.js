@@ -84,6 +84,32 @@ const todoPinsSchema = z.object({
     isPinned: z.boolean({ error: 'isPinned must be a boolean' }),
 });
 
+const pinIdListSchema = (field) =>
+    z
+        .array(
+            z
+                .number({ error: `${field} must contain only positive integers` })
+                .int(`${field} must contain only positive integers`)
+                .positive(`${field} must contain only positive integers`),
+            { error: `${field} must be an array` }
+        )
+        .max(
+            TODO_PIN_BATCH_MAX_SIZE,
+            `${field} must contain at most ${TODO_PIN_BATCH_MAX_SIZE} ids`
+        )
+        .transform((ids) => [...new Set(ids)])
+        .default([]);
+
+const pinsSchema = z
+    .object({
+        todoIds: pinIdListSchema('todoIds'),
+        sequenceIds: pinIdListSchema('sequenceIds'),
+        isPinned: z.boolean({ error: 'isPinned must be a boolean' }),
+    })
+    .refine((body) => body.todoIds.length + body.sequenceIds.length > 0, {
+        message: 'todoIds and sequenceIds must contain at least one id together',
+    });
+
 const idSchema = z.coerce
     .number({ error: 'id must be a positive integer' })
     .int('id must be a positive integer')
@@ -122,6 +148,7 @@ module.exports = {
     descriptionSchema,
     idSchema,
     parseId,
+    pinsSchema,
     planSchemaTextSchema,
     requireSomeField,
     titleSchema,

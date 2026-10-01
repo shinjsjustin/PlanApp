@@ -6,7 +6,9 @@ const { z } = require('zod');
 const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
 const assertSequenceInProject = require('../lib/assertSequenceInProject');
+const assertSequencesInProject = require('../lib/assertSequencesInProject');
 const assertTodosInProject = require('../lib/assertTodosInProject');
+const calendarItemsRepo = require('../db/repositories/calendarItemsRepo');
 const layersRepo = require('../db/repositories/layersRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
@@ -24,6 +26,7 @@ const {
     descriptionSchema,
     idSchema,
     parseId,
+    pinsSchema,
     planSchemaTextSchema,
     requireSomeField,
     titleSchema,
@@ -308,6 +311,37 @@ router.put(
 
             const todos = await todosRepo.findByIds(conn, todoIds, { forUpdate: true });
             return { todos: todos.map(toTodo) };
+        });
+
+        res.sendData(result);
+    })
+);
+
+/**
+ * PUT /api/projects/:id/pins — pins or unpins to-dos and sequences in one
+ * transaction. Pinning a sequence never touches its to-dos. Unpinning a sequence
+ * releases its calendar booking, since only pinned sequences can be booked.
+ */
+router.put(
+    '/:id/pins',
+    asyncRoute(async (req, res) => {
+        const projectId = parseId(req.params.id);
+
+        const result = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'project', projectId, req.user.id);
+
+            const { todoIds, sequenceIds, isPinned } = pinsSchema.parse(req.body ?? {});
+            await assertTodosInProject(conn, todoIds, projectId, req.user.id);
+            await assertSequencesInProject(conn, sequenceIds, projectId);
+            await todosRepo.setPinned(conn, todoIds, isPinned);
+            await sequencesRepo.setPinned(conn, sequenceIds, isPinned);
+            if (!isPinned) await calendarItemsRepo.removeBySequenceIds(conn, sequenceIds);
+
+            const todos = await todosRepo.findByIds(conn, todoIds, { forUpdate: true });
+            const sequences = await Promise.all(
+                [...sequenceIds].sort((a, b) => a - b).map((id) => sequencesRepo.findById(conn, id))
+            );
+            return { todos: todos.map(toTodo), sequences: sequences.map(toSequence) };
         });
 
         res.sendData(result);
