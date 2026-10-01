@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 
 import CreateProjectDialog from './CreateProjectDialog';
 import ProjectCard from './ProjectCard';
+import useHoneycombColumns from '../../hooks/useHoneycombColumns';
 import { api } from '../../lib/api';
+import { layoutHoneycomb } from '../../lib/honeycomb';
 import '../Styling/Projects.css';
 
 // The projects home page: a grid of project cards with create, rename and delete.
@@ -13,12 +15,18 @@ import '../Styling/Projects.css';
 // guess what the server stored.
 
 const STATUS = { loading: 'loading', ready: 'ready', error: 'error' };
+const TRACKS_PER_CARD = 2;
 
 const ProjectsHome = () => {
     const [projects, setProjects] = useState([]);
     const [status, setStatus] = useState(STATUS.loading);
     const [loadError, setLoadError] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [gridRef, columns] = useHoneycombColumns();
+
+    // Creation order: oldest first, so a created project (highest id) lands last.
+    const orderedProjects = [...projects].sort((a, b) => a.id - b.id);
+    const placements = layoutHoneycomb(orderedProjects.length, columns);
 
     const load = useCallback(async () => {
         setStatus(STATUS.loading);
@@ -111,11 +119,16 @@ const ProjectsHome = () => {
             )}
 
             {status === STATUS.ready && projects.length > 0 && (
-                <ul className="projects-grid">
-                    {projects.map((project) => (
+                <ul
+                    className="projects-grid"
+                    ref={gridRef}
+                    style={{ gridTemplateColumns: `repeat(${TRACKS_PER_CARD * columns}, minmax(0, 1fr))` }}
+                >
+                    {orderedProjects.map((project, index) => (
                         <ProjectCard
                             key={project.id}
                             project={project}
+                            placement={placements[index]}
                             onRename={handleRename}
                             onDelete={handleDelete}
                             onRecolor={handleRecolor}

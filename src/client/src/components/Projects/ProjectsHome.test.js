@@ -263,4 +263,44 @@ describe('ProjectsHome', () => {
 
         expect(await screen.findByRole('alert')).toHaveTextContent('Could not save color.');
     });
+
+    test('lists cards by ascending id, placed in rows 1..n at column 1 with one column', async () => {
+        api.get.mockResolvedValue([
+            aProject({ id: 3, title: 'Third' }),
+            aProject({ id: 1, title: 'First' }),
+            aProject({ id: 2, title: 'Second' }),
+        ]);
+        renderHome();
+        await waitForLoadToFinish();
+
+        const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+        expect(titles).toEqual(['First', 'Second', 'Third']);
+        const cards = titles.map((t) => screen.getByRole('heading', { name: t }).closest('.project-card'));
+        expect(cards.map((c) => c.style.gridRow)).toEqual(['1', '2', '3']);
+        expect(cards.map((c) => c.style.gridColumn)).toEqual(['1 / span 2', '1 / span 2', '1 / span 2']);
+    });
+
+    test('appends a newly created project after the existing ones', async () => {
+        api.get.mockResolvedValue([aProject({ id: 1, title: 'First' }), aProject({ id: 2, title: 'Second' })]);
+        api.post.mockResolvedValue(aProject({ id: 9, title: 'Newest', pinnedTodos: [] }));
+        renderHome();
+        await waitForLoadToFinish();
+
+        await click(screen.getByRole('button', { name: /new project/i }));
+        await type(screen.getByLabelText(/title/i), 'Newest');
+        await click(screen.getByRole('button', { name: /^create project$/i }));
+
+        await screen.findByRole('heading', { name: 'Newest' });
+        const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+        expect(titles).toEqual(['First', 'Second', 'Newest']);
+    });
+
+    test('sizes the grid to two tracks per column', async () => {
+        api.get.mockResolvedValue([aProject()]);
+        renderHome();
+        await waitForLoadToFinish();
+
+        const grid = document.querySelector('.projects-grid');
+        expect(grid.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))');
+    });
 });

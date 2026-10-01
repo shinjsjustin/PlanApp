@@ -62,7 +62,7 @@ const PinnedBlock = ({ project }) => {
     );
 };
 
-const ProjectCard = ({ project, onRename, onDelete, onRecolor }) => {
+const ProjectCard = ({ project, placement, onRename, onDelete, onRecolor }) => {
     const [mode, setMode] = useState(MODES.idle);
     const [draftTitle, setDraftTitle] = useState(project.title);
     const [error, setError] = useState('');
@@ -78,6 +78,11 @@ const ProjectCard = ({ project, onRename, onDelete, onRecolor }) => {
     ]
         .filter(Boolean)
         .join(' ');
+
+    const style = {
+        ...(project.color ? { background: project.color } : {}),
+        ...(placement ? { gridRow: placement.row, gridColumn: `${placement.column} / span 2` } : {}),
+    };
 
     const startRenaming = () => {
         setDraftTitle(project.title);
@@ -145,7 +150,7 @@ const ProjectCard = ({ project, onRename, onDelete, onRecolor }) => {
     };
 
     return (
-        <li className={cardClassName} style={project.color ? { background: project.color } : undefined}>
+        <li className={cardClassName} style={style}>
             {mode === MODES.renaming ? (
                 <form className={`project-card-rename ${RAISED}`} onSubmit={submitRename} noValidate>
                     <label htmlFor={titleFieldId}>Project title</label>

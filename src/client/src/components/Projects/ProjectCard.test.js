@@ -54,6 +54,7 @@ const renderCard = (props = {}) => {
                     onRename={onRename}
                     onDelete={onDelete}
                     onRecolor={onRecolor}
+                    placement={props.placement}
                 />
             </ul>
             <LocationProbe />
@@ -475,6 +476,26 @@ describe('ProjectCard', () => {
 
             expect(card().style.background).toBe('');
             expect(card()).not.toHaveClass('project-card--light-text');
+        });
+    });
+
+    describe('placement', () => {
+        const cardEl = () =>
+            screen.getByRole('heading', { name: 'Build a drone' }).closest('.project-card');
+
+        test('puts the card at its row and spans two columns, keeping its color', () => {
+            renderCard({ project: { color: '#ffffff' }, placement: { row: 3, column: 5 } });
+
+            expect(cardEl().style.gridRow).toBe('3');
+            expect(cardEl().style.gridColumn).toBe('5 / span 2');
+            expect(cardEl()).toHaveStyle({ background: '#ffffff' });
+        });
+
+        test('sets no grid position without a placement', () => {
+            renderCard();
+
+            expect(cardEl().style.gridRow).toBe('');
+            expect(cardEl().style.gridColumn).toBe('');
         });
     });
 });
