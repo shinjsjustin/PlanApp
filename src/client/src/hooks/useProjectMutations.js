@@ -42,6 +42,7 @@ const useProjectMutations = () => {
         setTodosPinned,
         removeUnorganizedTodos,
         removeEntity,
+        importSchema,
     } = useProjectContext();
 
     const projectId = state.project?.id;
@@ -262,6 +263,18 @@ const useProjectMutations = () => {
         [removeEntity, state]
     );
 
+    const importLayer = useCallback(
+        (schema, afterLayerId = null) =>
+            importSchema(`/projects/${projectId}/layers/import`,
+                afterLayerId === null ? { schema } : { schema, afterLayerId }),
+        [importSchema, projectId]
+    );
+
+    const importSequences = useCallback(
+        (layerId, schema) => importSchema(`/layers/${layerId}/sequences/import`, { schema }),
+        [importSchema]
+    );
+
     return useMemo(
         () => ({
             addLayer,
@@ -282,6 +295,8 @@ const useProjectMutations = () => {
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
+            importLayer,
+            importSequences,
         }),
         [
             addLayer,
@@ -302,6 +317,8 @@ const useProjectMutations = () => {
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
+            importLayer,
+            importSequences,
         ]
     );
 };

@@ -298,6 +298,34 @@ const useProjectGraph = (projectId) => {
         [mutate]
     );
 
+    /**
+     * Posts a schema the server parses into rows, then re-reads the graph. Not
+     * optimistic: the server owns parsing. The read swaps the graph in without
+     * passing through `loading`, so the canvas does not blank. A failed post
+     * rejects with its ApiError and leaves the graph untouched.
+     */
+    const importSchema = useCallback(async (path, body) => {
+        if (requestedIdRef.current !== projectId || stateRef.current.status !== 'ready') {
+            throw new Error('The project is not ready for import.');
+        }
+        const generation = generationRef.current;
+        const saved = await api.post(path, body);
+        if (generationRef.current !== generation) return saved;
+
+        try {
+            const graph = await api.get(`/projects/${projectId}`);
+            if (generationRef.current !== generation) return saved;
+
+            journalRef.current = null;
+            commit(loadSucceeded(graph));
+        } catch (err) {
+            if (generationRef.current !== generation) return saved;
+
+            commit(loadFailed(messageOf(err)));
+        }
+        return saved;
+    }, [projectId, commit]);
+
     // Dismissed by hand. No timer: a toast that vanishes on its own is one more
     // race for the E2E suite and one more thing to miss.
     const dismissActionError = useCallback(() => commit(actionErrorCleared()), [commit]);
@@ -311,6 +339,7 @@ const useProjectGraph = (projectId) => {
         setTodosPinned,
         removeUnorganizedTodos,
         removeEntity,
+        importSchema,
         dismissActionError,
     };
 };
