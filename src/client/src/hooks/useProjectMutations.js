@@ -40,6 +40,7 @@ const useProjectMutations = () => {
         updateEntity,
         updateProject,
         setTodosPinned,
+        removeUnorganizedTodos,
         removeEntity,
     } = useProjectContext();
 
@@ -266,6 +267,7 @@ const useProjectMutations = () => {
             addTodo,
             setTodoStatus,
             setTodosPinned,
+            deleteAllUnorganized: removeUnorganizedTodos,
             updateProjectDescription,
             moveTodo,
             moveTodoToUnorganized,
@@ -284,6 +286,7 @@ const useProjectMutations = () => {
             addTodo,
             setTodoStatus,
             setTodosPinned,
+            removeUnorganizedTodos,
             updateProjectDescription,
             moveTodo,
             moveTodoToUnorganized,

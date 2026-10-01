@@ -266,6 +266,22 @@ const useProjectGraph = (projectId) => {
         [mutate, projectId]
     );
 
+    // Every loose to-do goes at once. If the server removed a different set than
+    // the one this client could see, read the authoritative graph again.
+    const removeUnorganizedTodos = useCallback(async () => {
+        const removedIds = Object.values(stateRef.current.todos)
+            .filter((todo) => todo.sequenceId === null)
+            .map((todo) => todo.id);
+        const saved = await mutate({
+            apply: removedIds.map((id) => entityRemoved('todos', id)),
+            send: () => api.delete(`/projects/${projectId}/todos/unorganized`),
+        });
+        const isSameSet = saved?.ids?.length === removedIds.length &&
+            removedIds.every((id) => saved.ids.includes(id));
+        if (saved && !isSameSet) await load();
+        return saved;
+    }, [mutate, projectId, load]);
+
     /**
      * Deletes an entity. `also` carries the rest of the delete's fallout — the
      * sequences a layer takes with it, and the to-dos they return to the
@@ -293,6 +309,7 @@ const useProjectGraph = (projectId) => {
         updateEntity,
         updateProject,
         setTodosPinned,
+        removeUnorganizedTodos,
         removeEntity,
         dismissActionError,
     };

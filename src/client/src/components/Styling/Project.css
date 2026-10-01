@@ -231,6 +231,24 @@
     overflow-y: auto;
 }
 
+.unorganized-panel-delete-all {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    margin: 0.5rem 0;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #b00020;
+    border-radius: 4px;
+    background: transparent;
+    color: #b00020;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.unorganized-panel-delete-all:hover {
+    background: #b00020;
+    color: #fff;
+}
+
 .unorganized-panel-empty,
 .unorganized-panel .todo-composer {
     flex: 0 0 auto;

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 
+import ConfirmDialog from './ConfirmDialog';
 import TodoComposer from './TodoComposer';
 import { DraggableTodo } from './DraggableTodo';
 import { sortByPosition } from '../../lib/graph';
+import useProjectMutations from '../../hooks/useProjectMutations';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useProjectContext } from '../../state/ProjectContext';
 
@@ -29,7 +31,9 @@ import { useProjectContext } from '../../state/ProjectContext';
 
 const UnorganizedPanel = () => {
     const { state } = useProjectContext();
+    const { deleteAllUnorganized } = useProjectMutations();
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     const todos = sortByPosition(
         Object.values(state.todos).filter((todo) => todo.sequenceId === null)
@@ -69,8 +73,31 @@ const UnorganizedPanel = () => {
                         </ul>
                     )}
 
+                    {todos.length > 0 && (
+                        <button
+                            type="button"
+                            className="unorganized-panel-delete-all"
+                            onClick={() => setIsConfirmingDelete(true)}
+                        >
+                            Delete all
+                        </button>
+                    )}
+
                     <TodoComposer sequenceId={null} label="New unorganized to-do" />
                 </div>
+            )}
+
+            {isConfirmingDelete && (
+                <ConfirmDialog
+                    title={`Delete all ${todos.length} unorganized to-dos?`}
+                    message="Their bookings and pins are deleted with them."
+                    confirmLabel={`Delete all ${todos.length} to-dos`}
+                    onConfirm={() => {
+                        setIsConfirmingDelete(false);
+                        deleteAllUnorganized();
+                    }}
+                    onCancel={() => setIsConfirmingDelete(false)}
+                />
             )}
         </aside>
     );
