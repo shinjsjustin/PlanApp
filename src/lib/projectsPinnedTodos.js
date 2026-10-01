@@ -1,8 +1,9 @@
 'use strict';
 
 const projectsRepo = require('../db/repositories/projectsRepo');
+const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
-const { toPinnedTodo, toProject } = require('./serializers');
+const { toPinnedSequence, toPinnedTodo, toProject } = require('./serializers');
 
 /**
  * Project cards carry their overall to-do progress and a narrow list of pins.
@@ -53,11 +54,37 @@ const attachPinnedTodos = (projects, pinnedRows) => {
     }));
 };
 
-const listProjectsWithPinnedTodos = async (conn, ownerId) => {
+/**
+ * Adds `pinnedSequences` to each project from two more statements in total:
+ * the owner's pinned sequences, then all of their to-dos at once.
+ */
+const attachPinnedSequences = async (conn, ownerId, projects) => {
+    const sequenceRows = await sequencesRepo.listPinnedByOwner(conn, ownerId);
+    const todoRows = await todosRepo.listBySequenceIds(
+        conn,
+        sequenceRows.map((row) => row.id)
+    );
+    const todosBySequence = Map.groupBy(todoRows, (row) => row.sequence_id);
+    const sequencesByProject = Map.groupBy(sequenceRows, (row) => row.project_id);
+
+    return projects.map((project) => ({
+        ...project,
+        pinnedSequences: (sequencesByProject.get(project.id) ?? []).map((row) =>
+            toPinnedSequence(row, todosBySequence.get(row.id) ?? [])
+        ),
+    }));
+};
+
+const listProjectsWithPinnedTodos = async (
+    conn,
+    ownerId,
+    { includePinnedSequences = false } = {}
+) => {
     const projectRows = await projectsRepo.listByOwnerWithCounts(conn, ownerId);
     const pinnedRows = await todosRepo.listPinnedByOwner(conn, ownerId);
+    const projects = attachPinnedTodos(projectRows.map(toProject), pinnedRows);
 
-    return attachPinnedTodos(projectRows.map(toProject), pinnedRows);
+    return includePinnedSequences ? attachPinnedSequences(conn, ownerId, projects) : projects;
 };
 
 /** One project in the list card shape, or null when its row is gone. */

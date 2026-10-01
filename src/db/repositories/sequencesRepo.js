@@ -86,6 +86,21 @@ const listByOwner = async (conn, ownerId) => {
     return rows;
 };
 
+/** Owner's pinned sequences, contiguous by project, in layer then sequence order. */
+const listPinnedByOwner = async (conn, ownerId) => {
+    const [rows] = await conn.execute(
+        `SELECT s.${SELECT_COLUMNS.split(', ').join(', s.')}
+         FROM sequences s
+         JOIN projects p ON p.id = s.project_id
+         JOIN layers l ON l.id = s.layer_id
+         WHERE p.owner_id = ? AND s.is_pinned = 1
+         ORDER BY s.project_id, l.position, s.position, s.id`,
+        [ownerId]
+    );
+
+    return rows;
+};
+
 /** The layer's sequence ids in display order — the input to the position helpers. */
 const listIds = async (conn, layerId) => {
     const sequences = await listByLayer(conn, layerId);
@@ -242,6 +257,7 @@ module.exports = {
     listByOwner,
     listByProject,
     listIds,
+    listPinnedByOwner,
     move,
     setPinned,
     update,

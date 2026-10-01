@@ -180,6 +180,21 @@ const listBySequence = async (conn, sequenceId) => {
     return rows;
 };
 
+/** To-dos of the given sequences, grouped by sequence then in position order. */
+const listBySequenceIds = async (conn, sequenceIds) => {
+    if (sequenceIds.length === 0) return [];
+
+    // `query` rather than `execute`: the placeholder count varies per call.
+    const [rows] = await conn.query(
+        `SELECT ${SELECT_COLUMNS} FROM todos
+         WHERE sequence_id IN (?)
+         ORDER BY sequence_id, position, id`,
+        [sequenceIds]
+    );
+
+    return rows;
+};
+
 /** A list's to-do ids in display order — the input to the position helpers. */
 const listIds = async (conn, projectId, sequenceId) => {
     const todos = await listInList(conn, projectId, sequenceId);
@@ -327,6 +342,7 @@ module.exports = {
     listByProject,
     listUnorganized,
     listBySequence,
+    listBySequenceIds,
     listIds,
     update,
     move,

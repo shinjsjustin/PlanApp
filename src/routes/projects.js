@@ -85,7 +85,9 @@ router.get(
     '/',
     asyncRoute(async (req, res) => {
         const projects = await withConnection((conn) =>
-            listProjectsWithPinnedTodos(conn, req.user.id)
+            listProjectsWithPinnedTodos(conn, req.user.id, {
+                includePinnedSequences: req.query.include === 'pinnedSequences',
+            })
         );
 
         res.sendData(projects);

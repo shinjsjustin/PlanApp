@@ -81,6 +81,24 @@ const toPinnedTodo = (row) => ({
     isPinned: Boolean(row.is_pinned),
 });
 
+/** A pinned sequence with just enough to-do detail for a read-only hover card. */
+const toPinnedSequence = (row, todos) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description ?? null,
+    isBlocked: Boolean(row.is_blocked),
+    isPinned: Boolean(row.is_pinned),
+    layerId: row.layer_id,
+    position: row.position,
+    todos: todos.map((todo) => ({
+        id: todo.id,
+        text: todo.text,
+        status: todo.status,
+        isPinned: Boolean(todo.is_pinned),
+        position: todo.position,
+    })),
+});
+
 /**
  * A day carries no title: it is identified by where it sits and when it was
  * made. `owner_id` stays server-side like every other ownership column.
@@ -169,6 +187,7 @@ module.exports = {
     toCalendarItem,
     toCalendarNote,
     toLayer,
+    toPinnedSequence,
     toPinnedTodo,
     toProject,
     toSequence,
