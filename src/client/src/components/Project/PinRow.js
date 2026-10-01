@@ -50,6 +50,14 @@ export const PinIcon = ({ todo }) =>
         </span>
     ) : null;
 
+/** The marker on a pinned sequence card; decorative for the same reason as `PinIcon`. */
+export const SequencePinIcon = ({ sequence }) =>
+    sequence.isPinned ? (
+        <span className="sequence-pin-icon" aria-hidden="true">
+            {PIN_GLYPH}
+        </span>
+    ) : null;
+
 /**
  * Everything the row normally is, wrapped so it can be switched off in one move.
  * The wrapper lays out nothing (`display: contents`), so a row looks and
@@ -90,6 +98,35 @@ export const usePinRow = (todo) => {
                 aria-pressed={isSelected(todo.id)}
                 aria-label={`${OPERATION_LABELS[mode]} “${todo.text}”`}
                 onClick={() => toggle(todo.id)}
+            />
+        ),
+    };
+};
+
+/** `usePinRow` for a sequence card's header, with the sequence's own selection. */
+export const usePinSequence = (sequence) => {
+    const {
+        mode,
+        isSequenceEligible = () => false,
+        isSequenceSelected,
+        toggleSequence,
+        isSaving,
+    } = usePinSelectionContext();
+    const isSelectable = isSequenceEligible(sequence);
+
+    if (!isSelectable) return { isSelectable: false, rowClassName: '', control: null };
+
+    return {
+        isSelectable: true,
+        rowClassName: 'is-pin-selectable',
+        control: (
+            <button
+                type="button"
+                className="pin-select-control"
+                disabled={isSaving}
+                aria-pressed={isSequenceSelected(sequence.id)}
+                aria-label={`${OPERATION_LABELS[mode]} sequence “${sequence.title}”`}
+                onClick={() => toggleSequence(sequence.id)}
             />
         ),
     };

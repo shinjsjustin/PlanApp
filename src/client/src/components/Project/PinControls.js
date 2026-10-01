@@ -18,6 +18,9 @@ import { PIN_MODE } from './PinSelectionContext';
 // flight — it is one request for the whole set (spec section 6), and sending it
 // twice would be two.
 
+// Selections that predate sequence pinning carry no sequence set.
+const NO_SEQUENCES = new Set();
+
 const OPERATION_LABELS = {
     [PIN_MODE.pin]: 'Pin',
     [PIN_MODE.unpin]: 'Unpin',
@@ -28,7 +31,7 @@ const OPERATION_LABELS = {
  * the selection is currently doing. Three plain cases, in the order they happen.
  */
 const roleOf = (operation, selection) => {
-    const { mode, selectedTodoIds, startPin, startUnpin, cancel, confirm, isSaving } = selection;
+    const { mode, selectedTodoIds, selectedSequenceIds = NO_SEQUENCES, startPin, startUnpin, cancel, confirm, isSaving } = selection;
 
     if (mode === PIN_MODE.idle) {
         return {
@@ -42,7 +45,7 @@ const roleOf = (operation, selection) => {
         return {
             label: 'Confirm',
             onClick: confirm,
-            isDisabled: isSaving || selectedTodoIds.size === 0,
+            isDisabled: isSaving || (selectedTodoIds.size === 0 && selectedSequenceIds.size === 0),
         };
     }
 

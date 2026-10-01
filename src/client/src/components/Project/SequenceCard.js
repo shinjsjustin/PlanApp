@@ -15,6 +15,7 @@ import useProjectMutations from '../../hooks/useProjectMutations';
 import { DROP_TARGET, isEligibleDropTarget } from '../../lib/dragDrop';
 import { TODO_STATUS, sequenceStatus } from '../../lib/graph';
 import { STATUS_LABELS, sequenceCardModel } from '../../lib/sequenceCard';
+import { PinRowContent, SequencePinIcon, usePinSequence } from './PinRow';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragTodo } from '../../state/DragContext';
 
@@ -108,6 +109,7 @@ const SequenceCard = ({
     // Everything the card draws, derived from the graph on every render. The
     // status word underneath is still `sequenceStatus`'s, unchanged: pin
     // activity adds emphasis, but what the app says about lifecycle does not.
+    const pinRow = usePinSequence(sequence);
     const model = sequenceCardModel({ sequence, todos });
     const status = sequenceStatus(sequence, todos);
 
@@ -255,6 +257,7 @@ const SequenceCard = ({
             {isCollapsed ? (
                 <SequenceCardCollapsed
                     model={model}
+                    sequence={sequence}
                     description={sequence.description}
                     title={title}
                     grip={grip}
@@ -263,7 +266,8 @@ const SequenceCard = ({
                 </SequenceCardCollapsed>
             ) : (
                 <>
-                    <div className="sequence-card-header">
+                    <div className={`sequence-card-header ${pinRow.rowClassName}`.trim()}>
+                        <PinRowContent isSelectable={pinRow.isSelectable}>
                         {chevron}
                         {grip}
 
@@ -293,6 +297,9 @@ const SequenceCard = ({
                         >
                             {badge}
                         </span>
+                        <SequencePinIcon sequence={sequence} />
+                        </PinRowContent>
+                        {pinRow.control}
                     </div>
 
                     <div className="sequence-card-body" ref={setNodeRef}>

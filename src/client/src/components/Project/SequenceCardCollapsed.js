@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { CARD_STATE, STATUS_LABELS } from '../../lib/sequenceCard';
-import { PinIcon, PinRowContent, usePinRow } from './PinRow';
+import { PinIcon, PinRowContent, SequencePinIcon, usePinRow, usePinSequence } from './PinRow';
 
 // The folded card (design 2A). One title and, for a blocked sequence, the first
 // outstanding item it is waiting on. Pin activity is expressed by the card ring
@@ -27,7 +27,7 @@ const summaryOf = (state, counts) => {
     return `${counts.total} to-do${counts.total === 1 ? '' : 's'}`;
 };
 
-const CollapsedSummary = ({ model, title, children, grip }) => {
+const CollapsedSummary = ({ model, sequence, title, children, grip }) => {
     const { state, counts, outstanding } = model;
     const [firstOutstanding = null] = outstanding;
 
@@ -49,6 +49,7 @@ const CollapsedSummary = ({ model, title, children, grip }) => {
                     </span>
                 )}
 
+                <SequencePinIcon sequence={sequence} />
                 <span className="sequence-card-collapsed-title">{title}</span>
                 <span className="sequence-card-collapsed-summary">
                     {summaryOf(state, counts)}
@@ -64,6 +65,7 @@ const CollapsedSummary = ({ model, title, children, grip }) => {
 
             <div className="sequence-card-collapsed-lines">
                 <div className="sequence-card-collapsed-line">
+                    <SequencePinIcon sequence={sequence} />
                     <span className="sequence-card-collapsed-title">{title}</span>
                     <span className="sequence-card-progress">
                         {counts.done}/{counts.total}
@@ -108,13 +110,19 @@ const PinnedPreview = ({ todo }) => {
     );
 };
 
-const SequenceCardCollapsed = ({ model, description, ...summaryProps }) => {
+const SequenceCardCollapsed = ({ model, sequence, description, ...summaryProps }) => {
+    const pinRow = usePinSequence(sequence);
     const topPinnedTodo = model.own.find((todo) => todo.id === model.topPinnedTodoId);
     const hasDescription = Boolean(description?.trim());
 
     return (
         <>
-            <CollapsedSummary model={model} {...summaryProps} />
+            <div className={`sequence-card-collapsed-header ${pinRow.rowClassName}`.trim()}>
+                <PinRowContent isSelectable={pinRow.isSelectable}>
+                    <CollapsedSummary model={model} sequence={sequence} {...summaryProps} />
+                </PinRowContent>
+                {pinRow.control}
+            </div>
             <div className="sequence-card-collapsed-details">
                 <p className={`sequence-card-description${hasDescription ? '' : ' sequence-card-description--empty'}`}>
                     {hasDescription ? description : 'What problem are you trying to solve?'}

@@ -605,3 +605,16 @@
         box-shadow: 0 0 0 3px var(--color-accent);
     }
 }
+
+/* A header being chosen is the containing block for its select control, which
+ * covers the header only so the to-do rows below stay selectable. */
+.sequence-card-header.is-pin-selectable,
+.sequence-card-collapsed-header.is-pin-selectable {
+    position: relative;
+}
+
+.sequence-pin-icon {
+    flex: 0 0 auto;
+    font-size: var(--font-sm);
+    line-height: 1;
+}

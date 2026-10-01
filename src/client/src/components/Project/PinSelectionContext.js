@@ -17,9 +17,13 @@ export const PIN_MODE = {
 const idleSelection = {
     mode: PIN_MODE.idle,
     selectedTodoIds: EMPTY_SELECTION,
+    selectedSequenceIds: EMPTY_SELECTION,
     isEligible: () => false,
     isSelected: () => false,
     toggle: () => {},
+    isSequenceEligible: () => false,
+    isSequenceSelected: () => false,
+    toggleSequence: () => {},
     startPin: () => {},
     startUnpin: () => {},
     cancel: () => {},
@@ -35,9 +39,10 @@ export const PinSelectionProvider = ({ value, children }) => (
 
 export const usePinSelectionContext = () => useContext(PinSelectionContext);
 
-export const usePinSelectionState = (setTodosPinned) => {
+export const usePinSelectionState = (setTodosPinned, setPinned) => {
     const [mode, setMode] = useState(PIN_MODE.idle);
     const [selectedTodoIds, setSelectedTodoIds] = useState(() => new Set());
+    const [selectedSequenceIds, setSelectedSequenceIds] = useState(() => new Set());
     const [isSaving, setIsSaving] = useState(false);
     const savingRef = useRef(false);
     const generationRef = useRef(0);
@@ -47,15 +52,17 @@ export const usePinSelectionState = (setTodosPinned) => {
     useEffect(() => {
         setMode(PIN_MODE.idle);
         setSelectedTodoIds(new Set());
+        setSelectedSequenceIds(new Set());
         setIsSaving(false);
         savingRef.current = false;
         return () => { generationRef.current += 1; };
-    }, [setTodosPinned]);
+    }, [setTodosPinned, setPinned]);
 
     const begin = useCallback((nextMode) => {
         if (savingRef.current) return;
         setMode(nextMode);
         setSelectedTodoIds(new Set());
+        setSelectedSequenceIds(new Set());
     }, []);
 
     const startPin = useCallback(() => begin(PIN_MODE.pin), [begin]);
@@ -65,6 +72,7 @@ export const usePinSelectionState = (setTodosPinned) => {
         if (savingRef.current) return;
         setMode(PIN_MODE.idle);
         setSelectedTodoIds(new Set());
+        setSelectedSequenceIds(new Set());
     }, []);
 
     const isEligible = useCallback(
@@ -87,19 +95,44 @@ export const usePinSelectionState = (setTodosPinned) => {
             : new Set([...current, todoId]));
     }, []);
 
+    const isSequenceEligible = useCallback(
+        (sequence) =>
+            (isSaving && selectedSequenceIds.has(sequence.id)) ||
+            (mode === PIN_MODE.pin && !sequence.isPinned) ||
+            (mode === PIN_MODE.unpin && Boolean(sequence.isPinned)),
+        [mode, isSaving, selectedSequenceIds]
+    );
+
+    const isSequenceSelected = useCallback(
+        (sequenceId) => selectedSequenceIds.has(sequenceId),
+        [selectedSequenceIds]
+    );
+
+    const toggleSequence = useCallback((sequenceId) => {
+        if (savingRef.current) return;
+        setSelectedSequenceIds((current) => current.has(sequenceId)
+            ? new Set([...current].filter((id) => id !== sequenceId))
+            : new Set([...current, sequenceId]));
+    }, []);
+
     const confirm = useCallback(async () => {
-        if (mode === PIN_MODE.idle || selectedTodoIds.size === 0 || savingRef.current) return false;
+        if (mode === PIN_MODE.idle || (selectedTodoIds.size === 0 && selectedSequenceIds.size === 0) || savingRef.current) return false;
 
         const generation = generationRef.current;
         savingRef.current = true;
         setIsSaving(true);
 
         try {
-            const saved = await setTodosPinned([...selectedTodoIds], mode === PIN_MODE.pin);
+            const isPin = mode === PIN_MODE.pin;
+            const todoIds = [...selectedTodoIds];
+            const saved = selectedSequenceIds.size === 0
+                ? await setTodosPinned(todoIds, isPin)
+                : await setPinned({ todoIds, sequenceIds: [...selectedSequenceIds] }, isPin);
             if (generationRef.current !== generation || saved === null) return false;
 
             setMode(PIN_MODE.idle);
             setSelectedTodoIds(new Set());
+            setSelectedSequenceIds(new Set());
             return true;
         } finally {
             if (generationRef.current === generation) {
@@ -107,15 +140,19 @@ export const usePinSelectionState = (setTodosPinned) => {
                 setIsSaving(false);
             }
         }
-    }, [mode, selectedTodoIds, setTodosPinned]);
+    }, [mode, selectedTodoIds, selectedSequenceIds, setTodosPinned, setPinned]);
 
     return useMemo(
         () => ({
             mode,
             selectedTodoIds,
+            selectedSequenceIds,
             isEligible,
             isSelected,
             toggle,
+            isSequenceEligible,
+            isSequenceSelected,
+            toggleSequence,
             startPin,
             startUnpin,
             cancel,
@@ -125,9 +162,13 @@ export const usePinSelectionState = (setTodosPinned) => {
         [
             mode,
             selectedTodoIds,
+            selectedSequenceIds,
             isEligible,
             isSelected,
             toggle,
+            isSequenceEligible,
+            isSequenceSelected,
+            toggleSequence,
             startPin,
             startUnpin,
             cancel,

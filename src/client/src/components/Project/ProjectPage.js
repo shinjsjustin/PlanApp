@@ -31,7 +31,7 @@ const ProjectPage = () => {
     const { id } = useParams();
     const graph = useProjectGraph(id);
     const { state, reload, dismissActionError } = graph;
-    const pinSelection = usePinSelectionState(graph.setTodosPinned);
+    const pinSelection = usePinSelectionState(graph.setTodosPinned, graph.setPinned);
 
     // Arriving from the calendar's "where did this come from?". The wait starts
     // from the graph being ready, because there is no card to flash before then.
