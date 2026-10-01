@@ -46,10 +46,17 @@ describe('layerToSchema', () => {
         expect(layerToSchema(layer, sequences, todos)).toBe('## A\n\n### Mine\n- in\n');
     });
 
+    test('keeps runs of spaces in titles and text', () => {
+        const layer = { id: 1, title: 'A  b' };
+        const sequences = [{ id: 10, layerId: 1, title: 'C   d', position: 0 }];
+        const todos = [{ id: 1, sequenceId: 10, text: 'e  f', position: 0 }];
+        expect(layerToSchema(layer, sequences, todos)).toBe('## A  b\n\n### C   d\n- e  f\n');
+    });
+
     test('turns newlines in titles and text into single spaces', () => {
         const layer = { id: 1, title: 'Two\nlines' };
         const sequences = [{ id: 10, layerId: 1, title: 'Seq\r\none', position: 0 }];
         const todos = [{ id: 1, sequenceId: 10, text: 'a\n\nb', position: 0 }];
-        expect(layerToSchema(layer, sequences, todos)).toBe('## Two lines\n\n### Seq one\n- a b\n');
+        expect(layerToSchema(layer, sequences, todos)).toBe('## Two lines\n\n### Seq one\n- a  b\n');
     });
 });

@@ -28,5 +28,11 @@
         "layer": { "title": "Tags" },
         "sequences": [{ "title": "Notes", "todos": ["#1 priority", "## not a heading"] }],
         "schema": "## Tags\n\n### Notes\n- #1 priority\n- ## not a heading\n"
+    },
+    {
+        "name": "repeated internal spaces",
+        "layer": { "title": "Big  launch" },
+        "sequences": [{ "title": "Design  phase", "todos": ["a  b"] }],
+        "schema": "## Big  launch\n\n### Design  phase\n- a  b\n"
     }
 ]

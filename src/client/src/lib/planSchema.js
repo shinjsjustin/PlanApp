@@ -2,7 +2,7 @@ import { sortByPosition } from './graph';
 
 const NEWLINES = /\r?\n|\r/g;
 
-const oneLine = (text) => text.replace(NEWLINES, ' ').replace(/ {2,}/g, ' ');
+const oneLine = (text) => text.replace(NEWLINES, ' ');
 
 /** The plan schema text for one layer; the server parser reads it back unchanged. */
 export const layerToSchema = (layer, sequences, todos) => {
