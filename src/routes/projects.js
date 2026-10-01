@@ -261,6 +261,23 @@ router.put(
     })
 );
 
+// DELETE /api/projects/:id/todos/unorganized — clears the Unorganized panel in
+// one transaction. Registered before `DELETE /:id`.
+router.delete(
+    '/:id/todos/unorganized',
+    asyncRoute(async (req, res) => {
+        const projectId = parseId(req.params.id);
+
+        const ids = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'project', projectId, req.user.id);
+
+            return todosRepo.removeUnorganized(conn, projectId);
+        });
+
+        res.sendData({ ids });
+    })
+);
+
 // DELETE /api/projects/:id — cascades through layers, sequences and to-dos, so
 // it runs in a transaction (see the note in projectsRepo.remove).
 router.delete(

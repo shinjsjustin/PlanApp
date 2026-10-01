@@ -300,6 +300,23 @@ const remove = async (conn, id) => {
     return true;
 };
 
+/**
+ * Deletes every unorganized to-do of a project in one statement and returns the
+ * ids. Bookings go with them through the foreign key; nothing is left to
+ * reposition because the whole list is removed.
+ */
+const removeUnorganized = async (conn, projectId) => {
+    const ids = (await listUnorganized(conn, projectId)).map((row) => row.id);
+
+    if (ids.length === 0) return ids;
+
+    const placeholders = ids.map(() => '?').join(', ');
+    // `query` rather than `execute`: the placeholder count varies per call.
+    await conn.query(`DELETE FROM todos WHERE id IN (${placeholders})`, ids);
+
+    return ids;
+};
+
 module.exports = {
     create,
     findById,
@@ -314,5 +331,6 @@ module.exports = {
     update,
     move,
     remove,
+    removeUnorganized,
     setPinned,
 };

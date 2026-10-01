@@ -64,6 +64,7 @@ describe('PUT /api/projects/:id/todos/pins', () => {
             'createdAt',
             'id',
             'isPinned',
+            'note',
             'position',
             'projectId',
             'sequenceId',
