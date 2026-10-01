@@ -272,6 +272,48 @@ describe('serializers', () => {
             });
         });
 
+        test('serializes a sequence booking with its title as the text', () => {
+            // Arrange — a booking row with no to-do: the joins resolve through the sequence
+            const row = {
+                id: 8,
+                day_id: 4,
+                todo_id: null,
+                booked_sequence_id: 9,
+                start_minutes: 600,
+                duration_minutes: 90,
+                text: null,
+                status: null,
+                is_pinned: 1,
+                project_id: 2,
+                project_title: 'Auth rewrite',
+                sequence_id: 9,
+                sequence_title: 'Session handling',
+            };
+
+            // Act + Assert
+            expect(toCalendarItem(row)).toEqual({
+                id: 8,
+                dayId: 4,
+                kind: 'sequence',
+                todoId: null,
+                sequenceId: 9,
+                text: 'Session handling',
+                status: null,
+                isPinned: true,
+                projectId: 2,
+                projectTitle: 'Auth rewrite',
+                sequenceTitle: 'Session handling',
+                startMinutes: 600,
+                durationMinutes: 90,
+            });
+        });
+
+        test('leaves a to-do item without a kind', () => {
+            const item = toCalendarItem({ id: 1, day_id: 4, todo_id: 12, is_pinned: 0 });
+
+            expect(item).not.toHaveProperty('kind');
+        });
+
         test('serializes the current pin state as a boolean', () => {
             expect(toCalendarItem({ is_pinned: 1 }).isPinned).toBe(true);
             expect(toCalendarItem({ is_pinned: 0 }).isPinned).toBe(false);

@@ -108,7 +108,23 @@ const toCalendarDay = (row) => ({
  * Times are integer minutes from midnight, never clock strings. Formatting is
  * the client's business.
  */
-const toCalendarItem = (row) => ({
+const toSequenceBooking = (row) => ({
+    id: row.id,
+    dayId: row.day_id,
+    kind: 'sequence',
+    todoId: null,
+    sequenceId: row.booked_sequence_id,
+    text: row.sequence_title,
+    status: null,
+    isPinned: Boolean(row.is_pinned),
+    projectId: row.project_id,
+    projectTitle: row.project_title,
+    sequenceTitle: row.sequence_title,
+    startMinutes: row.start_minutes,
+    durationMinutes: row.duration_minutes,
+});
+
+const toTodoBooking = (row) => ({
     id: row.id,
     dayId: row.day_id,
     todoId: row.todo_id,
@@ -122,6 +138,9 @@ const toCalendarItem = (row) => ({
     startMinutes: row.start_minutes,
     durationMinutes: row.duration_minutes,
 });
+
+// A booking with no to-do is a pinned sequence's (see `toSequenceBooking`).
+const toCalendarItem = (row) => (row.todo_id === null ? toSequenceBooking(row) : toTodoBooking(row));
 
 /**
  * One note on its way to the browser.

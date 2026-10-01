@@ -28,16 +28,21 @@
  * user's day.
  */
 
-const SELECT_COLUMNS = `ci.id, ci.day_id, ci.todo_id, ci.start_minutes, ci.duration_minutes,
-            ci.created_at, ci.updated_at,
-            t.text, t.status, t.is_pinned, t.project_id, t.sequence_id,
+// A booking is for a to-do or for a pinned sequence. The to-do side keeps its
+// columns exactly; a sequence booking has no `t` row, so the sequence and project
+// are reached through COALESCE and `is_pinned` is the sequence's own.
+const SELECT_COLUMNS = `ci.id, ci.day_id, ci.todo_id, ci.sequence_id AS booked_sequence_id,
+            ci.start_minutes, ci.duration_minutes, ci.created_at, ci.updated_at,
+            t.text, t.status, COALESCE(t.is_pinned, s.is_pinned) AS is_pinned,
+            COALESCE(t.project_id, s.project_id) AS project_id,
+            COALESCE(t.sequence_id, ci.sequence_id) AS sequence_id,
             p.title AS project_title, s.title AS sequence_title`;
 
 const FROM_JOINS = `FROM calendar_items ci
          JOIN calendar_days d  ON d.id = ci.day_id
-         JOIN todos t          ON t.id = ci.todo_id
-         JOIN projects p       ON p.id = t.project_id
-         LEFT JOIN sequences s ON s.id = t.sequence_id`;
+         LEFT JOIN todos t     ON t.id = ci.todo_id
+         LEFT JOIN sequences s ON s.id = COALESCE(t.sequence_id, ci.sequence_id)
+         JOIN projects p       ON p.id = COALESCE(t.project_id, s.project_id)`;
 
 /** Every booking in the owner's calendar, days left to right, items top to bottom. */
 const listByOwner = async (conn, ownerId) => {
@@ -75,20 +80,37 @@ const listByDayIds = async (conn, dayIds) => {
 };
 
 /**
- * Books a to-do, or moves the booking it already has.
+ * Books a to-do or a sequence, or moves the booking it already has.
  *
- * One statement covers both because `uq_calendar_items_todo` makes them the same
- * operation: a to-do has at most one booking, so "book this" and "move this"
- * differ only in whether a row exists yet (design decision 4).
+ * One statement covers both because `uq_calendar_items_todo` and
+ * `uq_calendar_items_sequence` make them the same operation: each has at most one
+ * booking, so "book this" and "move this" differ only in whether a row exists yet
+ * (design decision 4). Callers pass `todoId` or `sequenceId`, not both.
+ *
+ * The two kinds use two statements rather than one with a NULL-safe column, for
+ * the reason given on `listInList` in todosRepo: a prepared statement reuses the
+ * parameter types of its first execution.
  */
-const upsert = async (conn, { dayId, todoId, startMinutes, durationMinutes }) => {
+const upsert = async (conn, { dayId, todoId, sequenceId, startMinutes, durationMinutes }) => {
+    const onDuplicate = `ON DUPLICATE KEY UPDATE
+             day_id = VALUES(day_id),
+             start_minutes = VALUES(start_minutes),
+             duration_minutes = VALUES(duration_minutes)`;
+
+    if (sequenceId !== undefined) {
+        await conn.execute(
+            `INSERT INTO calendar_items (day_id, sequence_id, start_minutes, duration_minutes)
+             VALUES (?, ?, ?, ?)
+             ${onDuplicate}`,
+            [dayId, sequenceId, startMinutes, durationMinutes]
+        );
+        return;
+    }
+
     await conn.execute(
         `INSERT INTO calendar_items (day_id, todo_id, start_minutes, duration_minutes)
          VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-             day_id = VALUES(day_id),
-             start_minutes = VALUES(start_minutes),
-             duration_minutes = VALUES(duration_minutes)`,
+         ${onDuplicate}`,
         [dayId, todoId, startMinutes, durationMinutes]
     );
 };
@@ -109,4 +131,20 @@ const removeByTodoIds = async (conn, todoIds) => {
     return result.affectedRows;
 };
 
-module.exports = { listByDayIds, listByOwner, removeByTodoIds, upsert };
+/** Unschedules the named sequences. Returns how many bookings were released. */
+const removeBySequenceIds = async (conn, sequenceIds) => {
+    const unique = [...new Set(sequenceIds)];
+
+    if (unique.length === 0) return 0;
+
+    const placeholders = unique.map(() => '?').join(', ');
+
+    const [result] = await conn.query(
+        `DELETE FROM calendar_items WHERE sequence_id IN (${placeholders})`,
+        unique
+    );
+
+    return result.affectedRows;
+};
+
+module.exports = { listByDayIds, listByOwner, removeBySequenceIds, removeByTodoIds, upsert };

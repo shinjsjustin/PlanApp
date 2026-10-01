@@ -29,11 +29,22 @@ const MIN_DURATION = 30;
 
 const isSlotAligned = (value) => Number.isInteger(value) && value % SLOT_MINUTES === 0;
 
+/**
+ * How a placement is named in messages and compared for duplicates. A booking is
+ * for a sequence when it carries a `sequenceId`, else for a to-do; the kind is
+ * part of the label so a to-do and a sequence sharing an id value stay distinct.
+ */
+const labelOf = (placement) =>
+    placement.sequenceId === undefined || placement.sequenceId === null
+        ? `to-do ${placement.todoId}`
+        : `sequence ${placement.sequenceId}`;
+
 const endOf = (item) => item.startMinutes + item.durationMinutes;
 
 /** The arithmetic of one booking, in isolation. */
-const validatePlacement = ({ todoId, startMinutes, durationMinutes }) => {
-    const at = `(to-do ${todoId})`;
+const validatePlacement = (placement) => {
+    const { startMinutes, durationMinutes } = placement;
+    const at = `(${labelOf(placement)})`;
 
     if (!isSlotAligned(startMinutes)) {
         return `startMinutes must be a multiple of ${SLOT_MINUTES} ${at}`;
@@ -56,7 +67,7 @@ const validatePlacement = ({ todoId, startMinutes, durationMinutes }) => {
 };
 
 /**
- * A to-do named twice.
+ * A to-do or sequence named twice.
  *
  * `uq_calendar_items_todo` would enforce this anyway, but silently: the second
  * upsert would overwrite the first and the request would answer 200 having
@@ -66,9 +77,11 @@ const validatePlacement = ({ todoId, startMinutes, durationMinutes }) => {
 const findDuplicateTodo = (placements) => {
     const seen = new Set();
 
-    for (const { todoId } of placements) {
-        if (seen.has(todoId)) return `to-do ${todoId} appears in more than one placement`;
-        seen.add(todoId);
+    for (const placement of placements) {
+        const label = labelOf(placement);
+
+        if (seen.has(label)) return `${label} appears in more than one placement`;
+        seen.add(label);
     }
 
     return null;
@@ -110,7 +123,7 @@ const findOverlap = (placements) => {
 
             if (current.startMinutes < endOf(previous)) {
                 return (
-                    `to-dos ${previous.todoId} and ${current.todoId} ` +
+                    `${labelOf(previous)} and ${labelOf(current)} ` +
                     `overlap in day ${dayId}`
                 );
             }

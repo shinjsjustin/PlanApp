@@ -5,6 +5,7 @@ const { z } = require('zod');
 
 const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
+const assertSequencesOwned = require('../lib/assertSequencesOwned');
 const assertTodosOwned = require('../lib/assertTodosOwned');
 const calendarDaysRepo = require('../db/repositories/calendarDaysRepo');
 const calendarItemsRepo = require('../db/repositories/calendarItemsRepo');
@@ -50,7 +51,8 @@ const minutesSchema = z
  */
 const placementSchema = z
     .object({
-        todoId: idSchema,
+        todoId: idSchema.optional(),
+        sequenceId: idSchema.optional(),
         dayId: idSchema.optional(),
         dayIndex: z
             .number({ error: 'dayIndex must be an integer of 0 or more' })
@@ -60,6 +62,10 @@ const placementSchema = z
         startMinutes: minutesSchema,
         durationMinutes: minutesSchema,
     })
+    .refine(
+        (placement) => (placement.todoId === undefined) !== (placement.sequenceId === undefined),
+        { message: 'a placement must name exactly one of todoId or sequenceId' }
+    )
     .refine(
         (placement) => (placement.dayId === undefined) !== (placement.dayIndex === undefined),
         { message: 'a placement must name exactly one of dayId or dayIndex' }
@@ -94,6 +100,10 @@ const bulkSchema = z
             .array(idSchema)
             .max(MAX_BULK_ITEMS, `no more than ${MAX_BULK_ITEMS} to-dos unscheduled at once`)
             .default([]),
+        unscheduleSequences: z
+            .array(idSchema)
+            .max(MAX_BULK_ITEMS, `no more than ${MAX_BULK_ITEMS} sequences unscheduled at once`)
+            .default([]),
     })
     .refine((body) => body.appendDays <= body.placements.length, {
         message: 'appendDays may not exceed the number of placements',
@@ -112,6 +122,14 @@ const bulkSchema = z
             // to-do named twice in `placements` is refused.
             message: 'a to-do may not be both unscheduled and placed in one request',
         }
+    )
+    .refine(
+        (body) => {
+            const dropped = new Set(body.unscheduleSequences);
+
+            return !body.placements.some((placement) => dropped.has(placement.sequenceId));
+        },
+        { message: 'a sequence may not be both unscheduled and placed in one request' }
     );
 
 // The endpoint takes no input — a new day is untitled and goes at the end.
@@ -196,20 +214,21 @@ router.delete(
  */
 const toPlacement = (row) => ({
     todoId: row.todo_id,
+    sequenceId: row.booked_sequence_id,
     dayId: row.day_id,
     startMinutes: row.start_minutes,
     durationMinutes: row.duration_minutes,
 });
 
 /** Turns a `dayIndex` into a real day id, now that the appends have happened. */
-const resolveDay = ({ todoId, dayId, dayIndex, startMinutes, durationMinutes }, days) => {
-    if (dayId !== undefined) return { todoId, dayId, startMinutes, durationMinutes };
+const resolveDay = ({ dayId, dayIndex, ...rest }, days) => {
+    if (dayId !== undefined) return { ...rest, dayId };
 
     const day = days[dayIndex];
 
     if (!day) throw badRequest(`dayIndex ${dayIndex} is beyond the end of the calendar`);
 
-    return { todoId, dayId: day.id, startMinutes, durationMinutes };
+    return { ...rest, dayId: day.id };
 };
 
 // PUT /api/calendar/items — the settled result of one gesture, applied at once.
@@ -221,15 +240,30 @@ const resolveDay = ({ todoId, dayId, dayIndex, startMinutes, durationMinutes }, 
 router.put(
     '/items',
     asyncRoute(async (req, res) => {
-        const { appendDays, placements, unschedule } = bulkSchema.parse(req.body ?? {});
+        const { appendDays, placements, unschedule, unscheduleSequences } = bulkSchema.parse(req.body ?? {});
         const ownerId = req.user.id;
 
         const calendar = await withTransaction(async (conn) => {
             await assertTodosOwned(
                 conn,
-                [...placements.map((placement) => placement.todoId), ...unschedule],
+                [
+                    ...placements
+                        .map((placement) => placement.todoId)
+                        .filter((todoId) => todoId !== undefined),
+                    ...unschedule,
+                ],
                 ownerId
             );
+            await assertSequencesOwned(
+                conn,
+                placements
+                    .map((placement) => placement.sequenceId)
+                    .filter((sequenceId) => sequenceId !== undefined),
+                ownerId
+            );
+            await assertSequencesOwned(conn, unscheduleSequences, ownerId, {
+                requirePinned: false,
+            });
 
             // Deduped first: a gesture that fills one day names it once per item,
             // and the answer is the same every time.
@@ -259,6 +293,7 @@ router.put(
             if (problem) throw badRequest(problem);
 
             await calendarItemsRepo.removeByTodoIds(conn, unschedule);
+            await calendarItemsRepo.removeBySequenceIds(conn, unscheduleSequences);
 
             for (const placement of resolved) {
                 // eslint-disable-next-line no-await-in-loop
@@ -281,6 +316,26 @@ router.put(
         });
 
         res.sendData(calendar);
+    })
+);
+
+// DELETE /api/calendar/items/sequences/:sequenceId — the same release for a
+// pinned sequence. Registered before `/items/:todoId`; the two do not collide on
+// path depth today, but a looser todo route must not swallow this one.
+router.delete(
+    '/items/sequences/:sequenceId',
+    asyncRoute(async (req, res) => {
+        const sequenceId = parseId(req.params.sequenceId);
+
+        const released = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'sequence', sequenceId, req.user.id);
+
+            return calendarItemsRepo.removeBySequenceIds(conn, [sequenceId]);
+        });
+
+        if (released === 0) throw notFound('Booking');
+
+        res.sendData({ sequenceId });
     })
 );
 
