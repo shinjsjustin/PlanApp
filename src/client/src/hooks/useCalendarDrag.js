@@ -11,7 +11,7 @@ import { useDraggable } from '@dnd-kit/core';
 
 export const usePoolDrag = (todo) => {
     const { attributes, listeners, setNodeRef } = useDraggable({
-        id: `pool-${todo.todoId}`,
+        id: todo.kind === 'sequence' ? `pool-sequence:${todo.sequenceId}` : `pool-${todo.todoId}`,
         data: { poolTodo: todo },
     });
 

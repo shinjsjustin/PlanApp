@@ -1,6 +1,7 @@
 import React from 'react';
 
 import PanelTodoRow from './PanelTodoRow';
+import PanelSequenceRow from './PanelSequenceRow';
 
 // One project in the pool, folded or open.
 //
@@ -22,12 +23,16 @@ import PanelTodoRow from './PanelTodoRow';
 const ProjectAccordionCard = ({
     project,
     scheduledByTodoId,
+    scheduledBySequenceId = null,
+    onOpenSource = null,
     dragFor = null,
     isExpanded,
     onToggle,
 }) => {
+    const sequences = project.sequences ?? [];
     const unscheduledCount = scheduledByTodoId
-        ? project.todos.filter((todo) => !scheduledByTodoId.has(todo.todoId)).length
+        ? project.todos.filter((todo) => !scheduledByTodoId.has(todo.todoId)).length +
+          sequences.filter((sequence) => !scheduledBySequenceId?.has(sequence.sequenceId)).length
         : null;
 
     return (
@@ -45,10 +50,19 @@ const ProjectAccordionCard = ({
             </button>
 
             {isExpanded &&
-                (project.todos.length === 0 ? (
+                (project.todos.length + sequences.length === 0 ? (
                     <p className="pool-card-empty">No pinned to-dos yet.</p>
                 ) : (
                     <ul className="pool-card-todos">
+                        {sequences.map((sequence) => (
+                            <PanelSequenceRow
+                                key={`sequence:${sequence.sequenceId}`}
+                                item={sequence}
+                                scheduled={scheduledBySequenceId?.get(sequence.sequenceId) ?? null}
+                                isDraggable={dragFor ? dragFor(sequence) : false}
+                                onOpenSource={onOpenSource}
+                            />
+                        ))}
                         {project.todos.map((todo) => (
                             <PanelTodoRow
                                 key={todo.todoId}

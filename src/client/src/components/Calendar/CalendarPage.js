@@ -153,6 +153,8 @@ const CalendarPage = () => {
                     <ProjectPanel
                         pool={pool}
                         scheduledByTodoId={null}
+                        scheduledBySequenceId={null}
+                        onOpenSource={openSource}
                         expandedProjectIds={expandedProjectIds}
                         onToggleProject={toggleProject}
                     />

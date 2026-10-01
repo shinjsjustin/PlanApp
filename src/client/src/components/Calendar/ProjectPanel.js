@@ -22,6 +22,8 @@ import { POOL_STATUS } from '../../hooks/usePool';
 const ProjectPanel = ({
     pool,
     scheduledByTodoId,
+    scheduledBySequenceId = null,
+    onOpenSource = null,
     dragFor = null,
     overlay = null,
     expandedProjectIds,
@@ -65,6 +67,8 @@ const ProjectPanel = ({
                             key={project.id}
                             project={project}
                             scheduledByTodoId={scheduledByTodoId}
+                            scheduledBySequenceId={scheduledBySequenceId}
+                            onOpenSource={onOpenSource}
                             dragFor={dragFor}
                             isExpanded={expandedProjectIds.has(project.id)}
                             onToggle={() => onToggleProject(project.id)}

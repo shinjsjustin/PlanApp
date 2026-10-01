@@ -902,6 +902,37 @@ button.note-ribbon-body:hover .note-ribbon-text {
     border: 1px solid var(--border);
 }
 
+/* A pinned sequence: one bold row; the preview hangs below it on hover. */
+.panel-sequence-row {
+    position: relative;
+    font-weight: 600;
+}
+
+.panel-sequence-title {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.panel-sequence-preview {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin-top: var(--space-xs);
+    font-weight: normal;
+}
+
 /* ─── The bin ────────────────────────────────────────────────────────────── */
 
 /* Pins to `.calendar-panel`, which is already positioned. Opaque rather than
