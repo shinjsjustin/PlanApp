@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import DeleteBubble from '../common/DeleteBubble';
+import TodoNote from './TodoNote';
+import { PIN_MODE, usePinSelectionContext } from './PinSelectionContext';
 import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 import { completedOnLabel } from '../../lib/dates';
 
@@ -38,9 +40,31 @@ const CHECK = '✓';
 const DoneTodoRow = ({ todo, isTopPinned, onReopenTodo, onDeleteTodo }) => {
     const pinRow = usePinRow(todo);
     const day = completedOnLabel(todo.completedAt);
+    const [isNoteOpen, setIsNoteOpen] = useState(false);
+    const isIdle = usePinSelectionContext().mode === PIN_MODE.idle;
+
+    // A note is only for reading a row at rest; TodoNote saves a pending edit
+    // when it unmounts.
+    useEffect(() => {
+        if (!isIdle) setIsNoteOpen(false);
+    }, [isIdle]);
+
+    const toggleNote = () => {
+        if (!isIdle) return;
+        setIsNoteOpen((open) => !open);
+    };
+
+    const handleTextKeyDown = (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        toggleNote();
+    };
+
     const className = [
         'sequence-done-item',
         'has-delete-bubble',
+        isNoteOpen ? 'todo-item--note-open' : '',
         isTopPinned ? 'todo-row--top-pinned' : '',
         pinRow.rowClassName,
     ]
@@ -64,7 +88,27 @@ const DoneTodoRow = ({ todo, isTopPinned, onReopenTodo, onDeleteTodo }) => {
                     <span aria-hidden="true">{CHECK}</span>
                 </button>
 
-                <span className="sequence-done-text">{todo.text}</span>
+                <span
+                    className="sequence-done-text todo-item-text--toggle"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isNoteOpen}
+                    onClick={toggleNote}
+                    onKeyDown={handleTextKeyDown}
+                >
+                    {todo.text}
+                </span>
+
+                {todo.note && (
+                    <button
+                        type="button"
+                        className="todo-item-note-toggle sequence-done-note-toggle"
+                        aria-label={`${isNoteOpen ? 'Hide' : 'Show'} note for “${todo.text}”`}
+                        onClick={toggleNote}
+                    >
+                        {isNoteOpen ? '▴' : '▾'}
+                    </button>
+                )}
 
                 <PinIcon todo={todo} />
 
@@ -75,6 +119,12 @@ const DoneTodoRow = ({ todo, isTopPinned, onReopenTodo, onDeleteTodo }) => {
                     onDelete={() => onDeleteTodo(todo)}
                 />
             </PinRowContent>
+
+            {isNoteOpen && (
+                <div className="todo-item-note">
+                    <TodoNote todo={todo} />
+                </div>
+            )}
 
             {pinRow.control}
         </li>

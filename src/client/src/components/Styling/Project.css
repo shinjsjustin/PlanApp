@@ -665,3 +665,8 @@
 .todo-item-note-toggle:hover {
     color: var(--text-primary);
 }
+
+/* Done rows are set in smaller type than live rows. */
+.sequence-done-note-toggle {
+    font-size: 13px;
+}
