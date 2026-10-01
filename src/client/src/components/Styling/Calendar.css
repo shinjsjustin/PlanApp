@@ -434,6 +434,16 @@
     text-decoration: line-through;
 }
 
+.day-item-card--sequence {
+    font-weight: 600;
+    /* The hover preview hangs below the card, so it must not be clipped. */
+    overflow: visible;
+}
+
+.day-item-card--sequence .day-item-name {
+    font-weight: inherit;
+}
+
 .day-item-card--blocked {
     border: 1px solid var(--color-danger);
     border-left-width: var(--cal-item-edge-width);

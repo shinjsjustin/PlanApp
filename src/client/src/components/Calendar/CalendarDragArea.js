@@ -21,8 +21,10 @@ import useResizeEdge, { EDGE } from '../../hooks/useResizeEdge';
 import {
     DAY_MINUTES,
     DEFAULT_DURATION,
+    itemKeyOf,
     moveItem,
     placeFromPool,
+    refOfKey,
     resizeItem,
     topEdgeFloor,
 } from '../../lib/schedule';
@@ -104,7 +106,7 @@ export const previewFor = (schedule, target) => {
               startMinutes,
               durationMinutes: DEFAULT_DURATION,
           })
-        : moveItem(schedule, { todoId: todo.todoId, dayId, startMinutes });
+        : moveItem(schedule, { ...todo, dayId, startMinutes });
 };
 
 /**
@@ -274,18 +276,31 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
     // `findIndex` per item — on every render, which is every render with no drag
     // in flight. The arrays inside it are the references the reducer and
     // `lib/schedule` both work to preserve, so they say what actually moved.
-    const scheduledByTodoId = useMemo(
-        () =>
-            new Map(
-                shown.items.flatMap((item) => {
-                    const dayIndex = shown.days.findIndex((day) => day.id === item.dayId);
+    const { scheduledByTodoId, scheduledBySequenceId } = useMemo(() => {
+        const byTodoId = new Map();
+        const bySequenceId = new Map();
 
-                    // An item can name a day this payload never drew. As far as
-                    // anything on screen is concerned it is not scheduled.
-                    return dayIndex === -1 ? [] : [[item.todoId, { dayIndex }]];
-                })
-            ),
-        [shown.days, shown.items]
+        shown.items.forEach((item) => {
+            const dayIndex = shown.days.findIndex((day) => day.id === item.dayId);
+
+            // An item can name a day this payload never drew. As far as
+            // anything on screen is concerned it is not scheduled.
+            if (dayIndex === -1) return;
+
+            if (item.kind === 'sequence') bySequenceId.set(item.sequenceId, { dayIndex });
+            else byTodoId.set(item.todoId, { dayIndex });
+        });
+
+        return { scheduledByTodoId: byTodoId, scheduledBySequenceId: bySequenceId };
+    }, [shown.days, shown.items]);
+
+    /** The pool's copy of a sequence, for a booking's hover preview. */
+    const sequenceFor = useCallback(
+        (sequenceId) =>
+            pool.projects
+                .flatMap((project) => project.sequences ?? [])
+                .find((sequence) => sequence.sequenceId === sequenceId) ?? null,
+        [pool.projects]
     );
 
     /** What the drop would be, from the event, or null when it is over nothing. */
@@ -304,7 +319,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
 
             return {
                 kind,
-                todo: kind === DRAG_KIND.pool ? data.poolTodo : { todoId: data.bookingTodoId },
+                todo: kind === DRAG_KIND.pool ? data.poolTodo : refOfKey(data.bookingKey),
                 dayId: dropTarget.dayId,
                 startMinutes: minutesAtRect(geometry, activeRect, grid.getBoundingClientRect()),
             };
@@ -394,7 +409,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
             }
 
             if (dropTarget?.remove && dragKindOf(data) === DRAG_KIND.booking) {
-                unschedule(data.bookingTodoId);
+                unschedule(data.bookingKey);
                 return;
             }
 
@@ -426,12 +441,12 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
     // a state updater that throw is rethrown during render, where there is no
     // boundary above it.
     const handleResizePreview = useCallback(
-        (todoId, rect) => {
+        (key, rect) => {
             setPreview((current) => {
                 try {
                     return withStableTempDays(
                         current,
-                        resizeItem(scheduleOf(state), { todoId, ...rect })
+                        resizeItem(scheduleOf(state), { ...refOfKey(key), ...rect })
                     );
                 } catch (err) {
                     console.error('Could not preview this resize:', err);
@@ -451,13 +466,13 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
     // schedule holding an unnamed day, and `useCalendar` leaves that one to
     // escape on purpose.
     const handleResizeCommit = useCallback(
-        (todoId, rect) => {
+        (key, rect) => {
             setPreview(null);
 
             let next;
 
             try {
-                next = resizeItem(scheduleOf(state), { todoId, ...rect });
+                next = resizeItem(scheduleOf(state), { ...refOfKey(key), ...rect });
             } catch (err) {
                 console.error('Could not save this resize:', err);
                 return;
@@ -485,15 +500,15 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
     // would hand `toBulkRequest` a previous state it refuses, and the throw would
     // land further from a boundary than a drop's does.
     const resolveEdge = useCallback(
-        (todoId, edge) => {
+        (key, edge) => {
             if (hasUnsavedDay) return null;
 
-            const booked = committed.items.find((item) => item.todoId === todoId);
+            const booked = committed.items.find((item) => itemKeyOf(item) === key);
             if (!booked) return null;
 
             return {
                 item: booked,
-                floor: edge === EDGE.top ? topEdgeFloor(committed, todoId) : NO_FLOOR,
+                floor: edge === EDGE.top ? topEdgeFloor(committed, key) : NO_FLOOR,
             };
         },
         [committed, hasUnsavedDay]
@@ -542,6 +557,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
                                 isDropDisabled={hasUnsavedDay || isTempId(day.id)}
                                 resize={resize}
                                 notes={notes}
+                                sequenceFor={sequenceFor}
                             />
                         )}
                     />
@@ -559,7 +575,13 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
                     <ProjectPanel
                         pool={pool}
                         scheduledByTodoId={scheduledByTodoId}
-                        dragFor={(todo) => !scheduledByTodoId.has(todo.todoId)}
+                        scheduledBySequenceId={scheduledBySequenceId}
+                        onOpenSource={onOpenSource}
+                        dragFor={(item) =>
+                            item.kind === 'sequence'
+                                ? !scheduledBySequenceId.has(item.sequenceId)
+                                : !scheduledByTodoId.has(item.todoId)
+                        }
                         overlay={<RemoveOverlay isActive={isDraggingBooking} />}
                         expandedProjectIds={expandedProjectIds}
                         onToggleProject={onToggleProject}
@@ -589,6 +611,7 @@ const DroppableDayColumn = ({
     isDropDisabled,
     resize,
     notes,
+    sequenceFor,
 }) => {
     const isNoteDrag = activeKind === DRAG_KIND.note;
 
@@ -621,9 +644,10 @@ const DroppableDayColumn = ({
             }
             cardFor={(item) => (
                 <ResizableDayItemCard
-                    key={item.todoId}
+                    key={itemKeyOf(item)}
                     item={item}
                     onOpenSource={onOpenSource}
+                    sequence={item.kind === 'sequence' ? sequenceFor(item.sequenceId) : null}
                     {...resize}
                 />
             )}
@@ -646,17 +670,17 @@ const DroppableDayColumn = ({
  * thing to measure against — the same reason the drag previews from
  * `scheduleOf(state)` rather than from the last preview.
  */
-const ResizableDayItemCard = ({ item, schedule, onOpenSource, startResize }) => {
+const ResizableDayItemCard = ({ item, schedule, onOpenSource, startResize, sequence }) => {
     const { completeTodo } = useCalendarContext();
 
     // An item on screen that the saved schedule has never heard of is a pool row
     // inside a drag preview. There is no booking to resize yet, so the edges are
     // left off rather than pointed at one that does not exist.
-    const isBooked = schedule.items.some((other) => other.todoId === item.todoId);
+    const isBooked = schedule.items.some((other) => itemKeyOf(other) === itemKeyOf(item));
 
     const edgeProps = (edge) => ({
         handleProps: {
-            onPointerDown: (event) => startResize(item.todoId, edge, event),
+            onPointerDown: (event) => startResize(itemKeyOf(item), edge, event),
         },
     });
 
@@ -665,6 +689,7 @@ const ResizableDayItemCard = ({ item, schedule, onOpenSource, startResize }) => 
             item={item}
             onComplete={completeTodo}
             onOpenSource={onOpenSource}
+            sequence={sequence}
             isDraggable
             resize={isBooked ? { top: edgeProps(EDGE.top), bottom: edgeProps(EDGE.bottom) } : null}
         />

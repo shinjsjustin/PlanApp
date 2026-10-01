@@ -1,5 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 
+import { itemKeyOf } from '../lib/schedule';
+
 // The draggable wiring for the three things this page can lift: a pool row,
 // which has no booking yet, a booking already in a day, and a note ribbon in a
 // day's other plane. `data` is what `dragKindOf` reads to tell them apart on
@@ -18,10 +20,10 @@ export const usePoolDrag = (todo) => {
     return { setNodeRef, handleProps: { ...attributes, ...listeners } };
 };
 
-export const useBookingDrag = (todoId) => {
+export const useBookingDrag = (item) => {
     const { attributes, listeners, setNodeRef } = useDraggable({
-        id: `booking-${todoId}`,
-        data: { bookingTodoId: todoId },
+        id: item.kind === 'sequence' ? `booking-${itemKeyOf(item)}` : `booking-${item.todoId}`,
+        data: { bookingTodoId: item.todoId, bookingKey: itemKeyOf(item) },
     });
 
     return { setNodeRef, handleProps: { ...attributes, ...listeners } };

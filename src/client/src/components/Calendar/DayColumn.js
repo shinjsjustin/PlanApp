@@ -5,6 +5,7 @@ import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DeleteBubble from '../common/DeleteBubble';
 import NotePlane from './NotePlane';
+import { itemKeyOf } from '../../lib/schedule';
 import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
 import { useCalendarContext } from '../../state/CalendarContext';
 import { useDayGeometry } from '../../state/DayScaleContext';
@@ -166,7 +167,7 @@ const DayColumn = ({
                                 cardFor(item)
                             ) : (
                                 <DayItemCard
-                                    key={item.todoId}
+                                    key={itemKeyOf(item)}
                                     item={item}
                                     onComplete={completeTodo}
                                     onOpenSource={onOpenSource}

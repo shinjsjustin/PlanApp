@@ -2,6 +2,8 @@ import React from 'react';
 
 import { formatTime } from '../../lib/scheduleGeometry';
 import { useBookingDrag } from '../../hooks/useCalendarDrag';
+import useHoverPreview from '../../hooks/useHoverPreview';
+import SequencePreviewCard from './SequencePreviewCard';
 import { useDayGeometry } from '../../state/DayScaleContext';
 
 // One booking, drawn over the grid at the minute it starts and as tall as it
@@ -25,17 +27,20 @@ const TODO_COMPLETE = 'complete';
 //
 // `onOpenSource` is optional for the same reason: with nowhere to go the name is
 // plain text rather than a control that does nothing.
-const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = false, resize = null }) => {
+const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = false, resize = null, sequence = null }) => {
     // Unconditional, for the same reason `PanelTodoRow`'s is: `isDraggable`
     // decides what is rendered, never whether the hook runs. Inert outside a
     // `DndContext`, so a card rendered bare in a test is the graphic below.
-    const drag = useBookingDrag(item.todoId);
+    const drag = useBookingDrag(item);
+    const { isOpen, triggerProps } = useHoverPreview();
     const geometry = useDayGeometry();
 
+    const isSequence = item.kind === 'sequence';
     const isComplete = item.status === TODO_COMPLETE;
 
     const className = [
         'day-item-card',
+        isSequence ? 'day-item-card--sequence' : '',
         isComplete ? 'day-item-card--complete' : '',
         item.status === 'blocked' ? 'day-item-card--blocked' : '',
     ]
@@ -55,6 +60,7 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
                 height: `${geometry.minutesToPx(item.durationMinutes)}px`,
             }}
             ref={isDraggable ? drag.setNodeRef : undefined}
+            {...(isSequence ? triggerProps : {})}
         >
             {resize && (
                 <span
@@ -71,7 +77,7 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
                 ) : null}
                 {statusText ? <span className="calendar-sr-only">{statusText}</span> : null}
 
-                {isComplete ? (
+                {isSequence ? null : isComplete ? (
                     <button
                         type="button"
                         className="day-item-bubble day-item-bubble--done"
@@ -120,6 +126,12 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
                 {formatTime(item.startMinutes)}–
                 {formatTime(item.startMinutes + item.durationMinutes)}
             </span>
+
+            {isSequence && isOpen && sequence ? (
+                <div className="panel-sequence-preview">
+                    <SequencePreviewCard sequence={sequence} />
+                </div>
+            ) : null}
 
             {resize && (
                 <span
