@@ -62,7 +62,11 @@ const LayerRow = ({
         if (!isRevealRequested.current || !didGrow) return;
 
         isRevealRequested.current = false;
-        listRef.current?.lastElementChild?.scrollIntoView({
+        const lastCard = listRef.current?.lastElementChild;
+        // jsdom and older browsers have no scrollIntoView.
+        if (typeof lastCard?.scrollIntoView !== 'function') return;
+
+        lastCard.scrollIntoView({
             behavior: prefersReducedMotion() ? 'auto' : 'smooth',
             block: 'nearest',
             inline: 'nearest',

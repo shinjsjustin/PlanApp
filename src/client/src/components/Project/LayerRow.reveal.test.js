@@ -122,6 +122,16 @@ describe('LayerRow reveal of a new sequence', () => {
         expect(scrollIntoView).not.toHaveBeenCalled();
     });
 
+    test('does nothing when the card element has no scrollIntoView', () => {
+        delete Element.prototype.scrollIntoView;
+        const { rerender } = render(tree([first]));
+
+        expect(() => {
+            clickAdd();
+            rerender(tree([first, second]));
+        }).not.toThrow();
+    });
+
     test('uses auto behavior under prefers-reduced-motion: reduce', () => {
         window.matchMedia = jest.fn((query) => ({
             matches: query === '(prefers-reduced-motion: reduce)',
