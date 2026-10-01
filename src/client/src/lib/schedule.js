@@ -13,10 +13,12 @@
 // recomputed on every pointer move to draw the drag ghost (design decision 8).
 // The server does not repeat it; it checks that the layout it is handed is legal.
 //
-// State is `{ days: [{ id, position, ... }], items: [{ todoId, dayId,
-// startMinutes, durationMinutes, ... }] }`. Days are ordered left to right.
-// Items carry whatever display fields the caller put on them — this file only
-// ever reads the four scheduling fields and copies the rest across untouched.
+// State is `{ days: [{ id, position, ... }], items: [{ kind, todoId, sequenceId,
+// dayId, startMinutes, durationMinutes, ... }] }`. Days are ordered left to right.
+// An item is a to-do booking or, when `kind` is 'sequence', a sequence booking
+// with a null `todoId`. Identity is `itemKeyOf`, never `todoId` alone. Items carry
+// whatever display fields the caller put on them — this file only reads the
+// scheduling fields and the identity, and copies the rest across untouched.
 
 import { createTempId } from './tempIds';
 
@@ -70,6 +72,21 @@ export const boundDuration = (durationMinutes) =>
         ? Math.min(Math.max(durationMinutes, MIN_DURATION), MAX_DURATION)
         : durationMinutes;
 
+/**
+ * An item's identity. A to-do booking's `sequenceId` is its parent sequence, so
+ * `sequenceId` only identifies an item when `kind` says it is a sequence booking.
+ */
+export const itemKeyOf = (item) =>
+    item.kind === 'sequence' ? `sequence:${item.sequenceId}` : `todo:${item.todoId}`;
+
+/** A string that already starts with a kind is a key; anything else is a todoId. */
+const keyOfRef = (ref) =>
+    typeof ref === 'string' && /^(todo|sequence):/.test(ref) ? ref : `todo:${ref}`;
+
+/** The item named the way the error messages always have, by kind. */
+const nameOfKey = (key) =>
+    key.startsWith('sequence:') ? `Sequence ${key.slice(9)}` : `To-do ${key.slice(5)}`;
+
 const endOf = (item) => item.startMinutes + item.durationMinutes;
 
 /**
@@ -99,18 +116,18 @@ const endOf = (item) => item.startMinutes + item.durationMinutes;
  */
 const orderFor = (items, anchors) => {
     const anchorStarts = items
-        .filter((item) => anchors.has(item.todoId))
+        .filter((item) => anchors.has(itemKeyOf(item)))
         .map((item) => item.startMinutes);
 
     const groupStart = anchorStarts.length > 0 ? Math.min(...anchorStarts) : 0;
 
-    const keyOf = (item) => (anchors.has(item.todoId) ? groupStart : item.startMinutes);
+    const keyOf = (item) => (anchors.has(itemKeyOf(item)) ? groupStart : item.startMinutes);
 
     return [...items].sort((a, b) => {
         if (keyOf(a) !== keyOf(b)) return keyOf(a) - keyOf(b);
 
-        const aIsAnchor = anchors.has(a.todoId);
-        const bIsAnchor = anchors.has(b.todoId);
+        const aIsAnchor = anchors.has(itemKeyOf(a));
+        const bIsAnchor = anchors.has(itemKeyOf(b));
 
         if (aIsAnchor !== bIsAnchor) return aIsAnchor ? -1 : 1;
 
@@ -120,6 +137,9 @@ const orderFor = (items, anchors) => {
         return a.startMinutes - b.startMinutes;
     });
 };
+
+const itemLabel = (item) =>
+    item.kind === 'sequence' ? `sequence ${item.sequenceId}` : item.todoId;
 
 /** `JSON.stringify(NaN)` is the string "null"; a number should say what it is. */
 const describeValue = (value) =>
@@ -149,7 +169,7 @@ const describeValue = (value) =>
 const assertSchedulable = (item) => {
     if (!Number.isFinite(item.startMinutes) || !Number.isFinite(item.durationMinutes)) {
         throw new Error(
-            `Item ${item.todoId} needs a number for both startMinutes and ` +
+            `Item ${itemLabel(item)} needs a number for both startMinutes and ` +
                 `durationMinutes, got ${describeValue(item.startMinutes)} ` +
                 `and ${describeValue(item.durationMinutes)}`
         );
@@ -157,7 +177,7 @@ const assertSchedulable = (item) => {
 
     if (item.durationMinutes <= 0) {
         throw new Error(
-            `Item ${item.todoId} has a duration of ${item.durationMinutes}; ` +
+            `Item ${itemLabel(item)} has a duration of ${item.durationMinutes}; ` +
                 'it must be positive'
         );
     }
@@ -192,7 +212,7 @@ const assertSchedulable = (item) => {
 export const settleDay = (items, anchorTodoIds = []) => {
     items.forEach(assertSchedulable);
 
-    const anchors = new Set([].concat(anchorTodoIds));
+    const anchors = new Set([].concat(anchorTodoIds).map(keyOfRef));
 
     let cursor = 0;
 
@@ -258,7 +278,7 @@ const newDay = (position) => ({
 const assertFitsInADay = (item) => {
     if (item.durationMinutes > MAX_DURATION) {
         throw new Error(
-            `Item ${item.todoId} has a duration of ${item.durationMinutes}; ` +
+            `Item ${itemLabel(item)} has a duration of ${item.durationMinutes}; ` +
                 `it must be at most ${MAX_DURATION}`
         );
     }
@@ -293,7 +313,7 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
     let days = state.days;
     let items = state.items;
     let index = days.findIndex((day) => day.id === dayId);
-    let anchors = [].concat(anchorTodoIds);
+    let anchors = [].concat(anchorTodoIds).map(keyOfRef);
 
     if (index === -1) throw new Error(`No day with id ${dayId} to settle`);
 
@@ -316,7 +336,7 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
         const moved = rebaseToTop(overflow).map((item) => ({ ...item, dayId: next.id }));
 
         items = [...items, ...moved];
-        anchors = moved.map((item) => item.todoId);
+        anchors = moved.map(itemKeyOf);
         index += 1;
     }
 
@@ -379,10 +399,11 @@ export const assertIngestible = (item) => {
  * something unbooked is a wiring mistake in the caller, not a state to quietly
  * produce no change for, which would look like a drag that silently did nothing.
  */
-const requireBooking = (state, todoId) => {
-    const booking = state.items.find((item) => item.todoId === todoId);
+const requireBooking = (state, ref) => {
+    const key = keyOfRef(ref);
+    const booking = state.items.find((item) => itemKeyOf(item) === key);
 
-    if (!booking) throw new Error(`To-do ${todoId} is not booked`);
+    if (!booking) throw new Error(`${nameOfKey(key)} is not booked`);
 
     return booking;
 };
@@ -410,21 +431,25 @@ const requireBooking = (state, todoId) => {
  */
 export const placeFromPool = (
     state,
-    { todoId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display }
+    { todoId, kind, sequenceId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display }
 ) => {
-    if (state.items.some((item) => item.todoId === todoId)) {
-        throw new Error(`To-do ${todoId} is already booked`);
+    const key = itemKeyOf({ todoId, kind, sequenceId });
+
+    if (state.items.some((item) => itemKeyOf(item) === key)) {
+        throw new Error(`${nameOfKey(key)} is already booked`);
     }
 
     const booking = {
         ...display,
+        ...(kind === undefined ? {} : { kind }),
+        ...(sequenceId === undefined ? {} : { sequenceId }),
         todoId,
         dayId,
         startMinutes,
         durationMinutes: boundDuration(durationMinutes),
     };
 
-    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [todoId]);
+    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [key]);
 };
 
 /**
@@ -434,14 +459,15 @@ export const placeFromPool = (
  * leaves, which is the same asymmetry a shrink has: positions are what they are
  * drawn as, and nothing rearranges itself behind the user's back (decision 7).
  */
-export const moveItem = (state, { todoId, dayId, startMinutes }) => {
-    requireBooking(state, todoId);
+export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
+    const key = itemKeyOf(ref);
+    requireBooking(state, key);
 
     const items = state.items.map((item) =>
-        item.todoId === todoId ? { ...item, dayId, startMinutes } : item
+        itemKeyOf(item) === key ? { ...item, dayId, startMinutes } : item
     );
 
-    return spillFrom({ ...state, items }, dayId, [todoId]);
+    return spillFrom({ ...state, items }, dayId, [key]);
 };
 
 /**
@@ -454,25 +480,27 @@ export const moveItem = (state, { todoId, dayId, startMinutes }) => {
  * answer to: the geometry's clamp serves the rectangle on screen, and this bound
  * is the last thing between a pointer and the state tree.
  */
-export const resizeItem = (state, { todoId, startMinutes, durationMinutes }) => {
-    const existing = requireBooking(state, todoId);
+export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }) => {
+    const key = itemKeyOf(ref);
+    const existing = requireBooking(state, key);
     const bounded = boundDuration(durationMinutes);
 
     const items = state.items.map((item) =>
-        item.todoId === todoId ? { ...item, startMinutes, durationMinutes: bounded } : item
+        itemKeyOf(item) === key ? { ...item, startMinutes, durationMinutes: bounded } : item
     );
 
-    return spillFrom({ ...state, items }, existing.dayId, [todoId]);
+    return spillFrom({ ...state, items }, existing.dayId, [key]);
 };
 
 /**
  * Releases a booking — the drop on the pool's remove overlay. Nothing is
  * settled: the day keeps the gap, for the same reason a move does.
  */
-export const unscheduleItem = (state, todoId) => {
-    requireBooking(state, todoId);
+export const unscheduleItem = (state, ref) => {
+    const key = keyOfRef(ref);
+    requireBooking(state, key);
 
-    return { ...state, items: state.items.filter((item) => item.todoId !== todoId) };
+    return { ...state, items: state.items.filter((item) => itemKeyOf(item) !== key) };
 };
 
 /**
@@ -484,14 +512,15 @@ export const unscheduleItem = (state, todoId) => {
  * gesture, and would make the item above move when the user was dragging the one
  * below.
  */
-export const topEdgeFloor = (state, todoId) => {
-    const booking = requireBooking(state, todoId);
+export const topEdgeFloor = (state, ref) => {
+    const key = keyOfRef(ref);
+    const booking = requireBooking(state, key);
 
     const above = state.items
         .filter(
             (other) =>
                 other.dayId === booking.dayId &&
-                other.todoId !== todoId &&
+                itemKeyOf(other) !== key &&
                 other.startMinutes < booking.startMinutes
         )
         .sort((a, b) => a.startMinutes - b.startMinutes);
