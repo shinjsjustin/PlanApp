@@ -28,7 +28,7 @@ const UPDATABLE_COLUMNS = {
 };
 
 const SELECT_COLUMNS =
-    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, position, ' +
+    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, is_pinned, position, ' +
     'created_at, updated_at';
 
 const findById = async (conn, id) => {
@@ -148,6 +148,20 @@ const update = async (conn, id, patch) => {
     return findById(conn, id);
 };
 
+/** Pins or unpins all named sequences in one statement. */
+const setPinned = async (conn, ids, isPinned) => {
+    if (ids.length === 0) return 0;
+
+    const placeholders = ids.map(() => '?').join(', ');
+    // `query` rather than `execute`: the placeholder count varies per call.
+    const [result] = await conn.query(
+        `UPDATE sequences SET is_pinned = ? WHERE id IN (${placeholders})`,
+        [Number(Boolean(isPinned)), ...ids]
+    );
+
+    return result.affectedRows;
+};
+
 /**
  * Puts a sequence at a position in a layer — the verb behind dragging a card
  * from one band to another, and behind reordering one within its band.
@@ -229,6 +243,7 @@ module.exports = {
     listByProject,
     listIds,
     move,
+    setPinned,
     update,
     remove,
 };

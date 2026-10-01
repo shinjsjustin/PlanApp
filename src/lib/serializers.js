@@ -45,6 +45,7 @@ const toSequence = (row) => ({
     description: row.description ?? null,
     isBlocked: Boolean(row.is_blocked),
     isCollapsed: Boolean(row.is_collapsed),
+    isPinned: Boolean(row.is_pinned),
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

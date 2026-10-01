@@ -45,6 +45,12 @@
 -- at, so re-running this file against such a database cannot fail on the foreign
 -- keys it holds.
 --
+-- A database created before sequence pins is missing the sequence pin flag, and
+-- calendar bookings cannot yet point at a sequence. Apply in place rather than
+-- re-running this file (db/migration/2026-10-01_add_sequence_pins.sql). A booking
+-- is for a to-do or a sequence; there is no CHECK saying so, because MySQL forbids
+-- CHECK constraints on columns used by cascading foreign keys.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -121,6 +127,7 @@ CREATE TABLE `sequences` (
   `description` text DEFAULT NULL,
   `is_blocked` tinyint(1) NOT NULL DEFAULT '0',
   `is_collapsed` tinyint(1) NOT NULL DEFAULT '0',
+  `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
   `position` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -197,18 +204,22 @@ CREATE TABLE `calendar_days` (
 CREATE TABLE `calendar_items` (
   `id`               int unsigned NOT NULL AUTO_INCREMENT,
   `day_id`           int unsigned NOT NULL,
-  `todo_id`          int unsigned NOT NULL,
+  `todo_id`          int unsigned DEFAULT NULL,
+  `sequence_id`      int unsigned DEFAULT NULL,
   `start_minutes`    int NOT NULL,
   `duration_minutes` int NOT NULL,
   `created_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_calendar_items_todo` (`todo_id`),
+  UNIQUE KEY `uq_calendar_items_sequence` (`sequence_id`),
   KEY `idx_calendar_items_day_start` (`day_id`, `start_minutes`),
   CONSTRAINT `fk_calendar_items_day`
     FOREIGN KEY (`day_id`) REFERENCES `calendar_days` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_calendar_items_todo`
-    FOREIGN KEY (`todo_id`) REFERENCES `todos` (`id`) ON DELETE CASCADE
+    FOREIGN KEY (`todo_id`) REFERENCES `todos` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_calendar_items_sequence`
+    FOREIGN KEY (`sequence_id`) REFERENCES `sequences` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -- calendar_notes --------------------------------------------------------

@@ -54,6 +54,7 @@ describe('serializers', () => {
                 description: null,
                 is_blocked: 1,
                 is_collapsed: 0,
+                is_pinned: 1,
                 position: 2,
                 created_at: 'then',
                 updated_at: 'later',
@@ -71,6 +72,7 @@ describe('serializers', () => {
                 description: null,
                 isBlocked: true,
                 isCollapsed: false,
+                isPinned: true,
                 position: 2,
                 createdAt: 'then',
                 updatedAt: 'later',
@@ -79,6 +81,11 @@ describe('serializers', () => {
 
         test('reports an unblocked sequence as false, not 0', () => {
             expect(toSequence({ is_blocked: 0 }).isBlocked).toBe(false);
+        });
+
+        test('turns is_pinned into a boolean', () => {
+            expect(toSequence({ is_pinned: 1 }).isPinned).toBe(true);
+            expect(toSequence({ is_pinned: 0 }).isPinned).toBe(false);
         });
 
         test('turns is_collapsed into a boolean too', () => {
