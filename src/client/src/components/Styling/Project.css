@@ -615,3 +615,25 @@
     background: #b00020;
     color: #fff;
 }
+
+.todo-note {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: var(--space-xs) 0 0;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font: inherit;
+    white-space: pre-wrap;
+    resize: vertical;
+}
+
+.todo-note:focus {
+    border-color: var(--color-primary);
+    outline: 2px solid var(--color-primary);
+    outline-offset: var(--space-xs);
+}

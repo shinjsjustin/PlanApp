@@ -205,6 +205,15 @@ const useProjectMutations = () => {
         [updateEntity]
     );
 
+    const updateTodoNote = useCallback(
+        (todoId, note) =>
+            updateEntity('todos', todoId, {
+                path: `/todos/${todoId}`,
+                changes: { note: note.trim() || null },
+            }),
+        [updateEntity]
+    );
+
     const updateProjectDescription = useCallback(
         (description) => {
             const trimmedDescription = description.trim();
@@ -269,6 +278,7 @@ const useProjectMutations = () => {
             setTodosPinned,
             deleteAllUnorganized: removeUnorganizedTodos,
             updateProjectDescription,
+            updateTodoNote,
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
@@ -288,6 +298,7 @@ const useProjectMutations = () => {
             setTodosPinned,
             removeUnorganizedTodos,
             updateProjectDescription,
+            updateTodoNote,
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
