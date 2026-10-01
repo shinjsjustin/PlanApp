@@ -164,7 +164,7 @@ describe('usePool', () => {
         const { result } = await renderReady();
 
         // Assert
-        expect(api.get).toHaveBeenCalledWith('/projects');
+        expect(api.get).toHaveBeenCalledWith('/projects?include=pinnedSequences');
         expect(result.current.projects[0].todos).toEqual([
             {
                 todoId: 7,
@@ -228,6 +228,7 @@ describe('usePool', () => {
             id: 3,
             title: 'Empty project',
             todos: [],
+            sequences: [],
         });
     });
 

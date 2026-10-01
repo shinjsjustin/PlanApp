@@ -7,7 +7,9 @@ import { api } from '../lib/api';
 // There is no calendar-specific pool endpoint. `GET /api/projects` already
 // carries each project's pinned to-dos, which are the same explicit choices the
 // projects home page shows. Every pin stays visible regardless of lifecycle
-// status or whether it belongs to a sequence.
+// status or whether it belongs to a sequence. Asking for
+// `include=pinnedSequences` makes the pool carry pinned sequences too, in the
+// same single request, so the settled-read invariant covers them as well.
 //
 // Loaded separately from the calendar, and failing separately: a calendar you
 // cannot schedule into is still worth reading, and a pool you cannot drag from
@@ -35,6 +37,21 @@ const toPoolProjects = (projects) =>
             projectTitle: project.title,
             sequenceId: todo.sequenceId,
             sequenceTitle: todo.sequenceTitle,
+        })),
+        sequences: (project.pinnedSequences ?? []).map((sequence) => ({
+            kind: 'sequence',
+            sequenceId: sequence.id,
+            todoId: null,
+            text: sequence.title,
+            title: sequence.title,
+            description: sequence.description,
+            isBlocked: sequence.isBlocked,
+            isPinned: sequence.isPinned,
+            layerId: sequence.layerId,
+            position: sequence.position,
+            projectId: project.id,
+            projectTitle: project.title,
+            todos: sequence.todos.map((todo) => ({ ...todo })),
         })),
     }));
 
@@ -88,7 +105,7 @@ const INITIAL_POOL = {
 /** Reads pinned projects, turning either ending into a value rather than a throw. */
 const readPinnedProjects = async () => {
     try {
-        return { projects: toPoolProjects(await api.get('/projects')) };
+        return { projects: toPoolProjects(await api.get('/projects?include=pinnedSequences')) };
     } catch (err) {
         return { error: messageOf(err) };
     }
