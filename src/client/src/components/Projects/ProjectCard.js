@@ -7,17 +7,10 @@ import DeleteBubble from '../common/DeleteBubble';
 // interactions and shows their failures inline; `onRename` and `onDelete` do the
 // call and are expected to reject when it fails.
 //
-// At rest the card is the project's name and nothing else. Hovering it — or
-// tabbing to its title — drops a panel down holding the overall to-do progress,
-// the description, and the to-dos the user pinned. The server supplies pins in
+// The card is fully expanded: title, overall to-do progress, description and the
+// to-dos the user pinned are always in normal flow. The server supplies pins in
 // project order; the card preserves that order rather than inventing a second
-// priority model.
-//
-// The reveal is entirely CSS, in `Styling/Projects.css`. Nothing here knows
-// whether the panel is open, because nothing here needs to: it holds no
-// controls, and it stays in the accessibility tree whether it is showing or
-// not — collapsed with `opacity`, deliberately not with `visibility`, which
-// would take it out of the reading order along with the screen.
+// priority model. Only Rename is hover-revealed, in `Styling/Projects.css`.
 
 const MODES = { idle: 'idle', renaming: 'renaming', confirmingDelete: 'confirmingDelete' };
 
@@ -154,44 +147,15 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
                         </h3>
                     </div>
 
-                    {/* Everything but the name. A grid of twenty projects is a
-                        list of names to choose from; the detail is what you want
-                        about the one you are pointing at, not about all twenty
-                        at once.
+                    <p className="project-card-progress">
+                        {`${project.completedTodoCount}/${project.todoCount} to-dos done`}
+                    </p>
 
-                        It stays in the DOM and in the accessibility tree
-                        throughout — the collapse is visual density, not
-                        information hiding, so nothing here is `hidden` and the
-                        CSS is careful to keep it that way. Nothing in it is
-                        interactive, which is what lets the whole panel be part
-                        of the way into the project. */}
-                    <div className="project-card-reveal">
-                        {/* The panel is part of the card, so a click on it goes
-                            where a click on the card face goes. The title's
-                            stretched `::after` cannot reach here — it is
-                            `inset: 0` on the card, and the panel hangs below
-                            that box — so the panel carries the same hit area of
-                            its own. Out of the reading order and out of the
-                            accessibility tree: the title link already says where
-                            this goes, and a second link saying it again is noise
-                            to anyone not using a pointer. */}
-                        <Link
-                            className="project-card-reveal-link"
-                            to={`/projects/${project.id}`}
-                            tabIndex={-1}
-                            aria-hidden="true"
-                        />
+                    {project.description && (
+                        <p className="project-card-description">{project.description}</p>
+                    )}
 
-                        <p className="project-card-progress">
-                            {`${project.completedTodoCount}/${project.todoCount} to-dos done`}
-                        </p>
-
-                        {project.description && (
-                            <p className="project-card-description">{project.description}</p>
-                        )}
-
-                        <PinnedBlock project={project} />
-                    </div>
+                    <PinnedBlock project={project} />
                 </>
             )}
 
@@ -205,7 +169,7 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
                 open over the card, deleting is not one of the choices. */}
             {mode === MODES.idle && (
                 <>
-                    <div className={`project-card-actions ${RAISED}`}>
+                    <div className={`project-card-actions project-card-hover-control ${RAISED}`}>
                         <button type="button" onClick={startRenaming}>
                             Rename
                         </button>

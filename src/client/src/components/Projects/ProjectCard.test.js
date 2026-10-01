@@ -82,10 +82,6 @@ const deleteBubble = () => screen.getByRole('button', { name: 'Delete “Build a
  * the parts of the card that have not been lifted back above it. The click
  * itself is covered in `tests/e2e/criticalFlow.spec.js`, in a real browser.
  *
- * The drop-down panel is covered by a stretched link of its own rather than by
- * the title's, because the title's `::after` is `inset: 0` on the card and the
- * panel hangs below that box. Resolving a click in the panel to the title's link
- * here would model a hit test no browser performs.
  *
  * Returns the stretched link, or null when the click lands on a control of its
  * own instead.
@@ -96,9 +92,6 @@ const stretchedLinkTargetFor = (element) => {
     if (!card || card.classList.contains('project-card--editing')) return null;
     if (element.closest('.project-card-raised, .delete-bubble')) return null;
     if (element.closest('a')) return element.closest('a');
-
-    const reveal = element.closest('.project-card-reveal');
-    if (reveal) return reveal.querySelector('.project-card-reveal-link');
 
     return card.querySelector('.project-card-title a');
 };
@@ -115,17 +108,32 @@ describe('ProjectCard', () => {
         expect(screen.getByText('1/4 to-dos done')).toBeInTheDocument();
     });
 
-    test('keeps the progress out of the title block, in the reveal panel instead', () => {
+    test('renders the progress in the card, outside the title block', () => {
         // Arrange & Act
         renderCard();
 
-        // Assert — spec section 8 moved overall progress out of the title block
-        // and into the hover/focus reveal, so the collapsed face is the name alone.
+        // Assert
         const heading = screen.getByRole('heading', { name: 'Build a drone' });
         expect(heading.closest('.project-card-heading')).not.toHaveTextContent('1/4 to-dos done');
+        expect(screen.getByText('1/4 to-dos done').closest('.project-card')).not.toBeNull();
+    });
 
-        const progress = screen.getByText('1/4 to-dos done');
-        expect(progress.closest('.project-card-reveal')).not.toBeNull();
+    test('has no drop-down panel: nothing in the card is a reveal wrapper', () => {
+        // Arrange & Act
+        renderCard();
+
+        // Assert
+        expect(document.querySelector('[class*="reveal"]')).toBeNull();
+    });
+
+    test('puts Rename inside the hover control', () => {
+        // Arrange & Act
+        renderCard();
+
+        // Assert
+        const control = screen.getByRole('button', { name: /rename/i }).closest('.project-card-hover-control');
+        expect(control).not.toBeNull();
+        expect(control.closest('.project-card')).not.toBeNull();
     });
 
     test('links its title through to the project page', () => {
@@ -214,26 +222,15 @@ describe('ProjectCard', () => {
         });
     });
 
-    test('keeps pins in a reveal panel rather than on the collapsed face', () => {
-        // Arrange & Act
-        renderCard();
-
-        // Assert — the title is the card's face; everything else is in the reveal,
-        // which is present for a screen reader and hidden only by CSS.
-        const title = screen.getByRole('link', { name: project.title });
-        expect(title.closest('.project-card-reveal')).toBeNull();
-
-        const pinnedEntry = screen.getByText('Learn electronics');
-        expect(pinnedEntry.closest('.project-card-reveal')).not.toBeNull();
-    });
-
-    test('keeps the progress line out of the collapsed face too', () => {
+    test('renders description and pins in the card, not inside the title heading', () => {
         // Arrange & Act
         renderCard();
 
         // Assert
-        const progress = screen.getByText(/to-dos done/);
-        expect(progress.closest('.project-card-reveal')).not.toBeNull();
+        const card = screen.getByRole('link', { name: project.title }).closest('.project-card');
+        expect(within(card).getByText('Layered plan')).toBeInTheDocument();
+        expect(within(card).getByText('Learn electronics')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: project.title })).not.toHaveTextContent('Layered plan');
     });
 
     describe('the pinned list', () => {

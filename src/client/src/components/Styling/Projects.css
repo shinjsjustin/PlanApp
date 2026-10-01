@@ -120,8 +120,7 @@
     z-index: 1;
 }
 
-/* Title block: just the project's name at rest. Everything else — progress,
- * description, pins — lives in `.project-card-reveal` below. */
+/* Title block: the project's name. */
 .project-card-heading {
     display: flex;
     align-items: baseline;
@@ -272,105 +271,33 @@
     font-size: 0.85rem;
 }
 
-/* -- The card's drop-down --------------------------------------------------
- *
- * A card at rest is a name. Everything else — the progress line, the
- * description, the pinned work — hangs below it and appears while the card is
- * pointed at or its title is focused.
- *
- * It DROPS rather than expands: an in-flow panel would grow the card and reflow
- * every other card in its grid row on hover, so this is taken out of the flow and
- * overlays the cards below instead. `left`/`right` of -1px make it flush with the
- * card's border rather than inset by it.
+/*
+ * Rename is shown on hover or focus, mirroring `DeleteBubble.css`. Hidden with
+ * `opacity` and `pointer-events` only — never `display` or `visibility` — so it
+ * stays in the tab order, and tabbing to it reveals it via `:focus-within`.
  */
-.project-card-reveal {
-    position: absolute;
-    top: 100%;
-    left: -1px;
-    right: -1px;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0 1rem;
-    border: 1px solid #4a7bd0;
-    border-top: 0;
-    border-radius: 0 0 8px 8px;
-    background: #fff;
-    box-shadow: 0 8px 16px -8px rgba(20, 40, 80, 0.25);
+.project-card-hover-control {
     opacity: 0;
-    /* Not `visibility: hidden`, which would drop the panel out of the
-     * accessibility tree along with the screen — a screen reader browsing the
-     * grid would then get project names and nothing else, since browse mode
-     * moves its own cursor without moving DOM focus and never fires the
-     * `:focus-within` below. Transparent instead, and unclickable, so it is
-     * collapsed visually while staying in the reading order. */
     pointer-events: none;
-    transition: opacity 150ms ease;
+    transition: opacity 120ms ease;
 }
 
-/*
- * The panel's own share of the card-wide link. The title's `::after` is
- * `inset: 0` on `.project-card`, and the panel hangs below that box at
- * `top: 100%`, so the overlay over the card face stops at the panel's top edge.
- * Without this the drop-down would be the one part of a revealed card where a
- * click did nothing — and, sitting above the grid row below it, a click that
- * reached nothing else either.
- *
- * Positioned, so it paints over the panel's text without needing a `z-index`.
- * `pointer-events` is deliberately left unset: it inherits the panel's, which is
- * `none` until the panel opens.
- */
-.project-card-reveal-link {
-    position: absolute;
-    inset: 0;
-    border-radius: 0 0 8px 8px;
-}
-
-/*
- * Two ways in, like the delete bubble: hovering is the pointer's, and
- * `:focus-within` is the keyboard's — the title link already stretches over the
- * whole card, so tabbing to it opens the panel with no extra control.
- */
-.project-card:hover .project-card-reveal,
-.project-card:focus-within .project-card-reveal {
-    padding: 0.75rem 1rem 1rem;
+.project-card:hover .project-card-hover-control,
+.project-card:focus-within .project-card-hover-control {
     opacity: 1;
     pointer-events: auto;
 }
 
-/*
- * An open panel has to sit above the cards beside and below it, and a grid item
- * cannot lift its own overlay without lifting itself. 2 rather than 1: an
- * in-card raised control (`.project-card-raised`) sits at 1, and the active
- * card's own stacking context has to clear that too.
- */
-.project-card:hover,
-.project-card:focus-within {
-    z-index: 2;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .project-card-reveal {
-        transition: none;
+@media (hover: none) {
+    .project-card-hover-control {
+        opacity: 1;
+        pointer-events: auto;
     }
 }
 
-/*
- * No hover to open on, so there is nothing to open: the panel is simply part of
- * the card. Absolute positioning has to go with it — a permanently-open overlay
- * would cover the card below it forever.
- */
-@media (hover: none) {
-    .project-card-reveal {
-        position: static;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: none;
-        box-shadow: none;
-        opacity: 1;
-        pointer-events: auto;
+@media (prefers-reduced-motion: reduce) {
+    .project-card-hover-control {
+        transition: none;
     }
 }
 
