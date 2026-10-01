@@ -15,6 +15,9 @@ const DESCRIPTION_MAX_LENGTH = 2000;
 const TODO_TEXT_MAX_LENGTH = 500;
 const TODO_NOTE_MAX_LENGTH = 5000;
 const TODO_PIN_BATCH_MAX_SIZE = 100;
+const PLAN_SCHEMA_MAX_LENGTH = 20000;
+const PLAN_SCHEMA_MAX_SEQUENCES = 50;
+const PLAN_SCHEMA_MAX_TODOS = 500;
 
 /** Mirrors the `todos.status` enum in the schema. */
 const TODO_STATUSES = ['incomplete', 'complete', 'blocked'];
@@ -101,7 +104,14 @@ const requireSomeField = (schema, fields) =>
         message: `supply at least one of: ${fields.join(', ')}`,
     });
 
+const planSchemaTextSchema = z
+    .string({ error: 'schema is required' })
+    .max(PLAN_SCHEMA_MAX_LENGTH, `schema must be at most ${PLAN_SCHEMA_MAX_LENGTH} characters`);
+
 module.exports = {
+    PLAN_SCHEMA_MAX_LENGTH,
+    PLAN_SCHEMA_MAX_SEQUENCES,
+    PLAN_SCHEMA_MAX_TODOS,
     DESCRIPTION_MAX_LENGTH,
     TITLE_MAX_LENGTH,
     TODO_NOTE_MAX_LENGTH,
@@ -112,6 +122,7 @@ module.exports = {
     descriptionSchema,
     idSchema,
     parseId,
+    planSchemaTextSchema,
     requireSomeField,
     titleSchema,
     todoNoteSchema,

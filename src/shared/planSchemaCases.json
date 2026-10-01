@@ -1,0 +1,32 @@
+[
+    {
+        "name": "several sequences",
+        "layer": { "title": "Launch" },
+        "sequences": [
+            { "title": "Design", "todos": ["Sketch home", "Pick colors"] },
+            { "title": "Build", "todos": ["Wire API"] }
+        ],
+        "schema": "## Launch\n\n### Design\n- Sketch home\n- Pick colors\n\n### Build\n- Wire API\n"
+    },
+    {
+        "name": "an empty sequence",
+        "layer": { "title": "Launch" },
+        "sequences": [
+            { "title": "Design", "todos": ["Sketch home"] },
+            { "title": "Later", "todos": [] }
+        ],
+        "schema": "## Launch\n\n### Design\n- Sketch home\n\n### Later\n"
+    },
+    {
+        "name": "an empty layer",
+        "layer": { "title": "Nothing yet" },
+        "sequences": [],
+        "schema": "## Nothing yet\n"
+    },
+    {
+        "name": "a todo starting with a hash",
+        "layer": { "title": "Tags" },
+        "sequences": [{ "title": "Notes", "todos": ["#1 priority", "## not a heading"] }],
+        "schema": "## Tags\n\n### Notes\n- #1 priority\n- ## not a heading\n"
+    }
+]
