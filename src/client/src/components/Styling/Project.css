@@ -616,6 +616,28 @@
     color: #fff;
 }
 
+.import-dialog {
+    width: min(36rem, 100%);
+}
+
+.import-dialog-text {
+    display: block;
+    width: 100%;
+    margin: 0 0 var(--space-md);
+    padding: var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: var(--font-sm);
+    resize: vertical;
+}
+
+.import-dialog-error {
+    margin: 0 0 var(--space-md);
+    font-size: var(--font-sm);
+    color: var(--color-danger);
+}
+
 .todo-note {
     display: block;
     width: 100%;
