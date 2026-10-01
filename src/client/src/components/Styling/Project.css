@@ -637,3 +637,31 @@
     outline: 2px solid var(--color-primary);
     outline-offset: var(--space-xs);
 }
+
+/* The row is a flex line; an open note wraps onto a full-width line beneath it. */
+.todo-item--note-open {
+    flex-wrap: wrap;
+}
+
+.todo-item-note {
+    flex: 0 0 100%;
+    min-width: 0;
+}
+
+.todo-item-text--toggle {
+    cursor: pointer;
+}
+
+.todo-item-note-toggle {
+    flex: 0 0 auto;
+    padding: 0 var(--space-xs);
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.todo-item-note-toggle:hover {
+    color: var(--text-primary);
+}

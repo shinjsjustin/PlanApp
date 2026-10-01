@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import DeleteBubble from '../common/DeleteBubble';
 import useProjectMutations from '../../hooks/useProjectMutations';
+import TodoNote from './TodoNote';
+import { PIN_MODE, usePinSelectionContext } from './PinSelectionContext';
 import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 import { TODO_STATUS } from '../../lib/graph';
 
@@ -51,6 +53,29 @@ const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
     const { setTodoStatus, moveTodoToUnorganized, deleteTodo } = useProjectMutations();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const pinRow = usePinRow(todo);
+    const [isNoteOpen, setIsNoteOpen] = useState(false);
+    const { mode } = usePinSelectionContext();
+    const isIdle = mode === PIN_MODE.idle;
+    const isDragging = Boolean(drag?.isDragging);
+    const hasNote = Boolean(todo.note);
+
+    // A note is only for reading a row at rest; TodoNote saves a pending edit
+    // when it unmounts.
+    useEffect(() => {
+        if (!isIdle || isDragging) setIsNoteOpen(false);
+    }, [isIdle, isDragging]);
+
+    const toggleNote = () => {
+        if (!isIdle) return;
+        setIsNoteOpen((open) => !open);
+    };
+
+    const handleTextKeyDown = (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        toggleNote();
+    };
 
     const isFiled = todo.sequenceId !== null;
     const isComplete = todo.status === TODO_STATUS.complete;
@@ -88,6 +113,7 @@ const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
         `todo-item--${todo.status}`,
         drag?.isDragging ? 'todo-item--dragging' : '',
         isTopPinned ? 'todo-row--top-pinned' : '',
+        isNoteOpen ? 'todo-item--note-open' : '',
         pinRow.rowClassName,
     ]
         .filter(Boolean)
@@ -134,7 +160,27 @@ const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
                     {isComplete && <span aria-hidden="true">{CHECK}</span>}
                 </button>
 
-                <span className="todo-item-text">{todo.text}</span>
+                <span
+                    className="todo-item-text todo-item-text--toggle"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isNoteOpen}
+                    onClick={toggleNote}
+                    onKeyDown={handleTextKeyDown}
+                >
+                    {todo.text}
+                </span>
+
+                {hasNote && (
+                    <button
+                        type="button"
+                        className="todo-item-note-toggle"
+                        aria-label={`${isNoteOpen ? 'Hide' : 'Show'} note for “${todo.text}”`}
+                        onClick={toggleNote}
+                    >
+                        {isNoteOpen ? '▴' : '▾'}
+                    </button>
+                )}
 
                 <PinIcon todo={todo} />
 
@@ -188,6 +234,12 @@ const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
                     </ul>
                 )}
             </PinRowContent>
+
+            {isNoteOpen && (
+                <div className="todo-item-note">
+                    <TodoNote todo={todo} />
+                </div>
+            )}
 
             {pinRow.control}
         </li>
