@@ -128,6 +128,7 @@ describe('project pinnedTodos payloads', () => {
         });
         expect(Object.keys(response.body.data[0]).sort()).toEqual(
             [
+                'color',
                 'completedTodoCount',
                 'createdAt',
                 'description',
