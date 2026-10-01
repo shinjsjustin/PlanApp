@@ -40,6 +40,22 @@ const findById = async (conn, id) => {
     return firstRow(rows);
 };
 
+/** Rows for the given ids in id order; `forUpdate` takes a locking read inside a transaction. */
+const findByIds = async (conn, ids, { forUpdate = false } = {}) => {
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map(() => '?').join(', ');
+    // `query` rather than `execute`: the placeholder count varies per call.
+    const [rows] = await conn.query(
+        `SELECT ${SELECT_COLUMNS} FROM sequences
+         WHERE id IN (${placeholders})
+         ORDER BY id${forUpdate ? ' FOR UPDATE' : ''}`,
+        ids
+    );
+
+    return rows;
+};
+
 const listByLayer = async (conn, layerId) => {
     const [rows] = await conn.execute(
         `SELECT ${SELECT_COLUMNS} FROM sequences
@@ -253,6 +269,7 @@ const remove = async (conn, id) => {
 module.exports = {
     create,
     findById,
+    findByIds,
     listByLayer,
     listByOwner,
     listByProject,

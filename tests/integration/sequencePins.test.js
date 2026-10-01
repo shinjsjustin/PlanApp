@@ -58,6 +58,48 @@ describe('sequence pins', () => {
         expect(await sequencesRepo.setPinned(conn, [], true)).toBe(0);
     });
 
+    test('findByIds returns rows in id order and skips unknown ids', async () => {
+        const conn = getConn();
+        const { layer } = await createFixture(conn);
+        const [one, two, three] = await createSequences(conn, layer.id);
+
+        const rows = await sequencesRepo.findByIds(conn, [three.id, one.id, 999999999]);
+
+        expect(rows.map((row) => row.id)).toEqual([one.id, three.id]);
+        expect(rows[0]).toMatchObject({ title: 'One', is_pinned: 0 });
+        expect(two.id).not.toBe(rows[1].id);
+    });
+
+    test('findByIds with no ids returns [] without querying', async () => {
+        const conn = getConn();
+        const executeSpy = jest.spyOn(conn, 'execute');
+        const querySpy = jest.spyOn(conn, 'query');
+
+        expect(await sequencesRepo.findByIds(conn, [])).toEqual([]);
+        expect(executeSpy).not.toHaveBeenCalled();
+        expect(querySpy).not.toHaveBeenCalled();
+
+        executeSpy.mockRestore();
+        querySpy.mockRestore();
+    });
+
+    test('findByIds reads in one statement and locks only when forUpdate is set', async () => {
+        const conn = getConn();
+        const { layer } = await createFixture(conn);
+        const [one, two] = await createSequences(conn, layer.id);
+        const querySpy = jest.spyOn(conn, 'query');
+
+        const locked = await sequencesRepo.findByIds(conn, [two.id, one.id], { forUpdate: true });
+        const plain = await sequencesRepo.findByIds(conn, [two.id, one.id]);
+
+        expect(locked.map((row) => row.id)).toEqual([one.id, two.id]);
+        expect(plain.map((row) => row.id)).toEqual([one.id, two.id]);
+        expect(querySpy).toHaveBeenCalledTimes(2);
+        expect(querySpy.mock.calls[0][0]).toMatch(/ORDER BY id FOR UPDATE\s*$/);
+        expect(querySpy.mock.calls[1][0]).not.toMatch(/FOR UPDATE/);
+        querySpy.mockRestore();
+    });
+
     test('the project graph reports isPinned per sequence', async () => {
         const conn = getConn();
         const { ownerId, project, layer } = await createFixture(conn);

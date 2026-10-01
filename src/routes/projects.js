@@ -340,9 +340,7 @@ router.put(
             if (!isPinned) await calendarItemsRepo.removeBySequenceIds(conn, sequenceIds);
 
             const todos = await todosRepo.findByIds(conn, todoIds, { forUpdate: true });
-            const sequences = await Promise.all(
-                [...sequenceIds].sort((a, b) => a - b).map((id) => sequencesRepo.findById(conn, id))
-            );
+            const sequences = await sequencesRepo.findByIds(conn, sequenceIds, { forUpdate: true });
             return { todos: todos.map(toTodo), sequences: sequences.map(toSequence) };
         });
 
