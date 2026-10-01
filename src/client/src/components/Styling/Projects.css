@@ -125,9 +125,9 @@
     display: flex;
     align-items: baseline;
     gap: 0.5rem;
-    /* The delete ×'s corner, reserved whether or not the bubble is showing, so
-     * the title never reflows on hover. */
-    padding-right: 1.5rem;
+    /* Reserves the corner for both the delete × and the palette button, whether
+     * or not they're showing, so the title never reflows on hover. */
+    padding-right: 3.5rem;
 }
 
 .project-card-title {
@@ -365,11 +365,6 @@
     font-size: var(--font-sm);
     line-height: 1;
     cursor: pointer;
-}
-
-/* The title also clears the palette button. */
-.project-card-heading {
-    padding-right: 3.5rem;
 }
 
 /* The open palette floats over neighbouring cards. */
