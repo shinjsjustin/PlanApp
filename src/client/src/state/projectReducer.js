@@ -27,6 +27,8 @@ export const PROJECT_ACTIONS = {
     projectUpdated: 'projectUpdated',
     todosPinned: 'todosPinned',
     todosReconciled: 'todosReconciled',
+    pinsSet: 'pinsSet',
+    sequencesReconciled: 'sequencesReconciled',
     entityRemoved: 'entityRemoved',
     entityReconciled: 'entityReconciled',
     rolledBack: 'rolledBack',
@@ -102,6 +104,28 @@ const assertPresent = (state, collection, id) => {
 const withoutKey = (collection, id) =>
     Object.fromEntries(Object.entries(collection).filter(([key]) => key !== String(id)));
 
+const withPinned = (state, collection, ids, isPinned) => {
+    ids.forEach((id) => assertPresent(state, collection, id));
+    const selectedIds = new Set(ids.map(String));
+    return Object.fromEntries(
+        Object.entries(state[collection]).map(([id, entity]) => [
+            id,
+            selectedIds.has(id) ? { ...entity, isPinned } : entity,
+        ])
+    );
+};
+
+const withSaved = (state, collection, saved) => {
+    saved.forEach((entity) => assertPresent(state, collection, entity.id));
+    const savedById = keyById(saved);
+    return Object.fromEntries(
+        Object.entries(state[collection]).map(([id, entity]) => [
+            id,
+            savedById[id] ? { ...entity, ...savedById[id] } : entity,
+        ])
+    );
+};
+
 const handlers = {
     [PROJECT_ACTIONS.loadStarted]: (state) => ({
         ...state,
@@ -152,31 +176,26 @@ const handlers = {
         project: { ...state.project, ...changes },
     }),
 
-    [PROJECT_ACTIONS.todosPinned]: (state, { todoIds, isPinned }) => {
-        todoIds.forEach((id) => assertPresent(state, 'todos', id));
-        const selectedIds = new Set(todoIds.map(String));
-        const todos = Object.fromEntries(
-            Object.entries(state.todos).map(([id, todo]) => [
-                id,
-                selectedIds.has(id) ? { ...todo, isPinned } : todo,
-            ])
-        );
+    [PROJECT_ACTIONS.todosPinned]: (state, { todoIds, isPinned }) => ({
+        ...state,
+        todos: withPinned(state, 'todos', todoIds, isPinned),
+    }),
 
-        return { ...state, todos };
-    },
+    [PROJECT_ACTIONS.pinsSet]: (state, { ids: { todoIds, sequenceIds }, isPinned }) => ({
+        ...state,
+        todos: withPinned(state, 'todos', todoIds, isPinned),
+        sequences: withPinned(state, 'sequences', sequenceIds, isPinned),
+    }),
 
-    [PROJECT_ACTIONS.todosReconciled]: (state, { todos: savedTodos }) => {
-        savedTodos.forEach((todo) => assertPresent(state, 'todos', todo.id));
-        const savedById = keyById(savedTodos);
-        const todos = Object.fromEntries(
-            Object.entries(state.todos).map(([id, todo]) => [
-                id,
-                savedById[id] ? { ...todo, ...savedById[id] } : todo,
-            ])
-        );
+    [PROJECT_ACTIONS.todosReconciled]: (state, { todos }) => ({
+        ...state,
+        todos: withSaved(state, 'todos', todos),
+    }),
 
-        return { ...state, todos };
-    },
+    [PROJECT_ACTIONS.sequencesReconciled]: (state, { sequences }) => ({
+        ...state,
+        sequences: withSaved(state, 'sequences', sequences),
+    }),
 
     [PROJECT_ACTIONS.entityRemoved]: (state, { collection, id }) => {
         assertCollection(collection);

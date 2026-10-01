@@ -38,6 +38,17 @@ export const todosReconciled = (todos) => ({
     todos,
 });
 
+export const pinsSet = (ids, isPinned) => ({
+    type: PROJECT_ACTIONS.pinsSet,
+    ids,
+    isPinned,
+});
+
+export const sequencesReconciled = (sequences) => ({
+    type: PROJECT_ACTIONS.sequencesReconciled,
+    sequences,
+});
+
 export const entityRemoved = (collection, id) => ({
     type: PROJECT_ACTIONS.entityRemoved,
     collection,

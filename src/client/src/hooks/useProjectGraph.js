@@ -12,8 +12,10 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
+    pinsSet,
     projectUpdated,
     rolledBack,
+    sequencesReconciled,
     todosPinned,
     todosReconciled,
 } from '../state/projectActions';
@@ -34,6 +36,11 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
 const writtenFields = (actions, collection, id) => actions.flatMap((action) => {
+    if (action.type === PROJECT_ACTIONS.pinsSet) {
+        const ids = collection === 'todos' ? action.ids.todoIds
+            : collection === 'sequences' ? action.ids.sequenceIds : [];
+        if (ids.some((pinnedId) => String(pinnedId) === id)) return ['isPinned'];
+    }
     if (action.type === PROJECT_ACTIONS.todosPinned && collection === 'todos' &&
         action.todoIds.some((todoId) => String(todoId) === id)) return ['isPinned'];
     if (action.type === PROJECT_ACTIONS.projectUpdated && collection === 'project') {
@@ -189,8 +196,10 @@ const useProjectGraph = (projectId) => {
             const saved = await send();
             if (generationRef.current !== generation) return null;
             const responseAction = onSuccess?.(saved);
-            const reconciled = responseAction
-                ? graphChanges(optimistic, projectReducer(optimistic, responseAction), [responseAction]) : [];
+            const responseActions = [].concat(responseAction ?? []);
+            const reconciled = responseActions.length
+                ? graphChanges(optimistic, responseActions.reduce(projectReducer, optimistic), responseActions)
+                : [];
             await settle({ status: 'saved', reconciled });
             return saved;
         } catch (err) {
@@ -266,6 +275,19 @@ const useProjectGraph = (projectId) => {
         [mutate, projectId]
     );
 
+    const setPinned = useCallback(
+        ({ todoIds = [], sequenceIds = [] }, isPinned) =>
+            mutate({
+                apply: pinsSet({ todoIds, sequenceIds }, isPinned),
+                send: () => api.put(`/projects/${projectId}/pins`, { todoIds, sequenceIds, isPinned }),
+                onSuccess: ({ todos, sequences }) => [
+                    todosReconciled(todos),
+                    sequencesReconciled(sequences),
+                ],
+            }),
+        [mutate, projectId]
+    );
+
     // Every loose to-do goes at once. If the server removed a different set than
     // the one this client could see, read the authoritative graph again.
     const removeUnorganizedTodos = useCallback(async () => {
@@ -337,6 +359,7 @@ const useProjectGraph = (projectId) => {
         updateEntity,
         updateProject,
         setTodosPinned,
+        setPinned,
         removeUnorganizedTodos,
         removeEntity,
         importSchema,
