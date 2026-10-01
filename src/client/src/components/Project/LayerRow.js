@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 
@@ -13,6 +13,10 @@ import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragSequence } from '../../state/DragContext';
 
 const EMPTY_ACTIVE_SEQUENCE_IDS = new Set();
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+const prefersReducedMotion = () =>
+    typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches;
 
 // One horizontal band of the canvas, plus the slice of the right-hand gutter
 // that belongs to it (spec section 4.6).
@@ -43,6 +47,27 @@ const LayerRow = ({
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     const own = sortByPosition(sequences.filter((sequence) => sequence.layerId === layer.id));
+
+    // Set by this layer's + button only, so a sequence arriving any other way
+    // (or a rename) never moves the scroller.
+    const isRevealRequested = useRef(false);
+    const listRef = useRef(null);
+    const ownCount = own.length;
+    const previousCount = useRef(ownCount);
+
+    useEffect(() => {
+        const didGrow = ownCount > previousCount.current;
+        previousCount.current = ownCount;
+
+        if (!isRevealRequested.current || !didGrow) return;
+
+        isRevealRequested.current = false;
+        listRef.current?.lastElementChild?.scrollIntoView({
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+        });
+    }, [ownCount]);
 
     const activeDragSequence = useActiveDragSequence();
 
@@ -115,7 +140,7 @@ const LayerRow = ({
                             items={own.map((sequence) => `seq-${sequence.id}`)}
                             strategy={horizontalListSortingStrategy}
                         >
-                            <ul className="layer-row-sequences">
+                            <ul className="layer-row-sequences" ref={listRef}>
                                 {own.map((sequence, index) => (
                                     <SequenceCard
                                         key={clientKeyOf(sequence)}
@@ -136,7 +161,10 @@ const LayerRow = ({
                         type="button"
                         className="canvas-gutter-button"
                         aria-label={`Add a sequence to ${layer.title}`}
-                        onClick={() => addSequence(layer.id)}
+                        onClick={() => {
+                            isRevealRequested.current = true;
+                            addSequence(layer.id);
+                        }}
                     >
                         +
                     </button>
