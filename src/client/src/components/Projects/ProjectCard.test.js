@@ -44,6 +44,7 @@ const LocationProbe = () => <p data-testid="location">{useLocation().pathname}</
 const renderCard = (props = {}) => {
     const onRename = props.onRename ?? jest.fn().mockResolvedValue(undefined);
     const onDelete = props.onDelete ?? jest.fn().mockResolvedValue(undefined);
+    const onRecolor = props.onRecolor ?? jest.fn().mockResolvedValue(undefined);
 
     render(
         <MemoryRouter initialEntries={['/projects']}>
@@ -52,13 +53,14 @@ const renderCard = (props = {}) => {
                     project={{ ...project, ...props.project }}
                     onRename={onRename}
                     onDelete={onDelete}
+                    onRecolor={onRecolor}
                 />
             </ul>
             <LocationProbe />
         </MemoryRouter>
     );
 
-    return { onRename, onDelete };
+    return { onRename, onDelete, onRecolor };
 };
 
 const currentPath = () => screen.getByTestId('location').textContent;
@@ -394,6 +396,85 @@ describe('ProjectCard', () => {
             expect(
                 screen.queryByRole('button', { name: 'Delete “Build a drone”' })
             ).not.toBeInTheDocument();
+        });
+    });
+
+    describe('card color', () => {
+        const paletteButton = () => screen.getByRole('button', { name: 'Change color of “Build a drone”' });
+        const card = () => screen.getByRole('heading', { name: 'Build a drone' }).closest('.project-card');
+
+        test('puts the palette button in the hover control', () => {
+            renderCard();
+
+            expect(paletteButton()).toHaveClass('project-card-hover-control');
+        });
+
+        test('opens and closes the palette from the button', async () => {
+            renderCard();
+
+            await click(paletteButton());
+            expect(screen.getByRole('dialog', { name: 'Card color' })).toBeInTheDocument();
+
+            await click(paletteButton());
+            expect(screen.queryByRole('dialog')).toBeNull();
+        });
+
+        test('picking a swatch calls onRecolor and closes the palette', async () => {
+            const { onRecolor } = renderCard();
+
+            await click(paletteButton());
+            await click(screen.getByRole('button', { name: 'red berry' }));
+
+            expect(onRecolor).toHaveBeenCalledWith(1, '#980000');
+            expect(screen.queryByRole('dialog')).toBeNull();
+        });
+
+        test('picking Default recolors with null', async () => {
+            const { onRecolor } = renderCard({ project: { color: '#980000' } });
+
+            await click(paletteButton());
+            await click(screen.getByRole('button', { name: 'Default' }));
+
+            expect(onRecolor).toHaveBeenCalledWith(1, null);
+        });
+
+        test('shows a failed recolor inline', async () => {
+            renderCard({ onRecolor: jest.fn().mockRejectedValue(new Error('Could not save color.')) });
+
+            await click(paletteButton());
+            await click(screen.getByRole('button', { name: 'red berry' }));
+
+            expect(await screen.findByRole('alert')).toHaveTextContent('Could not save color.');
+        });
+
+        test('withdraws the stretched link and lifts the card while open', async () => {
+            renderCard();
+
+            await click(paletteButton());
+
+            expect(card()).toHaveClass('project-card--editing');
+            expect(card()).toHaveClass('project-card--palette-open');
+        });
+
+        test('uses the color as background with light text on a dark color', () => {
+            renderCard({ project: { color: '#000000' } });
+
+            expect(card()).toHaveStyle({ background: '#000000' });
+            expect(card()).toHaveClass('project-card--light-text');
+        });
+
+        test('keeps dark text on a light color', () => {
+            renderCard({ project: { color: '#ffffff' } });
+
+            expect(card()).toHaveStyle({ background: '#ffffff' });
+            expect(card()).not.toHaveClass('project-card--light-text');
+        });
+
+        test('keeps the default look with a null color', () => {
+            renderCard({ project: { color: null } });
+
+            expect(card().style.background).toBe('');
+            expect(card()).not.toHaveClass('project-card--light-text');
         });
     });
 });

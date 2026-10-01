@@ -328,3 +328,84 @@
     flex-direction: column;
     gap: 0.5rem;
 }
+
+/* Card color. A colored card sets its own background inline; a dark one flips
+ * its text to white. */
+.project-card--light-text,
+.project-card--light-text .project-card-description,
+.project-card--light-text .project-card-progress,
+.project-card--light-text .project-card-pins-heading,
+.project-card--light-text .pinned-todo,
+.project-card--light-text .pinned-sequence,
+.project-card--light-text .project-card-pins-empty,
+.project-card--light-text .project-card-rename label {
+    color: var(--text-white);
+}
+
+.project-card--light-text .pinned-line--complete .pinned-todo {
+    color: var(--text-white);
+    opacity: 0.7;
+}
+
+/* Beside the delete x (1.5rem wide at right 0.4rem). */
+.project-card-palette-button {
+    position: absolute;
+    top: 0.4rem;
+    right: 2.2rem;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg-card);
+    font-size: var(--font-sm);
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* The title also clears the palette button. */
+.project-card-heading {
+    padding-right: 3.5rem;
+}
+
+/* The open palette floats over neighbouring cards. */
+.project-card--palette-open {
+    z-index: 5;
+}
+
+.card-palette {
+    position: absolute;
+    top: 2.2rem;
+    right: 0.4rem;
+    z-index: 4;
+    padding: var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-md);
+}
+
+.card-palette-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1.25rem);
+    gap: 2px;
+    margin-bottom: var(--space-sm);
+}
+
+.card-palette-swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.card-palette-swatch:hover,
+.card-palette-swatch:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}

@@ -38,7 +38,7 @@ const ProjectsHome = () => {
         load();
     }, [load]);
 
-    // These three intentionally do not catch: the card and the dialog own the
+    // These intentionally do not catch: the card and the dialog own the
     // error message for the action the user just took.
     const handleCreate = async ({ title, description }) => {
         const created = await api.post('/projects', { title, description });
@@ -49,6 +49,12 @@ const ProjectsHome = () => {
 
     const handleRename = async (id, title) => {
         const updated = await api.patch(`/projects/${id}`, { title });
+
+        setProjects((current) => current.map((project) => (project.id === id ? updated : project)));
+    };
+
+    const handleRecolor = async (id, color) => {
+        const updated = await api.patch(`/projects/${id}`, { color });
 
         setProjects((current) => current.map((project) => (project.id === id ? updated : project)));
     };
@@ -112,6 +118,7 @@ const ProjectsHome = () => {
                             project={project}
                             onRename={handleRename}
                             onDelete={handleDelete}
+                            onRecolor={handleRecolor}
                         />
                     ))}
                 </ul>

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import CardPalette from './CardPalette';
 import DeleteBubble from '../common/DeleteBubble';
+import { textToneFor } from '../../lib/cardPalette';
 
 // One project in the home grid. The card owns its own rename and delete
 // interactions and shows their failures inline; `onRename` and `onDelete` do the
@@ -12,7 +14,12 @@ import DeleteBubble from '../common/DeleteBubble';
 // project order; the card preserves that order rather than inventing a second
 // priority model. Only Rename is hover-revealed, in `Styling/Projects.css`.
 
-const MODES = { idle: 'idle', renaming: 'renaming', confirmingDelete: 'confirmingDelete' };
+const MODES = {
+    idle: 'idle',
+    renaming: 'renaming',
+    confirmingDelete: 'confirmingDelete',
+    choosingColor: 'choosingColor',
+};
 
 // The card is one big link: the title's `::after` is stretched over the whole of
 // it in `Projects.css`, so a click anywhere lands on the way into the project.
@@ -55,7 +62,7 @@ const PinnedBlock = ({ project }) => {
     );
 };
 
-const ProjectCard = ({ project, onRename, onDelete }) => {
+const ProjectCard = ({ project, onRename, onDelete, onRecolor }) => {
     const [mode, setMode] = useState(MODES.idle);
     const [draftTitle, setDraftTitle] = useState(project.title);
     const [error, setError] = useState('');
@@ -66,6 +73,8 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
         'project-card',
         HAS_BUBBLE,
         mode === MODES.idle ? '' : EDITING,
+        mode === MODES.choosingColor ? 'project-card--palette-open' : '',
+        project.color && textToneFor(project.color) === 'light' ? 'project-card--light-text' : '',
     ]
         .filter(Boolean)
         .join(' ');
@@ -103,6 +112,24 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
         }
     };
 
+    const closePalette = useCallback(() => setMode(MODES.idle), []);
+
+    const togglePalette = () => {
+        setError('');
+        setMode((current) => (current === MODES.choosingColor ? MODES.idle : MODES.choosingColor));
+    };
+
+    const recolor = async (color) => {
+        setMode(MODES.idle);
+        setError('');
+
+        try {
+            await onRecolor(project.id, color);
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
     const confirmDelete = async () => {
         setError('');
         setIsBusy(true);
@@ -118,7 +145,7 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
     };
 
     return (
-        <li className={cardClassName}>
+        <li className={cardClassName} style={project.color ? { background: project.color } : undefined}>
             {mode === MODES.renaming ? (
                 <form className={`project-card-rename ${RAISED}`} onSubmit={submitRename} noValidate>
                     <label htmlFor={titleFieldId}>Project title</label>
@@ -167,6 +194,25 @@ const ProjectCard = ({ project, onRename, onDelete }) => {
 
             {/* Both idle-only, like the actions row always was: while a form is
                 open over the card, deleting is not one of the choices. */}
+            {(mode === MODES.idle || mode === MODES.choosingColor) && (
+                <>
+                    {/* A mousedown here must not reach the palette's outside-click
+                        listener, or closing by this button would reopen it. */}
+                    <button
+                        type="button"
+                        className="project-card-palette-button project-card-hover-control"
+                        aria-label={`Change color of “${project.title}”`}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={togglePalette}
+                    >
+                        <span aria-hidden="true">🎨</span>
+                    </button>
+                    {mode === MODES.choosingColor && (
+                        <CardPalette onPick={recolor} onClose={closePalette} />
+                    )}
+                </>
+            )}
+
             {mode === MODES.idle && (
                 <>
                     <div className={`project-card-actions project-card-hover-control ${RAISED}`}>

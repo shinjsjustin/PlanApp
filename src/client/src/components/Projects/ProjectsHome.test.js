@@ -235,4 +235,32 @@ describe('ProjectsHome', () => {
         // Assert
         expect(screen.getByRole('link', { name: /calendar/i })).toBeInTheDocument();
     });
+
+    test('recolors a project from the palette and replaces the card', async () => {
+        api.get.mockResolvedValue([aProject()]);
+        api.patch.mockResolvedValue(aProject({ color: '#980000' }));
+        renderHome();
+        await waitForLoadToFinish();
+
+        await click(screen.getByRole('button', { name: 'Change color of “Build a drone”' }));
+        await click(screen.getByRole('button', { name: 'red berry' }));
+
+        expect(api.patch).toHaveBeenCalledWith('/projects/1', { color: '#980000' });
+        await waitFor(() =>
+            expect(screen.getByRole('heading', { name: 'Build a drone' }).closest('.project-card'))
+                .toHaveClass('project-card--light-text')
+        );
+    });
+
+    test('shows an inline alert when recoloring fails', async () => {
+        api.get.mockResolvedValue([aProject()]);
+        api.patch.mockRejectedValue(new Error('Could not save color.'));
+        renderHome();
+        await waitForLoadToFinish();
+
+        await click(screen.getByRole('button', { name: 'Change color of “Build a drone”' }));
+        await click(screen.getByRole('button', { name: 'red berry' }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Could not save color.');
+    });
 });
