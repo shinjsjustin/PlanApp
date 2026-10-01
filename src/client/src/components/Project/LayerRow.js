@@ -12,10 +12,12 @@ import useContextMenu from '../../hooks/useContextMenu';
 import useProjectMutations from '../../hooks/useProjectMutations';
 import { DROP_TARGET } from '../../lib/dragDrop';
 import { sortByPosition } from '../../lib/graph';
+import { layerToSchema } from '../../lib/planSchema';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragSequence } from '../../state/DragContext';
 
 const EMPTY_ACTIVE_SEQUENCE_IDS = new Set();
+const COPY_STATUS_MS = 2000;
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const LAYER_IMPORT_HINT =
@@ -57,6 +59,8 @@ const LayerRow = ({
         useProjectMutations();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [importing, setImporting] = useState(null);
+    const [copyStatus, setCopyStatus] = useState('');
+    const copyTimer = useRef(null);
     const layerMenu = useContextMenu();
     const sequenceMenu = useContextMenu();
 
@@ -86,6 +90,20 @@ const LayerRow = ({
             inline: 'nearest',
         });
     }, [ownCount]);
+
+    useEffect(() => () => clearTimeout(copyTimer.current), []);
+
+    const copySchema = async () => {
+        let status = 'Copied';
+        try {
+            await navigator.clipboard.writeText(layerToSchema(layer, sequences, todos));
+        } catch (error) {
+            status = 'Copy failed';
+        }
+        setCopyStatus(status);
+        clearTimeout(copyTimer.current);
+        copyTimer.current = setTimeout(() => setCopyStatus(''), COPY_STATUS_MS);
+    };
 
     const activeDragSequence = useActiveDragSequence();
 
@@ -138,6 +156,17 @@ const LayerRow = ({
                                 onSave={(title) => renameLayer(layer.id, title)}
                             />
                         </h2>
+                        <button
+                            type="button"
+                            className="layer-row-copy"
+                            aria-label={`Copy layer “${layer.title}” as schema`}
+                            onClick={copySchema}
+                        >
+                            ⧉
+                        </button>
+                        <span className="layer-row-copy-status" role="status">
+                            {copyStatus}
+                        </span>
                     </div>
 
                     {/* Named with its kind: the sequences inside this row carry

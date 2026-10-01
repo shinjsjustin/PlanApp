@@ -461,6 +461,28 @@
     padding-right: 2rem;
 }
 
+.layer-row-copy {
+    padding: var(--space-xs);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--font-base);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.layer-row-copy:hover,
+.layer-row-copy:focus-visible {
+    color: var(--text-primary);
+    background: var(--bg-alt);
+}
+
+.layer-row-copy-status {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
 /* A label, not a heading. It no longer stretches the width of the band: a
  * full-width edit box was the last piece of layer chrome, and a title that ends
  * where its text does is what makes the row read as a caption over the cards.
