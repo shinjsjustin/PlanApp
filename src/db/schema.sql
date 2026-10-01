@@ -21,6 +21,10 @@
 --     ADD COLUMN `is_pinned` tinyint(1) NOT NULL DEFAULT '0' AFTER `completed_at`,
 --     ADD KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`);
 --
+-- A database created before project card colors is missing the color column. Add
+-- it in place rather than re-running this file:
+--   ALTER TABLE `projects` ADD COLUMN `color` CHAR(7) NULL AFTER `description`;
+--
 -- A database created before the calendar page is missing two tables. Add them in
 -- place rather than re-running this file: copy the two CREATE TABLE statements
 -- for `calendar_days` and `calendar_items` from the bottom of this file and run
@@ -74,6 +78,7 @@ CREATE TABLE `projects` (
   `owner_id` int unsigned NOT NULL,
   `title` varchar(255) NOT NULL,
   `description` text DEFAULT NULL,
+  `color` char(7) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

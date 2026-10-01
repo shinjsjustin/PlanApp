@@ -42,6 +42,14 @@ const todoTextSchema = z
     .min(1, 'text is required')
     .max(TODO_TEXT_MAX_LENGTH, `text must be at most ${TODO_TEXT_MAX_LENGTH} characters`);
 
+// A card color is a #rrggbb hex string, stored lowercased so equal colors compare
+// equal; null clears it back to the default.
+const colorSchema = z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/i, 'color must be a #rrggbb hex color')
+    .nullable()
+    .transform((value) => value?.toLowerCase() ?? null);
+
 const todoStatusSchema = z.enum(TODO_STATUSES, {
     error: `status must be one of: ${TODO_STATUSES.join(', ')}`,
 });
@@ -89,6 +97,7 @@ module.exports = {
     TODO_PIN_BATCH_MAX_SIZE,
     TODO_STATUSES,
     TODO_TEXT_MAX_LENGTH,
+    colorSchema,
     descriptionSchema,
     idSchema,
     parseId,

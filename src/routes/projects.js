@@ -18,6 +18,7 @@ const {
 } = require('../lib/projectsPinnedTodos');
 const { toLayer, toProject, toSequence, toTodo } = require('../lib/serializers');
 const {
+    colorSchema,
     descriptionSchema,
     idSchema,
     parseId,
@@ -39,7 +40,7 @@ const { withConnection, withTransaction } = require('../db/unitOfWork');
 
 const router = express.Router();
 
-const PATCHABLE_FIELDS = ['title', 'description'];
+const PATCHABLE_FIELDS = ['title', 'description', 'color'];
 
 const createProjectSchema = z.object({
     title: titleSchema,
@@ -50,6 +51,7 @@ const updateProjectSchema = requireSomeField(
     z.object({
         title: titleSchema.optional(),
         description: descriptionSchema.optional(),
+        color: colorSchema.optional(),
     }),
     PATCHABLE_FIELDS
 );

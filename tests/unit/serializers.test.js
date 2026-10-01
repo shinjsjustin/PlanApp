@@ -191,6 +191,11 @@ describe('serializers', () => {
     });
 
     describe('toProject', () => {
+        test('passes the color through and defaults it to null', () => {
+            expect(toProject({ id: 3, title: 'A', color: '#aabbcc' }).color).toBe('#aabbcc');
+            expect(toProject({ id: 3, title: 'A' }).color).toBeNull();
+        });
+
         test('never leaks the owner id', () => {
             expect(toProject({ id: 3, owner_id: 99, title: 'Build a drone' })).not.toHaveProperty(
                 'ownerId'

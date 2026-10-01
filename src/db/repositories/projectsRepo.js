@@ -8,9 +8,9 @@ const { firstRow, buildAssignments } = require('./sql');
  * tests can hand in a connection they later roll back.
  */
 
-const UPDATABLE_COLUMNS = { title: 'title', description: 'description' };
+const UPDATABLE_COLUMNS = { title: 'title', description: 'description', color: 'color' };
 
-const SELECT_COLUMNS = 'id, owner_id, title, description, created_at, updated_at';
+const SELECT_COLUMNS = 'id, owner_id, title, description, color, created_at, updated_at';
 
 const findById = async (conn, id) => {
     const [rows] = await conn.execute(
@@ -51,7 +51,7 @@ const COUNT_COLUMNS =
     "COUNT(t.id) AS todo_count, COALESCE(SUM(t.status = 'complete'), 0) AS completed_todo_count";
 
 const PROJECT_COLUMNS_WITH_COUNTS =
-    'p.id, p.owner_id, p.title, p.description, p.created_at, p.updated_at';
+    'p.id, p.owner_id, p.title, p.description, p.color, p.created_at, p.updated_at';
 
 /** Lists a user's projects with their to-do counts, newest first. */
 const listByOwnerWithCounts = async (conn, ownerId) => {

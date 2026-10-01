@@ -39,6 +39,24 @@ describe('projectsRepo', () => {
         expect(project.description).toBeNull();
     });
 
+    test('updates a color and lists it with counts', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const created = await projectsRepo.create(conn, { ownerId, title: 'Tinted' });
+
+        // Act
+        const updated = await projectsRepo.update(conn, created.id, { color: '#00ff00' });
+        const [listed] = await projectsRepo.listByOwnerWithCounts(conn, ownerId);
+        const found = await projectsRepo.findByIdWithCounts(conn, created.id);
+
+        // Assert
+        expect(updated.color).toBe('#00ff00');
+        expect(listed.color).toBe('#00ff00');
+        expect(found.color).toBe('#00ff00');
+        expect(created.color).toBeNull();
+    });
+
     test('finds a project by id', async () => {
         // Arrange
         const conn = getConn();

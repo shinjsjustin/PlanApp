@@ -15,6 +15,7 @@ const toProject = (row) => ({
     id: row.id,
     title: row.title,
     description: row.description ?? null,
+    color: row.color ?? null,
     todoCount: Number(row.todo_count ?? 0),
     completedTodoCount: Number(row.completed_todo_count ?? 0),
     createdAt: row.created_at,

@@ -52,6 +52,24 @@ describe('projects routes', () => {
             ]);
         });
 
+        test('returns color on every project, null when unset', async () => {
+            // Arrange
+            const conn = getConn();
+            const ownerId = await createTestUser(conn);
+            const plain = await projectsRepo.create(conn, { ownerId, title: 'Plain' });
+            const tinted = await projectsRepo.create(conn, { ownerId, title: 'Tinted' });
+            await projectsRepo.update(conn, tinted.id, { color: '#ff0000' });
+
+            // Act
+            const response = await request(app)
+                .get('/api/projects')
+                .set('Authorization', authHeaderFor(ownerId));
+
+            // Assert
+            const colors = Object.fromEntries(response.body.data.map((p) => [p.id, p.color]));
+            expect(colors).toEqual({ [plain.id]: null, [tinted.id]: '#ff0000' });
+        });
+
         test('never lists another user\'s projects', async () => {
             // Arrange
             const conn = getConn();
@@ -211,6 +229,65 @@ describe('projects routes', () => {
             expect(response.status).toBe(400);
             expect(response.body.error).toMatch(/title/i);
         });
+
+        test('stores a color lowercased and returns it in the card shape', async () => {
+            // Arrange
+            const conn = getConn();
+            const ownerId = await createTestUser(conn);
+            const project = await projectsRepo.create(conn, { ownerId, title: 'Colorful' });
+
+            // Act
+            const response = await request(app)
+                .patch(`/api/projects/${project.id}`)
+                .set('Authorization', authHeaderFor(ownerId))
+                .send({ color: '#AABBCC' });
+
+            // Assert
+            expect(response.status).toBe(200);
+            expect(response.body.data).toMatchObject({
+                id: project.id,
+                color: '#aabbcc',
+                pinnedTodos: [],
+            });
+        });
+
+        test('resets the color to null when sent null', async () => {
+            // Arrange
+            const conn = getConn();
+            const ownerId = await createTestUser(conn);
+            const project = await projectsRepo.create(conn, { ownerId, title: 'Colorful' });
+            await projectsRepo.update(conn, project.id, { color: '#aabbcc' });
+
+            // Act
+            const response = await request(app)
+                .patch(`/api/projects/${project.id}`)
+                .set('Authorization', authHeaderFor(ownerId))
+                .send({ color: null });
+
+            // Assert
+            expect(response.status).toBe(200);
+            expect(response.body.data.color).toBeNull();
+        });
+
+        test.each([['red'], ['#12345'], ['#12345g'], ['#1234567']])(
+            'rejects the color %s with a 400 naming the field',
+            async (color) => {
+                // Arrange
+                const conn = getConn();
+                const ownerId = await createTestUser(conn);
+                const project = await projectsRepo.create(conn, { ownerId, title: 'Untouched' });
+
+                // Act
+                const response = await request(app)
+                    .patch(`/api/projects/${project.id}`)
+                    .set('Authorization', authHeaderFor(ownerId))
+                    .send({ color });
+
+                // Assert
+                expect(response.status).toBe(400);
+                expect(response.body.error).toMatch(/color/i);
+            }
+        );
 
         test('rejects a patch that changes nothing with a 400', async () => {
             // Arrange
