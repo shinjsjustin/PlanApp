@@ -8,8 +8,10 @@ const assertOwnership = require('../middleware/assertOwnership');
 const layersRepo = require('../db/repositories/layersRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const { notFound } = require('../lib/httpError');
-const { parseId, titleSchema } = require('../lib/validation');
-const { toLayer, toSequence } = require('../lib/serializers');
+const { parseId, titleSchema, planSchemaTextSchema } = require('../lib/validation');
+const { toLayer, toSequence, toTodo } = require('../lib/serializers');
+const { parsePlanSchema } = require('../lib/planSchema');
+const { writeImportedPlan } = require('../lib/importPlan');
 const { withTransaction } = require('../db/unitOfWork');
 
 /**
@@ -33,6 +35,8 @@ const updateLayerSchema = z.object({ title: titleSchema });
 // the end of the layer. Parsing an empty shape drops anything else the caller
 // sent rather than letting it through unexamined.
 const createSequenceSchema = z.object({});
+
+const importSequencesSchema = z.object({ schema: planSchemaTextSchema });
 
 // PATCH /api/layers/:id — rename.
 router.patch(
@@ -86,6 +90,26 @@ router.post(
         });
 
         res.sendData(toSequence(sequence), 201);
+    })
+);
+
+// POST /api/layers/:id/sequences/import — appends the schema's sequences and
+// their to-dos to the layer; loose to-dos go to Unorganized. A leading "##" line
+// is accepted but the layer's title is left alone. All or nothing.
+router.post(
+    '/:id/sequences/import',
+    asyncRoute(async (req, res) => {
+        const layerId = parseId(req.params.id);
+        const { schema } = importSequencesSchema.parse(req.body ?? {});
+        const parsed = parsePlanSchema(schema, { mode: 'sequences' });
+
+        const { sequences, todos } = await withTransaction(async (conn) => {
+            const project = await assertOwnership(conn, 'layer', layerId, req.user.id);
+
+            return writeImportedPlan(conn, { projectId: project.id, layerId, parsed });
+        });
+
+        res.sendData({ sequences: sequences.map(toSequence), todos: todos.map(toTodo) }, 201);
     })
 );
 
