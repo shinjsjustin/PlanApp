@@ -60,6 +60,7 @@ const toTodo = (row) => ({
     projectId: row.project_id,
     sequenceId: row.sequence_id ?? null,
     text: row.text,
+    note: row.note ?? null,
     status: row.status,
     completedAt: row.completed_at ?? null,
     isPinned: Boolean(row.is_pinned),

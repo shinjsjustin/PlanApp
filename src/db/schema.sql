@@ -25,6 +25,10 @@
 -- it in place rather than re-running this file:
 --   ALTER TABLE `projects` ADD COLUMN `color` CHAR(7) NULL AFTER `description`;
 --
+-- A database created before to-do notes is missing the note column. Add it in
+-- place rather than re-running this file (db/migration/2026-10-01_add_todo_notes.sql):
+--   ALTER TABLE `todos` ADD COLUMN `note` text DEFAULT NULL AFTER `text`;
+--
 -- A database created before the calendar page is missing two tables. Add them in
 -- place rather than re-running this file: copy the two CREATE TABLE statements
 -- for `calendar_days` and `calendar_items` from the bottom of this file and run
@@ -143,6 +147,7 @@ CREATE TABLE `todos` (
   `project_id` int unsigned NOT NULL,
   `sequence_id` int unsigned DEFAULT NULL,
   `text` varchar(500) NOT NULL,
+  `note` text DEFAULT NULL,
   `status` enum('incomplete','complete','blocked') NOT NULL DEFAULT 'incomplete',
   `completed_at` timestamp NULL DEFAULT NULL,
   `is_pinned` tinyint(1) NOT NULL DEFAULT '0',

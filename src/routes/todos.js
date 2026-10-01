@@ -13,6 +13,7 @@ const {
     idSchema,
     parseId,
     requireSomeField,
+    todoNoteSchema,
     todoStatusSchema,
     todoTextSchema,
 } = require('../lib/validation');
@@ -31,12 +32,13 @@ const { withTransaction } = require('../db/unitOfWork');
 
 const router = express.Router();
 
-const PATCHABLE_FIELDS = ['text', 'status'];
+const PATCHABLE_FIELDS = ['text', 'status', 'note'];
 
 const updateTodoSchema = requireSomeField(
     z.object({
         text: todoTextSchema.optional(),
         status: todoStatusSchema.optional(),
+        note: todoNoteSchema.optional(),
     }),
     PATCHABLE_FIELDS
 );

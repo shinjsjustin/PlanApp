@@ -109,6 +109,7 @@ describe('serializers', () => {
                 projectId: 3,
                 sequenceId: 11,
                 text: 'Read about lift',
+                note: null,
                 status: 'incomplete',
                 completedAt: null,
                 isPinned: false,

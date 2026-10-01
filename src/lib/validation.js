@@ -13,6 +13,7 @@ const { z } = require('zod');
 const TITLE_MAX_LENGTH = 255;
 const DESCRIPTION_MAX_LENGTH = 2000;
 const TODO_TEXT_MAX_LENGTH = 500;
+const TODO_NOTE_MAX_LENGTH = 5000;
 const TODO_PIN_BATCH_MAX_SIZE = 100;
 
 /** Mirrors the `todos.status` enum in the schema. */
@@ -41,6 +42,15 @@ const todoTextSchema = z
     .trim()
     .min(1, 'text is required')
     .max(TODO_TEXT_MAX_LENGTH, `text must be at most ${TODO_TEXT_MAX_LENGTH} characters`);
+
+// A to-do's note is free multi-line text. Like a description, blank and null both
+// mean "no note", so a client clears one the same way it clears a description.
+const todoNoteSchema = z
+    .string()
+    .trim()
+    .max(TODO_NOTE_MAX_LENGTH, `note must be at most ${TODO_NOTE_MAX_LENGTH} characters`)
+    .nullable()
+    .transform((value) => (value === null || value === '' ? null : value));
 
 // A card color is a #rrggbb hex string, stored lowercased so equal colors compare
 // equal; null clears it back to the default.
@@ -94,6 +104,7 @@ const requireSomeField = (schema, fields) =>
 module.exports = {
     DESCRIPTION_MAX_LENGTH,
     TITLE_MAX_LENGTH,
+    TODO_NOTE_MAX_LENGTH,
     TODO_PIN_BATCH_MAX_SIZE,
     TODO_STATUSES,
     TODO_TEXT_MAX_LENGTH,
@@ -103,6 +114,7 @@ module.exports = {
     parseId,
     requireSomeField,
     titleSchema,
+    todoNoteSchema,
     todoPinsSchema,
     todoStatusSchema,
     todoTextSchema,
