@@ -33,6 +33,8 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
 const TODO_COMPLETE = 'complete';
 
+const SEQUENCE_KEY_PREFIX = 'sequence:';
+
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
 /**
@@ -92,7 +94,8 @@ const readCalendar = (payload) => {
 const isNoOp = (request) =>
     request.appendDays === 0 &&
     request.placements.length === 0 &&
-    request.unschedule.length === 0;
+    request.unschedule.length === 0 &&
+    !request.unscheduleSequences;
 
 /**
  * Whether anything has settled into the state tree since `installed` was put
@@ -447,10 +450,15 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
 
     /** Dropping a booking on the pool's remove overlay. */
     const unschedule = useCallback(
-        (todoId) =>
+        (ref) =>
             mutate({
-                apply: (previous) => unscheduleItem(previous, todoId),
-                send: () => api.delete(`/calendar/items/${todoId}`),
+                apply: (previous) => unscheduleItem(previous, ref),
+                send: () =>
+                    api.delete(
+                        typeof ref === 'string' && ref.startsWith(SEQUENCE_KEY_PREFIX)
+                            ? `/calendar/items/sequences/${ref.slice(SEQUENCE_KEY_PREFIX.length)}`
+                            : `/calendar/items/${ref}`
+                    ),
             }),
         [mutate]
     );

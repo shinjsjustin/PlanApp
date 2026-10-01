@@ -23,6 +23,7 @@
 // arrive guaranteed. The one precondition this module does have to check is a
 // different kind, and `toBulkRequest` checks it below.
 
+import { itemKeyOf } from './schedule';
 import { isTempId } from './tempIds';
 
 /** A change in any of these is what makes a booking worth sending. */
@@ -33,8 +34,10 @@ const COMPARED_FIELDS = ['dayId', 'startMinutes', 'durationMinutes'];
 const hasMoved = (before, after) =>
     !before || COMPARED_FIELDS.some((field) => before[field] !== after[field]);
 
-const bookingOf = (state, todoId) =>
-    state.items.find((item) => item.todoId === todoId);
+const bookingOf = (state, key) =>
+    state.items.find((item) => itemKeyOf(item) === key);
+
+const isSequence = (item) => item.kind === 'sequence';
 
 /**
  * `previous` is the state before the gesture and `next` the settled state after
@@ -71,18 +74,26 @@ export const toBulkRequest = (previous, next) => {
     const appendDays = next.days.filter((day) => isTempId(day.id)).length;
 
     const placements = next.items
-        .filter((item) => hasMoved(bookingOf(previous, item.todoId), item))
-        .map(({ todoId, dayId, startMinutes, durationMinutes }) => {
+        .filter((item) => hasMoved(bookingOf(previous, itemKeyOf(item)), item))
+        .map((item) => {
+            const { dayId, startMinutes, durationMinutes } = item;
+            const who = isSequence(item)
+                ? { sequenceId: item.sequenceId }
+                : { todoId: item.todoId };
             const where = isTempId(dayId)
                 ? { dayIndex: next.days.findIndex((day) => day.id === dayId) }
                 : { dayId };
 
-            return { todoId, ...where, startMinutes, durationMinutes };
+            return { ...who, ...where, startMinutes, durationMinutes };
         });
 
-    const unschedule = previous.items
-        .filter((item) => !bookingOf(next, item.todoId))
-        .map((item) => item.todoId);
+    const released = previous.items.filter((item) => !bookingOf(next, itemKeyOf(item)));
+    const unschedule = released.filter((item) => !isSequence(item)).map((item) => item.todoId);
+    const unscheduleSequences = released.filter(isSequence).map((item) => item.sequenceId);
+
+    if (unscheduleSequences.length > 0) {
+        return { appendDays, placements, unschedule, unscheduleSequences };
+    }
 
     return { appendDays, placements, unschedule };
 };
