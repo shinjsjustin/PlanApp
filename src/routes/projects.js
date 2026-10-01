@@ -12,6 +12,8 @@ const projectsRepo = require('../db/repositories/projectsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
 const { badRequest, notFound } = require('../lib/httpError');
+const { writeImportedPlan } = require('../lib/importPlan');
+const { parsePlanSchema } = require('../lib/planSchema');
 const {
     findProjectWithPinnedTodos,
     listProjectsWithPinnedTodos,
@@ -22,6 +24,7 @@ const {
     descriptionSchema,
     idSchema,
     parseId,
+    planSchemaTextSchema,
     requireSomeField,
     titleSchema,
     todoPinsSchema,
@@ -60,6 +63,11 @@ const updateProjectSchema = requireSomeField(
 // below that layer. Both shapes are legal, so neither is an error here — the
 // route checks separately that the layer named is one of this project's.
 const createLayerSchema = z.object({ afterLayerId: idSchema.nullish() });
+
+const importLayerSchema = z.object({
+    schema: planSchemaTextSchema,
+    afterLayerId: idSchema.nullish(),
+});
 
 // An absent or null `sequenceId` means the unorganized panel — the to-do exists
 // in the project but is not filed anywhere yet (spec section 4.2).
@@ -202,6 +210,51 @@ router.post(
         });
 
         res.sendData(toLayer(layer), 201);
+    })
+);
+
+/**
+ * POST /api/projects/:id/layers/import — creates one layer with its sequences
+ * and to-dos from schema text in a single transaction. The text is parsed
+ * before the transaction opens, so a bad line writes nothing.
+ */
+router.post(
+    '/:id/layers/import',
+    asyncRoute(async (req, res) => {
+        const projectId = parseId(req.params.id);
+        const { schema, afterLayerId = null } = importLayerSchema.parse(req.body ?? {});
+        const parsed = parsePlanSchema(schema, { mode: 'layer' });
+
+        const result = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'project', projectId, req.user.id);
+
+            if (afterLayerId !== null) {
+                await assertOwnership(conn, 'layer', afterLayerId, req.user.id);
+
+                const after = await layersRepo.findById(conn, afterLayerId);
+                if (after.project_id !== projectId) {
+                    throw badRequest(`afterLayerId: layer ${afterLayerId} is not in this project`);
+                }
+            }
+
+            const layer = await layersRepo.create(conn, {
+                projectId,
+                title: parsed.layerTitle,
+                afterLayerId,
+            });
+            const written = await writeImportedPlan(conn, { projectId, layerId: layer.id, parsed });
+
+            return { layer, ...written };
+        });
+
+        res.sendData(
+            {
+                layer: toLayer(result.layer),
+                sequences: result.sequences.map(toSequence),
+                todos: result.todos.map(toTodo),
+            },
+            201
+        );
     })
 );
 
