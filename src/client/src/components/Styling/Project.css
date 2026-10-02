@@ -82,9 +82,9 @@
 }
 
 .inline-description:focus {
-    border-color: var(--color-primary);
-    background: var(--bg-input);
-    outline: 2px solid var(--color-primary);
+    border-color: var(--neon-blue);
+    background: var(--bg-page);
+    outline: 2px solid var(--neon-blue);
     outline-offset: var(--space-xs);
 }
 
@@ -489,7 +489,7 @@
  * full-width edit box was the last piece of layer chrome, and a title that ends
  * where its text does is what makes the row read as a caption over the cards.
  *
- * #6b6b6b is 5.1:1 on the page ground — quiet, still comfortably past AA. */
+ * Glow text on the black page ground, like the rest of the page's text. */
 .layer-row-title {
     flex: 0 1 auto;
     max-width: 20rem;
@@ -502,18 +502,22 @@
     text-shadow: var(--glow-text-shadow);
 }
 
-/* The hover border the shared `.inline-title` draws is tuned for a white card;
- * on the page ground it would be all but invisible, and this title is now the
- * only way into renaming a layer. Darkened, and lifted onto white, so hovering
- * still says "this is a field". */
+/* The hover and focus styles the shared `.inline-title` draws are tuned for a
+ * white card; here the glow text would vanish on them. A neon blue border on
+ * the black ground says "this is a field" while the text stays readable. */
 .layer-row-title .inline-title:hover {
-    border-color: #c9c9c9;
-    background: #fff;
+    border-color: var(--neon-blue);
+    background: transparent;
+}
+
+.layer-row-title .inline-title:focus {
+    border-color: var(--neon-blue);
+    background: var(--bg-page);
 }
 
 .layer-row-empty {
     margin: 0;
-    /* Matches the title: #888 was 3.4:1 once the page stopped being white. */
+    /* Matches the title: glow text on the black page ground. */
     color: var(--text-glow);
     font-size: 0.85rem;
 }
