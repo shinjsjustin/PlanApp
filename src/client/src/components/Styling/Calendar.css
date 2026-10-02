@@ -114,6 +114,8 @@
 
 .calendar-header h1 {
     margin: 0;
+    color: var(--text-glow);
+    text-shadow: var(--glow-text-shadow);
     font-size: var(--font-xl);
 }
 
@@ -163,7 +165,7 @@
     min-width: 0;
     padding: var(--space-xl) 0;
     text-align: center;
-    color: var(--text-secondary);
+    color: var(--text-glow);
 }
 
 .calendar-error p {
@@ -248,7 +250,7 @@
     padding: var(--space-lg);
     border: 1px dashed var(--border);
     border-radius: var(--radius-md);
-    color: var(--text-secondary);
+    color: var(--text-glow);
 }
 
 .calendar-strip--empty p {

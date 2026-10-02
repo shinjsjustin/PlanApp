@@ -53,6 +53,8 @@
 
 .project-header h1 {
     margin: 0;
+    color: var(--text-glow);
+    text-shadow: var(--glow-text-shadow);
 }
 
 .inline-description {
@@ -64,14 +66,14 @@
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-glow);
     font: inherit;
     white-space: pre-wrap;
     resize: vertical;
 }
 
 .inline-description::placeholder {
-    color: var(--text-secondary);
+    color: var(--text-glow);
     opacity: 1;
 }
 
@@ -284,9 +286,9 @@
 
 .canvas--empty {
     padding: 2rem;
-    border: 1px dashed #d8d8d8;
+    border: 1px dashed var(--neon-blue);
     border-radius: 8px;
-    color: #666;
+    color: var(--text-glow);
     text-align: center;
 }
 
@@ -328,10 +330,10 @@
     width: 1.75rem;
     height: 1.75rem;
     padding: 0;
-    border: 1px dashed #c4c4c4;
+    border: 1px dashed var(--neon-blue);
     border-radius: 50%;
-    background: #fff;
-    color: #666;
+    background: var(--bg-page);
+    color: var(--neon-blue);
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
@@ -340,8 +342,8 @@
 .canvas-gutter-button:hover,
 .canvas-gutter-button:focus-visible {
     border-style: solid;
-    border-color: #7a7a7a;
-    color: #222;
+    border-color: var(--neon-blue);
+    color: var(--text-glow);
 }
 
 /* -- The add-layer divider -------------------------------------------------
@@ -367,7 +369,7 @@
     padding: 0;
     border: 0;
     background: none;
-    color: #7a7a7a;
+    color: var(--neon-blue);
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
@@ -384,21 +386,21 @@
     top: 50%;
     left: 0;
     right: 0;
-    border-top: 1px dashed #dcdcdc;
+    border-top: 1px dashed var(--neon-grid-line);
 }
 
 .layer-divider:hover::before,
 .layer-divider:focus-visible::before {
-    border-top-color: #7a7a7a;
+    border-top-color: var(--neon-blue);
 }
 
 .layer-divider:hover,
 .layer-divider:focus-visible {
-    color: #333;
+    color: var(--text-glow);
 }
 
 .layer-divider:focus-visible {
-    outline: 2px solid #4a7bd0;
+    outline: 2px solid var(--neon-blue);
     outline-offset: 2px;
 }
 
@@ -496,7 +498,8 @@
     font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.03em;
-    color: #6b6b6b;
+    color: var(--text-glow);
+    text-shadow: var(--glow-text-shadow);
 }
 
 /* The hover border the shared `.inline-title` draws is tuned for a white card;
@@ -511,7 +514,7 @@
 .layer-row-empty {
     margin: 0;
     /* Matches the title: #888 was 3.4:1 once the page stopped being white. */
-    color: #6b6b6b;
+    color: var(--text-glow);
     font-size: 0.85rem;
 }
 
