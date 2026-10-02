@@ -60,7 +60,7 @@ const roleOf = (operation, selection) => {
 const RoleButton = ({ role }) => (
     <button
         type="button"
-        className="pin-controls-button"
+        className="pin-controls-button neon-button"
         onClick={role.onClick}
         disabled={role.isDisabled}
     >

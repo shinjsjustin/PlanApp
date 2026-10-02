@@ -224,6 +224,15 @@ describe('ProjectsHome', () => {
         );
     });
 
+    test('styles the calendar link and New project button as neon buttons', async () => {
+        api.get.mockResolvedValue([aProject()]);
+        renderHome();
+        await waitForLoadToFinish();
+
+        expect(screen.getByRole('link', { name: /calendar/i })).toHaveClass('neon-button');
+        expect(screen.getByRole('button', { name: 'New project' })).toHaveClass('neon-button');
+    });
+
     test('keeps the calendar reachable while the projects are still loading', async () => {
         // Arrange — a slow or failing load must not strand the user on this page,
         // so the calendar link does not wait on the grid the way "New project" does.

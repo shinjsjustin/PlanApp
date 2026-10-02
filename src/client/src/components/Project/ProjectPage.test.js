@@ -225,6 +225,13 @@ describe('ProjectPage', () => {
         );
     });
 
+    test('styles the back link as a neon button', async () => {
+        api.get.mockResolvedValue(GRAPH);
+        renderPage();
+
+        expect(await screen.findByRole('link', { name: /projects/i })).toHaveClass('neon-button');
+    });
+
     test('links back to the projects home', async () => {
         // Arrange
         api.get.mockResolvedValue(GRAPH);

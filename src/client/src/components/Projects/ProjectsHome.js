@@ -89,11 +89,11 @@ const ProjectsHome = () => {
                         other view onto the same plan, and a grid that is still
                         loading — or that failed to — is exactly when the user
                         most wants a way off this page. */}
-                    <Link className="projects-calendar-link" to="/calendar">
+                    <Link className="projects-calendar-link neon-button" to="/calendar">
                         Calendar →
                     </Link>
                     {status === STATUS.ready && (
-                        <button type="button" onClick={() => setIsDialogOpen(true)}>
+                        <button type="button" className="neon-button" onClick={() => setIsDialogOpen(true)}>
                             New project
                         </button>
                     )}

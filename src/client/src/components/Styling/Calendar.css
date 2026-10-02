@@ -117,10 +117,6 @@
     font-size: var(--font-xl);
 }
 
-.calendar-header a {
-    color: var(--color-accent);
-}
-
 /* ─── Page-level states ──────────────────────────────────────────────────── */
 
 .calendar-toast {

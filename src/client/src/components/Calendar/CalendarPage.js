@@ -94,7 +94,7 @@ const CalendarPage = () => {
         <main className="calendar-page">
             <header className="calendar-header">
                 <h1>Calendar</h1>
-                <Link to="/projects">← All projects</Link>
+                <Link className="neon-button" to="/projects">← All projects</Link>
             </header>
 
             {/* Stays mounted and toggles `hidden` rather than being conditionally

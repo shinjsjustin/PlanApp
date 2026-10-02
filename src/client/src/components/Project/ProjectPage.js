@@ -42,7 +42,7 @@ const ProjectPage = () => {
     return (
         <main className="project-page">
             <header className="project-header">
-                <Link to="/projects">← All projects</Link>
+                <Link className="neon-button" to="/projects">← All projects</Link>
                 {state.project && <h1>{state.project.title}</h1>}
                 {state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>

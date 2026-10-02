@@ -76,6 +76,13 @@ beforeEach(() => {
 });
 
 describe('CalendarPage', () => {
+    test('styles the back link as a neon button', async () => {
+        poolAnswer = pinnedProjects([pin()]);
+        renderPage();
+
+        expect(await screen.findByRole('link', { name: /all projects/i })).toHaveClass('neon-button');
+    });
+
     test('complete pins are inert while blocked unscheduled pins remain drag sources', async () => {
         poolAnswer = pinnedProjects([
             pin({ status: 'complete' }),

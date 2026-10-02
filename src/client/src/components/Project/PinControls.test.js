@@ -54,6 +54,18 @@ describe('PinControls', () => {
         ]);
     });
 
+    test('gives every role the neon button class', () => {
+        const { rerender } = render(<PinControls selection={selectionValue()} />);
+        const classed = () => screen.getAllByRole('button').map((b) => b.className);
+        expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Pin', 'Unpin']);
+        classed().forEach((c) => expect(c).toContain('neon-button'));
+
+        rerender(<PinControls selection={selectionValue({ mode: 'pin', selectedTodoIds: new Set([1]) })} />);
+        expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Confirm', 'Cancel']);
+        classed().forEach((c) => expect(c).toContain('neon-button'));
+        classed().forEach((c) => expect(c).toContain('pin-controls-button'));
+    });
+
     test('cancels without confirming', async () => {
         // Arrange
         const selection = selectionValue({ mode: 'pin', selectedTodoIds: new Set([1]) });
