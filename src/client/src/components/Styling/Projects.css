@@ -59,8 +59,8 @@
     margin: 0 0 0.5rem;
 }
 
-/* Full page width; ProjectsHome sets the column tracks inline from the measured
- * width, and each card places itself on them. */
+/* Full page width; ProjectsHome places each card absolutely from layoutMasonry
+ * and sets the grid's height inline. Cards are not on column tracks. */
 .projects-grid {
     display: block;
     position: relative;

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { columnsFor } from '../lib/masonry';
 
-// How many cards fit (and the grid's pixel width), per masonry row, measured from the grid element's own
+// How many columns fit (and the grid's pixel width), measured from the grid element's own
 // width. The grid is attached through a callback ref so measuring starts as
-// soon as the element exists, and restarts if React swaps the element.
+// soon as the element exists, and restarts if React swaps the element. Measuring
+// runs in a layout effect so the first painted frame already has the real width.
 const useMasonryColumns = ({ cardMinPx = 260, gapPx = 16 } = {}) => {
     const [element, setElement] = useState(null);
     const [columns, setColumns] = useState(1);
@@ -12,10 +13,10 @@ const useMasonryColumns = ({ cardMinPx = 260, gapPx = 16 } = {}) => {
 
     const measureRef = useCallback((node) => setElement(node), []);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!element) return undefined;
 
-        // Bail out on an unchanged count so a resize drag does not re-render.
+        // Column count and pixel width of the grid right now.
         const measure = () => {
             setColumns(columnsFor(element.clientWidth, cardMinPx, gapPx));
             setWidth(element.clientWidth);

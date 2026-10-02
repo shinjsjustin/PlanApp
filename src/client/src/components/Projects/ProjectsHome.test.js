@@ -336,7 +336,6 @@ describe('ProjectsHome', () => {
             const cards = cardsInDomOrder();
             await waitFor(() => expect(cards.map((c) => c.style.top)).toEqual(['0px', '116px', '182px']));
             expect(cards.map((c) => c.style.left)).toEqual(['0px', '0px', '0px']);
-            expect(cards.map((c) => c.style.top)).toEqual(['0px', '116px', '182px']);
             expect(document.querySelector('.projects-grid').style.height).toBe('252px');
         });
     });
