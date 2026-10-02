@@ -55,6 +55,7 @@ const renderCard = (props = {}) => {
                     onDelete={onDelete}
                     onRecolor={onRecolor}
                     placement={props.placement}
+                    measureRef={props.measureRef}
                 />
             </ul>
             <LocationProbe />
@@ -483,19 +484,34 @@ describe('ProjectCard', () => {
         const cardEl = () =>
             screen.getByRole('heading', { name: 'Build a drone' }).closest('.project-card');
 
-        test('puts the card at its row and spans two columns, keeping its color', () => {
-            renderCard({ project: { color: '#ffffff' }, placement: { row: 3, column: 5 } });
+        test('places the card absolutely at top, left and width, keeping its color', () => {
+            renderCard({
+                project: { color: '#ffffff' },
+                placement: { top: 120, left: 276, width: 260 },
+            });
 
-            expect(cardEl().style.gridRow).toBe('3');
-            expect(cardEl().style.gridColumn).toBe('5 / span 2');
+            expect(cardEl().style.position).toBe('absolute');
+            expect(cardEl().style.top).toBe('120px');
+            expect(cardEl().style.left).toBe('276px');
+            expect(cardEl().style.width).toBe('260px');
             expect(cardEl()).toHaveStyle({ background: '#ffffff' });
         });
 
-        test('sets no grid position without a placement', () => {
+        test('sets no position, top, left or width without a placement', () => {
             renderCard();
 
-            expect(cardEl().style.gridRow).toBe('');
-            expect(cardEl().style.gridColumn).toBe('');
+            expect(cardEl().style.position).toBe('');
+            expect(cardEl().style.top).toBe('');
+            expect(cardEl().style.left).toBe('');
+            expect(cardEl().style.width).toBe('');
+        });
+
+        test('hands the card li to measureRef', () => {
+            const measureRef = jest.fn();
+            renderCard({ measureRef });
+
+            expect(measureRef).toHaveBeenCalledWith(cardEl());
+            expect(cardEl().tagName).toBe('LI');
         });
     });
 });
