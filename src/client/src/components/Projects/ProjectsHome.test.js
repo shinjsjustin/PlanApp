@@ -264,20 +264,81 @@ describe('ProjectsHome', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent('Could not save color.');
     });
 
-    test('lists cards by ascending id, placed in rows 1..n at column 1 with one column', async () => {
-        api.get.mockResolvedValue([
-            aProject({ id: 3, title: 'Third' }),
-            aProject({ id: 1, title: 'First' }),
-            aProject({ id: 2, title: 'Second' }),
-        ]);
-        renderHome();
-        await waitForLoadToFinish();
+    describe('masonry layout', () => {
+        const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+        const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+        const restore = (name, descriptor) => {
+            if (descriptor) Object.defineProperty(HTMLElement.prototype, name, descriptor);
+            else delete HTMLElement.prototype[name];
+        };
+        let gridWidth;
+        let heightByTitle;
 
-        const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
-        expect(titles).toEqual(['First', 'Second', 'Third']);
-        const cards = titles.map((t) => screen.getByRole('heading', { name: t }).closest('.project-card'));
-        expect(cards.map((c) => c.style.gridRow)).toEqual(['1', '2', '3']);
-        expect(cards.map((c) => c.style.gridColumn)).toEqual(['1 / span 2', '1 / span 2', '1 / span 2']);
+        beforeEach(() => {
+            gridWidth = 1100;
+            heightByTitle = {};
+            Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+                configurable: true,
+                get() {
+                    return this.classList.contains('projects-grid') ? gridWidth : 0;
+                },
+            });
+            Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+                configurable: true,
+                get() {
+                    return heightByTitle[this.querySelector('h3')?.textContent] ?? 0;
+                },
+            });
+        });
+
+        afterEach(() => {
+            // jsdom may define these higher up the prototype chain, in which
+            // case deleting our own override restores the inherited one.
+            restore('clientWidth', originalClientWidth);
+            restore('offsetHeight', originalOffsetHeight);
+        });
+
+        const cardsInDomOrder = () =>
+            screen
+                .getAllByRole('heading', { level: 3 })
+                .map((h) => h.closest('.project-card'));
+
+        test('places cards shortest-column first, center-out, with 16px gaps', async () => {
+            heightByTitle = { A: 100, B: 300, C: 100, D: 100, E: 100 };
+            api.get.mockResolvedValue(
+                [5, 3, 1, 4, 2].map((id) => aProject({ id, title: 'ABCDE'[id - 1] }))
+            );
+            renderHome();
+            await waitForLoadToFinish();
+
+            const cards = cardsInDomOrder();
+            expect(cards.map((c) => c.querySelector('h3').textContent)).toEqual(['A', 'B', 'C', 'D', 'E']);
+            // Measuring lands in state after the first paint, so wait for it.
+            // Column width is (1100 - 3 * 16) / 4 = 263, so the column pitch is 279.
+            await waitFor(() =>
+                expect(cards.map((c) => c.style.left)).toEqual(['279px', '558px', '0px', '837px', '279px'])
+            );
+            expect(cards.map((c) => c.style.top)).toEqual(['0px', '0px', '0px', '0px', '116px']);
+            expect(document.querySelector('.projects-grid').style.height).toBe('300px');
+        });
+
+        test('stacks every card at left 0 with one column', async () => {
+            gridWidth = 200;
+            heightByTitle = { A: 100, B: 50, C: 70 };
+            api.get.mockResolvedValue([
+                aProject({ id: 1, title: 'A' }),
+                aProject({ id: 2, title: 'B' }),
+                aProject({ id: 3, title: 'C' }),
+            ]);
+            renderHome();
+            await waitForLoadToFinish();
+
+            const cards = cardsInDomOrder();
+            await waitFor(() => expect(cards.map((c) => c.style.top)).toEqual(['0px', '116px', '182px']));
+            expect(cards.map((c) => c.style.left)).toEqual(['0px', '0px', '0px']);
+            expect(cards.map((c) => c.style.top)).toEqual(['0px', '116px', '182px']);
+            expect(document.querySelector('.projects-grid').style.height).toBe('252px');
+        });
     });
 
     test('appends a newly created project after the existing ones', async () => {
@@ -293,14 +354,5 @@ describe('ProjectsHome', () => {
         await screen.findByRole('heading', { name: 'Newest' });
         const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
         expect(titles).toEqual(['First', 'Second', 'Newest']);
-    });
-
-    test('sizes the grid to two tracks per column', async () => {
-        api.get.mockResolvedValue([aProject()]);
-        renderHome();
-        await waitForLoadToFinish();
-
-        const grid = document.querySelector('.projects-grid');
-        expect(grid.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))');
     });
 });

@@ -62,9 +62,8 @@
 /* Full page width; ProjectsHome sets the column tracks inline from the measured
  * width, and each card places itself on them. */
 .projects-grid {
-    display: grid;
-    align-items: start;
-    gap: 1rem;
+    display: block;
+    position: relative;
     list-style: none;
     margin: 0;
     padding: 0;
