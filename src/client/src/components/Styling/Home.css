@@ -14,11 +14,11 @@
 }
 
 .Home-header {
-  /* The landing page is the one deliberately dark surface in the app — the body
-   * ground is light, so this paints its own. The inverted logo above depends on
-   * it. */
-  background-color: var(--bg-dark);
-  color: var(--text-white);
+  /* Transparent so the body's black grid ground shows through; the inverted logo
+   * above depends on that dark ground. */
+  background-color: transparent;
+  color: var(--text-glow);
+  text-shadow: var(--glow-text-shadow);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
