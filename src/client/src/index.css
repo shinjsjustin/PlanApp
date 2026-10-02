@@ -21,10 +21,19 @@
   --bg-dark:  #282c34;
   /* One ground for every app page — the project canvas, the projects grid, the
    * auth forms all sit on this. */
-  --bg-page:  #fafafa;
+  --bg-page:  #000;
   --bg-card:  #fff;
   --bg-alt:   #f9f9f9;
   --bg-input: #fff;
+
+  /* Neon — glow goes on named page text and buttons only, never on inherited
+   * containers, so dark card text stays flat. */
+  --neon-blue:      #00d4ff;
+  --neon-grid-line: rgba(0, 212, 255, 0.12);
+  --text-glow:      #e6faff;
+  --glow-text-shadow: 0 0 6px rgba(0, 212, 255, 0.8), 0 0 14px rgba(0, 212, 255, 0.45);
+  --glow-box-shadow:        0 0 8px rgba(0, 212, 255, 0.5);
+  --glow-box-shadow-strong: 0 0 14px rgba(0, 212, 255, 0.9), 0 0 28px rgba(0, 212, 255, 0.5);
 
   /* Borders */
   --border:     #ddd;
@@ -68,8 +77,8 @@
   box-sizing: border-box;
 }
 
-/* The app's ground is light — the pages that want to be dark (the landing
- * page) paint themselves dark, rather than the other way around. Mirrored by
+/* The app's ground is black with a fixed neon grid. Body text stays dark
+ * (--text-primary) for the light cards; page text opts in to the glow. Mirrored by
  * the `theme-color` in `public/index.html`; change one and change the other. */
 body {
   margin: 0;
@@ -77,6 +86,11 @@ body {
   font-size: var(--font-base);
   color: var(--text-primary);
   background-color: var(--bg-page);
+  background-image:
+    linear-gradient(var(--neon-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--neon-grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
