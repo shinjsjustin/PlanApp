@@ -8,6 +8,7 @@ const {
     toProject,
     toPinnedTodo,
     toSequence,
+    toThought,
     toTodo,
 } = require('../../src/lib/serializers');
 
@@ -412,6 +413,20 @@ describe('serializers', () => {
                 startMinutes: 540,
                 durationMinutes: 180,
             });
+        });
+    });
+
+    describe('toThought', () => {
+        test('maps the row to id, text and createdAt and drops the owner', () => {
+            // Arrange
+            const createdAt = new Date('2026-10-15T08:00:00Z');
+            const row = { id: 4, owner_id: 9, text: 'call the vet', created_at: createdAt };
+
+            // Act
+            const thought = toThought(row);
+
+            // Assert
+            expect(thought).toEqual({ id: 4, text: 'call the vet', createdAt });
         });
     });
 });

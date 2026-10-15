@@ -6,6 +6,7 @@ const app = require('../../src/server');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
+const thoughtsRepo = require('../../src/db/repositories/thoughtsRepo');
 const todosRepo = require('../../src/db/repositories/todosRepo');
 const { useTransaction, createTestUser } = require('../helpers/db');
 const { authHeaderFor } = require('../helpers/auth');
@@ -36,7 +37,9 @@ const buildGraph = async (conn) => {
     const child = await sequencesRepo.create(conn, { layerId: lower.id, title: 'Rotor system' });
     const todo = await todosRepo.create(conn, { projectId: project.id, text: 'Read about lift' });
 
-    return { ownerId, project, upper, parent, child, todo };
+    const thought = await thoughtsRepo.create(conn, { ownerId, text: 'Buy rotors' });
+
+    return { ownerId, project, upper, parent, child, todo, thought };
 };
 
 /**
@@ -76,12 +79,17 @@ const scopedEndpoints = (graph) => [
         { sequenceId: null, position: 0 },
     ],
     ['DELETE /api/todos/:id', 'delete', `/api/todos/${graph.todo.id}`, undefined],
+    ['PATCH /api/thoughts/:id', 'patch', `/api/thoughts/${graph.thought.id}`, { text: 'Taken' }],
+    ['DELETE /api/thoughts/:id', 'delete', `/api/thoughts/${graph.thought.id}`, undefined],
 ];
 
 /** Both endpoints that name no resource. */
 const UNSCOPED_ENDPOINTS = [
     ['GET /api/projects', 'get', '/api/projects', undefined],
     ['POST /api/projects', 'post', '/api/projects', { title: 'Mine' }],
+    ['GET /api/thoughts', 'get', '/api/thoughts', undefined],
+    ['POST /api/thoughts', 'post', '/api/thoughts', { text: 'Mine' }],
+    ['DELETE /api/thoughts', 'delete', '/api/thoughts', undefined],
 ];
 
 /**
@@ -94,6 +102,7 @@ const SAMPLE_GRAPH = {
     parent: { id: 3 },
     child: { id: 4 },
     todo: { id: 5 },
+    thought: { id: 6 },
 };
 
 const labelsOf = (endpoints) => endpoints.map(([label]) => label);

@@ -68,6 +68,11 @@ const OWNER_QUERIES = {
               JOIN calendar_days d ON d.id = n.day_id
               WHERE n.id = ?`,
     },
+    // Owned directly by a user, like a day; the row returned is the thought itself.
+    thought: {
+        label: 'Thought',
+        sql: 'SELECT id, owner_id FROM thoughts WHERE id = ?',
+    },
 };
 
 const assertOwnership = async (conn, resourceType, id, userId) => {

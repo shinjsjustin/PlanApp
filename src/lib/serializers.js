@@ -194,6 +194,13 @@ const toCalendarEvent = (row) => ({
     durationMinutes: row.duration_minutes,
 });
 
+/** `owner_id` stays server-side. */
+const toThought = (row) => ({
+    id: row.id,
+    text: row.text,
+    createdAt: row.created_at,
+});
+
 module.exports = {
     toCalendarDay,
     toCalendarEvent,
@@ -204,5 +211,6 @@ module.exports = {
     toPinnedTodo,
     toProject,
     toSequence,
+    toThought,
     toTodo,
 };
