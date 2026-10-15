@@ -18,7 +18,8 @@ const {
 } = require('../lib/calendarPlacement');
 const { toCalendarDay, toCalendarItem } = require('../lib/serializers');
 const { idSchema, parseId } = require('../lib/validation');
-const { withConnection, withTransaction } = require('../db/unitOfWork');
+const { localToday, timeZoneOf } = require('../lib/localDate');
+const { withTransaction } = require('../db/unitOfWork');
 
 /**
  * The calendar (design section 5). Mounted at `/api/calendar` behind `isAuth`,
@@ -28,6 +29,10 @@ const { withConnection, withTransaction } = require('../db/unitOfWork');
  * The calendar hangs off the user rather than off a project, so unlike every
  * other resource router here nothing is addressed by a parent: days are appended
  * to the owner's own strip.
+ *
+ * Days are dated. They stay ordered by position, which grows with date because
+ * days are only appended, each dated the last date + 1 (or today, read once per
+ * request in the caller's X-Time-Zone, when the strip is empty).
  *
  * The cascade — what a resize pushes down, what spills into tomorrow — is not
  * here. It runs in the browser, because it has to be recomputed on every pointer
@@ -158,12 +163,16 @@ const readCalendar = async (conn, ownerId, knownDays = null) => {
 };
 
 // GET /api/calendar — days and bookings together, the way the project graph
-// arrives in one piece. Read-only, so it takes a connection rather than a
-// transaction.
+// arrives in one piece. Days that predate dating are dated here, so it writes.
 router.get(
     '/',
     asyncRoute(async (req, res) => {
-        const calendar = await withConnection((conn) => readCalendar(conn, req.user.id));
+        const today = localToday(timeZoneOf(req));
+        const calendar = await withTransaction(async (conn) => {
+            await calendarDaysRepo.assignMissingDates(conn, req.user.id, today);
+
+            return readCalendar(conn, req.user.id);
+        });
 
         res.sendData(calendar);
     })
@@ -175,11 +184,31 @@ router.post(
     asyncRoute(async (req, res) => {
         createDaySchema.parse(req.body ?? {});
 
+        const today = localToday(timeZoneOf(req));
         const day = await withTransaction((conn) =>
-            calendarDaysRepo.create(conn, { ownerId: req.user.id })
+            calendarDaysRepo.create(conn, { ownerId: req.user.id, today })
         );
 
         res.sendData(toCalendarDay(day), 201);
+    })
+);
+
+// POST /api/calendar/days/clear-past — drops the owner's days dated before
+// today. Bookings and notes go with them through ON DELETE CASCADE. Registered
+// before any /days/:id route.
+router.post(
+    '/days/clear-past',
+    asyncRoute(async (req, res) => {
+        createDaySchema.parse(req.body ?? {});
+
+        const today = localToday(timeZoneOf(req));
+        const calendar = await withTransaction(async (conn) => {
+            await calendarDaysRepo.removeBefore(conn, req.user.id, today);
+
+            return readCalendar(conn, req.user.id);
+        });
+
+        res.sendData(calendar);
     })
 );
 
@@ -242,6 +271,7 @@ router.put(
     asyncRoute(async (req, res) => {
         const { appendDays, placements, unschedule, unscheduleSequences } = bulkSchema.parse(req.body ?? {});
         const ownerId = req.user.id;
+        const today = localToday(timeZoneOf(req));
 
         const calendar = await withTransaction(async (conn) => {
             await assertTodosOwned(
@@ -283,7 +313,7 @@ router.put(
 
             for (let index = 0; index < appendDays; index += 1) {
                 // eslint-disable-next-line no-await-in-loop
-                await calendarDaysRepo.create(conn, { ownerId });
+                await calendarDaysRepo.create(conn, { ownerId, today });
             }
 
             const days = await calendarDaysRepo.listByOwner(conn, ownerId);
