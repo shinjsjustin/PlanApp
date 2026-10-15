@@ -25,4 +25,9 @@ describe('routes', () => {
         // more public than the project pages it schedules work from.
         expect(routeFor('/calendar').element.type).toBe(ProtectedRoute);
     });
+
+    test('mounts the thoughts page at /thoughts behind ProtectedRoute', () => {
+        expect(routeFor('/thoughts')).toBeDefined();
+        expect(routeFor('/thoughts').element.type).toBe(ProtectedRoute);
+    });
 });
