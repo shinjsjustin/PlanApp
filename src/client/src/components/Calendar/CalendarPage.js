@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import GoogleConnectButton from './GoogleConnectButton';
 import CalendarDragArea from './CalendarDragArea';
 import PhoneCalendarView from './PhoneCalendarView';
 import ProjectPanel from './ProjectPanel';
@@ -26,6 +27,8 @@ import '../Styling/CalendarPhone.css';
 //
 // A failed calendar load keeps a retry on screen rather than rendering an empty
 // strip, which would be indistinguishable from a calendar with no days in it.
+//
+// The header also carries the Google connect control, which loads its own status.
 
 const CalendarPage = () => {
     const navigate = useNavigate();
@@ -116,6 +119,7 @@ const CalendarPage = () => {
                         Clear past days
                     </button>
                 )}
+                <GoogleConnectButton />
             </header>
 
             {/* Stays mounted and toggles `hidden` rather than being conditionally

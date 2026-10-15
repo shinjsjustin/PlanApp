@@ -1023,3 +1023,18 @@ button.note-ribbon-body:hover .note-ribbon-text {
     z-index: 1000;
     pointer-events: none;
 }
+
+/* ─── Google connection ──────────────────────────────────────────────────── */
+
+.google-connect {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+.google-connect p {
+    margin: 0;
+}
