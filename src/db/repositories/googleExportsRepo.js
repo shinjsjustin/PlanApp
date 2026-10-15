@@ -7,19 +7,25 @@
 
 const listByUser = async (conn, userId) => {
     const [rows] = await conn.execute(
-        'SELECT item_key, google_event_id FROM google_exports WHERE user_id = ? ORDER BY item_key',
+        'SELECT item_key, google_event_id, body_hash FROM google_exports WHERE user_id = ? ORDER BY item_key',
         [userId]
     );
 
-    return rows.map((row) => ({ itemKey: row.item_key, googleEventId: row.google_event_id }));
+    return rows.map((row) => ({
+        itemKey: row.item_key,
+        googleEventId: row.google_event_id,
+        bodyHash: row.body_hash,
+    }));
 };
 
-const upsert = async (conn, { userId, itemKey, googleEventId }) => {
+const upsert = async (conn, { userId, itemKey, googleEventId, bodyHash = null }) => {
     await conn.execute(
-        `INSERT INTO google_exports (user_id, item_key, google_event_id)
-         VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE google_event_id = VALUES(google_event_id)`,
-        [userId, itemKey, googleEventId]
+        `INSERT INTO google_exports (user_id, item_key, google_event_id, body_hash)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           google_event_id = VALUES(google_event_id),
+           body_hash = VALUES(body_hash)`,
+        [userId, itemKey, googleEventId, bodyHash]
     );
 };
 

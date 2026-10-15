@@ -73,6 +73,11 @@
 -- copy the CREATE TABLE statement for `google_exports` from the bottom of this
 -- file and run it alone.
 --
+-- A database created before export change detection is missing the body hash
+-- column. Add it in place rather than re-running this file
+-- (db/migration/2026-10-15_add_google_exports_body_hash.sql):
+--   ALTER TABLE `google_exports` ADD COLUMN `body_hash` char(64) CHARACTER SET ascii NULL AFTER `google_event_id`;
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -332,6 +337,8 @@ CREATE TABLE `google_exports` (
   `user_id`         int unsigned NOT NULL,
   `item_key`        varchar(64) CHARACTER SET ascii NOT NULL,
   `google_event_id` varchar(255) CHARACTER SET ascii NOT NULL,
+  -- sha256 of the last exported body; null means unknown, so the next export patches it.
+  `body_hash`       char(64) CHARACTER SET ascii NULL,
   `created_at`      timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`      timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`, `item_key`),
