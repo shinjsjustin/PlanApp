@@ -1,0 +1,18 @@
+.phone-day-scroll {
+  height: calc(100dvh - var(--tab-bar-height) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+.phone-day-header {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-glow);
+}
+
+.phone-day-stamp,
+.phone-day-empty {
+  color: var(--text-muted);
+}
+
+.phone-day-empty {
+  padding: var(--space-md);
+}
