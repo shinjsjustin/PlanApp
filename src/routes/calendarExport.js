@@ -33,33 +33,41 @@ router.post(
             bookings: await calendarItemsRepo.listByOwner(conn, userId),
             mappings: await googleExportsRepo.listByUser(conn, userId),
         }));
-        const { creates, updates, deletes } = planExport(
+        const { creates, updates, unchanged, deletes } = planExport(
             exportBodies(bookings, days, timeZoneOf(req)),
             mappings
         );
+        const counts = { created: 0, updated: 0, deleted: 0, unchanged: unchanged.length };
 
         // Each mapping is written as soon as Google answers, so a later failure
         // keeps what already exists and a re-run does not duplicate it.
-        const saveMapping = (itemKey, googleEventId) =>
-            withConnection((conn) => googleExportsRepo.upsert(conn, { userId, itemKey, googleEventId }));
+        const saveMapping = (itemKey, googleEventId, bodyHash) =>
+            withConnection((conn) => googleExportsRepo.upsert(conn, { userId, itemKey, googleEventId, bodyHash }));
 
-        for (const { itemKey, body } of creates) {
+        for (const { itemKey, body, bodyHash } of creates) {
             const event = await insertEvent(accessToken, body);
-            await saveMapping(itemKey, event.id);
+            await saveMapping(itemKey, event.id, bodyHash);
+            counts.created += 1;
         }
 
-        for (const { itemKey, body, googleEventId } of updates) {
-            if (await patchEvent(accessToken, googleEventId, body)) continue;
+        for (const { itemKey, body, bodyHash, googleEventId } of updates) {
+            if (await patchEvent(accessToken, googleEventId, body)) {
+                await saveMapping(itemKey, googleEventId, bodyHash);
+                counts.updated += 1;
+                continue;
+            }
             const event = await insertEvent(accessToken, body);
-            await saveMapping(itemKey, event.id);
+            await saveMapping(itemKey, event.id, bodyHash);
+            counts.created += 1;
         }
 
         for (const { itemKey, googleEventId } of deletes) {
             await deleteEvent(accessToken, googleEventId);
             await withConnection((conn) => googleExportsRepo.remove(conn, userId, itemKey));
+            counts.deleted += 1;
         }
 
-        res.sendData({ created: creates.length, updated: updates.length, deleted: deletes.length });
+        res.sendData(counts);
     })
 );
 
