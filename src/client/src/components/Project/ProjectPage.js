@@ -4,14 +4,17 @@ import { Link, useParams } from 'react-router-dom';
 import Canvas from './Canvas';
 import DragDropArea from './DragDropArea';
 import InlineDescription from './InlineDescription';
+import PhoneProjectView from './PhoneProjectView';
 import PinControls from './PinControls';
 import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
+import useIsPhone from '../../hooks/useIsPhone';
 import useProjectGraph from '../../hooks/useProjectGraph';
 import useSequenceSpotlight from '../../hooks/useSequenceSpotlight';
 import { PROJECT_STATUS } from '../../state/projectReducer';
 import { ProjectProvider } from '../../state/ProjectContext';
 import '../Styling/Project.css';
+import '../Styling/ProjectPhone.css';
 import '../Styling/SequenceCard.css';
 import '../Styling/Todos.css';
 
@@ -29,6 +32,7 @@ import '../Styling/Todos.css';
 
 const ProjectPage = () => {
     const { id } = useParams();
+    const isPhone = useIsPhone();
     const graph = useProjectGraph(id);
     const { state, reload, dismissActionError } = graph;
     const pinSelection = usePinSelectionState(graph.setTodosPinned, graph.setPinned);
@@ -40,16 +44,16 @@ const ProjectPage = () => {
     );
 
     return (
-        <main className="project-page">
+        <main className={isPhone ? 'project-page project-page--phone' : 'project-page'}>
             <header className="project-header">
                 <Link className="neon-button" to="/projects">← All projects</Link>
                 {state.project && <h1>{state.project.title}</h1>}
-                {state.status === PROJECT_STATUS.ready && (
+                {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>
                         <InlineDescription key={id} value={state.project.description} />
                     </ProjectProvider>
                 )}
-                {state.status === PROJECT_STATUS.ready && (
+                {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <PinControls selection={pinSelection} />
                 )}
             </header>
@@ -81,7 +85,13 @@ const ProjectPage = () => {
                 </div>
             )}
 
-            {state.status === PROJECT_STATUS.ready && (
+            {isPhone && state.status === PROJECT_STATUS.ready && (
+                <ProjectProvider value={graph}>
+                    <PhoneProjectView />
+                </ProjectProvider>
+            )}
+
+            {!isPhone && state.status === PROJECT_STATUS.ready && (
                 <ProjectProvider value={graph}>
                     <PinSelectionProvider value={pinSelection}>
                         <DragDropArea>
