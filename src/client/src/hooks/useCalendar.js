@@ -448,23 +448,39 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
     );
 
     /**
-     * Drops every day dated before today in one write. Bookings return to the
-     * pool and notes are cascaded away server-side, so `onDayDeleted` runs for
-     * each removed day on success only.
+     * Drops every day dated before today in one write. Which days went is the
+     * server's answer, not the client's guess at "past": `onDayDeleted` runs for
+     * each day that was present and is absent from it, on success only. An
+     * answer older than a write that has since settled only trims those days
+     * from the current schedule rather than replacing it.
      */
     const clearPastDays = useCallback(async () => {
+        let before = [];
+        let optimistic = null;
         let removedIds = [];
 
         const didClear = await mutate({
             apply: (previous) => {
-                const next = removePastDays(previous, todayKey());
-                const kept = new Set(next.days.map((day) => day.id));
-                removedIds = previous.days.filter((day) => !kept.has(day.id)).map((day) => day.id);
+                before = previous.days.map((day) => day.id);
+                optimistic = removePastDays(previous, todayKey());
 
-                return next;
+                return optimistic;
             },
             send: () => api.post('/calendar/days/clear-past', {}),
-            onSuccess: (current, saved) => saved,
+            onSuccess: (current, saved) => {
+                const kept = new Set(saved.days.map((day) => day.id));
+                removedIds = before.filter((id) => !kept.has(id));
+
+                if (!hasSettledSince(current, optimistic)) return saved;
+
+                const days = current.days.filter((day) => isTempId(day.id) || kept.has(day.id));
+                const dayIds = new Set(days.map((day) => day.id));
+
+                return {
+                    days,
+                    items: current.items.filter((item) => dayIds.has(item.dayId)),
+                };
+            },
         });
 
         if (didClear) removedIds.forEach((dayId) => onDayDeleted?.(dayId));

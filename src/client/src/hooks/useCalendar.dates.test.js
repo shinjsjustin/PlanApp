@@ -101,4 +101,60 @@ describe('clearPastDays', () => {
         expect(result.current.state.actionError).toBe('Nope');
         expect(onDayDeleted).not.toHaveBeenCalled();
     });
+
+    test('does not install a stale answer over a write that settled meanwhile', async () => {
+        let settle;
+        api.post.mockReturnValue(new Promise((resolve) => { settle = resolve; }));
+        api.delete.mockResolvedValue({});
+        const staleAnswer = {
+            days: [
+                { id: 3, position: 0, date: FUTURE, createdAt: '2026-09-09T08:00:00.000Z' },
+            ],
+            items: [booking(6, 3)],
+        };
+        const { result } = await renderReady();
+
+        let pending;
+        act(() => { pending = result.current.clearPastDays(); });
+        await act(async () => { await result.current.deleteDay(3); });
+        await act(async () => { settle(staleAnswer); await pending; });
+
+        expect(result.current.state.days).toEqual([]);
+        expect(result.current.state.items).toEqual([]);
+    });
+
+    test('keeps temp-id days when trimming a stale answer', async () => {
+        let settle;
+        api.post.mockReturnValueOnce(new Promise((resolve) => { settle = resolve; }));
+        api.post.mockReturnValueOnce(new Promise(() => {}));
+        const { result } = await renderReady();
+
+        let pending;
+        act(() => { pending = result.current.clearPastDays(); });
+        act(() => { result.current.addDay(); });
+        await act(async () => { settle(saved); await pending; });
+
+        const ids = result.current.state.days.map((d) => d.id);
+        expect(ids).toHaveLength(2);
+        expect(ids[0]).toBe(3);
+    });
+
+    test('calls onDayDeleted only for days the server dropped, not ones it kept', async () => {
+        const kept = {
+            days: [
+                { id: 1, position: 0, date: PAST, createdAt: '2026-09-09T08:00:00.000Z' },
+                saved.days[0],
+            ],
+            items: [booking(5, 1), booking(6, 3)],
+        };
+        api.post.mockResolvedValue(kept);
+        const onDayDeleted = jest.fn();
+        const { result } = await renderReady({ onDayDeleted });
+
+        await act(async () => { await result.current.clearPastDays(); });
+
+        expect(onDayDeleted).toHaveBeenCalledTimes(1);
+        expect(onDayDeleted).toHaveBeenCalledWith(2);
+        expect(result.current.state.days.map((d) => d.id)).toEqual([1, 3]);
+    });
 });
