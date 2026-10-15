@@ -23,10 +23,11 @@ beforeEach(() => {
 afterEach(() => localStorage.clear());
 
 describe('TabBar', () => {
-    it.each(['/projects', '/calendar'])('shows tabs and no Back on %s', (path) => {
+    it.each(['/projects', '/calendar', '/thoughts'])('shows tabs and no Back on %s', (path) => {
         renderAt(path);
         expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Calendar' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Thoughts' })).toHaveAttribute('href', '/thoughts');
         expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     });
 
