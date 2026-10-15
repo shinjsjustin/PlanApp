@@ -57,6 +57,7 @@ describe('ProjectPage on a phone', () => {
         expect(screen.queryByRole('button', { name: 'Pin' })).not.toBeInTheDocument();
         expect(screen.queryByText('Layered plan')).not.toBeInTheDocument();
         expect(screen.queryByDisplayValue('Layered plan')).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: '← All projects' })).not.toBeInTheDocument();
     });
 
     test('shows the loading state', () => {

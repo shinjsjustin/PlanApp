@@ -46,7 +46,7 @@ const ProjectPage = () => {
     return (
         <main className={isPhone ? 'project-page project-page--phone' : 'project-page'}>
             <header className="project-header">
-                <Link className="neon-button" to="/projects">← All projects</Link>
+                {!isPhone && <Link className="neon-button" to="/projects">← All projects</Link>}
                 {state.project && <h1>{state.project.title}</h1>}
                 {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>

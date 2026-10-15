@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import CreateProjectDialog from './CreateProjectDialog';
 import ProjectCard from './ProjectCard';
 import useCardHeights from '../../hooks/useCardHeights';
+import useIsPhone from '../../hooks/useIsPhone';
 import useMasonryColumns from '../../hooks/useMasonryColumns';
 import { api } from '../../lib/api';
 import { layoutMasonry } from '../../lib/masonry';
@@ -25,6 +26,7 @@ const ProjectsHome = () => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [gridRef, columns, width] = useMasonryColumns();
     const [refFor, heights] = useCardHeights();
+    const isPhone = useIsPhone();
 
     // Creation order: oldest first, so a created project (highest id) lands last.
     const orderedProjects = [...projects].sort((a, b) => a.id - b.id);
@@ -88,10 +90,13 @@ const ProjectsHome = () => {
                     {/* Unconditional, unlike "New project": the calendar is the
                         other view onto the same plan, and a grid that is still
                         loading — or that failed to — is exactly when the user
-                        most wants a way off this page. */}
-                    <Link className="projects-calendar-link neon-button" to="/calendar">
-                        Calendar →
-                    </Link>
+                        most wants a way off this page. Phones skip it: the tab
+                        bar already covers it. */}
+                    {!isPhone && (
+                        <Link className="projects-calendar-link neon-button" to="/calendar">
+                            Calendar →
+                        </Link>
+                    )}
                     {status === STATUS.ready && (
                         <button type="button" className="neon-button" onClick={() => setIsDialogOpen(true)}>
                             New project
