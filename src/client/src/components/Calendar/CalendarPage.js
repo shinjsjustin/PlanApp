@@ -6,6 +6,7 @@ import CalendarDragArea from './CalendarDragArea';
 import PhoneCalendarView from './PhoneCalendarView';
 import ProjectPanel from './ProjectPanel';
 import useCalendar from '../../hooks/useCalendar';
+import useCalendarEvents from '../../hooks/useCalendarEvents';
 import useCalendarNotes from '../../hooks/useCalendarNotes';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
@@ -39,6 +40,7 @@ const CalendarPage = () => {
     // same pinned row can refresh into its completed state.
     const pool = usePool();
     const notes = useCalendarNotes();
+    const events = useCalendarEvents();
     const calendar = useCalendar({
         onTodoCompleted: pool.refresh,
         // The server has already destroyed them through the schema's cascade
@@ -53,12 +55,13 @@ const CalendarPage = () => {
     // One alert region for three hooks. Two live regions stacked above the strip
     // would be noise on a page that raises an error roughly never, and the
     // calendar's own message is the more urgent of the two when both are set.
-    const actionError = state.actionError ?? notes.state.actionError;
+    const actionError = state.actionError ?? notes.state.actionError ?? events.error;
 
     const dismissError = useCallback(() => {
         if (state.actionError) dismissActionError();
-        else notes.dismissActionError();
-    }, [dismissActionError, notes, state.actionError]);
+        else if (notes.state.actionError) notes.dismissActionError();
+        else events.dismissError();
+    }, [dismissActionError, notes, events, state.actionError]);
 
     // Which cards are open has to outlive the ready/error branch: the panel is
     // rendered on both sides of it, so a retry remounts it. Held here, where
@@ -99,6 +102,7 @@ const CalendarPage = () => {
         state.status === CALENDAR_STATUS.idle || state.status === CALENDAR_STATUS.loading;
 
     const isReady = state.status === CALENDAR_STATUS.ready;
+    const hasDatedDay = state.days.some((day) => day.date);
     const today = todayKey();
     const hasPastDay = state.days.some((day) => day.date && day.date < today);
 
@@ -117,6 +121,16 @@ const CalendarPage = () => {
                         disabled={hasUnsavedDay || !hasPastDay}
                     >
                         Clear past days
+                    </button>
+                )}
+                {isReady && (
+                    <button
+                        type="button"
+                        className="neon-button"
+                        onClick={events.importAll}
+                        disabled={events.isImporting || !hasDatedDay}
+                    >
+                        Import Google events
                     </button>
                 )}
                 <GoogleConnectButton />
@@ -147,11 +161,12 @@ const CalendarPage = () => {
             {state.status === CALENDAR_STATUS.ready ? (
                 <CalendarProvider value={calendar}>
                     {isPhone ? (
-                        <PhoneCalendarView notes={notes} onOpenSource={openSource} />
+                        <PhoneCalendarView notes={notes} events={events} onOpenSource={openSource} />
                     ) : (
                         <CalendarDragArea
                             pool={pool}
                             notes={notes}
+                            events={events}
                             onOpenSource={openSource}
                             expandedProjectIds={expandedProjectIds}
                             onToggleProject={toggleProject}

@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+import AllDayEvents from './AllDayEvents';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
+import EventLayer from './EventLayer';
 import NotePlane from './NotePlane';
 import NowLine from './NowLine';
 import useSwipe from '../../hooks/useSwipe';
@@ -12,12 +14,15 @@ import { useCalendarContext } from '../../state/CalendarContext';
 import { useDayGeometry } from '../../state/DayScaleContext';
 import '../Styling/CalendarPhone.css';
 
+// Shared, so a view given no events hands the layers the same array each render.
+const NO_EVENTS = [];
+
 const STEP_BY_DIRECTION = { left: 1, right: -1 };
 
 // One read-only day at a time. It opens on the day dated today, else the first,
 // and swiping left/right walks the list without wrapping.
-const PhoneCalendarView = ({ notes, onOpenSource }) => {
-    const { state, completeTodo } = useCalendarContext();
+const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
+    const { state, completeTodo, isUnsavedDay } = useCalendarContext();
     const geometry = useDayGeometry();
     const scrollRef = useRef(null);
     const { days, items } = state;
@@ -48,6 +53,7 @@ const PhoneCalendarView = ({ notes, onOpenSource }) => {
 
     const label = `Day ${index + 1}`;
     const isToday = day.date === todayKey();
+    const dayEvents = events ? events.eventsForDay(day.id) : NO_EVENTS;
     const position = `${index + 1} of ${days.length}`;
 
     return (
@@ -61,10 +67,22 @@ const PhoneCalendarView = ({ notes, onOpenSource }) => {
                     )}
                 </h2>
                 {isToday && <span className="phone-day-today-badge">Today</span>}
+                <AllDayEvents events={dayEvents} />
+                {events && day.date && !isUnsavedDay(day.id) && (
+                    <button
+                        type="button"
+                        className="phone-day-import"
+                        onClick={() => events.importDay(day.id)}
+                        disabled={events.isImporting}
+                    >
+                        Import this day
+                    </button>
+                )}
             </header>
             <div className="phone-day-scroll" ref={scrollRef} {...swipeHandlers}>
                 <DayGrid>
                     <NotePlane dayId={day.id} notes={notes.notesForDay(day.id)} label={`Notes for ${label}`} />
+                    <EventLayer events={dayEvents} />
                     {items
                         .filter((item) => item.dayId === day.id)
                         .map((item) => (

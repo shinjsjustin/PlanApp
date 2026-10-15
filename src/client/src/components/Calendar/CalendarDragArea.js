@@ -236,7 +236,7 @@ const useNoteDroppable = (dayId, registerPlane, isDisabled) => {
     };
 };
 
-const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onToggleProject }) => {
+const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onToggleProject, events = null }) => {
     const { state, commit, unschedule, hasUnsavedDay } = useCalendarContext();
 
     const [active, setActive] = useState(null);
@@ -557,6 +557,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
                                 isDropDisabled={hasUnsavedDay || isTempId(day.id)}
                                 resize={resize}
                                 notes={notes}
+                                events={events}
                                 sequenceFor={sequenceFor}
                             />
                         )}
@@ -611,6 +612,7 @@ const DroppableDayColumn = ({
     isDropDisabled,
     resize,
     notes,
+    events,
     sequenceFor,
 }) => {
     const isNoteDrag = activeKind === DRAG_KIND.note;
@@ -630,6 +632,9 @@ const DroppableDayColumn = ({
             onOpenSource={onOpenSource}
             droppable={droppable}
             registerViewport={registerViewport}
+            events={events?.eventsForDay(day.id)}
+            onImportDay={events?.importDay}
+            isImporting={events?.isImporting}
             notePlane={
                 <NoteLayer
                     dayId={day.id}

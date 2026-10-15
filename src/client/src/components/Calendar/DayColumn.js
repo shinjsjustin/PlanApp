@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import AllDayEvents from './AllDayEvents';
 import ConfirmDialog from '../Project/ConfirmDialog';
+import EventLayer from './EventLayer';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DeleteBubble from '../common/DeleteBubble';
@@ -59,6 +61,9 @@ import { useDayGeometry } from '../../state/DayScaleContext';
  */
 const NO_NOTES = [];
 
+// Same reason, for the Google events of a column that was given none.
+const NO_EVENTS = [];
+
 const DayColumn = ({
     day,
     index,
@@ -69,6 +74,9 @@ const DayColumn = ({
     registerViewport = null,
     notes = NO_NOTES,
     notePlane = null,
+    events = NO_EVENTS,
+    onImportDay = null,
+    isImporting = false,
     children,
 }) => {
     const { deleteDay, completeTodo, isUnsavedDay } = useCalendarContext();
@@ -147,6 +155,17 @@ const DayColumn = ({
                     {day.date ? <time dateTime={day.date}>{dayLabel(day.date)}</time> : label}
                 </h2>
                 {isToday && <span className="day-column-today-badge">Today</span>}
+                <AllDayEvents events={events} />
+                {onImportDay && day.date && !isUnsavedDay(day.id) && (
+                    <button
+                        type="button"
+                        className="day-column-import"
+                        onClick={() => onImportDay(day.id)}
+                        disabled={isImporting}
+                    >
+                        Import this day
+                    </button>
+                )}
             </header>
 
             {/* A day the server has not stored yet has no id to address, so
@@ -170,6 +189,8 @@ const DayColumn = ({
                         ) : (
                             <NotePlane dayId={day.id} notes={notes} label={`Notes for ${label}`} />
                         )}
+
+                        <EventLayer events={events} />
 
                         {items.map((item) =>
                             cardFor ? (

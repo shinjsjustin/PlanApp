@@ -23,3 +23,16 @@
 .phone-day-empty {
   padding: var(--space-md);
 }
+
+.phone-day-import {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-sm);
+  color: var(--text-white);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.phone-day-import:disabled {
+  opacity: 0.5;
+}

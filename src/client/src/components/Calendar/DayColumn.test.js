@@ -331,4 +331,49 @@ describe('DayColumn', () => {
             expect(undated.container.querySelector('.now-line')).toBeNull();
         });
     });
+
+    describe('Google events', () => {
+        const timedEvent = { id: 'e1', dayId: 4, title: 'Dentist', allDay: false, startMinutes: 600, durationMinutes: 60 };
+        const chipEvent = { id: 'e2', dayId: 4, title: 'Holiday', allDay: true, startMinutes: 0, durationMinutes: 1440 };
+        const dated = { ...day, date: '2026-10-15' };
+
+        test('draws timed events and all-day chips', () => {
+            renderColumn([], {}, { events: [timedEvent, chipEvent] });
+
+            expect(screen.getByLabelText('Google event: Dentist')).toBeInTheDocument();
+            expect(screen.getByText('Holiday')).toBeInTheDocument();
+        });
+
+        test('draws no events and no import button without the props', () => {
+            renderColumn();
+
+            expect(document.querySelector('.calendar-event')).toBeNull();
+            expect(screen.queryByRole('button', { name: 'Import this day' })).not.toBeInTheDocument();
+        });
+
+        test('import button posts this day id and disables while importing', async () => {
+            const onImportDay = jest.fn();
+            const { rerender, value } = renderColumn([], {}, { day: dated, onImportDay });
+
+            await userEvent.click(screen.getByRole('button', { name: 'Import this day' }));
+            expect(onImportDay).toHaveBeenCalledWith(4);
+
+            rerender(
+                <CalendarProvider value={value}>
+                    <DayColumn day={dated} index={0} items={[]} onImportDay={onImportDay} isImporting />
+                </CalendarProvider>
+            );
+            expect(screen.getByRole('button', { name: 'Import this day' })).toBeDisabled();
+        });
+
+        test('no import button on an undated or unsaved day', () => {
+            const onImportDay = jest.fn();
+            const { unmount } = renderColumn([], {}, { onImportDay });
+            expect(screen.queryByRole('button', { name: 'Import this day' })).not.toBeInTheDocument();
+            unmount();
+
+            renderColumn([], { isUnsavedDay: () => true }, { day: dated, onImportDay });
+            expect(screen.queryByRole('button', { name: 'Import this day' })).not.toBeInTheDocument();
+        });
+    });
 });

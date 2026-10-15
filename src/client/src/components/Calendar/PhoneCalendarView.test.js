@@ -141,4 +141,49 @@ describe('PhoneCalendarView', () => {
         renderView();
         expect(document.querySelector('.now-line')).toBeNull();
     });
+
+    describe('Google events', () => {
+        const events = {
+            eventsForDay: (dayId) =>
+                dayId === 4
+                    ? [
+                          { id: 'e1', dayId: 4, title: 'Dentist', allDay: false, startMinutes: 600, durationMinutes: 60 },
+                          { id: 'e2', dayId: 4, title: 'Holiday', allDay: true, startMinutes: 0, durationMinutes: 1440 },
+                      ]
+                    : [],
+            importDay: jest.fn(),
+            isImporting: false,
+        };
+
+        const renderWithEvents = (extra = events, dayList = datedDays) =>
+            render(
+                <CalendarProvider
+                    value={{ completeTodo: jest.fn(), isUnsavedDay: () => false, state: { days: dayList, items } }}
+                >
+                    <PhoneCalendarView notes={notes} onOpenSource={jest.fn()} events={extra} />
+                </CalendarProvider>
+            );
+
+        test('shows the shown day timed events and chips only', () => {
+            renderWithEvents(events, datedDays.map((d, i) => ({ ...d, date: `2026-01-0${i + 1}` })));
+
+            expect(screen.getByLabelText('Google event: Dentist')).toBeInTheDocument();
+            expect(screen.getByText('Holiday')).toBeInTheDocument();
+
+            swipeLeft();
+            expect(screen.queryByLabelText('Google event: Dentist')).not.toBeInTheDocument();
+        });
+
+        test('import button posts the shown day and disables while importing', () => {
+            const importDay = jest.fn();
+            const { unmount } = renderWithEvents({ ...events, importDay });
+
+            fireEvent.click(screen.getByRole('button', { name: 'Import this day' }));
+            expect(importDay).toHaveBeenCalledWith(7);
+            unmount();
+
+            renderWithEvents({ ...events, isImporting: true });
+            expect(screen.getByRole('button', { name: 'Import this day' })).toBeDisabled();
+        });
+    });
 });

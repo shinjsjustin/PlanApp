@@ -1085,3 +1085,19 @@ button.note-ribbon-body:hover .note-ribbon-text {
     font-size: var(--font-sm);
     opacity: 0.6;
 }
+
+.day-column-import {
+    align-self: flex-start;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-sm);
+    color: var(--text-white);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.day-column-import:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
