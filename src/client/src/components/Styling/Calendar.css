@@ -1008,3 +1008,18 @@ button.note-ribbon-body:hover .note-ribbon-text {
     z-index: 5;
     pointer-events: none;
 }
+
+/* Portaled to body, so it escapes the clipping cards and ribbons. */
+.full-text-tip {
+    max-width: 20rem;
+    padding: var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+    font-size: var(--font-sm);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    z-index: 1000;
+    pointer-events: none;
+}
