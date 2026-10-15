@@ -1,9 +1,52 @@
-.phone-sequence {
+.project-page--phone {
+  display: flex;
+  flex-direction: column;
   height: calc(100dvh - var(--tab-bar-height) - env(safe-area-inset-bottom));
-  overflow-y: auto;
-  padding: var(--space-md);
+  overflow: hidden;
+}
+
+.phone-sequence {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   font-size: var(--font-xl);
   color: var(--text-glow);
+}
+
+.phone-sequence-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+}
+
+.phone-layer-arrow {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: 0;
+  color: var(--text-glow);
+  font-size: var(--font-md);
+  text-align: left;
+}
+
+.phone-layer-arrow--up {
+  padding-top: calc(var(--space-sm) + env(safe-area-inset-top));
+}
+
+.phone-layer-arrow:disabled {
+  color: var(--text-muted);
+}
+
+.phone-layer-arrow-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .phone-layer-title,

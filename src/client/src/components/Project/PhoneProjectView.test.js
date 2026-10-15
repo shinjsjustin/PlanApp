@@ -79,25 +79,47 @@ describe('PhoneProjectView', () => {
         expect(screen.getByText('2 of 2')).toBeInTheDocument();
     });
 
-    test.each([
-        ['left', LEFT, 'Electronics', '101'],
-        ['up', UP, 'Frame', '200'],
-    ])('swiping %s moves on and remembers it', (_name, [from, to], title, id) => {
+    test('swiping left steps to the next sequence and remembers it', () => {
         renderView();
-        swipe(from, to);
-        expect(screen.getByText(title)).toBeInTheDocument();
-        expect(localStorage.getItem('planapp:lastSequence:1')).toBe(id);
+        swipe(...LEFT);
+        expect(screen.getByText('Electronics')).toBeInTheDocument();
+        expect(localStorage.getItem('planapp:lastSequence:1')).toBe('101');
     });
 
-    test('swiping right and down steps back', () => {
+    test('swiping right steps back', () => {
         localStorage.setItem('planapp:lastSequence:1', '101');
         renderView();
         swipe(...RIGHT);
         expect(screen.getByText('Aerodynamics')).toBeInTheDocument();
-        swipe(...UP);
-        expect(screen.getByText('Frame')).toBeInTheDocument();
-        swipe(...DOWN);
+    });
+
+    test.each([['up', UP], ['down', DOWN]])('swiping %s changes nothing', (_n, [from, to]) => {
+        renderView();
+        swipe(from, to);
         expect(screen.getByText('Aerodynamics')).toBeInTheDocument();
+        expect(localStorage.getItem('planapp:lastSequence:1')).toBe('100');
+    });
+
+    test('on the top layer the down arrow names the next layer and the up arrow is disabled', () => {
+        renderView();
+        const down = screen.getByRole('button', { name: 'Layer below: Building' });
+        expect(down).toBeEnabled();
+        expect(down).toHaveTextContent('Building');
+        const up = screen.getByRole('button', { name: 'No layer above' });
+        expect(up).toBeDisabled();
+        expect(up.querySelector('.phone-layer-arrow-name')).toBeNull();
+    });
+
+    test('tapping the down arrow shows the layer first sequence and remembers it', () => {
+        renderView();
+        fireEvent.click(screen.getByRole('button', { name: 'Layer below: Building' }));
+        expect(screen.getByText('Frame')).toBeInTheDocument();
+        expect(localStorage.getItem('planapp:lastSequence:1')).toBe('200');
+        expect(screen.getByRole('button', { name: 'Layer above: Learning' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'No layer below' })).toBeDisabled();
+        fireEvent.click(screen.getByRole('button', { name: 'Layer above: Learning' }));
+        expect(screen.getByText('Aerodynamics')).toBeInTheDocument();
+        expect(localStorage.getItem('planapp:lastSequence:1')).toBe('100');
     });
 
     test('falls back to the first sequence when the shown one vanishes, and still swipes', () => {
@@ -136,7 +158,7 @@ describe('PhoneProjectView', () => {
             todos: [todo(1, 100, 'incomplete', 0), todo(2, 100, 'complete', 1)],
         });
 
-        const buttons = screen.getAllByRole('button');
+        const buttons = within(screen.getByRole('list')).getAllByRole('button');
         expect(buttons).toHaveLength(2);
 
         fireEvent.click(screen.getByRole('button', { name: /^Complete “Todo 1”/ }));
@@ -174,7 +196,8 @@ describe('ProjectPhone.css', () => {
 
         const unload = loadStylesheets('ProjectPhone.css');
         renderView();
-        expect(getComputedStyle(document.querySelector('.phone-sequence')).overflowY).toBe('auto');
+        expect(getComputedStyle(document.querySelector('.phone-sequence-scroll')).overflowY).toBe('auto');
+        expect(getComputedStyle(document.querySelector('.phone-layer-arrow-name')).textOverflow).toBe('ellipsis');
         unload();
     });
 });
