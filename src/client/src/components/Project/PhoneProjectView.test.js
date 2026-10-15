@@ -94,10 +94,36 @@ describe('PhoneProjectView', () => {
         renderView();
         swipe(...RIGHT);
         expect(screen.getByText('Aerodynamics')).toBeInTheDocument();
-        localStorage.setItem('planapp:lastSequence:1', '200');
         swipe(...UP);
+        expect(screen.getByText('Frame')).toBeInTheDocument();
         swipe(...DOWN);
         expect(screen.getByText('Aerodynamics')).toBeInTheDocument();
+    });
+
+    test('falls back to the first sequence when the shown one vanishes, and still swipes', () => {
+        localStorage.setItem('planapp:lastSequence:1', '200');
+        const full = buildValue();
+        const { rerender } = render(
+            <ProjectProvider value={full}>
+                <PhoneProjectView />
+            </ProjectProvider>
+        );
+        expect(screen.getByText('Frame')).toBeInTheDocument();
+
+        const reloaded = buildValue({
+            sequences: [seq(100, 10, 'Aerodynamics', 0), seq(101, 10, 'Electronics', 1)],
+        });
+        rerender(
+            <ProjectProvider value={reloaded}>
+                <PhoneProjectView />
+            </ProjectProvider>
+        );
+
+        expect(screen.getByText('Aerodynamics')).toBeInTheDocument();
+        expect(screen.queryByText('No sequences yet')).not.toBeInTheDocument();
+        expect(localStorage.getItem('planapp:lastSequence:1')).toBe('100');
+        swipe(...LEFT);
+        expect(screen.getByText('Electronics')).toBeInTheDocument();
     });
 
     test('writes the shown sequence on first render', () => {
