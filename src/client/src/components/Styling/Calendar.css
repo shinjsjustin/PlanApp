@@ -422,6 +422,7 @@
             var(--cal-note-plane-split)
     );
     right: var(--space-xs);
+    z-index: 1;
     overflow: hidden;
     border-radius: var(--radius-sm);
     background: var(--bg-alt);
@@ -1037,4 +1038,50 @@ button.note-ribbon-body:hover .note-ribbon-text {
 
 .google-connect p {
     margin: 0;
+}
+
+/* ─── Imported Google events ─────────────────────────────────────────────── */
+
+/* Same left/right as a booking, but behind it (lower z-index) and muted: these
+ * are fixed context, not work to move. */
+.calendar-event {
+    position: absolute;
+    left: calc(
+        var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) *
+            var(--cal-note-plane-split)
+    );
+    right: var(--space-xs);
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    border-left: var(--cal-item-edge-width) solid var(--text-muted);
+    background: var(--bg-alt);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+    opacity: 0.6;
+}
+
+.calendar-event-title {
+    font-weight: 600;
+}
+
+.all-day-events {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.all-day-event {
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+    opacity: 0.6;
 }
