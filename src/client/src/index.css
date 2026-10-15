@@ -70,6 +70,9 @@
   --font-md:   16px;
   --font-lg:   18px;
   --font-xl:   24px;
+
+  /* Phone tab bar */
+  --tab-bar-height: 56px;
 }
 
 /* ─── Base Reset ─────────────────────────────────────────────────────────────── */
