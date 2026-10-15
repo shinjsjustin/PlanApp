@@ -98,6 +98,42 @@ describe('useThoughts', () => {
         expect(result.current.status).toBe('ready');
     });
 
+    it.each([
+        ['add', 'post', { id: 3, text: 'x', createdAt: 'z' }, (r) => r.add('x')],
+        ['edit', 'patch', { ...A, text: 'x' }, (r) => r.edit(1, 'x')],
+        ['remove', 'delete', { id: 1 }, (r) => r.remove(1)],
+        ['clearAll', 'delete', { deleted: 2 }, (r) => r.clearAll()],
+    ])('%s resolves true on success', async (_n, verb, reply, call) => {
+        const { result } = await mountReady();
+        api[verb].mockResolvedValue(reply);
+
+        let outcome;
+        await act(async () => {
+            outcome = await call(result.current);
+        });
+
+        expect(outcome).toBe(true);
+    });
+
+    it.each([
+        ['add', 'post', (r) => r.add('x')],
+        ['edit', 'patch', (r) => r.edit(1, 'x')],
+        ['remove', 'delete', (r) => r.remove(1)],
+        ['clearAll', 'delete', (r) => r.clearAll()],
+    ])('%s resolves false without throwing when the call fails', async (_n, verb, call) => {
+        const { result } = await mountReady();
+        api[verb].mockRejectedValue(new Error('nope'));
+
+        let outcome;
+        await act(async () => {
+            outcome = await call(result.current);
+        });
+
+        expect(outcome).toBe(false);
+        expect(result.current.thoughts).toEqual([B, A]);
+        expect(result.current.error).toBe('nope');
+    });
+
     it('clears error on the next successful call', async () => {
         const { result } = await mountReady();
         api.post.mockRejectedValueOnce(new Error('nope'));

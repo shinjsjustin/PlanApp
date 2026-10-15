@@ -22,15 +22,18 @@ const useThoughts = () => {
     }, []);
 
     // Runs a call, then `apply`s its result; a failure is reported, not thrown.
+    // Resolves true when applied, false on failure or after unmount.
     const run = useCallback(async (call, apply) => {
         try {
             const result = await call();
-            if (!isMounted.current) return;
+            if (!isMounted.current) return false;
             apply(result);
             setError(null);
+            return true;
         } catch (err) {
-            if (!isMounted.current) return;
+            if (!isMounted.current) return false;
             setError(err?.message || GENERIC_FAILURE);
+            return false;
         }
     }, []);
 
