@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
 import { ApiError, api } from '../lib/api';
 import { toBulkRequest } from '../lib/calendarRequest';
-import { appendDay, refOfKey, removeDay, unscheduleItem } from '../lib/schedule';
+import { todayKey } from '../lib/dates';
+import { appendDay, refOfKey, removeDay, removePastDays, unscheduleItem } from '../lib/schedule';
 import { isTempId } from '../lib/tempIds';
 import { calendarReducer, initialCalendarState, scheduleOf } from '../state/calendarReducer';
 import {
@@ -446,6 +447,31 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
         [mutate, onDayDeleted]
     );
 
+    /**
+     * Drops every day dated before today in one write. Bookings return to the
+     * pool and notes are cascaded away server-side, so `onDayDeleted` runs for
+     * each removed day on success only.
+     */
+    const clearPastDays = useCallback(async () => {
+        let removedIds = [];
+
+        const didClear = await mutate({
+            apply: (previous) => {
+                const next = removePastDays(previous, todayKey());
+                const kept = new Set(next.days.map((day) => day.id));
+                removedIds = previous.days.filter((day) => !kept.has(day.id)).map((day) => day.id);
+
+                return next;
+            },
+            send: () => api.post('/calendar/days/clear-past', {}),
+            onSuccess: (current, saved) => saved,
+        });
+
+        if (didClear) removedIds.forEach((dayId) => onDayDeleted?.(dayId));
+
+        return didClear;
+    }, [mutate, onDayDeleted]);
+
     /** Dropping a booking on the pool's remove overlay. */
     const unschedule = useCallback(
         (ref) =>
@@ -532,6 +558,7 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
             commit,
             addDay,
             deleteDay,
+            clearPastDays,
             unschedule,
             completeTodo,
             dismissActionError,
@@ -544,6 +571,7 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
             commit,
             addDay,
             deleteDay,
+            clearPastDays,
             unschedule,
             completeTodo,
             dismissActionError,

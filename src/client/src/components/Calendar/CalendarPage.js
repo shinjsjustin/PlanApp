@@ -8,6 +8,7 @@ import useCalendar from '../../hooks/useCalendar';
 import useCalendarNotes from '../../hooks/useCalendarNotes';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
+import { todayKey } from '../../lib/dates';
 import { CALENDAR_STATUS } from '../../state/calendarReducer';
 import { CalendarProvider } from '../../state/CalendarContext';
 import '../Styling/Calendar.css';
@@ -44,7 +45,7 @@ const CalendarPage = () => {
         onDayDeleted: notes.pruneDay,
     });
 
-    const { state, reload, dismissActionError } = calendar;
+    const { state, reload, dismissActionError, clearPastDays, hasUnsavedDay } = calendar;
 
     // One alert region for three hooks. Two live regions stacked above the strip
     // would be noise on a page that raises an error roughly never, and the
@@ -94,12 +95,26 @@ const CalendarPage = () => {
     const isLoading =
         state.status === CALENDAR_STATUS.idle || state.status === CALENDAR_STATUS.loading;
 
+    const isReady = state.status === CALENDAR_STATUS.ready;
+    const today = todayKey();
+    const hasPastDay = state.days.some((day) => day.date && day.date < today);
+
     return (
         <main className={isPhone ? 'calendar-page calendar-page--phone' : 'calendar-page'}>
             <header className="calendar-header">
                 <h1>Calendar</h1>
                 {!isPhone && (
                     <Link className="neon-button" to="/projects">← All projects</Link>
+                )}
+                {isReady && (
+                    <button
+                        type="button"
+                        className="neon-button"
+                        onClick={clearPastDays}
+                        disabled={hasUnsavedDay || !hasPastDay}
+                    >
+                        Clear past days
+                    </button>
                 )}
             </header>
 
