@@ -94,4 +94,33 @@ describe('useGoogleConnection', () => {
         expect(result.current.connected).toBe(true);
         expect(result.current.error).toBe('fail');
     });
+
+    it('complete posts /google/complete with code and state and sets connected and email', async () => {
+        api.get.mockResolvedValue({ connected: false });
+        api.post.mockResolvedValue({ connected: true, email: 'j@x.com' });
+        const { result } = renderHook(() => useGoogleConnection());
+        await act(async () => {});
+
+        let ok;
+        await act(async () => { ok = await result.current.complete('c', 's'); });
+
+        expect(api.post).toHaveBeenCalledWith('/google/complete', { code: 'c', state: 's' });
+        expect(ok).toBe(true);
+        expect(result.current.connected).toBe(true);
+        expect(result.current.email).toBe('j@x.com');
+    });
+
+    it('complete stays disconnected, sets an error and returns false when the post rejects', async () => {
+        api.get.mockResolvedValue({ connected: false });
+        api.post.mockRejectedValue(new Error('bad state'));
+        const { result } = renderHook(() => useGoogleConnection());
+        await act(async () => {});
+
+        let ok;
+        await act(async () => { ok = await result.current.complete('c', 's'); });
+
+        expect(ok).toBe(false);
+        expect(result.current.connected).toBe(false);
+        expect(result.current.error).toBe('bad state');
+    });
 });

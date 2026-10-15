@@ -39,8 +39,10 @@ const useGoogleConnection = () => {
         setError(null);
         try {
             await action();
+            return true;
         } catch (cause) {
             setError(cause.message);
+            return false;
         } finally {
             setIsBusy(false);
         }
@@ -62,7 +64,15 @@ const useGoogleConnection = () => {
         [run]
     );
 
-    return { ...status, isBusy, error, connect, disconnect };
+    // Finishes the sign-in the server redirected back with; true when it worked.
+    const complete = useCallback(
+        (code, state) => run(async () => {
+            setStatus(readStatus(await api.post('/google/complete', { code, state })));
+        }),
+        [run]
+    );
+
+    return { ...status, isBusy, error, connect, disconnect, complete };
 };
 
 export default useGoogleConnection;

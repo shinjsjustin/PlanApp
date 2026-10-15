@@ -1,12 +1,17 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 import GoogleConnectButton from './GoogleConnectButton';
 import { api } from '../../lib/api';
 
 jest.mock('../../lib/api');
+
+const Where = () => {
+    const { pathname, search } = useLocation();
+    return <div data-testid="where">{pathname + search}</div>;
+};
 
 const renderAt = (url = '/calendar') =>
     render(
@@ -59,11 +64,44 @@ describe('GoogleConnectButton', () => {
         );
     });
 
-    it('shows Google connected in a status element for ?google=connected', async () => {
-        api.get.mockResolvedValue({ connected: true, email: 'j@x.com' });
-        renderAt('/calendar?google=connected');
+    it('finishes ?google=complete once, shows Google connected and clears the params', async () => {
+        api.get.mockResolvedValue({ connected: false });
+        api.post.mockResolvedValue({ connected: true, email: 'j@x.com' });
+        render(
+            <React.StrictMode>
+                <MemoryRouter initialEntries={['/calendar?google=complete&code=c&state=s']}>
+                    <GoogleConnectButton />
+                    <Where />
+                </MemoryRouter>
+            </React.StrictMode>
+        );
 
         expect(await screen.findByRole('status')).toHaveTextContent('Google connected');
+        expect(api.post).toHaveBeenCalledTimes(1);
+        expect(api.post).toHaveBeenCalledWith('/google/complete', { code: 'c', state: 's' });
+        await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/calendar'));
+        expect(screen.getByTestId('where')).not.toHaveTextContent('code');
+        expect(screen.getByTestId('where')).not.toHaveTextContent('google');
+        expect(await screen.findByText('Google: j@x.com')).toBeInTheDocument();
+    });
+
+    it('shows the failure message when completing rejects', async () => {
+        api.get.mockResolvedValue({ connected: false });
+        api.post.mockRejectedValue(new Error('bad'));
+        renderAt('/calendar?google=complete&code=c&state=s');
+
+        expect(await screen.findByRole('status')).toHaveTextContent(
+            'Google sign-in failed. Try again.'
+        );
+    });
+
+    it('does not post when code or state is missing', async () => {
+        api.get.mockResolvedValue({ connected: false });
+        renderAt('/calendar?google=complete&code=c');
+
+        await screen.findByRole('button', { name: 'Connect Google' });
+        expect(api.post).not.toHaveBeenCalled();
+        expect(screen.queryByRole('status')).toBeNull();
     });
 
     it('shows the failure message in a status element for ?google=error', async () => {
