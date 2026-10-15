@@ -18,6 +18,7 @@ const calendarDaysRepo = require('../../src/db/repositories/calendarDaysRepo');
 
 const NEW_DAY_ID = 501;
 const OWNER_ID = 3;
+const TODAY = '2026-10-15';
 
 const dayRow = (id, ownerId, position) => ({ id, owner_id: ownerId, position });
 
@@ -27,7 +28,7 @@ const dayRow = (id, ownerId, position) => ({ id, owner_id: ownerId, position });
  * days in order, or one day by id — so that a `create` which reindexes reaches
  * its UPDATEs rather than tripping over the stub.
  */
-const recordingConn = (existingDays, ownerId) => {
+const recordingConn = (existingDays, ownerId, lastDate = null) => {
     const calls = [];
     const strip = Array.from({ length: existingDays }, (unused, index) =>
         dayRow(index + 1, ownerId, index)
@@ -39,7 +40,7 @@ const recordingConn = (existingDays, ownerId) => {
         execute: async (sql, values) => {
             calls.push({ sql, values });
 
-            if (sql.includes('COUNT(*)')) return [[{ total: strip.length }]];
+            if (sql.includes('COUNT(*)')) return [[{ total: strip.length, last_date: lastDate }]];
             if (sql.startsWith('INSERT')) return [{ insertId: NEW_DAY_ID }];
             if (sql.includes('WHERE id = ?')) {
                 return [[dayRow(NEW_DAY_ID, ownerId, strip.length)]];
@@ -56,7 +57,7 @@ describe('calendarDaysRepo.create', () => {
         const conn = recordingConn(40, OWNER_ID);
 
         // Act
-        await calendarDaysRepo.create(conn, { ownerId: OWNER_ID });
+        await calendarDaysRepo.create(conn, { ownerId: OWNER_ID, today: TODAY });
 
         // Assert
         expect(conn.statements()).not.toContain('UPDATE');
@@ -64,14 +65,14 @@ describe('calendarDaysRepo.create', () => {
 
     test('places the new day at the end of the strip', async () => {
         // Arrange
-        const conn = recordingConn(40, OWNER_ID);
+        const conn = recordingConn(40, OWNER_ID, '2026-11-01');
 
         // Act
-        const day = await calendarDaysRepo.create(conn, { ownerId: OWNER_ID });
+        const day = await calendarDaysRepo.create(conn, { ownerId: OWNER_ID, today: TODAY });
 
         // Assert
         const insert = conn.calls.find((call) => call.sql.startsWith('INSERT'));
-        expect(insert.values).toEqual([OWNER_ID, 40]);
+        expect(insert.values).toEqual([OWNER_ID, 40, '2026-11-02']);
         expect(day.position).toBe(40);
     });
 
@@ -80,11 +81,11 @@ describe('calendarDaysRepo.create', () => {
         const conn = recordingConn(0, OWNER_ID);
 
         // Act
-        await calendarDaysRepo.create(conn, { ownerId: OWNER_ID });
+        await calendarDaysRepo.create(conn, { ownerId: OWNER_ID, today: TODAY });
 
         // Assert
         const insert = conn.calls.find((call) => call.sql.startsWith('INSERT'));
-        expect(insert.values).toEqual([OWNER_ID, 0]);
+        expect(insert.values).toEqual([OWNER_ID, 0, TODAY]);
     });
 
     test('costs the same number of statements however long the strip is', async () => {
@@ -93,8 +94,8 @@ describe('calendarDaysRepo.create', () => {
         const long = recordingConn(300, OWNER_ID);
 
         // Act
-        await calendarDaysRepo.create(short, { ownerId: OWNER_ID });
-        await calendarDaysRepo.create(long, { ownerId: OWNER_ID });
+        await calendarDaysRepo.create(short, { ownerId: OWNER_ID, today: TODAY });
+        await calendarDaysRepo.create(long, { ownerId: OWNER_ID, today: TODAY });
 
         // Assert
         expect(long.calls).toHaveLength(short.calls.length);

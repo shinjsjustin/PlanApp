@@ -51,6 +51,13 @@
 -- is for a to-do or a sequence; there is no CHECK saying so, because MySQL forbids
 -- CHECK constraints on columns used by cascading foreign keys.
 --
+-- A database created before dated calendar days is missing the date column. Add
+-- it in place rather than re-running this file
+-- (db/migration/2026-10-15_add_calendar_day_dates.sql):
+--   ALTER TABLE `calendar_days`
+--     ADD COLUMN `date` date DEFAULT NULL AFTER `owner_id`,
+--     ADD UNIQUE KEY `uq_calendar_days_owner_date` (`owner_id`, `date`);
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -172,17 +179,20 @@ CREATE TABLE `todos` (
 ) ENGINE=InnoDB;
 
 -- -- calendar_days ---------------------------------------------------------
--- A day is an ordered container spanning a full 24 hours, not a calendar date
--- (design 2026-09-09, decision 2). `position` is dense 0..n-1, left to right.
+-- A day is an ordered container spanning a full 24 hours, and is now dated:
+-- `date` is NULL only until the owner's first load assigns it. `position` is
+-- dense 0..n-1, left to right, and dates grow with position.
 -- It hangs off the user rather than off a project: the calendar's whole purpose
 -- is drawing work from every project at once.
 CREATE TABLE `calendar_days` (
   `id`         int unsigned NOT NULL AUTO_INCREMENT,
   `owner_id`   int unsigned NOT NULL,
+  `date`       date DEFAULT NULL,
   `position`   int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_calendar_days_owner_date` (`owner_id`, `date`),
   KEY `idx_calendar_days_owner_position` (`owner_id`, `position`),
   CONSTRAINT `fk_calendar_days_owner`
     FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE

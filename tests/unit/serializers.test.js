@@ -218,6 +218,7 @@ describe('serializers', () => {
                 id: 4,
                 owner_id: 12,
                 position: 2,
+                date: '2026-10-15',
                 created_at: new Date('2026-09-09T08:00:00Z'),
                 updated_at: new Date('2026-09-09T08:00:00Z'),
             };
@@ -229,11 +230,23 @@ describe('serializers', () => {
             expect(day).toEqual({
                 id: 4,
                 position: 2,
+                date: '2026-10-15',
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
             });
             expect(day).not.toHaveProperty('ownerId');
             expect(day).not.toHaveProperty('owner_id');
+        });
+
+        test('maps an unset date to null', () => {
+            // Arrange
+            const row = { id: 4, owner_id: 12, position: 2, date: null };
+
+            // Act
+            const day = toCalendarDay(row);
+
+            // Assert
+            expect(day.date).toBeNull();
         });
     });
 

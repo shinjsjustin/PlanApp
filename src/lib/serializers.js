@@ -105,6 +105,7 @@ const toPinnedSequence = (row, todos) => ({
  */
 const toCalendarDay = (row) => ({
     id: row.id,
+    date: row.date ?? null,
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
