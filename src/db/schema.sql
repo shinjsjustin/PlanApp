@@ -68,10 +68,16 @@
 -- (db/migration/2026-10-15_add_calendar_events.sql): copy the CREATE TABLE
 -- statement for `calendar_events` from the bottom of this file and run it alone.
 --
+-- A database created before Google export is missing one table. Add it in place
+-- rather than re-running this file (db/migration/2026-10-15_add_google_exports.sql):
+-- copy the CREATE TABLE statement for `google_exports` from the bottom of this
+-- file and run it alone.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `google_exports`;
 DROP TABLE IF EXISTS `google_accounts`;
 DROP TABLE IF EXISTS `calendar_events`;
 DROP TABLE IF EXISTS `calendar_notes`;
@@ -315,5 +321,20 @@ CREATE TABLE `google_accounts` (
   `updated_at`        timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
   CONSTRAINT `fk_google_accounts_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- google_exports --------------------------------------------------------
+-- Which Google event each booked item was exported as, so a re-export moves or
+-- deletes it instead of duplicating it. `item_key` is 'todo:<id>' or
+-- 'sequence:<id>' (the item, not the booking row, which may be recreated).
+CREATE TABLE `google_exports` (
+  `user_id`         int unsigned NOT NULL,
+  `item_key`        varchar(64) CHARACTER SET ascii NOT NULL,
+  `google_event_id` varchar(255) CHARACTER SET ascii NOT NULL,
+  `created_at`      timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`      timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`, `item_key`),
+  CONSTRAINT `fk_google_exports_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
