@@ -11,6 +11,7 @@ const layerRoutes = require('./routes/layers');
 const sequenceRoutes = require('./routes/sequences');
 const todoRoutes = require('./routes/todos');
 const calendarNotesRoutes = require('./routes/calendarNotes');
+const calendarEventsRoutes = require('./routes/calendarEvents');
 const calendarRoutes = require('./routes/calendar');
 const googleRoutes = require('./routes/google');
 const googleCallbackRoutes = require('./routes/googleCallback');
@@ -61,6 +62,8 @@ app.use('/api/todos', isAuth, respond, todoRoutes);
 // The more specific mount comes first, so `/api/calendar/notes` is not
 // swallowed by the calendar router's own `/:id`-shaped routes below it.
 app.use('/api/calendar/notes', isAuth, respond, calendarNotesRoutes);
+// Likewise for events, which would otherwise reach the calendar router first.
+app.use('/api/calendar/events', isAuth, respond, calendarEventsRoutes);
 app.use('/api/calendar', isAuth, respond, calendarRoutes);
 // The callback is public because Google's redirect carries no Bearer token; the
 // signed `state` it echoes back identifies the user instead. It is mounted

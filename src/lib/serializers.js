@@ -183,8 +183,20 @@ const toCalendarNote = (row) => ({
     durationMinutes: row.duration_minutes,
 });
 
+/** An imported Google event; `all_day` is a tinyint, so it becomes a boolean. */
+const toCalendarEvent = (row) => ({
+    id: row.id,
+    dayId: row.day_id,
+    googleEventId: row.google_event_id,
+    title: row.title,
+    allDay: Boolean(row.all_day),
+    startMinutes: row.start_minutes,
+    durationMinutes: row.duration_minutes,
+});
+
 module.exports = {
     toCalendarDay,
+    toCalendarEvent,
     toCalendarItem,
     toCalendarNote,
     toLayer,
