@@ -7,6 +7,7 @@ import PhoneCalendarView from './PhoneCalendarView';
 import ProjectPanel from './ProjectPanel';
 import useCalendar from '../../hooks/useCalendar';
 import useCalendarEvents from '../../hooks/useCalendarEvents';
+import useCalendarExport from '../../hooks/useCalendarExport';
 import useCalendarNotes from '../../hooks/useCalendarNotes';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
@@ -41,6 +42,7 @@ const CalendarPage = () => {
     const pool = usePool();
     const notes = useCalendarNotes();
     const events = useCalendarEvents();
+    const exporter = useCalendarExport();
     const calendar = useCalendar({
         onTodoCompleted: pool.refresh,
         // The server has already destroyed them through the schema's cascade
@@ -55,13 +57,14 @@ const CalendarPage = () => {
     // One alert region for three hooks. Two live regions stacked above the strip
     // would be noise on a page that raises an error roughly never, and the
     // calendar's own message is the more urgent of the two when both are set.
-    const actionError = state.actionError ?? notes.state.actionError ?? events.error;
+    const actionError = state.actionError ?? notes.state.actionError ?? events.error ?? exporter.error;
 
     const dismissError = useCallback(() => {
         if (state.actionError) dismissActionError();
         else if (notes.state.actionError) notes.dismissActionError();
-        else events.dismissError();
-    }, [dismissActionError, notes, events, state.actionError]);
+        else if (events.error) events.dismissError();
+        else exporter.dismissError();
+    }, [dismissActionError, notes, events, exporter, state.actionError]);
 
     // Which cards are open has to outlive the ready/error branch: the panel is
     // rendered on both sides of it, so a retry remounts it. Held here, where
@@ -133,6 +136,16 @@ const CalendarPage = () => {
                         Import Google events
                     </button>
                 )}
+                {isReady && (
+                    <button
+                        type="button"
+                        className="neon-button"
+                        onClick={exporter.exportAll}
+                        disabled={exporter.isExporting || !hasDatedDay || hasUnsavedDay}
+                    >
+                        Export to Google
+                    </button>
+                )}
                 <GoogleConnectButton />
                 {/* Apart from the alert toast below, which is for action errors:
                     this one stays until a retry succeeds. */}
@@ -143,6 +156,11 @@ const CalendarPage = () => {
                             Retry Google events
                         </button>
                     </div>
+                )}
+                {exporter.summary && (
+                    <p className="calendar-export-summary" role="status">
+                        {`Exported: ${exporter.summary.created} new, ${exporter.summary.updated} moved, ${exporter.summary.deleted} removed`}
+                    </p>
                 )}
             </header>
 
