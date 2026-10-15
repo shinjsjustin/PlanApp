@@ -126,4 +126,19 @@ describe('PhoneCalendarView', () => {
         expect(screen.queryByText('Today')).not.toBeInTheDocument();
         expect(screen.getByRole('region', { name: 'Day 1' })).not.toHaveAttribute('aria-current');
     });
+
+    test('draws a now-line only when the shown day is today', () => {
+        renderView(datedDays);
+        expect(document.querySelectorAll('.phone-day .now-line')).toHaveLength(1);
+    });
+
+    test('draws no now-line on another or undated day', () => {
+        renderView(datedDays.map((d, i) => ({ ...d, date: `2026-01-0${i + 1}` })));
+        expect(document.querySelector('.now-line')).toBeNull();
+    });
+
+    test('draws no now-line on undated days', () => {
+        renderView();
+        expect(document.querySelector('.now-line')).toBeNull();
+    });
 });

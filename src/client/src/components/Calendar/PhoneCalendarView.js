@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import NotePlane from './NotePlane';
+import NowLine from './NowLine';
 import useSwipe from '../../hooks/useSwipe';
 import { dayLabel, todayKey } from '../../lib/dates';
 import { itemKeyOf } from '../../lib/schedule';
@@ -74,6 +75,7 @@ const PhoneCalendarView = ({ notes, onOpenSource }) => {
                                 onOpenSource={onOpenSource}
                             />
                         ))}
+                    <NowLine date={day.date} />
                 </DayGrid>
             </div>
         </section>

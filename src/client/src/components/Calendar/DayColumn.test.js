@@ -312,4 +312,23 @@ describe('DayColumn', () => {
         // Assert
         expect(value.deleteDay).toHaveBeenCalledWith(4);
     });
+
+    describe('now-line', () => {
+        beforeEach(() => jest.useFakeTimers());
+        afterEach(() => jest.useRealTimers());
+
+        test('draws one inside the grid on a column dated today', () => {
+            const { container } = renderColumn([], {}, { day: { ...day, date: todayKey() } });
+            expect(container.querySelectorAll('.day-grid .now-line')).toHaveLength(1);
+        });
+
+        test('draws none on another date or an undated day', () => {
+            const other = renderColumn([], {}, { day: { ...day, date: nextDateKey(todayKey()) } });
+            expect(other.container.querySelector('.now-line')).toBeNull();
+            other.unmount();
+
+            const undated = renderColumn();
+            expect(undated.container.querySelector('.now-line')).toBeNull();
+        });
+    });
 });

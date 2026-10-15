@@ -996,3 +996,15 @@ button.note-ribbon-body:hover .note-ribbon-text {
     white-space: nowrap;
     cursor: grabbing;
 }
+
+/* Where now is on today's grid: a thin rule right of the gutter, over the
+ * cards. It never takes pointer events, so drops and taps pass through. */
+.now-line {
+    position: absolute;
+    left: var(--cal-gutter-width);
+    right: 0;
+    height: 0;
+    border-top: 2px solid var(--color-danger);
+    z-index: 5;
+    pointer-events: none;
+}

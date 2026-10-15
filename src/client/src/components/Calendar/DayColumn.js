@@ -5,6 +5,7 @@ import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DeleteBubble from '../common/DeleteBubble';
 import NotePlane from './NotePlane';
+import NowLine from './NowLine';
 import { dayLabel, todayKey } from '../../lib/dates';
 import { itemKeyOf } from '../../lib/schedule';
 import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
@@ -26,6 +27,8 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 //
 // It opens at 06:00 rather than midnight: the top six hours of most days are
 // empty, and starting there would mean scrolling before anything can be done.
+//
+// Today's grid also carries a now-line, drawn after the bookings so it sits over them.
 //
 // A day is a date. Its header is that date, and today's column is marked so it
 // stands out in the strip. A day without a date falls back to its place, "Day N".
@@ -180,6 +183,7 @@ const DayColumn = ({
                                 />
                             )
                         )}
+                        <NowLine date={day.date} />
                         {children}
                     </DayGrid>
                 </div>
