@@ -5,6 +5,7 @@ const { z } = require('zod');
 
 const asyncRoute = require('../lib/asyncRoute');
 const { listPrimaryEvents } = require('../lib/google/calendarApi');
+const { listFiles, readFile } = require('../lib/google/driveApi');
 const { accessTokenFor } = require('../lib/google/session');
 const { eventsInRange, rangeWindow } = require('../lib/googleEventWindow');
 const { addDays, isDateKey, timeZoneOf } = require('../lib/localDate');
@@ -34,6 +35,41 @@ router.get(
         const googleEvents = await listPrimaryEvents(accessToken, rangeWindow(from, to));
 
         res.sendData({ events: eventsInRange(googleEvents, from, to, timeZoneOf(req)) });
+    })
+);
+
+const MAX_SEARCH_LENGTH = 200;
+const MAX_PAGE_TOKEN_LENGTH = 1024;
+
+const listSchema = z.object({
+    search: z.string().min(1).max(MAX_SEARCH_LENGTH).optional(),
+    pageToken: z.string().max(MAX_PAGE_TOKEN_LENGTH).optional(),
+});
+
+const fileIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
+
+// GET /api/bourne/drive/files?search=&pageToken= — one page of Drive files.
+router.get(
+    '/drive/files',
+    asyncRoute(async (req, res) => {
+        const query = listSchema.parse(req.query);
+
+        const accessToken = await accessTokenFor(req.user.id);
+        const { files, nextPageToken } = await listFiles(accessToken, query);
+
+        res.sendData({ files, nextPageToken });
+    })
+);
+
+// GET /api/bourne/drive/files/:fileId — one file's metadata and text.
+router.get(
+    '/drive/files/:fileId',
+    asyncRoute(async (req, res) => {
+        const fileId = fileIdSchema.parse(req.params.fileId);
+
+        const accessToken = await accessTokenFor(req.user.id);
+
+        res.sendData(await readFile(accessToken, fileId));
     })
 );
 

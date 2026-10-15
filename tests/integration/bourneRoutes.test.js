@@ -110,3 +110,88 @@ describe('GET /api/bourne/calendar/events', () => {
         expect(calledUrl).toContain('timeMax=2026-10-18T00%3A00%3A00.000Z');
     });
 });
+
+describe('Bourne Drive routes', () => {
+    const FILES = '/api/bourne/drive/files';
+    const driveGet = (userId, path) => request(app).get(path).set('Authorization', authHeaderFor(userId));
+    const textResponse = (body) => ({ ok: true, status: 200, text: async () => body });
+
+    test.each([FILES, `${FILES}/abc`])('%s is 401 without a token', async (path) => {
+        const response = await request(app).get(path);
+        expect(response.status).toBe(401);
+    });
+
+    test.each([FILES, `${FILES}/abc`])('%s is 409 Google not connected with no Google call', async (path) => {
+        const userId = await createTestUser(getConn());
+        const response = await driveGet(userId, path);
+        expect(response.status).toBe(409);
+        expect(response.body.error).toBe('Google not connected');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('list passes search and pageToken and answers files with nextPageToken', async () => {
+        const conn = getConn();
+        const userId = await createTestUser(conn);
+        await seedAccount(conn, userId);
+        const file = { id: 'f1', name: 'Plan', mimeType: 'text/plain', modifiedTime: '2026-10-01T00:00:00Z', size: '5' };
+        fetchMock.mockResolvedValue(jsonResponse(200, { files: [file], nextPageToken: 'next' }));
+
+        const response = await driveGet(userId, `${FILES}?search=plan&pageToken=t`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toEqual({ files: [file], nextPageToken: 'next' });
+        const params = new URLSearchParams(String(fetchMock.mock.calls[0][0]).split('?')[1]);
+        expect(params.get('q')).toBe("trashed = false and fullText contains 'plan'");
+        expect(params.get('pageToken')).toBe('t');
+    });
+
+    test.each([
+        ['search over 200 chars', `search=${'a'.repeat(201)}`],
+        ['empty search', 'search='],
+        ['pageToken over 1024 chars', `pageToken=${'a'.repeat(1025)}`],
+    ])('list is 400 when %s', async (_name, query) => {
+        const conn = getConn();
+        const userId = await createTestUser(conn);
+        await seedAccount(conn, userId);
+        const response = await driveGet(userId, `${FILES}?${query}`);
+        expect(response.status).toBe(400);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('read answers file, content and reason', async () => {
+        const conn = getConn();
+        const userId = await createTestUser(conn);
+        await seedAccount(conn, userId);
+        fetchMock
+            .mockResolvedValueOnce(jsonResponse(200, { id: 'f1', name: 'Plan', mimeType: 'text/plain', modifiedTime: '2026-10-01T00:00:00Z', size: '5' }))
+            .mockResolvedValueOnce(textResponse('hello'));
+
+        const response = await driveGet(userId, `${FILES}/f1`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toEqual({
+            file: { id: 'f1', name: 'Plan', mimeType: 'text/plain', modifiedTime: '2026-10-01T00:00:00Z', size: 5 },
+            content: 'hello',
+            reason: null,
+        });
+    });
+
+    test.each([['bad.id'], ['a'.repeat(201)]])('read is 400 for file id %s with no Google call', async (id) => {
+        const conn = getConn();
+        const userId = await createTestUser(conn);
+        await seedAccount(conn, userId);
+        const response = await driveGet(userId, `${FILES}/${id}`);
+        expect(response.status).toBe(400);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('read answers 404 Drive file not found when Drive says 404', async () => {
+        const conn = getConn();
+        const userId = await createTestUser(conn);
+        await seedAccount(conn, userId);
+        fetchMock.mockResolvedValue(jsonResponse(404, {}));
+        const response = await driveGet(userId, `${FILES}/gone`);
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('Drive file not found');
+    });
+});
