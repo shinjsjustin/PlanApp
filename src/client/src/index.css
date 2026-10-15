@@ -61,6 +61,8 @@
    * modal question that has to be answered before anything else can be used.
    * Above the navbar and its dropdown (z-index 1000). */
   --z-modal: 2000;
+  /* Above the navbar (1000), below modals. */
+  --z-tab-bar: 1500;
 
   /* Typography — TODO: replace font stack if using a custom font */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

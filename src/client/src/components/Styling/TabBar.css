@@ -11,7 +11,7 @@
     justify-content: space-around;
     background: var(--bg-page);
     border-top: 1px solid var(--neon-grid-line);
-    z-index: var(--z-modal);
+    z-index: var(--z-tab-bar);
 }
 
 .tab-bar-link,
