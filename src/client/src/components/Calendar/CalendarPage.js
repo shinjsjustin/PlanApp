@@ -134,6 +134,16 @@ const CalendarPage = () => {
                     </button>
                 )}
                 <GoogleConnectButton />
+                {/* Apart from the alert toast below, which is for action errors:
+                    this one stays until a retry succeeds. */}
+                {events.loadError && (
+                    <div className="calendar-events-notice" role="status">
+                        <span>{events.loadError}</span>
+                        <button type="button" onClick={events.reload}>
+                            Retry Google events
+                        </button>
+                    </div>
+                )}
             </header>
 
             {/* Stays mounted and toggles `hidden` rather than being conditionally

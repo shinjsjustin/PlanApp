@@ -101,4 +101,61 @@ describe('CalendarPage Google events', () => {
 
         expect(screen.queryByText('Google not connected')).not.toBeInTheDocument();
     });
+
+    describe('when the events load fails', () => {
+        let failEventsOnce;
+
+        beforeEach(() => {
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+            failEventsOnce = true;
+            api.get.mockImplementation((path) => {
+                if (path === '/calendar/notes') return Promise.resolve({ notes: [] });
+                if (path === '/calendar') return Promise.resolve(calendarAnswer);
+                if (path === '/calendar/events') {
+                    if (failEventsOnce) {
+                        failEventsOnce = false;
+                        return Promise.reject(new Error('Boom'));
+                    }
+                    return Promise.resolve(eventsAnswer);
+                }
+                return Promise.resolve([]);
+            });
+        });
+
+        afterEach(() => console.error.mockRestore());
+
+        test('shows the message in a status inside the header with a retry button', async () => {
+            renderPage();
+
+            const message = await screen.findByText('Boom');
+            const notice = message.closest('[role="status"]');
+            expect(notice).not.toBeNull();
+            expect(notice.closest('header')).not.toBeNull();
+            expect(
+                within(notice).getByRole('button', { name: 'Retry Google events' })
+            ).toBeInTheDocument();
+        });
+
+        test('retry fetches events again and, on success, clears the notice and draws them', async () => {
+            renderPage();
+
+            await userEvent.click(await screen.findByRole('button', { name: 'Retry Google events' }));
+
+            expect(await screen.findByLabelText('Google event: Dentist')).toBeInTheDocument();
+            expect(screen.queryByText('Boom')).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Retry Google events' })).not.toBeInTheDocument();
+            expect(api.get.mock.calls.filter(([path]) => path === '/calendar/events')).toHaveLength(2);
+        });
+
+        test('the calendar and the other buttons still render', async () => {
+            renderPage();
+
+            await screen.findByText('Boom');
+            expect(screen.getByRole('region', { name: 'Day 1' })).toBeInTheDocument();
+            expect(screen.getByRole('region', { name: 'Day 2' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Import Google events' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Clear past days' })).toBeInTheDocument();
+            expect(screen.getByText('Boom').closest('[role="alert"]')).toBeNull();
+        });
+    });
 });
