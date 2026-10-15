@@ -2,13 +2,16 @@ import React, { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import CalendarDragArea from './CalendarDragArea';
+import PhoneCalendarView from './PhoneCalendarView';
 import ProjectPanel from './ProjectPanel';
 import useCalendar from '../../hooks/useCalendar';
 import useCalendarNotes from '../../hooks/useCalendarNotes';
+import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
 import { CALENDAR_STATUS } from '../../state/calendarReducer';
 import { CalendarProvider } from '../../state/CalendarContext';
 import '../Styling/Calendar.css';
+import '../Styling/CalendarPhone.css';
 
 // The calendar: a strip of day columns on the left, the pool of pinned work on
 // the right (design section 8).
@@ -25,6 +28,7 @@ import '../Styling/Calendar.css';
 
 const CalendarPage = () => {
     const navigate = useNavigate();
+    const isPhone = useIsPhone();
 
     // The two hooks meet here and nowhere else: neither knows the other exists,
     // and the page is what tells the pool that a booking was ticked off, so the
@@ -91,10 +95,12 @@ const CalendarPage = () => {
         state.status === CALENDAR_STATUS.idle || state.status === CALENDAR_STATUS.loading;
 
     return (
-        <main className="calendar-page">
+        <main className={isPhone ? 'calendar-page calendar-page--phone' : 'calendar-page'}>
             <header className="calendar-header">
                 <h1>Calendar</h1>
-                <Link className="neon-button" to="/projects">← All projects</Link>
+                {!isPhone && (
+                    <Link className="neon-button" to="/projects">← All projects</Link>
+                )}
             </header>
 
             {/* Stays mounted and toggles `hidden` rather than being conditionally
@@ -121,13 +127,17 @@ const CalendarPage = () => {
                 to-do as unscheduled. A successful retry brings both back. */}
             {state.status === CALENDAR_STATUS.ready ? (
                 <CalendarProvider value={calendar}>
-                    <CalendarDragArea
-                        pool={pool}
-                        notes={notes}
-                        onOpenSource={openSource}
-                        expandedProjectIds={expandedProjectIds}
-                        onToggleProject={toggleProject}
-                    />
+                    {isPhone ? (
+                        <PhoneCalendarView notes={notes} onOpenSource={openSource} />
+                    ) : (
+                        <CalendarDragArea
+                            pool={pool}
+                            notes={notes}
+                            onOpenSource={openSource}
+                            expandedProjectIds={expandedProjectIds}
+                            onToggleProject={toggleProject}
+                        />
+                    )}
                 </CalendarProvider>
             ) : (
                 <div className="calendar-body">
@@ -150,14 +160,16 @@ const CalendarPage = () => {
                         </div>
                     )}
 
-                    <ProjectPanel
-                        pool={pool}
-                        scheduledByTodoId={null}
-                        scheduledBySequenceId={null}
-                        onOpenSource={openSource}
-                        expandedProjectIds={expandedProjectIds}
-                        onToggleProject={toggleProject}
-                    />
+                    {!isPhone && (
+                        <ProjectPanel
+                            pool={pool}
+                            scheduledByTodoId={null}
+                            scheduledBySequenceId={null}
+                            onOpenSource={openSource}
+                            expandedProjectIds={expandedProjectIds}
+                            onToggleProject={toggleProject}
+                        />
+                    )}
                 </div>
             )}
         </main>
