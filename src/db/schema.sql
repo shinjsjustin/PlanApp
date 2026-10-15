@@ -63,11 +63,17 @@
 -- (db/migration/2026-10-15_add_google_accounts.sql): copy the CREATE TABLE
 -- statement for `google_accounts` from the bottom of this file and run it alone.
 --
+-- A database created before imported Google events is missing one table. Add it
+-- in place rather than re-running this file
+-- (db/migration/2026-10-15_add_calendar_events.sql): copy the CREATE TABLE
+-- statement for `calendar_events` from the bottom of this file and run it alone.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
 DROP TABLE IF EXISTS `google_accounts`;
+DROP TABLE IF EXISTS `calendar_events`;
 DROP TABLE IF EXISTS `calendar_notes`;
 DROP TABLE IF EXISTS `calendar_items`;
 DROP TABLE IF EXISTS `calendar_days`;
@@ -271,6 +277,26 @@ CREATE TABLE `calendar_notes` (
   PRIMARY KEY (`id`),
   KEY `idx_calendar_notes_day_start` (`day_id`, `start_minutes`),
   CONSTRAINT `fk_calendar_notes_day`
+    FOREIGN KEY (`day_id`) REFERENCES `calendar_days` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- calendar_events ------------------------------------------------------
+-- Read-only copies of Google events, never pushed back, never blocking
+-- bookings. A re-import replaces a day's rows wholesale; the unique key stops
+-- one Google event appearing twice on a day.
+CREATE TABLE `calendar_events` (
+  `id`               int unsigned NOT NULL AUTO_INCREMENT,
+  `day_id`           int unsigned NOT NULL,
+  `google_event_id`  varchar(255) CHARACTER SET ascii NOT NULL,
+  `title`            varchar(500) NOT NULL,
+  `all_day`          tinyint(1) NOT NULL,
+  `start_minutes`    int NOT NULL,
+  `duration_minutes` int NOT NULL,
+  `created_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_calendar_events_day_google` (`day_id`, `google_event_id`),
+  CONSTRAINT `fk_calendar_events_day`
     FOREIGN KEY (`day_id`) REFERENCES `calendar_days` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
