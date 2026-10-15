@@ -16,12 +16,15 @@ const saveOnEnter = (onSave) => (event) => {
 
 const ThoughtItem = ({ thought, onEdit, onRemove }) => {
     const [draft, setDraft] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
     const isEditing = draft !== null;
 
-    const save = () => {
-        if (!draft.trim()) return;
-        onEdit(thought.id, draft);
-        setDraft(null);
+    const save = async () => {
+        if (!draft.trim() || isSaving) return;
+        setIsSaving(true);
+        const didSave = await onEdit(thought.id, draft);
+        setIsSaving(false);
+        if (didSave) setDraft(null);
     };
 
     return (
@@ -37,7 +40,7 @@ const ThoughtItem = ({ thought, onEdit, onRemove }) => {
                         autoFocus
                     />
                     <div className="thought-actions">
-                        <button type="button" className="neon-button" onClick={save} disabled={!draft.trim()}>Save</button>
+                        <button type="button" className="neon-button" onClick={save} disabled={!draft.trim() || isSaving}>Save</button>
                         <button type="button" className="neon-button" onClick={() => setDraft(null)}>Cancel</button>
                     </div>
                 </>
@@ -61,11 +64,14 @@ const ThoughtsPage = () => {
     const isPhone = useIsPhone();
     const { status, thoughts, error, add, edit, remove, clearAll } = useThoughts();
     const [text, setText] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
-    const save = () => {
-        if (!text.trim()) return;
-        add(text);
-        setText('');
+    const save = async () => {
+        if (!text.trim() || isSaving) return;
+        setIsSaving(true);
+        const didSave = await add(text);
+        setIsSaving(false);
+        if (didSave) setText('');
     };
 
     const confirmClear = () => {
@@ -96,7 +102,7 @@ const ThoughtsPage = () => {
                     onKeyDown={saveOnEnter(save)}
                     autoFocus
                 />
-                <button type="button" className="neon-button" onClick={save} disabled={!text.trim()}>Save</button>
+                <button type="button" className="neon-button" onClick={save} disabled={!text.trim() || isSaving}>Save</button>
             </section>
 
             {status === 'loading' ? (

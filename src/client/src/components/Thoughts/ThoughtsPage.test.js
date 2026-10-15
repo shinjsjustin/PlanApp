@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -22,8 +22,8 @@ beforeEach(() => {
         status: 'ready',
         thoughts: [NEWER, OLDER],
         error: null,
-        add: jest.fn(),
-        edit: jest.fn(),
+        add: jest.fn().mockResolvedValue(true),
+        edit: jest.fn().mockResolvedValue(true),
         remove: jest.fn(),
         clearAll: jest.fn(),
     };
@@ -56,7 +56,34 @@ describe('ThoughtsPage', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         expect(hook.add).toHaveBeenCalledWith('buy milk');
-        expect(box).toHaveValue('');
+        await waitFor(() => expect(box).toHaveValue(''));
+    });
+
+    test('keeps the typed text when add resolves false', async () => {
+        hook.add.mockResolvedValueOnce(false);
+        renderPage();
+        const box = screen.getByRole('textbox', { name: /new thought/i });
+        await userEvent.type(box, 'buy milk');
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+        expect(box).toHaveValue('buy milk');
+    });
+
+    test('Save is disabled while an add is in flight', async () => {
+        let settle;
+        hook.add.mockReturnValueOnce(new Promise((resolve) => { settle = resolve; }));
+        renderPage();
+        const box = screen.getByRole('textbox', { name: /new thought/i });
+        await userEvent.type(box, 'buy milk');
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+        await userEvent.type(box, '{Enter}');
+        expect(hook.add).toHaveBeenCalledTimes(1);
+
+        settle(false);
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
     });
 
     test('Enter adds the text, Shift+Enter does not', async () => {
@@ -66,7 +93,7 @@ describe('ThoughtsPage', () => {
         expect(hook.add).not.toHaveBeenCalled();
         await userEvent.type(box, '{Enter}');
         expect(hook.add).toHaveBeenCalledWith('a\nb');
-        expect(box).toHaveValue('');
+        await waitFor(() => expect(box).toHaveValue(''));
     });
 
     test('Save is disabled while the text is blank', async () => {
@@ -100,7 +127,34 @@ describe('ThoughtsPage', () => {
         await userEvent.click(within(item).getByRole('button', { name: 'Save' }));
 
         expect(hook.edit).toHaveBeenCalledWith(1, 'changed');
-        expect(within(item).queryByRole('textbox')).not.toBeInTheDocument();
+        await waitFor(() => expect(within(item).queryByRole('textbox')).not.toBeInTheDocument());
+    });
+
+    test('keeps the edit box open with the draft when edit resolves false', async () => {
+        hook.edit.mockResolvedValueOnce(false);
+        renderPage();
+        const item = screen.getAllByRole('listitem')[1];
+        await userEvent.click(within(item).getByRole('button', { name: 'Edit' }));
+        const box = within(item).getByRole('textbox');
+        await userEvent.clear(box);
+        await userEvent.type(box, 'changed');
+        await userEvent.click(within(item).getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(within(item).getByRole('button', { name: 'Save' })).toBeEnabled());
+        expect(within(item).getByRole('textbox')).toHaveValue('changed');
+    });
+
+    test('edit Save is disabled while an edit is in flight', async () => {
+        let settle;
+        hook.edit.mockReturnValueOnce(new Promise((resolve) => { settle = resolve; }));
+        renderPage();
+        const item = screen.getAllByRole('listitem')[1];
+        await userEvent.click(within(item).getByRole('button', { name: 'Edit' }));
+        await userEvent.click(within(item).getByRole('button', { name: 'Save' }));
+
+        expect(within(item).getByRole('button', { name: 'Save' })).toBeDisabled();
+        settle(true);
+        await waitFor(() => expect(within(item).queryByRole('textbox')).not.toBeInTheDocument());
     });
 
     test('Delete calls remove with the id', async () => {
