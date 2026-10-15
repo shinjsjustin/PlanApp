@@ -12,6 +12,8 @@ const sequenceRoutes = require('./routes/sequences');
 const todoRoutes = require('./routes/todos');
 const calendarNotesRoutes = require('./routes/calendarNotes');
 const calendarRoutes = require('./routes/calendar');
+const googleRoutes = require('./routes/google');
+const googleCallbackRoutes = require('./routes/googleCallback');
 
 const isAuth = require('./middleware/isAuth');
 const { respond, errorHandler } = require('./middleware/respond');
@@ -60,6 +62,11 @@ app.use('/api/todos', isAuth, respond, todoRoutes);
 // swallowed by the calendar router's own `/:id`-shaped routes below it.
 app.use('/api/calendar/notes', isAuth, respond, calendarNotesRoutes);
 app.use('/api/calendar', isAuth, respond, calendarRoutes);
+// The callback is public because Google's redirect carries no Bearer token; the
+// signed `state` it echoes back identifies the user instead. It is mounted
+// first so the protected router below never sees it.
+app.use('/api/google', googleCallbackRoutes);
+app.use('/api/google', isAuth, respond, googleRoutes);
 
 // Terminal error handler for the resource routes above.
 app.use(errorHandler);
