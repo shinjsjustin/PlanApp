@@ -78,10 +78,16 @@
 -- (db/migration/2026-10-15_add_google_exports_body_hash.sql):
 --   ALTER TABLE `google_exports` ADD COLUMN `body_hash` char(64) CHARACTER SET ascii NULL AFTER `google_event_id`;
 --
+-- A database created before thoughts is missing one table. Add it in place
+-- rather than re-running this file (db/migration/2026-10-15_add_thoughts.sql):
+-- copy the CREATE TABLE statement for `thoughts` from the bottom of this file
+-- and run it alone.
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `thoughts`;
 DROP TABLE IF EXISTS `google_exports`;
 DROP TABLE IF EXISTS `google_accounts`;
 DROP TABLE IF EXISTS `calendar_events`;
@@ -344,4 +350,17 @@ CREATE TABLE `google_exports` (
   PRIMARY KEY (`user_id`, `item_key`),
   CONSTRAINT `fk_google_exports_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- thoughts --------------------------------------------------------------
+-- Throwaway quick notes: only an owner, text and creation time.
+CREATE TABLE `thoughts` (
+  `id`         int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`   int unsigned NOT NULL,
+  `text`       varchar(2000) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_thoughts_owner_created` (`owner_id`, `created_at`),
+  CONSTRAINT `fk_thoughts_user`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
