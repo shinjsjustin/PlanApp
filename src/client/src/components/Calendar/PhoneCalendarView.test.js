@@ -2,12 +2,21 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import PhoneCalendarView from './PhoneCalendarView';
+import { dayLabel, nextDateKey, todayKey } from '../../lib/dates';
 import { CalendarProvider } from '../../state/CalendarContext';
 
 const days = [
-    { id: 4, position: 0, createdAt: '2026-09-09T08:30:00.000Z' },
-    { id: 7, position: 1, createdAt: '2026-09-10T08:30:00.000Z' },
-    { id: 9, position: 2, createdAt: '2026-09-11T08:30:00.000Z' },
+    { id: 4, position: 0 },
+    { id: 7, position: 1 },
+    { id: 9, position: 2 },
+];
+
+const today = todayKey();
+const tomorrow = nextDateKey(today);
+const datedDays = [
+    { id: 4, position: 0, date: '2026-01-01' },
+    { id: 7, position: 1, date: today },
+    { id: 9, position: 2, date: tomorrow },
 ];
 
 const booking = (todoId, dayId, text) => ({
@@ -98,5 +107,23 @@ describe('PhoneCalendarView', () => {
     test('says so when there are no days', () => {
         renderView([]);
         expect(screen.getByText('No days yet')).toBeInTheDocument();
+    });
+
+    test('opens on the day dated today and shows its date and a Today badge', () => {
+        renderView(datedDays);
+
+        expect(screen.getByText(`${dayLabel(today)} · 2 of 3`)).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Day 2' })).toHaveAttribute('aria-current', 'date');
+        expect(screen.getByText('Today')).toBeInTheDocument();
+        expect(screen.getByText('second day booking')).toBeInTheDocument();
+        expect(document.querySelector('time')).toHaveAttribute('datetime', today);
+    });
+
+    test('opens on the first day when none is dated today, with no badge', () => {
+        renderView(datedDays.map((d, i) => ({ ...d, date: `2026-01-0${i + 1}` })));
+
+        expect(screen.getByText(`${dayLabel('2026-01-01')} · 1 of 3`)).toBeInTheDocument();
+        expect(screen.queryByText('Today')).not.toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Day 1' })).not.toHaveAttribute('aria-current');
     });
 });

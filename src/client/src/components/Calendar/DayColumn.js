@@ -5,6 +5,7 @@ import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DeleteBubble from '../common/DeleteBubble';
 import NotePlane from './NotePlane';
+import { dayLabel, todayKey } from '../../lib/dates';
 import { itemKeyOf } from '../../lib/schedule';
 import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
 import { useCalendarContext } from '../../state/CalendarContext';
@@ -26,8 +27,8 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 // It opens at 06:00 rather than midnight: the top six hours of most days are
 // empty, and starting there would mean scrolling before anything can be done.
 //
-// A day has no name. Its header is where it sits and when it was made, which is
-// what a day *is* here — an ordered container, not a date (design decision 2).
+// A day is a date. Its header is that date, and today's column is marked so it
+// stands out in the strip. A day without a date falls back to its place, "Day N".
 
 // `droppable` comes from the one wrapper that has a `DndContext` around it, and
 // defaults off so the column renders bare in a test.
@@ -73,6 +74,7 @@ const DayColumn = ({
     const scrollRef = useRef(null);
 
     const label = `Day ${index + 1}`;
+    const isToday = day.date === todayKey();
 
     /**
      * The scroll element does two jobs, so it takes two refs.
@@ -132,12 +134,16 @@ const DayColumn = ({
         'project panel, ready to be scheduled again.';
 
     return (
-        <section className="day-column has-delete-bubble" aria-label={label}>
+        <section
+            className={`day-column has-delete-bubble${isToday ? ' day-column--today' : ''}`}
+            aria-label={label}
+            aria-current={isToday ? 'date' : undefined}
+        >
             <header className="day-column-header">
-                <h2 className="day-column-title">{label}</h2>
-                <time className="day-column-stamp" dateTime={day.createdAt}>
-                    {new Date(day.createdAt).toLocaleString()}
-                </time>
+                <h2 className="day-column-title">
+                    {day.date ? <time dateTime={day.date}>{dayLabel(day.date)}</time> : label}
+                </h2>
+                {isToday && <span className="day-column-today-badge">Today</span>}
             </header>
 
             {/* A day the server has not stored yet has no id to address, so

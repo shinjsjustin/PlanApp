@@ -6,6 +6,7 @@ import DayColumn from './DayColumn';
 import { assignLanes } from '../../lib/noteLanes';
 import { CalendarProvider } from '../../state/CalendarContext';
 import { INITIAL_SCROLL_MINUTES, PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
+import { dayLabel, nextDateKey, todayKey } from '../../lib/dates';
 import { loadStylesheets, containingBlockOf } from '../../testUtils/stylesheet';
 
 /**
@@ -33,7 +34,7 @@ const { assignLanes: realAssignLanes } = jest.requireActual('../../lib/noteLanes
 
 const { minutesToPx } = createDayGeometry(PX_PER_SLOT_MIN);
 
-const day = { id: 4, position: 0, createdAt: '2026-09-09T08:30:00.000Z' };
+const day = { id: 4, position: 0 };
 
 const booking = {
     todoId: 12,
@@ -107,11 +108,49 @@ describe('DayColumn', () => {
         }
     });
 
-    test('names itself by its place in the strip and stamps when it was made', () => {
+    test('names itself by its place in the strip', () => {
         renderColumn();
 
         expect(screen.getByRole('region', { name: 'Day 1' })).toBeInTheDocument();
-        expect(screen.getByText(/2026/)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Day 1' })).toBeInTheDocument();
+    });
+
+    test('shows its date in a time element when dated, and no createdAt stamp', () => {
+        const date = '2026-09-09';
+        const dated = { ...day, date, createdAt: '2026-01-02T08:30:00.000Z' };
+        const { container } = renderColumn([], {}, { day: dated });
+
+        const time = screen.getByText(dayLabel(date));
+        expect(time.tagName).toBe('TIME');
+        expect(time).toHaveAttribute('datetime', date);
+        expect(screen.getByRole('region', { name: 'Day 1' })).toBeInTheDocument();
+        expect(container).not.toHaveTextContent('2026,');
+        expect(container.querySelector('.day-column-stamp')).not.toBeInTheDocument();
+    });
+
+    test('marks the column dated today and no other', () => {
+        const today = { ...day, date: todayKey() };
+        const { container, unmount } = renderColumn([], {}, { day: today });
+
+        const column = screen.getByRole('region', { name: 'Day 1' });
+        expect(column).toHaveClass('day-column--today');
+        expect(column).toHaveAttribute('aria-current', 'date');
+        expect(screen.getByText('Today')).toBeInTheDocument();
+        unmount();
+
+        renderColumn([], {}, { day: { ...day, date: nextDateKey(todayKey()) } });
+        const other = screen.getByRole('region', { name: 'Day 1' });
+        expect(other).not.toHaveClass('day-column--today');
+        expect(other).not.toHaveAttribute('aria-current');
+        expect(screen.queryByText('Today')).not.toBeInTheDocument();
+        expect(container).toBeDefined();
+    });
+
+    test('an undated day is never today', () => {
+        renderColumn();
+
+        expect(screen.getByRole('region', { name: 'Day 1' })).not.toHaveClass('day-column--today');
+        expect(screen.queryByText('Today')).not.toBeInTheDocument();
     });
 
     test('opens scrolled to 06:00', () => {

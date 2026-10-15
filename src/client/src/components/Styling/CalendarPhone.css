@@ -8,7 +8,14 @@
   color: var(--text-glow);
 }
 
-.phone-day-stamp,
+.phone-day-today-badge {
+  font-size: var(--font-sm);
+  color: var(--text-white);
+  background: var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-xs);
+}
+
 .phone-day-empty {
   color: var(--text-muted);
 }

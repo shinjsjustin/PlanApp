@@ -325,9 +325,16 @@
     font-size: var(--font-md);
 }
 
-.day-column-stamp {
+.day-column--today {
+    border-color: var(--color-accent);
+}
+
+.day-column-today-badge {
     font-size: var(--font-sm);
-    color: var(--text-muted);
+    color: var(--text-white);
+    background: var(--color-accent);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--space-xs);
 }
 
 .day-column-scroll {

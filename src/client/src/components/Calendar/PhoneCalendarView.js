@@ -4,6 +4,7 @@ import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import NotePlane from './NotePlane';
 import useSwipe from '../../hooks/useSwipe';
+import { dayLabel, todayKey } from '../../lib/dates';
 import { itemKeyOf } from '../../lib/schedule';
 import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
 import { useCalendarContext } from '../../state/CalendarContext';
@@ -12,15 +13,17 @@ import '../Styling/CalendarPhone.css';
 
 const STEP_BY_DIRECTION = { left: 1, right: -1 };
 
-// One read-only day at a time. Days are an ordered list rather than dates, so
-// it opens on Day 1 and swiping left/right walks the list without wrapping.
+// One read-only day at a time. It opens on the day dated today, else the first,
+// and swiping left/right walks the list without wrapping.
 const PhoneCalendarView = ({ notes, onOpenSource }) => {
     const { state, completeTodo } = useCalendarContext();
     const geometry = useDayGeometry();
     const scrollRef = useRef(null);
-    const [requestedIndex, setRequestedIndex] = useState(0);
-
     const { days, items } = state;
+    const [requestedIndex, setRequestedIndex] = useState(() =>
+        Math.max(0, days.findIndex((d) => d.date === todayKey()))
+    );
+
     const index = Math.min(requestedIndex, days.length - 1);
     const day = days[index];
 
@@ -43,14 +46,20 @@ const PhoneCalendarView = ({ notes, onOpenSource }) => {
     if (!day) return <p className="phone-day-empty">No days yet</p>;
 
     const label = `Day ${index + 1}`;
+    const isToday = day.date === todayKey();
+    const position = `${index + 1} of ${days.length}`;
 
     return (
-        <section className="phone-day" aria-label={label}>
+        <section className="phone-day" aria-label={label} aria-current={isToday ? 'date' : undefined}>
             <header className="phone-day-header">
-                <h2 className="phone-day-title">{`${label} of ${days.length}`}</h2>
-                <time className="phone-day-stamp" dateTime={day.createdAt}>
-                    {new Date(day.createdAt).toLocaleString()}
-                </time>
+                <h2 className="phone-day-title">
+                    {day.date ? (
+                        <time dateTime={day.date}>{`${dayLabel(day.date)} · ${position}`}</time>
+                    ) : (
+                        `${label} of ${days.length}`
+                    )}
+                </h2>
+                {isToday && <span className="phone-day-today-badge">Today</span>}
             </header>
             <div className="phone-day-scroll" ref={scrollRef} {...swipeHandlers}>
                 <DayGrid>
