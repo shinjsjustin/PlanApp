@@ -29,7 +29,7 @@ const PhoneCalendarView = ({ notes, onOpenSource }) => {
         if (!step) return;
         setRequestedIndex(Math.max(0, Math.min(index + step, days.length - 1)));
     };
-    const swipeHandlers = useSwipe({ onSwipe, scrollRef });
+    const swipeHandlers = useSwipe({ onSwipe });
 
     // Once, on mount, as DayColumn does: re-applying would yank the day back
     // to 06:00 whenever a booking changed.

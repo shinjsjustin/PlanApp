@@ -1,22 +1,13 @@
 import { useRef } from 'react';
 import { classifySwipe } from '../lib/swipe';
 
-const BOTTOM_TOLERANCE_PX = 1;
-
-// Vertical swipes only fire when the scroller was already at that edge at touch
-// start, so scrolling a long list never triggers navigation.
-export default function useSwipe({ onSwipe, scrollRef }) {
+// Only horizontal swipes call onSwipe; vertical motion is left to native scrolling.
+export default function useSwipe({ onSwipe }) {
   const start = useRef(null);
 
   const onTouchStart = (e) => {
     const { clientX, clientY } = e.touches[0];
-    const el = scrollRef && scrollRef.current;
-    start.current = {
-      x: clientX,
-      y: clientY,
-      atTop: !el || el.scrollTop <= 0,
-      atBottom: !el || el.scrollTop + el.clientHeight >= el.scrollHeight - BOTTOM_TOLERANCE_PX,
-    };
+    start.current = { x: clientX, y: clientY };
   };
 
   const onTouchEnd = (e) => {
@@ -25,10 +16,7 @@ export default function useSwipe({ onSwipe, scrollRef }) {
     start.current = null;
     const { clientX, clientY } = e.changedTouches[0];
     const direction = classifySwipe({ dx: clientX - s.x, dy: clientY - s.y });
-    if (!direction) return;
-    if (direction === 'up' && !s.atBottom) return;
-    if (direction === 'down' && !s.atTop) return;
-    onSwipe(direction);
+    if (direction === 'left' || direction === 'right') onSwipe(direction);
   };
 
   return { onTouchStart, onTouchEnd };
