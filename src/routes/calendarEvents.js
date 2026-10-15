@@ -55,7 +55,7 @@ router.post(
 
         if (requested.length > 0) {
             const timeZone = timeZoneOf(req);
-            const googleEvents = await listPrimaryEvents(accessToken, importWindow(requested, timeZone));
+            const googleEvents = await listPrimaryEvents(accessToken, importWindow(requested));
             const rows = eventsToDayRows(googleEvents, requested, timeZone);
 
             await withTransaction(async (conn) => {

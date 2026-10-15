@@ -124,9 +124,13 @@ describe('eventsToDayRows exclusions and titles', () => {
 
 describe('importWindow', () => {
     it('runs from one UTC day before the first date to two after the last', () => {
-        expect(importWindow([day(2, '2026-06-12'), day(1, '2026-06-10'), day(3, null)], NY)).toEqual({
+        expect(importWindow([day(2, '2026-06-12'), day(1, '2026-06-10'), day(3, null)])).toEqual({
             timeMin: '2026-06-09T00:00:00.000Z',
             timeMax: '2026-06-14T00:00:00.000Z',
         });
+    });
+
+    it('returns null when no day is dated', () => {
+        expect(importWindow([day(1, null), day(2, null)])).toBeNull();
     });
 });

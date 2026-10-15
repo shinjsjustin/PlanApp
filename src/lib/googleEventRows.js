@@ -100,8 +100,10 @@ const eventsToDayRows = (events, days, timeZone) => {
 };
 
 // A day of slack before and two after covers any zone's offset from UTC.
+// Null when no day is dated, since there is nothing to ask Google for.
 const importWindow = (days) => {
     const dates = days.map((day) => day.date).filter(Boolean).sort();
+    if (dates.length === 0) return null;
     return {
         timeMin: new Date(`${addDays(dates[0], -1)}T00:00:00Z`).toISOString(),
         timeMax: new Date(`${addDays(dates[dates.length - 1], 2)}T00:00:00Z`).toISOString(),
