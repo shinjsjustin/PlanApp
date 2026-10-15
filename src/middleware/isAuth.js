@@ -12,7 +12,8 @@ const isAuth = (req, res, next) => {
 
     // TODO: JWT_SECRET must be set in .env
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) {
+        // A purpose claim marks a single-use token (e.g. OAuth state), never a login.
+        if (err || user.purpose) {
             return res.status(403).json({ message: 'Token is INVALID' });
         }
         req.user = user;
