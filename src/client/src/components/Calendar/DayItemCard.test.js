@@ -1,5 +1,5 @@
 import React from 'react';
-import { isInaccessible, render, screen } from '@testing-library/react';
+import { act, fireEvent, isInaccessible, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import DayItemCard from './DayItemCard';
@@ -149,6 +149,78 @@ describe('DayItemCard', () => {
         expect(
             screen.queryByRole('button', { name: 'Wire up the token refresh' })
         ).not.toBeInTheDocument();
-        expect(screen.getByText('Wire up the token refresh')).toBeInTheDocument();
+        // The click lands on the card body, so the tip repeats the text outside it.
+        expect(document.querySelector('.day-item-name')).toHaveTextContent('Wire up the token refresh');
+    });
+
+    describe('full-text tip', () => {
+        beforeEach(() => jest.useFakeTimers());
+        afterEach(() => jest.useRealTimers());
+
+        test('hovering a to-do card shows its full text after the delay', () => {
+            const { container } = renderCard();
+
+            act(() => {
+                fireEvent.mouseEnter(container.querySelector('.day-item-card'));
+                jest.advanceTimersByTime(500);
+            });
+
+            expect(screen.getByRole('tooltip')).toHaveTextContent('Wire up the token refresh');
+        });
+
+        test('tapping the card body toggles the tip', () => {
+            const { container } = renderCard();
+            const card = container.querySelector('.day-item-card');
+
+            fireEvent.click(card);
+            expect(screen.getByRole('tooltip')).toBeInTheDocument();
+            fireEvent.click(card);
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        });
+
+        test('clicking the bubble, the name or an edge does not open it', () => {
+            const resize = {
+                top: { handleProps: {} },
+                bottom: { handleProps: {} },
+            };
+            render(
+                <DayItemCard item={item()} onComplete={jest.fn()} onOpenSource={jest.fn()} resize={resize} />
+            );
+
+            fireEvent.click(screen.getByRole('button', { name: /^Complete/ }));
+            fireEvent.click(screen.getByRole('button', { name: 'Wire up the token refresh' }));
+            screen.getAllByRole('separator').forEach((edge) => fireEvent.click(edge));
+
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        });
+
+        test('a sequence card with a preview shows the preview and no tip', () => {
+            const sequence = { id: 9, title: 'Session handling', todos: [] };
+            const { container } = render(
+                <DayItemCard
+                    item={item({ kind: 'sequence' })}
+                    onComplete={jest.fn()}
+                    sequence={sequence}
+                />
+            );
+            const card = container.querySelector('.day-item-card');
+
+            act(() => {
+                fireEvent.mouseEnter(card);
+                jest.advanceTimersByTime(500);
+            });
+            fireEvent.click(card);
+
+            expect(container.querySelector('.panel-sequence-preview')).toBeInTheDocument();
+            expect(document.querySelector('.full-text-tip')).not.toBeInTheDocument();
+        });
+
+        test('a sequence card without a preview gets the full-text tip', () => {
+            const { container } = renderCard({ kind: 'sequence' });
+
+            fireEvent.click(container.querySelector('.day-item-card'));
+
+            expect(screen.getByRole('tooltip')).toHaveTextContent('Wire up the token refresh');
+        });
     });
 });

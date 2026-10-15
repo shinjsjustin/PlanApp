@@ -361,4 +361,38 @@ describe('NoteRibbon in flight', () => {
         // Assert
         expect(onDragStart).not.toHaveBeenCalled();
     });
+
+    describe('full-text tip', () => {
+        test('hovering a ribbon shows its full text after the delay', () => {
+            jest.useFakeTimers();
+            const { container } = renderRibbon();
+
+            act(() => {
+                fireEvent.mouseEnter(ribbonOf(container));
+                jest.advanceTimersByTime(500);
+            });
+
+            expect(screen.getByRole('tooltip')).toHaveTextContent('train to Leeds');
+            jest.useRealTimers();
+        });
+
+        test('tapping a read-only ribbon toggles the tip', () => {
+            const { container } = renderRibbon();
+
+            fireEvent.click(ribbonOf(container).querySelector('.note-ribbon-body'));
+            expect(screen.getByRole('tooltip')).toHaveTextContent('train to Leeds');
+            fireEvent.click(ribbonOf(container).querySelector('.note-ribbon-body'));
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        });
+
+        test('clicking an editable ribbon calls onOpen and leaves the tip shut', () => {
+            const onOpen = jest.fn();
+            renderRibbon({ onOpen });
+
+            fireEvent.click(screen.getByRole('button', { name: /train to Leeds/ }));
+
+            expect(onOpen).toHaveBeenCalledWith(1);
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        });
+    });
 });

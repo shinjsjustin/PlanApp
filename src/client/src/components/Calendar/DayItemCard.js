@@ -3,6 +3,8 @@ import React from 'react';
 import { formatTime } from '../../lib/scheduleGeometry';
 import { useBookingDrag } from '../../hooks/useCalendarDrag';
 import useHoverPreview from '../../hooks/useHoverPreview';
+import useFullTextTip from '../../hooks/useFullTextTip';
+import FullTextTip from './FullTextTip';
 import SequencePreviewCard from './SequencePreviewCard';
 import { useDayGeometry } from '../../state/DayScaleContext';
 
@@ -19,6 +21,9 @@ import { useDayGeometry } from '../../state/DayScaleContext';
 //
 // The bubble only ever completes. Un-ticking remains a project-page action;
 // the booked card is calendar history and stays where it was placed.
+//
+// The card clips its text, so hover or a tap on its body shows the full text in
+// a portaled tip; a sequence card with a preview shows that instead.
 
 const TODO_COMPLETE = 'complete';
 
@@ -33,6 +38,7 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
     // `DndContext`, so a card rendered bare in a test is the graphic below.
     const drag = useBookingDrag(item);
     const { isOpen, triggerProps } = useHoverPreview();
+    const tip = useFullTextTip();
     const geometry = useDayGeometry();
 
     const isSequence = item.kind === 'sequence';
@@ -52,6 +58,12 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
         isComplete ? 'Complete.' : '',
     ].filter(Boolean).join(' ');
 
+    const hasPreview = isSequence && Boolean(sequence);
+    const setRoot = (node) => {
+        tip.anchorRef.current = node;
+        if (isDraggable) drag.setNodeRef(node);
+    };
+
     return (
         <div
             className={className}
@@ -59,8 +71,8 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
                 top: `${geometry.minutesToPx(item.startMinutes)}px`,
                 height: `${geometry.minutesToPx(item.durationMinutes)}px`,
             }}
-            ref={isDraggable ? drag.setNodeRef : undefined}
-            {...(isSequence ? triggerProps : {})}
+            ref={setRoot}
+            {...(hasPreview ? triggerProps : tip.triggerProps)}
         >
             {resize && (
                 <span
@@ -140,6 +152,10 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
                     aria-label={`Change how long “${item.text}” takes`}
                     {...resize.bottom.handleProps}
                 />
+            )}
+
+            {hasPreview ? null : (
+                <FullTextTip isOpen={tip.isOpen} tipId={tip.tipId} anchorRef={tip.anchorRef} text={item.text} />
             )}
         </div>
     );

@@ -4,6 +4,8 @@ import { MAX_NOTE_LANES } from '../../lib/noteLanes';
 import { formatTime } from '../../lib/scheduleGeometry';
 import { useDayGeometry } from '../../state/DayScaleContext';
 import { useNoteDrag } from '../../hooks/useCalendarDrag';
+import useFullTextTip from '../../hooks/useFullTextTip';
+import FullTextTip from './FullTextTip';
 
 // One note, drawn over the grid at the minute it starts and as tall as it lasts.
 //
@@ -17,6 +19,9 @@ import { useNoteDrag } from '../../hooks/useCalendarDrag';
 // ×, because at this width there is no room for either — the body is the button
 // that opens the popover, and the dnd sensor's activation distance is what keeps
 // a click from being swallowed by a drag. Deleting happens in the popover.
+//
+// The rotated text clips, so hover (or a tap on a read-only ribbon) shows the
+// full text in a portaled tip.
 //
 // Two edges, and unlike a booking's they are symmetric: notes may overlap, so a
 // top edge has nothing above it to clamp against. What they may not do is leave
@@ -55,6 +60,7 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
     // Unconditional, like `DayItemCard`'s: `isDraggable` decides what is
     // rendered, never whether the hook runs. Inert outside a `DndContext`.
     const drag = useNoteDrag(note.id);
+    const tip = useFullTextTip();
 
     const isUnplaceable = !Number.isInteger(lane);
 
@@ -66,6 +72,11 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
         note.startMinutes + note.durationMinutes
     )}`;
 
+    const setRoot = (node) => {
+        tip.anchorRef.current = node;
+        if (isDraggable) drag.setNodeRef(node);
+    };
+
     return (
         <div
             className={className}
@@ -74,7 +85,8 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
                 height: `${geometry.minutesToPx(note.durationMinutes)}px`,
                 ...laneStyle(isUnplaceable ? 0 : lane),
             }}
-            ref={isDraggable ? drag.setNodeRef : undefined}
+            ref={setRoot}
+            {...tip.triggerProps}
         >
             {resize && (
                 <span
@@ -115,6 +127,8 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
                     {...resize.bottom.handleProps}
                 />
             )}
+
+            <FullTextTip isOpen={tip.isOpen} tipId={tip.tipId} anchorRef={tip.anchorRef} text={note.text} />
         </div>
     );
 };
