@@ -12,6 +12,7 @@ const sequenceRoutes = require('./routes/sequences');
 const todoRoutes = require('./routes/todos');
 const calendarNotesRoutes = require('./routes/calendarNotes');
 const calendarEventsRoutes = require('./routes/calendarEvents');
+const calendarExportRoutes = require('./routes/calendarExport');
 const calendarRoutes = require('./routes/calendar');
 const googleRoutes = require('./routes/google');
 const googleCallbackRoutes = require('./routes/googleCallback');
@@ -64,6 +65,8 @@ app.use('/api/todos', isAuth, respond, todoRoutes);
 app.use('/api/calendar/notes', isAuth, respond, calendarNotesRoutes);
 // Likewise for events, which would otherwise reach the calendar router first.
 app.use('/api/calendar/events', isAuth, respond, calendarEventsRoutes);
+// And for export, for the same reason.
+app.use('/api/calendar/export', isAuth, respond, calendarExportRoutes);
 app.use('/api/calendar', isAuth, respond, calendarRoutes);
 // The callback is public because Google's redirect carries no Bearer token; the
 // signed `state` it echoes back identifies the user instead. It is mounted
