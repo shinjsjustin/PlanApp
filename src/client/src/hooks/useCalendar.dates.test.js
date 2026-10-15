@@ -157,4 +157,40 @@ describe('clearPastDays', () => {
         expect(onDayDeleted).toHaveBeenCalledWith(2);
         expect(result.current.state.days.map((d) => d.id)).toEqual([1, 3]);
     });
+
+    describe('when an addDay settles while clear-past is in flight', () => {
+        const newDay = { id: 99, position: 1, date: null, createdAt: '2026-10-15T08:00:00.000Z' };
+
+        const runStale = async (options) => {
+            let settleClear;
+            let settleAdd;
+            api.post.mockReturnValueOnce(new Promise((resolve) => { settleClear = resolve; }));
+            api.post.mockReturnValueOnce(new Promise((resolve) => { settleAdd = resolve; }));
+            const view = await renderReady(options);
+
+            let pending;
+            act(() => { pending = view.result.current.clearPastDays(); });
+            act(() => { view.result.current.addDay(); });
+            await act(async () => { settleAdd(newDay); });
+            await act(async () => { settleClear(saved); await pending; });
+
+            return view;
+        };
+
+        test('keeps the new day with its server id and drops the past days', async () => {
+            const { result } = await runStale();
+
+            expect(result.current.state.days.map((d) => d.id)).toEqual([3, 99]);
+        });
+
+        test('removes only snapshot days the answer lacks, with their items, and reports each once', async () => {
+            const onDayDeleted = jest.fn();
+            const { result } = await runStale({ onDayDeleted });
+
+            expect(result.current.state.items.map((i) => i.id)).toEqual([6]);
+            expect(onDayDeleted).toHaveBeenCalledTimes(2);
+            expect(onDayDeleted).toHaveBeenCalledWith(1);
+            expect(onDayDeleted).toHaveBeenCalledWith(2);
+        });
+    });
 });

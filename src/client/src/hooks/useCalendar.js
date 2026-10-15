@@ -451,8 +451,8 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
      * Drops every day dated before today in one write. Which days went is the
      * server's answer, not the client's guess at "past": `onDayDeleted` runs for
      * each day that was present and is absent from it, on success only. An
-     * answer older than a write that has since settled only trims those days
-     * from the current schedule rather than replacing it.
+     * answer older than a write that has since settled removes only the days it
+     * dropped from the current schedule, so a day created meanwhile survives.
      */
     const clearPastDays = useCallback(async () => {
         let before = [];
@@ -473,7 +473,8 @@ const useCalendar = ({ onTodoCompleted = null, onDayDeleted = null } = {}) => {
 
                 if (!hasSettledSince(current, optimistic)) return saved;
 
-                const days = current.days.filter((day) => isTempId(day.id) || kept.has(day.id));
+                const removed = new Set(removedIds);
+                const days = current.days.filter((day) => !removed.has(day.id));
                 const dayIds = new Set(days.map((day) => day.id));
 
                 return {
