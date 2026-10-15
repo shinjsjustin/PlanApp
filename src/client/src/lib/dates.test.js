@@ -1,4 +1,4 @@
-import { completedOnLabel } from './dates';
+import { completedOnLabel, dayLabel, nextDateKey, todayKey } from './dates';
 
 // The date in the margin of a finished to-do. Short on purpose: it is a
 // reminder, not a record.
@@ -64,5 +64,34 @@ describe('completedOnLabel', () => {
 
         // Act & Assert
         expect(completedOnLabel(completedAt, NOW)).toBe(weekday('2026-08-29T09:00:00.000Z'));
+    });
+});
+
+describe('todayKey', () => {
+    test('reads the local calendar date, zero padded', () => {
+        expect(todayKey(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+    });
+});
+
+describe('nextDateKey', () => {
+    test.each([
+        ['2026-10-15', '2026-10-16'],
+        ['2026-10-31', '2026-11-01'],
+        ['2026-12-31', '2027-01-01'],
+        ['2028-02-28', '2028-02-29'],
+    ])('%s is followed by %s', (key, expected) => {
+        expect(nextDateKey(key)).toBe(expected);
+    });
+});
+
+describe('dayLabel', () => {
+    test('reads like Thu 15 Oct without shifting a day', () => {
+        expect(dayLabel('2026-10-15')).toMatch(/Thu/);
+        expect(dayLabel('2026-10-15')).toMatch(/15/);
+        expect(dayLabel('2026-10-15')).toMatch(/Oct/);
+    });
+
+    test('is null for a missing key', () => {
+        expect(dayLabel(undefined)).toBeNull();
     });
 });

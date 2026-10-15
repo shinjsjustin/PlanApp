@@ -144,4 +144,20 @@ describe('api', () => {
             status: 500,
         });
     });
+
+    test('sends the browser time zone on every request', async () => {
+        // Arrange
+        global.fetch.mockResolvedValue(success({}));
+
+        // Act
+        await api.get('/anything');
+        await api.post('/anything', { a: 1 });
+
+        // Assert
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        global.fetch.mock.calls.forEach(([, options]) => {
+            expect(options.headers['X-Time-Zone']).toBe(zone);
+        });
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
 });

@@ -1,4 +1,4 @@
-import { appendDay, removeDay } from './schedule';
+import { appendDay, removeDay, removePastDays, spillFrom } from './schedule';
 import { isTempId } from './tempIds';
 
 const day = (id, position) => ({ id, position, createdAt: '2026-09-09T08:00:00.000Z' });
@@ -112,5 +112,75 @@ describe('removeDay', () => {
         expect(() => removeDay({ days: [], items: [] }, 9)).toThrow(
             'No day with id 9 to remove'
         );
+    });
+});
+
+const dated = (id, position, date) => ({ ...day(id, position), ...(date ? { date } : {}) });
+
+describe('dated days', () => {
+    test('appendDay gives the new day the last date plus one', () => {
+        const state = { days: [dated(1, 0, '2026-10-31')], items: [] };
+
+        expect(appendDay(state).days[1].date).toBe('2026-11-01');
+    });
+
+    test('appendDay leaves the new day undated after an undated day', () => {
+        const next = appendDay({ days: [day(1, 0)], items: [] });
+
+        expect('date' in next.days[1]).toBe(false);
+    });
+
+    test('a spill past the last day dates the new day the last date plus one', () => {
+        const state = {
+            days: [dated(1, 0, '2026-10-15')],
+            items: [item(1, 1, 0), { ...item(2, 1, 0), startMinutes: 1400, durationMinutes: 60 }],
+        };
+
+        const next = spillFrom(state, 1, [2]);
+
+        expect(next.days).toHaveLength(2);
+        expect(next.days[1].date).toBe('2026-10-16');
+    });
+
+    test('a spill after an undated last day stays undated', () => {
+        const state = {
+            days: [day(1, 0)],
+            items: [{ ...item(2, 1, 1400), durationMinutes: 60 }],
+        };
+
+        const next = spillFrom(state, 1, [2]);
+
+        expect(next.days).toHaveLength(2);
+        expect('date' in next.days[1]).toBe(false);
+    });
+});
+
+describe('removePastDays', () => {
+    test('drops days before today with their items, keeps today, future and undated, and re-densifies', () => {
+        const state = {
+            days: [
+                dated(1, 0, '2026-10-13'),
+                dated(2, 1, '2026-10-14'),
+                dated(3, 2, '2026-10-15'),
+                dated(4, 3, '2026-10-16'),
+                dated(5, 4),
+            ],
+            items: [item(1, 1, 0), item(2, 3, 0), item(3, 4, 0)],
+        };
+
+        const next = removePastDays(state, '2026-10-15');
+
+        expect(next.days.map((d) => [d.id, d.position])).toEqual([
+            [3, 0],
+            [4, 1],
+            [5, 2],
+        ]);
+        expect(next.items.map((i) => i.todoId)).toEqual([2, 3]);
+    });
+
+    test('returns the same shape when nothing is past', () => {
+        const state = { days: [dated(1, 0, '2026-10-15')], items: [] };
+
+        expect(removePastDays(state, '2026-10-15').days).toEqual(state.days);
     });
 });

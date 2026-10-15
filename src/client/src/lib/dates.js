@@ -32,3 +32,35 @@ export const completedOnLabel = (completedAt, now = new Date()) => {
 
     return completed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** Today as the server stores a day: 'YYYY-MM-DD' in the machine's own zone. */
+export const todayKey = (now = new Date()) =>
+    `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+
+const keyToUtc = (key) => {
+    const [year, month, day] = key.split('-').map(Number);
+
+    return new Date(Date.UTC(year, month - 1, day));
+};
+
+/** The day after a 'YYYY-MM-DD' key. UTC arithmetic, so a DST change cannot skip or repeat a day. */
+export const nextDateKey = (key) => {
+    const next = keyToUtc(key);
+    next.setUTCDate(next.getUTCDate() + 1);
+
+    return next.toISOString().slice(0, 10);
+};
+
+/** "Thu 15 Oct". Formatted in UTC because the key is already a calendar date, not an instant. */
+export const dayLabel = (key) => {
+    if (!key) return null;
+
+    return keyToUtc(key).toLocaleDateString(undefined, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+    });
+};

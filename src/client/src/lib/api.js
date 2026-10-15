@@ -42,6 +42,8 @@ const buildHeaders = (hasBody) => {
     const token = window.localStorage.getItem(TOKEN_KEY);
 
     return {
+        // Tells the server which zone "today" is in.
+        'X-Time-Zone': Intl.DateTimeFormat().resolvedOptions().timeZone,
         ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };

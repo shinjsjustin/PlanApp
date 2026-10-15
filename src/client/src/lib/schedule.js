@@ -20,9 +20,10 @@
 // whatever display fields the caller put on them — this file only reads the
 // scheduling fields and the identity, and copies the rest across untouched.
 
+import { nextDateKey } from './dates';
 import { createTempId } from './tempIds';
 
-/** A day is 00:00 to 24:00. Not a date: an ordered container (design decision 2). */
+/** A day is 00:00 to 24:00, ordered by position. It may carry a date key; undated days are tolerated. */
 export const DAY_MINUTES = 1440;
 
 /** The grid, and therefore the snap. */
@@ -283,10 +284,11 @@ const rebaseToTop = (group) => {
  * optimistic row in this app; `createdAt` is stamped now so the column header
  * has something to show before the save lands.
  */
-const newDay = (position) => ({
+const newDay = (position, last) => ({
     id: createTempId(),
     position,
     createdAt: new Date().toISOString(),
+    ...(last && last.date ? { date: nextDateKey(last.date) } : {}),
 });
 
 /**
@@ -350,7 +352,7 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 
         if (overflow.length === 0) return { ...state, days, items };
 
-        if (index === days.length - 1) days = [...days, newDay(days.length)];
+        if (index === days.length - 1) days = [...days, newDay(days.length, days[days.length - 1])];
 
         const next = days[index + 1];
         const moved = rebaseToTop(overflow).map((item) => ({ ...item, dayId: next.id }));
@@ -557,7 +559,7 @@ export const topEdgeFloor = (state, ref) => {
  */
 export const appendDay = (state) => ({
     ...state,
-    days: [...state.days, newDay(state.days.length)],
+    days: [...state.days, newDay(state.days.length, state.days[state.days.length - 1])],
 });
 
 /**
@@ -579,5 +581,23 @@ export const removeDay = (state, dayId) => {
             .filter((day) => day.id !== dayId)
             .map((day, position) => (day.position === position ? day : { ...day, position })),
         items: state.items.filter((item) => item.dayId !== dayId),
+    };
+};
+
+/**
+ * Drops the days dated before `today` and their bookings, keeping undated days.
+ * Positions close up the way `removeDay` leaves them.
+ */
+export const removePastDays = (state, today) => {
+    const past = new Set(
+        state.days.filter((day) => day.date && day.date < today).map((day) => day.id)
+    );
+
+    return {
+        ...state,
+        days: state.days
+            .filter((day) => !past.has(day.id))
+            .map((day, position) => (day.position === position ? day : { ...day, position })),
+        items: state.items.filter((item) => !past.has(item.dayId)),
     };
 };
