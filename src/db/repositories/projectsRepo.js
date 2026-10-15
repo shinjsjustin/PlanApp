@@ -103,12 +103,15 @@ const update = async (conn, id, patch) => {
  * fires `todos.sequence_id` ON DELETE SET NULL — MySQL rejects that update
  * because it revalidates `fk_todos_project` against a project row the same
  * statement is deleting. Removing the to-dos first leaves nothing for the SET
- * NULL to touch; `layers` and `sequences` still cascade.
+ * NULL to touch. The sequences are then deleted explicitly too: when a project
+ * has sequences in more than one layer, the layers/project double cascade has
+ * been seen to leave one behind. Only `layers` still cascades.
  *
  * Touches several tables, so callers run it inside a transaction.
  */
 const remove = async (conn, id) => {
     await conn.execute('DELETE FROM todos WHERE project_id = ?', [id]);
+    await conn.execute('DELETE FROM sequences WHERE project_id = ?', [id]);
 
     const [result] = await conn.execute('DELETE FROM projects WHERE id = ?', [id]);
 
