@@ -1,0 +1,54 @@
+.phone-sequence {
+  height: calc(100dvh - var(--tab-bar-height) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  padding: var(--space-md);
+  font-size: var(--font-xl);
+  color: var(--text-glow);
+}
+
+.phone-layer-title,
+.phone-sequence-count {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+}
+
+.phone-sequence-title {
+  font-size: var(--font-xl);
+  margin: var(--space-sm) 0;
+}
+
+.phone-todos {
+  list-style: none;
+  padding: 0;
+}
+
+.phone-todo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+}
+
+.phone-todo--done .phone-todo-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.phone-todo-tick {
+  flex: none;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  border: var(--space-xs) solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-white);
+}
+
+.phone-todo--done .phone-todo-tick {
+  background: var(--color-primary);
+}
+
+.phone-empty {
+  padding: var(--space-md);
+  font-size: var(--font-lg);
+}
