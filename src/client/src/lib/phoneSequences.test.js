@@ -1,4 +1,4 @@
-import { buildSequenceGrid, stepSequence, initialSequenceId } from './phoneSequences';
+import { buildSequenceGrid, stepSequence, initialSequenceId, layerNeighbours } from './phoneSequences';
 
 const layers = [
   { id: 2, position: 2 },
@@ -28,10 +28,7 @@ describe('stepSequence', () => {
     [12, 'left', 12],
     [12, 'right', 11],
     [11, 'right', 11],
-    [12, 'up', 20],
-    [20, 'up', 20],
-    [20, 'down', 11],
-    [11, 'down', 11],
+    [11, 'up', 11],
   ])('from %i %s gives %i', (id, dir, expected) => {
     expect(stepSequence(grid, id, dir)).toBe(expected);
   });
@@ -51,5 +48,34 @@ describe('initialSequenceId', () => {
   });
   it('returns null for an empty grid', () => {
     expect(initialSequenceId([], 3)).toBeNull();
+  });
+});
+
+describe('layerNeighbours', () => {
+  const fourLayers = [1, 2, 3, 4].map((id) => ({ id, position: id }));
+  const seqs = [
+    { id: 10, layerId: 1, position: 1 },
+    { id: 20, layerId: 2, position: 1 },
+    { id: 40, layerId: 4, position: 1 },
+  ];
+  const grid = buildSequenceGrid(fourLayers, seqs);
+
+  it('gives above null for the top layer', () => {
+    const { above, below } = layerNeighbours(grid, 10);
+    expect(above).toBeNull();
+    expect(below).toBe(grid[1]);
+  });
+  it('gives below null for the bottom layer, skipping the empty layer', () => {
+    const { above, below } = layerNeighbours(grid, 40);
+    expect(above).toBe(grid[1]);
+    expect(below).toBeNull();
+  });
+  it('gives both for a middle layer, skipping the empty layer below it', () => {
+    const { above, below } = layerNeighbours(grid, 20);
+    expect(above.layer.id).toBe(1);
+    expect(below.layer.id).toBe(4);
+  });
+  it('gives both null for an unknown id', () => {
+    expect(layerNeighbours(grid, 555)).toEqual({ above: null, below: null });
   });
 });

@@ -16,19 +16,20 @@ export function initialSequenceId(grid, rememberedId) {
   return ids[0] ?? null;
 }
 
-// Directions name the finger's motion: left reveals the next sequence in the
-// row, up reveals the next layer down. A layer change lands on the row's first.
+// Moves within the current row only; left reveals the next sequence. Any other
+// direction (layer changes use layerNeighbours) leaves the current id.
 export function stepSequence(grid, currentId, direction) {
   const rowIndex = grid.findIndex((row) => row.sequences.some((s) => s.id === currentId));
   if (rowIndex === -1) return initialSequenceId(grid, null);
 
   const ids = grid[rowIndex].sequences.map((s) => s.id);
-  const colIndex = ids.indexOf(currentId);
-  const rowDelta = { up: 1, down: -1 }[direction];
-  if (rowDelta) {
-    const target = grid[rowIndex + rowDelta];
-    return target ? target.sequences[0].id : currentId;
-  }
   const colDelta = { left: 1, right: -1 }[direction] ?? 0;
-  return ids[colIndex + colDelta] ?? currentId;
+  return ids[ids.indexOf(currentId) + colDelta] ?? currentId;
+}
+
+/** The rows above and below the one holding currentId; null at an edge or when not found. */
+export function layerNeighbours(grid, currentId) {
+  const i = grid.findIndex((row) => row.sequences.some((s) => s.id === currentId));
+  if (i === -1) return { above: null, below: null };
+  return { above: grid[i - 1] ?? null, below: grid[i + 1] ?? null };
 }
