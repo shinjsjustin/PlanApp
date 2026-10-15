@@ -5,6 +5,7 @@ import GoogleConnectButton from './GoogleConnectButton';
 import CalendarDragArea from './CalendarDragArea';
 import PhoneCalendarView from './PhoneCalendarView';
 import ProjectPanel from './ProjectPanel';
+import ThoughtsLink from '../Navigation/ThoughtsLink';
 import useCalendar from '../../hooks/useCalendar';
 import useCalendarEvents from '../../hooks/useCalendarEvents';
 import useCalendarExport from '../../hooks/useCalendarExport';
@@ -116,6 +117,7 @@ const CalendarPage = () => {
                 {!isPhone && (
                     <Link className="neon-button" to="/projects">← All projects</Link>
                 )}
+                <ThoughtsLink />
                 {isReady && (
                     <button
                         type="button"

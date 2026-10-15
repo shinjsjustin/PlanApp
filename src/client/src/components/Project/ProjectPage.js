@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import Canvas from './Canvas';
 import DragDropArea from './DragDropArea';
 import InlineDescription from './InlineDescription';
+import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PhoneProjectView from './PhoneProjectView';
 import PinControls from './PinControls';
 import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
@@ -47,6 +48,7 @@ const ProjectPage = () => {
         <main className={isPhone ? 'project-page project-page--phone' : 'project-page'}>
             <header className="project-header">
                 {!isPhone && <Link className="neon-button" to="/projects">← All projects</Link>}
+                <ThoughtsLink />
                 {state.project && <h1>{state.project.title}</h1>}
                 {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import CreateProjectDialog from './CreateProjectDialog';
 import ProjectCard from './ProjectCard';
+import ThoughtsLink from '../Navigation/ThoughtsLink';
 import useCardHeights from '../../hooks/useCardHeights';
 import useIsPhone from '../../hooks/useIsPhone';
 import useMasonryColumns from '../../hooks/useMasonryColumns';
@@ -92,6 +93,7 @@ const ProjectsHome = () => {
                         loading — or that failed to — is exactly when the user
                         most wants a way off this page. Phones skip it: the tab
                         bar already covers it. */}
+                    <ThoughtsLink />
                     {!isPhone && (
                         <Link className="projects-calendar-link neon-button" to="/calendar">
                             Calendar →
