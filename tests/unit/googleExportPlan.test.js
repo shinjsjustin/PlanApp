@@ -17,6 +17,7 @@ describe('exportBodies', () => {
         expect(exportBodies(bookings, DAYS, ZONE)).toEqual([
             {
                 itemKey: 'todo:5',
+                bodyHash: expect.stringMatching(/^[0-9a-f]{64}$/),
                 body: {
                     summary: 'Write',
                     start: { dateTime: '2026-03-07T09:30:00', timeZone: ZONE },
@@ -65,6 +66,17 @@ describe('exportBodies', () => {
         expect(body.end.dateTime).toBe('2026-03-01T00:10:00');
     });
 
+    it('hashes equal bookings equally and a changed start differently', () => {
+        const booking = { todo_id: 5, booked_sequence_id: null, text: 'Write', day_id: 1, start_minutes: 570, duration_minutes: 60 };
+
+        const [a] = exportBodies([booking], DAYS, ZONE);
+        const [b] = exportBodies([{ ...booking }], DAYS, ZONE);
+        const [c] = exportBodies([{ ...booking, start_minutes: 600 }], DAYS, ZONE);
+
+        expect(a.bodyHash).toBe(b.bodyHash);
+        expect(a.bodyHash).not.toBe(c.bodyHash);
+    });
+
     it('skips bookings on undated days', () => {
         const bookings = [
             { todo_id: 5, booked_sequence_id: null, text: 'Nope', day_id: 2, start_minutes: 60, duration_minutes: 30 },
@@ -75,20 +87,28 @@ describe('exportBodies', () => {
 });
 
 describe('planExport', () => {
-    it('splits into creates, updates and deletes', () => {
+    it('splits into creates, updates, unchanged and deletes', () => {
         const bodies = [
-            { itemKey: 'todo:1', body: { summary: 'new' } },
-            { itemKey: 'todo:2', body: { summary: 'kept' } },
+            { itemKey: 'todo:1', bodyHash: 'h1', body: { summary: 'new' } },
+            { itemKey: 'todo:2', bodyHash: 'h2', body: { summary: 'moved' } },
+            { itemKey: 'todo:4', bodyHash: 'h4', body: { summary: 'same' } },
+            { itemKey: 'todo:5', bodyHash: 'h5', body: { summary: 'never exported hash' } },
         ];
         const mappings = [
-            { itemKey: 'todo:2', googleEventId: 'g2' },
-            { itemKey: 'sequence:3', googleEventId: 'g3' },
+            { itemKey: 'todo:2', googleEventId: 'g2', bodyHash: 'old' },
+            { itemKey: 'sequence:3', googleEventId: 'g3', bodyHash: 'h3' },
+            { itemKey: 'todo:4', googleEventId: 'g4', bodyHash: 'h4' },
+            { itemKey: 'todo:5', googleEventId: 'g5', bodyHash: null },
         ];
 
         expect(planExport(bodies, mappings)).toEqual({
-            creates: [{ itemKey: 'todo:1', body: { summary: 'new' } }],
-            updates: [{ itemKey: 'todo:2', googleEventId: 'g2', body: { summary: 'kept' } }],
-            deletes: [{ itemKey: 'sequence:3', googleEventId: 'g3' }],
+            creates: [bodies[0]],
+            updates: [
+                { ...bodies[1], googleEventId: 'g2' },
+                { ...bodies[3], googleEventId: 'g5' },
+            ],
+            unchanged: [{ ...bodies[2], googleEventId: 'g4' }],
+            deletes: [mappings[1]],
         });
     });
 });
