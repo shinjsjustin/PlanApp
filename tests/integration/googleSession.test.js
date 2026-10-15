@@ -87,7 +87,7 @@ describe('accessTokenFor', () => {
         const userId = await createTestUser(conn);
         await seedRow(conn, userId, { expiresAt: NOW + 61_000 });
 
-        expect(await session.accessTokenFor(conn, userId, now)).toBe('old-access');
+        expect(await session.accessTokenFor(userId, now)).toBe('old-access');
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -97,7 +97,7 @@ describe('accessTokenFor', () => {
         await seedRow(conn, userId, { expiresAt: NOW + 60_000 });
         fetchMock.mockResolvedValue(jsonResponse(200, { access_token: 'new-access', expires_in: 1800 }));
 
-        expect(await session.accessTokenFor(conn, userId, now)).toBe('new-access');
+        expect(await session.accessTokenFor(userId, now)).toBe('new-access');
 
         const body = new URLSearchParams(fetchMock.mock.calls[0][1].body);
         expect(body.get('refresh_token')).toBe('the-refresh');
@@ -110,7 +110,7 @@ describe('accessTokenFor', () => {
         const conn = getConn();
         const userId = await createTestUser(conn);
 
-        await expect(session.accessTokenFor(conn, userId, now)).rejects.toMatchObject(NOT_CONNECTED);
+        await expect(session.accessTokenFor(userId, now)).rejects.toMatchObject(NOT_CONNECTED);
     });
 
     test('deletes the row and throws 409 when refresh fails with invalid_grant', async () => {
@@ -119,7 +119,7 @@ describe('accessTokenFor', () => {
         await seedRow(conn, userId, { expiresAt: NOW - 1 });
         fetchMock.mockResolvedValue(jsonResponse(400, { error: 'invalid_grant' }));
 
-        await expect(session.accessTokenFor(conn, userId, now)).rejects.toMatchObject(NOT_CONNECTED);
+        await expect(session.accessTokenFor(userId, now)).rejects.toMatchObject(NOT_CONNECTED);
         expect(await googleAccountsRepo.findByUser(conn, userId)).toBeNull();
     });
 
@@ -129,7 +129,7 @@ describe('accessTokenFor', () => {
         await seedRow(conn, userId, { expiresAt: NOW - 1 });
         fetchMock.mockResolvedValue(jsonResponse(500, { error: 'backend_error' }));
 
-        await expect(session.accessTokenFor(conn, userId, now)).rejects.toMatchObject({ code: 'backend_error' });
+        await expect(session.accessTokenFor(userId, now)).rejects.toMatchObject({ code: 'backend_error' });
         expect(await googleAccountsRepo.findByUser(conn, userId)).not.toBeNull();
     });
 });
@@ -154,8 +154,13 @@ describe('disconnect', () => {
         await seedRow(conn, userId, { expiresAt: NOW + 100_000 });
         fetchMock.mockRejectedValue(new Error('network down'));
 
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
         await session.disconnect(conn, userId);
 
+        expect(errorSpy).toHaveBeenCalledWith('Google revoke failed:', 'network down');
+        expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('the-refresh');
+        errorSpy.mockRestore();
         expect(await googleAccountsRepo.findByUser(conn, userId)).toBeNull();
     });
 
