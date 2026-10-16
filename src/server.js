@@ -18,6 +18,7 @@ const googleRoutes = require('./routes/google');
 const googleCallbackRoutes = require('./routes/googleCallback');
 const bourneRoutes = require('./routes/bourne');
 const thoughtsRoutes = require('./routes/thoughts');
+const placesRoutes = require('./routes/places');
 
 const isAuth = require('./middleware/isAuth');
 const { respond, errorHandler } = require('./middleware/respond');
@@ -78,6 +79,7 @@ app.use('/api/google', isAuth, respond, googleRoutes);
 // Bourne's read-only Google routes.
 app.use('/api/bourne', isAuth, respond, bourneRoutes);
 app.use('/api/thoughts', isAuth, respond, thoughtsRoutes);
+app.use('/api/places', isAuth, respond, placesRoutes);
 
 // Terminal error handler for the resource routes above.
 app.use(errorHandler);

@@ -8,6 +8,7 @@ const { listPrimaryEvents } = require('../lib/google/calendarApi');
 const { listFiles, readFile } = require('../lib/google/driveApi');
 const { accessTokenFor } = require('../lib/google/session');
 const { eventsInRange, rangeWindow } = require('../lib/googleEventWindow');
+const { placesPayload } = require('../lib/startPlace');
 const { addDays, isDateKey, timeZoneOf } = require('../lib/localDate');
 
 /**
@@ -35,6 +36,14 @@ router.get(
         const googleEvents = await listPrimaryEvents(accessToken, rangeWindow(from, to));
 
         res.sendData({ events: eventsInRange(googleEvents, from, to, timeZoneOf(req)) });
+    })
+);
+
+// GET /api/bourne/places — the same payload as GET /api/places.
+router.get(
+    '/places',
+    asyncRoute(async (req, res) => {
+        res.sendData(await placesPayload(req.user.id));
     })
 );
 

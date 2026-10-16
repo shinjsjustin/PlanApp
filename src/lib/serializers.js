@@ -201,6 +201,17 @@ const toThought = (row) => ({
     createdAt: row.created_at,
 });
 
+/** `owner_id` stays server-side; the 0/1 flag becomes a boolean. */
+const toPlace = (row) => ({
+    id: row.id,
+    name: row.name,
+    address: row.address,
+    kind: row.kind,
+    notes: row.notes,
+    visitMinutes: row.visit_minutes,
+    isDefaultStart: Boolean(row.is_default_start),
+});
+
 module.exports = {
     toCalendarDay,
     toCalendarEvent,
@@ -209,6 +220,7 @@ module.exports = {
     toLayer,
     toPinnedSequence,
     toPinnedTodo,
+    toPlace,
     toProject,
     toSequence,
     toThought,
