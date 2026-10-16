@@ -11,6 +11,7 @@ import useCalendar from '../../hooks/useCalendar';
 import useCalendarEvents from '../../hooks/useCalendarEvents';
 import useCalendarExport from '../../hooks/useCalendarExport';
 import useCalendarNotes from '../../hooks/useCalendarNotes';
+import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
 import { todayKey } from '../../lib/dates';
@@ -215,18 +216,20 @@ const CalendarPage = () => {
                 to-do as unscheduled. A successful retry brings both back. */}
             {state.status === CALENDAR_STATUS.ready ? (
                 <CalendarProvider value={calendar}>
-                    {isPhone ? (
-                        <PhoneCalendarView notes={notes} events={events} onOpenSource={openSource} />
-                    ) : (
-                        <CalendarDragArea
-                            pool={pool}
-                            notes={notes}
-                            events={events}
-                            onOpenSource={openSource}
-                            expandedProjectIds={expandedProjectIds}
-                            onToggleProject={toggleProject}
-                        />
-                    )}
+                    <PlaceOptionsProvider>
+                        {isPhone ? (
+                            <PhoneCalendarView notes={notes} events={events} onOpenSource={openSource} />
+                        ) : (
+                            <CalendarDragArea
+                                pool={pool}
+                                notes={notes}
+                                events={events}
+                                onOpenSource={openSource}
+                                expandedProjectIds={expandedProjectIds}
+                                onToggleProject={toggleProject}
+                            />
+                        )}
+                    </PlaceOptionsProvider>
                 </CalendarProvider>
             ) : (
                 <div className="calendar-body">

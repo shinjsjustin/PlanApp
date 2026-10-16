@@ -5,6 +5,7 @@ import ConfirmDialog from '../Project/ConfirmDialog';
 import EventLayer from './EventLayer';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
+import DriveLayer from './DriveLayer';
 import DeleteBubble from '../common/DeleteBubble';
 import NotePlane from './NotePlane';
 import NowLine from './NowLine';
@@ -191,6 +192,7 @@ const DayColumn = ({
                         )}
 
                         <EventLayer events={events} />
+                        <DriveLayer date={day.date} items={items} events={events} />
 
                         {items.map((item) =>
                             cardFor ? (

@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import AllDayEvents from './AllDayEvents';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
+import DriveLayer from './DriveLayer';
 import EventLayer from './EventLayer';
 import NotePlane from './NotePlane';
 import NowLine from './NowLine';
@@ -17,6 +18,7 @@ import '../Styling/CalendarPhone.css';
 
 // Shared, so a view given no events hands the layers the same array each render.
 const NO_EVENTS = [];
+const NO_ITEMS = [];
 
 const STEP_BY_DIRECTION = { left: nextDateKey, right: previousDateKey };
 
@@ -51,6 +53,7 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
 
     const label = dayLabel(selectedDate);
     const isToday = selectedDate === todayKey();
+    const dayItems = day ? items.filter((item) => item.dayId === day.id) : NO_ITEMS;
     const shownEvents = day ? (events ? events.eventsForDay(day.id) : NO_EVENTS) : dateEvents.events;
 
     return (
@@ -86,17 +89,15 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
                 <DayGrid>
                     {day && <NotePlane dayId={day.id} notes={notes.notesForDay(day.id)} label={`Notes for ${label}`} />}
                     <EventLayer events={shownEvents} />
-                    {day &&
-                        items
-                            .filter((item) => item.dayId === day.id)
-                            .map((item) => (
-                                <DayItemCard
-                                    key={itemKeyOf(item)}
-                                    item={item}
-                                    onComplete={completeTodo}
-                                    onOpenSource={onOpenSource}
-                                />
-                            ))}
+                    <DriveLayer date={selectedDate} items={dayItems} events={shownEvents} />
+                    {dayItems.map((item) => (
+                        <DayItemCard
+                            key={itemKeyOf(item)}
+                            item={item}
+                            onComplete={completeTodo}
+                            onOpenSource={onOpenSource}
+                        />
+                    ))}
                     <NowLine date={selectedDate} />
                 </DayGrid>
             </div>
