@@ -36,3 +36,22 @@
 .phone-day-import:disabled {
   opacity: 0.5;
 }
+
+.phone-day-step {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-sm);
+  color: var(--text-white);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.phone-day-nothing,
+.phone-day-unavailable {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-sm);
+}
+
+.phone-day-unavailable {
+  color: var(--text-muted);
+}

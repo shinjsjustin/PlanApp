@@ -2,22 +2,15 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import PhoneCalendarView from './PhoneCalendarView';
-import { dayLabel, nextDateKey, todayKey } from '../../lib/dates';
+import useDateEvents from '../../hooks/useDateEvents';
+import { dayLabel, nextDateKey, previousDateKey, todayKey } from '../../lib/dates';
 import { CalendarProvider } from '../../state/CalendarContext';
 
-const days = [
-    { id: 4, position: 0 },
-    { id: 7, position: 1 },
-    { id: 9, position: 2 },
-];
+jest.mock('../../hooks/useDateEvents');
 
 const today = todayKey();
 const tomorrow = nextDateKey(today);
-const datedDays = [
-    { id: 4, position: 0, date: '2026-01-01' },
-    { id: 7, position: 1, date: today },
-    { id: 9, position: 2, date: tomorrow },
-];
+const yesterday = previousDateKey(today);
 
 const booking = (todoId, dayId, text) => ({
     todoId,
@@ -30,19 +23,23 @@ const booking = (todoId, dayId, text) => ({
     sequenceId: 9,
 });
 
-const items = [booking(12, 4, 'first day booking'), booking(13, 7, 'second day booking')];
+const items = [booking(12, 4, 'today booking'), booking(13, 7, 'tomorrow booking')];
 
 const notes = {
     notesForDay: (dayId) =>
-        dayId === 4 ? [{ id: 31, dayId: 4, text: 'first day note', startMinutes: 540, durationMinutes: 60 }] : [],
+        dayId === 4 ? [{ id: 31, dayId: 4, text: 'today note', startMinutes: 540, durationMinutes: 60 }] : [],
 };
 
-const renderView = (dayList = days) =>
+const baseDays = [
+    { id: 4, position: 0, date: today },
+    { id: 7, position: 1, date: tomorrow },
+    { id: 9, position: 2 },
+];
+
+const renderView = (days = baseDays, events) =>
     render(
-        <CalendarProvider
-            value={{ completeTodo: jest.fn(), isUnsavedDay: () => false, state: { days: dayList, items } }}
-        >
-            <PhoneCalendarView notes={notes} onOpenSource={jest.fn()} />
+        <CalendarProvider value={{ completeTodo: jest.fn(), isUnsavedDay: () => false, state: { days, items } }}>
+            <PhoneCalendarView notes={notes} onOpenSource={jest.fn()} events={events} />
         </CalendarProvider>
     );
 
@@ -55,94 +52,111 @@ const swipeLeft = () => swipe([300, 200], [100, 200]);
 const swipeRight = () => swipe([100, 200], [300, 200]);
 const swipeUp = () => swipe([200, 400], [200, 100]);
 
+const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next day' }));
+const previous = () => fireEvent.click(screen.getByRole('button', { name: 'Previous day' }));
+
+beforeEach(() => {
+    useDateEvents.mockReset();
+    useDateEvents.mockReturnValue({ events: [], isUnavailable: false });
+});
+
 describe('PhoneCalendarView', () => {
-    test('shows only Day 1 first, with its bookings and notes', () => {
+    test('opens on today with its label, Today badge, bookings and notes', () => {
         renderView();
 
         expect(screen.getAllByRole('region')).toHaveLength(1);
-        expect(screen.getByRole('region', { name: 'Day 1' })).toBeInTheDocument();
-        expect(screen.getByText('Day 1 of 3')).toBeInTheDocument();
-        expect(screen.getByText('first day booking')).toBeInTheDocument();
-        expect(screen.getByText('first day note')).toBeInTheDocument();
-        expect(screen.queryByText('second day booking')).not.toBeInTheDocument();
+        expect(screen.getByRole('region', { name: dayLabel(today) })).toHaveAttribute('aria-current', 'date');
+        expect(document.querySelector('time')).toHaveAttribute('datetime', today);
+        expect(screen.getByText('Today')).toBeInTheDocument();
+        expect(screen.getByText('today booking')).toBeInTheDocument();
+        expect(screen.getByText('today note')).toBeInTheDocument();
+        expect(screen.queryByText('tomorrow booking')).not.toBeInTheDocument();
     });
 
-    test('swiping left shows the next day and stops at the last', () => {
+    test('the Next day button and a left swipe step one real date forward', () => {
         renderView();
 
-        swipeLeft();
-        expect(screen.getByRole('region', { name: 'Day 2' })).toBeInTheDocument();
-        expect(screen.getByText('second day booking')).toBeInTheDocument();
+        next();
+        expect(screen.getByRole('region', { name: dayLabel(tomorrow) })).toBeInTheDocument();
+        expect(screen.getByText('tomorrow booking')).toBeInTheDocument();
+        expect(screen.queryByText('Today')).not.toBeInTheDocument();
 
         swipeLeft();
-        swipeLeft();
-        expect(screen.getByText('Day 3 of 3')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: dayLabel(nextDateKey(tomorrow)) })).toBeInTheDocument();
     });
 
-    test('swiping right shows the previous day and stops at the first', () => {
+    test('the Previous day button and a right swipe step back with no end stop', () => {
         renderView();
-        swipeRight();
-        expect(screen.getByText('Day 1 of 3')).toBeInTheDocument();
 
-        swipeLeft();
+        previous();
+        expect(screen.getByRole('region', { name: dayLabel(yesterday) })).toBeInTheDocument();
+
         swipeRight();
-        expect(screen.getByText('Day 1 of 3')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: dayLabel(previousDateKey(yesterday)) })).toBeInTheDocument();
     });
 
     test('vertical swipes change nothing', () => {
         renderView();
         swipeUp();
-        expect(screen.getByText('Day 1 of 3')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: dayLabel(today) })).toBeInTheDocument();
     });
 
-    test('renders no editing controls', () => {
+    test('a date with no record says Nothing booked and fetches its events', () => {
+        useDateEvents.mockReturnValue({
+            events: [
+                { id: 'e1', title: 'Dentist', allDay: false, startMinutes: 600, durationMinutes: 60 },
+                { id: 'e2', title: 'Holiday', allDay: true, startMinutes: 0, durationMinutes: 1440 },
+            ],
+            isUnavailable: false,
+        });
+        renderView();
+        previous();
+
+        expect(screen.getByText('Nothing booked')).toBeInTheDocument();
+        expect(screen.getByLabelText('Google event: Dentist')).toBeInTheDocument();
+        expect(screen.getByText('Holiday')).toBeInTheDocument();
+        expect(useDateEvents).toHaveBeenLastCalledWith(yesterday, true);
+        expect(screen.queryByText('today booking')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Import this day' })).not.toBeInTheDocument();
+    });
+
+    test('a date with a record does not fetch', () => {
+        renderView();
+        expect(useDateEvents).toHaveBeenLastCalledWith(today, false);
+        expect(screen.queryByText('Nothing booked')).not.toBeInTheDocument();
+    });
+
+    test('shows a muted line when Google events are unavailable', () => {
+        useDateEvents.mockReturnValue({ events: [], isUnavailable: true });
+        renderView();
+        previous();
+
+        expect(screen.getByText('Google events unavailable')).toBeInTheDocument();
+    });
+
+    test('an undated record is never shown', () => {
+        renderView([{ id: 9, position: 0 }]);
+
+        expect(screen.getByText('Nothing booked')).toBeInTheDocument();
+        expect(useDateEvents).toHaveBeenLastCalledWith(today, true);
+    });
+
+    test('draws a now-line on today only', () => {
+        renderView();
+        expect(document.querySelectorAll('.phone-day .now-line')).toHaveLength(1);
+
+        next();
+        expect(document.querySelector('.now-line')).toBeNull();
+    });
+
+    test('renders no editing controls beyond the day arrows', () => {
         const { container } = renderView();
 
         expect(screen.queryByRole('button', { name: /add|delete|drag|note/i })).not.toBeInTheDocument();
-        expect(screen.queryByRole('separator')).not.toBeInTheDocument();
         expect(container.querySelector('[draggable="true"]')).not.toBeInTheDocument();
-        expect(container.querySelector('.resize-handle, [class*="resize"]')).not.toBeInTheDocument();
     });
 
-    test('says so when there are no days', () => {
-        renderView([]);
-        expect(screen.getByText('No days yet')).toBeInTheDocument();
-    });
-
-    test('opens on the day dated today and shows its date and a Today badge', () => {
-        renderView(datedDays);
-
-        expect(screen.getByText(`${dayLabel(today)} · 2 of 3`)).toBeInTheDocument();
-        expect(screen.getByRole('region', { name: 'Day 2' })).toHaveAttribute('aria-current', 'date');
-        expect(screen.getByText('Today')).toBeInTheDocument();
-        expect(screen.getByText('second day booking')).toBeInTheDocument();
-        expect(document.querySelector('time')).toHaveAttribute('datetime', today);
-    });
-
-    test('opens on the first day when none is dated today, with no badge', () => {
-        renderView(datedDays.map((d, i) => ({ ...d, date: `2026-01-0${i + 1}` })));
-
-        expect(screen.getByText(`${dayLabel('2026-01-01')} · 1 of 3`)).toBeInTheDocument();
-        expect(screen.queryByText('Today')).not.toBeInTheDocument();
-        expect(screen.getByRole('region', { name: 'Day 1' })).not.toHaveAttribute('aria-current');
-    });
-
-    test('draws a now-line only when the shown day is today', () => {
-        renderView(datedDays);
-        expect(document.querySelectorAll('.phone-day .now-line')).toHaveLength(1);
-    });
-
-    test('draws no now-line on another or undated day', () => {
-        renderView(datedDays.map((d, i) => ({ ...d, date: `2026-01-0${i + 1}` })));
-        expect(document.querySelector('.now-line')).toBeNull();
-    });
-
-    test('draws no now-line on undated days', () => {
-        renderView();
-        expect(document.querySelector('.now-line')).toBeNull();
-    });
-
-    describe('Google events', () => {
+    describe('Google events on a day record', () => {
         const events = {
             eventsForDay: (dayId) =>
                 dayId === 4
@@ -155,17 +169,8 @@ describe('PhoneCalendarView', () => {
             isImporting: false,
         };
 
-        const renderWithEvents = (extra = events, dayList = datedDays) =>
-            render(
-                <CalendarProvider
-                    value={{ completeTodo: jest.fn(), isUnsavedDay: () => false, state: { days: dayList, items } }}
-                >
-                    <PhoneCalendarView notes={notes} onOpenSource={jest.fn()} events={extra} />
-                </CalendarProvider>
-            );
-
-        test('shows the shown day timed events and chips only', () => {
-            renderWithEvents(events, datedDays.map((d, i) => ({ ...d, date: `2026-01-0${i + 1}` })));
+        test('shows the record events and hides them on the next date', () => {
+            renderView(baseDays, events);
 
             expect(screen.getByLabelText('Google event: Dentist')).toBeInTheDocument();
             expect(screen.getByText('Holiday')).toBeInTheDocument();
@@ -176,13 +181,13 @@ describe('PhoneCalendarView', () => {
 
         test('import button posts the shown day and disables while importing', () => {
             const importDay = jest.fn();
-            const { unmount } = renderWithEvents({ ...events, importDay });
+            const { unmount } = renderView(baseDays, { ...events, importDay });
 
             fireEvent.click(screen.getByRole('button', { name: 'Import this day' }));
-            expect(importDay).toHaveBeenCalledWith(7);
+            expect(importDay).toHaveBeenCalledWith(4);
             unmount();
 
-            renderWithEvents({ ...events, isImporting: true });
+            renderView(baseDays, { ...events, isImporting: true });
             expect(screen.getByRole('button', { name: 'Import this day' })).toBeDisabled();
         });
     });

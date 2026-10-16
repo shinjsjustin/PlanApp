@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 import CalendarPage from './CalendarPage';
 import { api } from '../../lib/api';
+import { dayLabel, todayKey } from '../../lib/dates';
 
 jest.mock('../../lib/api');
 jest.mock('../../hooks/useIsPhone', () => ({ __esModule: true, default: () => true }));
@@ -30,7 +31,7 @@ describe('CalendarPage on a phone', () => {
     test('renders the heading and the phone day view without desktop panels', async () => {
         const { container } = renderPage();
 
-        expect(await screen.findByRole('region', { name: 'Day 1' })).toBeInTheDocument();
+        expect(await screen.findByRole('region', { name: dayLabel(todayKey()) })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Calendar' })).toBeInTheDocument();
         expect(container.querySelector('main')).toHaveClass('calendar-page--phone');
         expect(screen.queryByRole('link', { name: /all projects/i })).not.toBeInTheDocument();
