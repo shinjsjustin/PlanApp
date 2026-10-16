@@ -176,6 +176,7 @@ describe('serializers', () => {
                 sequenceTitle: 'Session handling',
                 position: 2,
                 isPinned: true,
+                visitMinutes: null,
             });
         });
 

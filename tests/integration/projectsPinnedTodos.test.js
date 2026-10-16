@@ -148,6 +148,7 @@ describe('project pinnedTodos payloads', () => {
                 sequenceTitle: 'Research',
                 position: 0,
                 isPinned: true,
+                visitMinutes: null,
             },
             {
                 id: second.id,
@@ -157,6 +158,7 @@ describe('project pinnedTodos payloads', () => {
                 sequenceTitle: 'Research',
                 position: 1,
                 isPinned: true,
+                visitMinutes: null,
             },
             {
                 id: third.id,
@@ -166,6 +168,7 @@ describe('project pinnedTodos payloads', () => {
                 sequenceTitle: 'Prototype',
                 position: 0,
                 isPinned: true,
+                visitMinutes: null,
             },
             {
                 id: fourth.id,
@@ -175,6 +178,7 @@ describe('project pinnedTodos payloads', () => {
                 sequenceTitle: 'Release',
                 position: 0,
                 isPinned: true,
+                visitMinutes: null,
             },
             {
                 id: unorganized.id,
@@ -184,6 +188,7 @@ describe('project pinnedTodos payloads', () => {
                 sequenceTitle: null,
                 position: 0,
                 isPinned: true,
+                visitMinutes: null,
             },
         ]);
     });

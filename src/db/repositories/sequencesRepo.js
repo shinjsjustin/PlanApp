@@ -106,10 +106,11 @@ const listByOwner = async (conn, ownerId) => {
 /** Owner's pinned sequences, contiguous by project, in layer then sequence order. */
 const listPinnedByOwner = async (conn, ownerId) => {
     const [rows] = await conn.execute(
-        `SELECT s.${SELECT_COLUMNS.split(', ').join(', s.')}
+        `SELECT s.${SELECT_COLUMNS.split(', ').join(', s.')}, pl.visit_minutes
          FROM sequences s
          JOIN projects p ON p.id = s.project_id
          JOIN layers l ON l.id = s.layer_id
+         LEFT JOIN places pl ON pl.id = s.place_id
          WHERE p.owner_id = ? AND s.is_pinned = 1
          ORDER BY s.project_id, l.position, s.position, s.id`,
         [ownerId]

@@ -98,6 +98,7 @@ describe('GET /api/projects?include=pinnedSequences', () => {
             isPinned: true,
             layerId: firstLayer.id,
             position: pinned[1].position,
+            visitMinutes: null,
             todos: [
                 { id: t1.id, text: 'one', status: 'incomplete', isPinned: false, position: 0 },
                 { id: t2.id, text: 'two', status: 'complete', isPinned: true, position: 1 },

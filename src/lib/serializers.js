@@ -81,6 +81,7 @@ const toPinnedTodo = (row) => ({
     sequenceTitle: row.sequence_title ?? null,
     position: row.position,
     isPinned: Boolean(row.is_pinned),
+    visitMinutes: row.visit_minutes ?? null,
 });
 
 /** A pinned sequence with just enough to-do detail for a read-only hover card. */
@@ -92,6 +93,7 @@ const toPinnedSequence = (row, todos) => ({
     isPinned: Boolean(row.is_pinned),
     layerId: row.layer_id,
     position: row.position,
+    visitMinutes: row.visit_minutes ?? null,
     todos: todos.map((todo) => ({
         id: todo.id,
         text: todo.text,

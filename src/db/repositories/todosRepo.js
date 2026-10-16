@@ -34,11 +34,13 @@ const SELECT_COLUMNS =
 // `project_id` is not part of the pinned wire shape, but carrying it here lets
 // the projects home payload group pins by project without a second read.
 const PINNED_SELECT_COLUMNS =
-    't.id, t.project_id, t.text, t.status, t.sequence_id, s.title AS sequence_title, t.position, t.is_pinned';
+    't.id, t.project_id, t.text, t.status, t.sequence_id, s.title AS sequence_title, t.position, t.is_pinned, COALESCE(tp.visit_minutes, sp.visit_minutes) AS visit_minutes';
 
 const PINNED_FROM_JOINS = `FROM todos t
     LEFT JOIN sequences s ON s.id = t.sequence_id
-    LEFT JOIN layers l ON l.id = s.layer_id`;
+    LEFT JOIN layers l ON l.id = s.layer_id
+    LEFT JOIN places tp ON tp.id = t.place_id
+    LEFT JOIN places sp ON sp.id = s.place_id`;
 
 const PINNED_ORDER =
     't.sequence_id IS NULL, l.position, s.position, t.position, t.id';
