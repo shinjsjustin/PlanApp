@@ -55,3 +55,22 @@
 .phone-day-unavailable {
   color: var(--text-muted);
 }
+
+.calendar-page--phone {
+  overflow-x: hidden;
+}
+
+.calendar-page--phone .calendar-header {
+  flex-wrap: wrap;
+}
+
+.calendar-page--phone .calendar-header-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.calendar-page--phone .phone-day {
+  max-width: 100%;
+}

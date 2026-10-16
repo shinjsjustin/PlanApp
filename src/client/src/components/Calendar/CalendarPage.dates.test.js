@@ -43,6 +43,7 @@ describe('Clear past days button', () => {
             mockIsPhone = isPhone;
             renderPage();
 
+            if (isPhone) await userEvent.click(await screen.findByRole('button', { name: 'More' }));
             const button = await clearButton();
             expect(button).toHaveClass('neon-button');
             expect(button).toBeEnabled();

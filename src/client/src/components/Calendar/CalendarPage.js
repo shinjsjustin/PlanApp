@@ -107,17 +107,12 @@ const CalendarPage = () => {
 
     const isReady = state.status === CALENDAR_STATUS.ready;
     const hasDatedDay = state.days.some((day) => day.date);
+    const [isMoreOpen, setIsMoreOpen] = useState(false);
     const today = todayKey();
     const hasPastDay = state.days.some((day) => day.date && day.date < today);
 
-    return (
-        <main className={isPhone ? 'calendar-page calendar-page--phone' : 'calendar-page'}>
-            <header className="calendar-header">
-                <h1>Calendar</h1>
-                {!isPhone && (
-                    <Link className="neon-button" to="/projects">← All projects</Link>
-                )}
-                <ThoughtsLink />
+    const headerControls = (
+        <>
                 {isReady && (
                     <button
                         type="button"
@@ -149,6 +144,34 @@ const CalendarPage = () => {
                     </button>
                 )}
                 <GoogleConnectButton />
+        </>
+    );
+
+    return (
+        <main className={isPhone ? 'calendar-page calendar-page--phone' : 'calendar-page'}>
+            <header className="calendar-header">
+                <h1>Calendar</h1>
+                {!isPhone && (
+                    <Link className="neon-button" to="/projects">← All projects</Link>
+                )}
+                <ThoughtsLink />
+                {isPhone ? (
+                    isReady && (
+                    <>
+                        <button
+                            type="button"
+                            className="neon-button"
+                            aria-expanded={isMoreOpen}
+                            onClick={() => setIsMoreOpen((open) => !open)}
+                        >
+                            More
+                        </button>
+                        {isMoreOpen && <div className="calendar-header-more">{headerControls}</div>}
+                    </>
+                    )
+                ) : (
+                    headerControls
+                )}
                 {/* Apart from the alert toast below, which is for action errors:
                     this one stays until a retry succeeds. */}
                 {events.loadError && (
