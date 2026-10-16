@@ -5,6 +5,7 @@ import useSwipe from '../../hooks/useSwipe';
 import { sortByPosition } from '../../lib/graph';
 import { readLastSequence, writeLastSequence } from '../../lib/lastSequence';
 import { buildSequenceGrid, initialSequenceId, layerNeighbours, stepSequence } from '../../lib/phoneSequences';
+import PhoneSequenceEditor from './PhoneSequenceEditor';
 import PhoneTodoRow from './PhoneTodoRow';
 import '../Styling/ProjectPhone.css';
 
@@ -31,6 +32,7 @@ const PhoneProjectView = () => {
     // The stored sequence may be gone after a graph reload; fall back to the first.
     const isStoredInGrid = grid.some((r) => r.sequences.some((s) => s.id === storedId));
     const currentId = isStoredInGrid ? storedId : initialSequenceId(grid, null);
+    const [isEditing, setIsEditing] = useState(false);
     const scrollRef = useRef(null);
 
     useEffect(() => {
@@ -39,7 +41,10 @@ const PhoneProjectView = () => {
 
     const swipeHandlers = useSwipe({
         scrollRef,
-        onSwipe: (direction) => setStoredId(stepSequence(grid, currentId, direction)),
+        onSwipe: (direction) => {
+            if (isEditing) return;
+            setStoredId(stepSequence(grid, currentId, direction));
+        },
     });
 
     if (currentId === null) return <p className="phone-empty">No sequences yet</p>;
@@ -57,7 +62,20 @@ const PhoneProjectView = () => {
             <LayerArrow direction="up" glyph="↑" neighbour={above} onSelect={setStoredId} />
             <div className="phone-sequence-scroll">
                 <p className="phone-layer-title">{row.layer.title}</p>
-                <h2 className="phone-sequence-title">{sequence.title}</h2>
+                {isEditing ? (
+                    <PhoneSequenceEditor sequence={sequence} onDone={() => setIsEditing(false)} />
+                ) : (
+                    <>
+                        <h2 className="phone-sequence-title">{sequence.title}</h2>
+                        {sequence.description && (
+                            <p className="phone-sequence-description">{sequence.description}</p>
+                        )}
+                        {sequence.isBlocked && <span className="phone-blocked-badge">Blocked</span>}
+                        <button type="button" className="phone-sequence-edit" onClick={() => setIsEditing(true)}>
+                            Edit sequence
+                        </button>
+                    </>
+                )}
                 <p className="phone-sequence-count">{`${index + 1} of ${row.sequences.length}`}</p>
                 <ul className="phone-todos">
                     {todos.map((todo) => (

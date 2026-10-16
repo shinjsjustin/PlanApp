@@ -95,3 +95,46 @@
   padding: var(--space-md);
   font-size: var(--font-lg);
 }
+
+.phone-sequence-description {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.phone-blocked-badge {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  border: thin solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}
+
+.phone-sequence-edit,
+.phone-sequence-blocked-toggle,
+.phone-sequence-done {
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: thin solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  color: var(--text-glow);
+  font-size: var(--font-md);
+}
+
+.phone-sequence-blocked-toggle[aria-pressed='true'] {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.phone-sequence-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0;
+}
+
+.phone-sequence-description-input {
+  width: 100%;
+  font-size: var(--font-md);
+}
