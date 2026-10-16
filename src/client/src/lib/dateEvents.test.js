@@ -7,7 +7,7 @@ test('clips a timed event inside the day to minutes', () => {
         { id: 'a', summary: 'Standup', start: local(2026, 3, 5, 9, 30), end: local(2026, 3, 5, 10, 15), allDay: false },
     ];
     expect(blocksForDate(events, '2026-03-05')).toEqual([
-        { id: 'a', title: 'Standup', allDay: false, startMinutes: 570, durationMinutes: 45 },
+        { id: 'a', title: 'Standup', location: null, allDay: false, startMinutes: 570, durationMinutes: 45 },
     ]);
 });
 
@@ -30,7 +30,7 @@ test('drops timed events that do not overlap the day, including one ending at mi
 test('all-day events get allDay true, 0 and 1440, and a null summary becomes a fallback title', () => {
     const events = [{ id: 'h', summary: null, start: '2026-03-05', end: '2026-03-06', allDay: true }];
     expect(blocksForDate(events, '2026-03-05')).toEqual([
-        { id: 'h', title: '(No title)', allDay: true, startMinutes: 0, durationMinutes: 1440 },
+        { id: 'h', title: '(No title)', location: null, allDay: true, startMinutes: 0, durationMinutes: 1440 },
     ]);
 });
 
@@ -38,4 +38,12 @@ test('drops all-day events outside the date', () => {
     const events = [{ id: 'h', summary: 'Trip', start: '2026-03-05', end: '2026-03-06', allDay: true }];
     expect(blocksForDate(events, '2026-03-06')).toEqual([]);
     expect(blocksForDate(events, '2026-03-04')).toEqual([]);
+});
+
+test('blocks carry the event location', () => {
+    const events = [
+        { id: 'a', summary: 'Lunch', location: 'Cafe', start: local(2026, 3, 5, 12), end: local(2026, 3, 5, 13), allDay: false },
+        { id: 'h', summary: 'Trip', location: 'Paris', start: '2026-03-05', end: '2026-03-06', allDay: true },
+    ];
+    expect(blocksForDate(events, '2026-03-05').map((block) => block.location)).toEqual(['Cafe', 'Paris']);
 });

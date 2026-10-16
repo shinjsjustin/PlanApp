@@ -20,7 +20,7 @@ const useDateEvents = (dateKey, shouldFetch) => {
             if (isCurrent) setResult({ dateKey, events, isUnavailable });
         };
 
-        api.get(`/calendar/events?from=${dateKey}&to=${dateKey}`)
+        api.get(`/bourne/calendar/events?from=${dateKey}&to=${dateKey}`)
             .then((body) => {
                 const raw = Array.isArray(body?.events) ? body.events : EMPTY_EVENTS;
                 settle(blocksForDate(raw, dateKey), false);

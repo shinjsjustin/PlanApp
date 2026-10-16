@@ -38,6 +38,7 @@ export const blocksForDate = (events, dateKey) =>
         (event.allDay ? allDayBlock(event, dateKey) : timedBlock(event, dateKey)).map((block) => ({
             id: event.id,
             title: event.summary || NO_TITLE,
+            location: event.location ?? null,
             ...block,
         }))
     );

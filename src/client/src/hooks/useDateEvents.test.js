@@ -28,7 +28,7 @@ test('fetches the date and returns its blocks', async () => {
     api.get.mockResolvedValue({ events: [allDay('a')] });
     const { result } = renderHook(() => useDateEvents('2026-03-05', true));
     await waitFor(() => expect(result.current.events).toHaveLength(1));
-    expect(api.get).toHaveBeenCalledWith('/calendar/events?from=2026-03-05&to=2026-03-05');
+    expect(api.get).toHaveBeenCalledWith('/bourne/calendar/events?from=2026-03-05&to=2026-03-05');
     expect(result.current.events[0]).toMatchObject({ id: 'a', allDay: true, startMinutes: 0, durationMinutes: 1440 });
     expect(result.current.isUnavailable).toBe(false);
 });
