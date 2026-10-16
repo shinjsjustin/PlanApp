@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import CreateProjectDialog from './CreateProjectDialog';
 import ProjectCard from './ProjectCard';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
+import PlacesLink from '../Navigation/PlacesLink';
 import useCardHeights from '../../hooks/useCardHeights';
 import useIsPhone from '../../hooks/useIsPhone';
 import useMasonryColumns from '../../hooks/useMasonryColumns';
@@ -94,6 +95,7 @@ const ProjectsHome = () => {
                         most wants a way off this page. Phones skip it: the tab
                         bar already covers it. */}
                     <ThoughtsLink />
+                    <PlacesLink />
                     {!isPhone && (
                         <Link className="projects-calendar-link neon-button" to="/calendar">
                             Calendar →

@@ -6,6 +6,7 @@ import CalendarDragArea from './CalendarDragArea';
 import PhoneCalendarView from './PhoneCalendarView';
 import ProjectPanel from './ProjectPanel';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
+import PlacesLink from '../Navigation/PlacesLink';
 import useCalendar from '../../hooks/useCalendar';
 import useCalendarEvents from '../../hooks/useCalendarEvents';
 import useCalendarExport from '../../hooks/useCalendarExport';
@@ -155,6 +156,7 @@ const CalendarPage = () => {
                     <Link className="neon-button" to="/projects">← All projects</Link>
                 )}
                 <ThoughtsLink />
+                <PlacesLink />
                 {isPhone ? (
                     isReady && (
                     <>

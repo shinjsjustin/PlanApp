@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import PlacesLink from '../Navigation/PlacesLink';
 import useIsPhone from '../../hooks/useIsPhone';
 import useThoughts from '../../hooks/useThoughts';
 import '../Styling/Thoughts.css';
@@ -86,6 +87,7 @@ const ThoughtsPage = () => {
                     <>
                         <Link className="neon-button" to="/projects">Projects</Link>
                         <Link className="neon-button" to="/calendar">Calendar</Link>
+                        <PlacesLink />
                     </>
                 )}
             </header>

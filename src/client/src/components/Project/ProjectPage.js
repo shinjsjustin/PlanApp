@@ -5,6 +5,7 @@ import Canvas from './Canvas';
 import DragDropArea from './DragDropArea';
 import InlineDescription from './InlineDescription';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
+import PlacesLink from '../Navigation/PlacesLink';
 import PhoneProjectView from './PhoneProjectView';
 import PinControls from './PinControls';
 import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
@@ -49,6 +50,7 @@ const ProjectPage = () => {
             <header className="project-header">
                 {!isPhone && <Link className="neon-button" to="/projects">← All projects</Link>}
                 <ThoughtsLink />
+                <PlacesLink />
                 {state.project && <h1>{state.project.title}</h1>}
                 {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>
