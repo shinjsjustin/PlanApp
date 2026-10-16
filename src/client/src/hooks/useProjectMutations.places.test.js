@@ -47,15 +47,22 @@ describe('setTodoPlace', () => {
 });
 
 describe('setSequencePlace', () => {
-    test('patches placeId on the sequence optimistically', async () => {
+    test('shows the placeId before the request resolves and keeps it after', async () => {
         const { result, stateOf } = await renderMutations();
-        api.patch.mockResolvedValue({ ...GRAPH.sequences[0], placeId: 3 });
+        let resolve;
+        api.patch.mockReturnValue(new Promise((r) => { resolve = r; }));
 
-        await act(async () => {
-            await result.current.setSequencePlace(100, 3);
+        let pending;
+        act(() => {
+            pending = result.current.setSequencePlace(100, 3);
         });
 
+        expect(stateOf().sequences[100].placeId).toBe(3);
         expect(api.patch).toHaveBeenCalledWith('/sequences/100', { placeId: 3 });
+        await act(async () => {
+            resolve({ ...GRAPH.sequences[0], placeId: 3 });
+            await pending;
+        });
         expect(stateOf().sequences[100].placeId).toBe(3);
     });
 });
