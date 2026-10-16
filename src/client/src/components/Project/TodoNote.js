@@ -8,7 +8,7 @@ const NOTE_MAX_LENGTH = 5000;
 
 const stopPropagation = (event) => event.stopPropagation();
 
-const TodoNote = ({ todo }) => {
+const TodoNote = ({ todo, autoFocus = true }) => {
     const { updateTodoNote } = useProjectMutations();
     // null means follow the graph, including optimistic updates and rollback.
     const [draft, setDraft] = useState(null);
@@ -43,7 +43,7 @@ const TodoNote = ({ todo }) => {
             aria-label={`Note for “${todo.text}”`}
             maxLength={NOTE_MAX_LENGTH}
             rows={3}
-            autoFocus
+            autoFocus={autoFocus}
             value={draft ?? todo.note ?? ''}
             onChange={(event) => {
                 hasEditRef.current = true;

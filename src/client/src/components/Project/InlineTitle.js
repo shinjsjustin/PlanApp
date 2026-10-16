@@ -13,10 +13,12 @@ import useDebouncedCallback from '../../hooks/useDebouncedCallback';
 
 export const SAVE_DELAY_MS = 400;
 
-const InlineTitle = ({ value, label, onSave, className = '' }) => {
+const InlineTitle = ({ value, label, onSave, className = '', flushOnUnmount = false }) => {
     const [draft, setDraft] = useState(value);
     const [isEditing, setIsEditing] = useState(false);
-    const { run: save, cancel } = useDebouncedCallback(onSave, SAVE_DELAY_MS);
+    const { run: save, cancel } = useDebouncedCallback(onSave, SAVE_DELAY_MS, {
+        shouldFlushOnUnmount: flushOnUnmount,
+    });
 
     // Escape reverts the draft, but the blur that usually follows carries this
     // render's `draft` in its closure. Normally the revert has re-rendered by
