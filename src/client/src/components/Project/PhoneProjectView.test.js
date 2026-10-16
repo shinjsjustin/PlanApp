@@ -153,13 +153,15 @@ describe('PhoneProjectView', () => {
         expect(localStorage.getItem('planapp:lastSequence:1')).toBe('100');
     });
 
-    test('each to-do offers only a tick button that sets its status', () => {
+    test('each to-do offers a tick and an edit button; the tick sets its status', () => {
         const value = renderView({
             todos: [todo(1, 100, 'incomplete', 0), todo(2, 100, 'complete', 1)],
         });
 
         const buttons = within(screen.getByRole('list')).getAllByRole('button');
-        expect(buttons).toHaveLength(2);
+        expect(buttons).toHaveLength(4);
+        expect(screen.getByRole('button', { name: 'Edit “Todo 1”' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Edit “Todo 2”' })).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /^Complete “Todo 1”/ }));
         expect(value.updateEntity).toHaveBeenCalledWith('todos', 1, {

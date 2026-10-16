@@ -33,6 +33,7 @@ const PhoneProjectView = () => {
     const isStoredInGrid = grid.some((r) => r.sequences.some((s) => s.id === storedId));
     const currentId = isStoredInGrid ? storedId : initialSequenceId(grid, null);
     const [isEditing, setIsEditing] = useState(false);
+    const [editingTodoId, setEditingTodoId] = useState(null);
     const scrollRef = useRef(null);
 
     useEffect(() => {
@@ -42,7 +43,7 @@ const PhoneProjectView = () => {
     const swipeHandlers = useSwipe({
         scrollRef,
         onSwipe: (direction) => {
-            if (isEditing) return;
+            if (isEditing || editingTodoId !== null) return;
             setStoredId(stepSequence(grid, currentId, direction));
         },
     });
@@ -79,7 +80,12 @@ const PhoneProjectView = () => {
                 <p className="phone-sequence-count">{`${index + 1} of ${row.sequences.length}`}</p>
                 <ul className="phone-todos">
                     {todos.map((todo) => (
-                        <PhoneTodoRow key={todo.id} todo={todo} />
+                        <PhoneTodoRow
+                            key={todo.id}
+                            todo={todo}
+                            isEditing={editingTodoId === todo.id}
+                            onToggleEdit={() => setEditingTodoId(editingTodoId === todo.id ? null : todo.id)}
+                        />
                     ))}
                 </ul>
             </div>

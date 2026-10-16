@@ -2,11 +2,12 @@ import React from 'react';
 
 import useProjectMutations from '../../hooks/useProjectMutations';
 import { TODO_STATUS } from '../../lib/graph';
+import PhoneTodoEditor from './PhoneTodoEditor';
 
 const CHECK = '✓';
 
-// Read-only row for the phone view: the tick is the only control.
-const PhoneTodoRow = ({ todo }) => {
+// Phone row: the tick sets status, the text opens the editor below the row.
+const PhoneTodoRow = ({ todo, isEditing, onToggleEdit }) => {
     const { setTodoStatus } = useProjectMutations();
     const isComplete = todo.status === TODO_STATUS.complete;
 
@@ -27,7 +28,16 @@ const PhoneTodoRow = ({ todo }) => {
             >
                 {isComplete && <span aria-hidden="true">{CHECK}</span>}
             </button>
-            <span className="phone-todo-text">{todo.text}</span>
+            <button
+                type="button"
+                className="phone-todo-text"
+                aria-label={`Edit “${todo.text}”`}
+                aria-expanded={isEditing}
+                onClick={onToggleEdit}
+            >
+                {todo.text}
+            </button>
+            {isEditing && <PhoneTodoEditor todo={todo} onDone={onToggleEdit} />}
         </li>
     );
 };

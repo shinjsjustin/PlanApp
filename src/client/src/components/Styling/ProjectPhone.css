@@ -138,3 +138,50 @@
   width: 100%;
   font-size: var(--font-md);
 }
+
+.phone-todo {
+  flex-wrap: wrap;
+}
+
+.phone-todo-text {
+  flex: 1;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.phone-todo-editor {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.phone-todo-statuses {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.phone-todo-status,
+.phone-todo-delete,
+.phone-todo-done {
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: thin solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  color: var(--text-glow);
+  font-size: var(--font-md);
+}
+
+.phone-todo-status[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.phone-todo-delete {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
