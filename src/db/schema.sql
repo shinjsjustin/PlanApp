@@ -83,6 +83,11 @@
 -- copy the CREATE TABLE statement for `thoughts` from the bottom of this file
 -- and run it alone.
 --
+-- A database created before project thoughts is missing one table. Add it in
+-- place rather than re-running this file (db/migration/2026-10-16_add_project_thoughts.sql):
+-- copy the CREATE TABLE statement for `project_thoughts` from the bottom of this
+-- file and run it alone.
+--
 -- A database created before places is missing two tables and three columns. Apply
 -- in place rather than re-running this file (db/migration/2026-10-16_add_places.sql).
 --
@@ -91,6 +96,7 @@
 
 -- -- Teardown ---------------------------------------------------------------
 DROP TABLE IF EXISTS `travel_times`;
+DROP TABLE IF EXISTS `project_thoughts`;
 DROP TABLE IF EXISTS `thoughts`;
 DROP TABLE IF EXISTS `google_exports`;
 DROP TABLE IF EXISTS `google_accounts`;
@@ -398,6 +404,18 @@ CREATE TABLE `thoughts` (
   KEY `idx_thoughts_owner_created` (`owner_id`, `created_at`),
   CONSTRAINT `fk_thoughts_user`
     FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- project_thoughts ----------------------------------------------------
+-- One autosaved note per project; `version` counts saves for conflict checks.
+CREATE TABLE `project_thoughts` (
+  `project_id` int unsigned NOT NULL,
+  `text`       mediumtext NOT NULL,
+  `version`    int unsigned NOT NULL DEFAULT 1,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`project_id`),
+  CONSTRAINT `fk_project_thoughts_project`
+    FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -- travel_times ---------------------------------------------------------
