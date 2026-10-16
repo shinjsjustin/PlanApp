@@ -159,7 +159,6 @@ const CalendarPage = () => {
                 <ThoughtsLink />
                 <PlacesLink />
                 {isPhone ? (
-                    isReady && (
                     <>
                         <button
                             type="button"
@@ -171,7 +170,6 @@ const CalendarPage = () => {
                         </button>
                         {isMoreOpen && <div className="calendar-header-more">{headerControls}</div>}
                     </>
-                    )
                 ) : (
                     headerControls
                 )}
