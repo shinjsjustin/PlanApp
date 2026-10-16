@@ -216,6 +216,21 @@ const useProjectMutations = () => {
         [updateEntity]
     );
 
+    const setTodoPlace = useCallback(
+        (todoId, placeId) =>
+            updateEntity('todos', todoId, { path: `/todos/${todoId}`, changes: { placeId } }),
+        [updateEntity]
+    );
+
+    const setSequencePlace = useCallback(
+        (sequenceId, placeId) =>
+            updateEntity('sequences', sequenceId, {
+                path: `/sequences/${sequenceId}`,
+                changes: { placeId },
+            }),
+        [updateEntity]
+    );
+
     const updateSequenceDescription = useCallback(
         (sequenceId, description) =>
             updateEntity('sequences', sequenceId, {
@@ -317,6 +332,8 @@ const useProjectMutations = () => {
             deleteAllUnorganized: removeUnorganizedTodos,
             updateProjectDescription,
             updateTodoNote,
+            setTodoPlace,
+            setSequencePlace,
             updateSequenceDescription,
             renameTodo,
             moveTodo,
@@ -342,6 +359,8 @@ const useProjectMutations = () => {
             removeUnorganizedTodos,
             updateProjectDescription,
             updateTodoNote,
+            setTodoPlace,
+            setSequencePlace,
             updateSequenceDescription,
             renameTodo,
             moveTodo,

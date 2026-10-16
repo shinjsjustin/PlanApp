@@ -110,3 +110,20 @@
 .places-page--phone .place-actions .neon-button {
     min-height: 44px;
 }
+
+.place-select {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+.place-select select {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--text-muted);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+}
