@@ -53,6 +53,14 @@ export const nextDateKey = (key) => {
     return next.toISOString().slice(0, 10);
 };
 
+/** The day before a 'YYYY-MM-DD' key; the mirror of nextDateKey. */
+export const previousDateKey = (key) => {
+    const previous = keyToUtc(key);
+    previous.setUTCDate(previous.getUTCDate() - 1);
+
+    return previous.toISOString().slice(0, 10);
+};
+
 /** "Thu 15 Oct". Formatted in UTC because the key is already a calendar date, not an instant. */
 export const dayLabel = (key) => {
     if (!key) return null;
