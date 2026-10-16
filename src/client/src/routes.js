@@ -8,6 +8,7 @@ import ProjectsHome from './components/Projects/ProjectsHome';
 import ProjectPage from './components/Project/ProjectPage';
 import CalendarPage from './components/Calendar/CalendarPage';
 import ThoughtsPage from './components/Thoughts/ThoughtsPage';
+import PlacesPage from './components/Places/PlacesPage';
 
 import ProtectedRoute from './config/ProtectedRoute';
 import UnprotectedRoute from './config/UnprotectedRoute';
@@ -36,6 +37,7 @@ const routes = [
     { path: '/projects/:id', element: <ProtectedRoute><ProjectPage /></ProtectedRoute> },
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
     { path: '/thoughts',     element: <ProtectedRoute><ThoughtsPage /></ProtectedRoute> },
+    { path: '/places',       element: <ProtectedRoute><PlacesPage /></ProtectedRoute> },
 
     // The template's dashboard is left mounted but unused; login now lands on
     // /projects instead.
