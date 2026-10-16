@@ -83,10 +83,14 @@
 -- copy the CREATE TABLE statement for `thoughts` from the bottom of this file
 -- and run it alone.
 --
+-- A database created before places is missing two tables and three columns. Apply
+-- in place rather than re-running this file (db/migration/2026-10-16_add_places.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `travel_times`;
 DROP TABLE IF EXISTS `thoughts`;
 DROP TABLE IF EXISTS `google_exports`;
 DROP TABLE IF EXISTS `google_accounts`;
@@ -101,6 +105,7 @@ DROP TABLE IF EXISTS `sequence_edges`;
 DROP TABLE IF EXISTS `todos`;
 DROP TABLE IF EXISTS `sequences`;
 DROP TABLE IF EXISTS `layers`;
+DROP TABLE IF EXISTS `places`;
 DROP TABLE IF EXISTS `projects`;
 DROP TABLE IF EXISTS `users`;
 
@@ -130,6 +135,27 @@ CREATE TABLE `projects` (
   PRIMARY KEY (`id`),
   KEY `idx_projects_owner` (`owner_id`),
   CONSTRAINT `fk_projects_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- places ----------------------------------------------------------------
+-- Saved locations an owner visits. Created before `sequences` and `todos`, which
+-- point at it. At most one place per owner has `is_default_start = 1`, enforced
+-- by placesRepo.setDefaultStart.
+CREATE TABLE `places` (
+  `id`               int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`         int unsigned NOT NULL,
+  `name`             varchar(255) NOT NULL,
+  `address`          varchar(500) NOT NULL,
+  `kind`             enum('home','work','client','church','supplier','person','other') NOT NULL DEFAULT 'other',
+  `notes`            text DEFAULT NULL,
+  `visit_minutes`    int DEFAULT NULL,
+  `is_default_start` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_places_owner` (`owner_id`),
+  CONSTRAINT `fk_places_owner`
     FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -164,16 +190,20 @@ CREATE TABLE `sequences` (
   `is_blocked` tinyint(1) NOT NULL DEFAULT '0',
   `is_collapsed` tinyint(1) NOT NULL DEFAULT '0',
   `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
+  `place_id` int unsigned DEFAULT NULL,
   `position` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_sequences_layer_position` (`layer_id`, `position`),
   KEY `idx_sequences_project` (`project_id`),
+  KEY `idx_sequences_place` (`place_id`),
   CONSTRAINT `fk_sequences_project`
     FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_sequences_layer`
-    FOREIGN KEY (`layer_id`) REFERENCES `layers` (`id`) ON DELETE CASCADE
+    FOREIGN KEY (`layer_id`) REFERENCES `layers` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sequences_place`
+    FOREIGN KEY (`place_id`) REFERENCES `places` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- -- todos -----------------------------------------------------------------
@@ -194,6 +224,7 @@ CREATE TABLE `todos` (
   `status` enum('incomplete','complete','blocked') NOT NULL DEFAULT 'incomplete',
   `completed_at` timestamp NULL DEFAULT NULL,
   `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
+  `place_id` int unsigned DEFAULT NULL,
   `position` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -201,10 +232,13 @@ CREATE TABLE `todos` (
   KEY `idx_todos_project_sequence_position` (`project_id`, `sequence_id`, `position`),
   KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`),
   KEY `idx_todos_sequence` (`sequence_id`),
+  KEY `idx_todos_place` (`place_id`),
   CONSTRAINT `fk_todos_project`
     FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_todos_sequence`
-    FOREIGN KEY (`sequence_id`) REFERENCES `sequences` (`id`) ON DELETE SET NULL
+    FOREIGN KEY (`sequence_id`) REFERENCES `sequences` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_todos_place`
+    FOREIGN KEY (`place_id`) REFERENCES `places` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- -- calendar_days ---------------------------------------------------------
@@ -306,6 +340,7 @@ CREATE TABLE `calendar_events` (
   `day_id`           int unsigned NOT NULL,
   `google_event_id`  varchar(255) CHARACTER SET ascii NOT NULL,
   `title`            varchar(500) NOT NULL,
+  `location`         varchar(1000) DEFAULT NULL,
   `all_day`          tinyint(1) NOT NULL,
   `start_minutes`    int NOT NULL,
   `duration_minutes` int NOT NULL,
@@ -363,4 +398,16 @@ CREATE TABLE `thoughts` (
   KEY `idx_thoughts_owner_created` (`owner_id`, `created_at`),
   CONSTRAINT `fk_thoughts_user`
     FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- travel_times ---------------------------------------------------------
+-- Cached drive times between two hashed addresses for a time-of-day bucket.
+CREATE TABLE `travel_times` (
+  `origin_hash`      char(64) CHARACTER SET ascii NOT NULL,
+  `destination_hash` char(64) CHARACTER SET ascii NOT NULL,
+  `bucket`           smallint NOT NULL,
+  `duration_seconds` int NOT NULL,
+  `distance_meters`  int NOT NULL,
+  `fetched_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`origin_hash`, `destination_hash`, `bucket`)
 ) ENGINE=InnoDB;
