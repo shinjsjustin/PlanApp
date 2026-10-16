@@ -270,6 +270,7 @@ describe('serializers', () => {
                 project_title: 'Auth rewrite',
                 sequence_id: 9,
                 sequence_title: 'Session handling',
+                place_id: 5,
             };
 
             // Act + Assert
@@ -284,6 +285,7 @@ describe('serializers', () => {
                 projectTitle: 'Auth rewrite',
                 sequenceId: 9,
                 sequenceTitle: 'Session handling',
+                placeId: 5,
                 startMinutes: 540,
                 durationMinutes: 60,
             });
@@ -305,6 +307,7 @@ describe('serializers', () => {
                 project_title: 'Auth rewrite',
                 sequence_id: 9,
                 sequence_title: 'Session handling',
+                place_id: 5,
             };
 
             // Act + Assert
@@ -320,9 +323,15 @@ describe('serializers', () => {
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
                 sequenceTitle: 'Session handling',
+                placeId: 5,
                 startMinutes: 600,
                 durationMinutes: 90,
             });
+        });
+
+        test('nulls placeId when the row has no place', () => {
+            expect(toCalendarItem({ todo_id: 12 }).placeId).toBeNull();
+            expect(toCalendarItem({ todo_id: null }).placeId).toBeNull();
         });
 
         test('leaves a to-do item without a kind', () => {

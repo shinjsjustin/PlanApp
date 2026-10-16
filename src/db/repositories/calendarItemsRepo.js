@@ -36,6 +36,7 @@ const SELECT_COLUMNS = `ci.id, ci.day_id, ci.todo_id, ci.sequence_id AS booked_s
             t.text, t.status, COALESCE(t.is_pinned, s.is_pinned) AS is_pinned,
             COALESCE(t.project_id, s.project_id) AS project_id,
             COALESCE(t.sequence_id, ci.sequence_id) AS sequence_id,
+            COALESCE(t.place_id, s.place_id) AS place_id,
             p.title AS project_title, s.title AS sequence_title`;
 
 const FROM_JOINS = `FROM calendar_items ci

@@ -143,6 +143,7 @@ const toSequenceBooking = (row) => ({
     projectId: row.project_id,
     projectTitle: row.project_title,
     sequenceTitle: row.sequence_title,
+    placeId: row.place_id ?? null,
     startMinutes: row.start_minutes,
     durationMinutes: row.duration_minutes,
 });
@@ -158,6 +159,7 @@ const toTodoBooking = (row) => ({
     projectTitle: row.project_title,
     sequenceId: row.sequence_id ?? null,
     sequenceTitle: row.sequence_title ?? null,
+    placeId: row.place_id ?? null,
     startMinutes: row.start_minutes,
     durationMinutes: row.duration_minutes,
 });

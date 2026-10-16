@@ -67,6 +67,7 @@ describe('booking a pinned sequence', () => {
                 projectId: project.id,
                 projectTitle: 'Build a drone',
                 sequenceTitle: 'Learn aerodynamics',
+                placeId: null,
                 startMinutes: 540,
                 durationMinutes: 60,
             },
