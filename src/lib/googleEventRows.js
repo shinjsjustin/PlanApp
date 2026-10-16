@@ -6,6 +6,7 @@ const MINUTE_MS = 60000;
 const DAY_MINUTES = 1440;
 const MAX_ID_LENGTH = 255;
 const MAX_TITLE_LENGTH = 500;
+const MAX_LOCATION_LENGTH = 1000;
 const NO_TITLE = '(No title)';
 
 const formatters = new Map();
@@ -58,6 +59,7 @@ const makeRow = (dayId, event, fields) => ({
     dayId,
     googleEventId: event.id,
     title: (event.summary || NO_TITLE).slice(0, MAX_TITLE_LENGTH),
+    location: typeof event.location === 'string' ? event.location.slice(0, MAX_LOCATION_LENGTH) : null,
     ...fields,
 });
 

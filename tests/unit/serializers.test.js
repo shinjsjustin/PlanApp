@@ -2,6 +2,7 @@
 
 const {
     toCalendarDay,
+    toCalendarEvent,
     toCalendarItem,
     toCalendarNote,
     toLayer,
@@ -425,6 +426,37 @@ describe('serializers', () => {
                 startMinutes: 540,
                 durationMinutes: 180,
             });
+        });
+    });
+
+    describe('toCalendarEvent', () => {
+        const row = {
+            id: 5,
+            day_id: 2,
+            google_event_id: 'g1',
+            title: 'Meet',
+            all_day: 0,
+            start_minutes: 600,
+            duration_minutes: 30,
+            location: '1 Main St',
+        };
+        const wire = {
+            id: 5,
+            dayId: 2,
+            googleEventId: 'g1',
+            title: 'Meet',
+            allDay: false,
+            startMinutes: 600,
+            durationMinutes: 30,
+        };
+
+        test('carries the location', () => {
+            expect(toCalendarEvent(row)).toEqual({ ...wire, location: '1 Main St' });
+        });
+
+        test('answers a null location when the row has none', () => {
+            expect(toCalendarEvent({ ...row, location: null })).toEqual({ ...wire, location: null });
+            expect(toCalendarEvent({ ...row, location: undefined })).toEqual({ ...wire, location: null });
         });
     });
 

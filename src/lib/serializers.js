@@ -198,6 +198,7 @@ const toCalendarEvent = (row) => ({
     allDay: Boolean(row.all_day),
     startMinutes: row.start_minutes,
     durationMinutes: row.duration_minutes,
+    location: row.location ?? null,
 });
 
 /** `owner_id` stays server-side. */

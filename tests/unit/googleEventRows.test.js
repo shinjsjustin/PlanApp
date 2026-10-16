@@ -21,7 +21,7 @@ describe('eventsToDayRows timed events', () => {
             NY
         );
         expect(rows).toEqual([
-            { dayId: 1, googleEventId: 'e1', title: 'Meet', allDay: false, startMinutes: 630, durationMinutes: 45 },
+            { dayId: 1, googleEventId: 'e1', title: 'Meet', allDay: false, startMinutes: 630, durationMinutes: 45, location: null },
         ]);
     });
 
@@ -81,8 +81,8 @@ describe('eventsToDayRows all-day events', () => {
             NY
         );
         expect(rows).toEqual([
-            { dayId: 2, googleEventId: 'a', title: 'Trip', allDay: true, startMinutes: 0, durationMinutes: 1440 },
-            { dayId: 3, googleEventId: 'a', title: 'Trip', allDay: true, startMinutes: 0, durationMinutes: 1440 },
+            { dayId: 2, googleEventId: 'a', title: 'Trip', allDay: true, startMinutes: 0, durationMinutes: 1440, location: null },
+            { dayId: 3, googleEventId: 'a', title: 'Trip', allDay: true, startMinutes: 0, durationMinutes: 1440, location: null },
         ]);
     });
 });
@@ -119,6 +119,31 @@ describe('eventsToDayRows exclusions and titles', () => {
         expect(long[0].title).toHaveLength(500);
         const empty = eventsToDayRows([{ ...base(), summary: undefined }], days, NY);
         expect(empty[0].title).toBe('(No title)');
+    });
+});
+
+describe('eventsToDayRows locations', () => {
+    const days = [day(1, '2026-06-10')];
+    const base = () => timed('e1', '2026-06-10T14:00:00Z', '2026-06-10T15:00:00Z');
+
+    it('keeps the location', () => {
+        const rows = eventsToDayRows([{ ...base(), location: '1 Main St' }], days, NY);
+        expect(rows[0].location).toBe('1 Main St');
+    });
+
+    it('cuts the location to 1000 characters', () => {
+        const rows = eventsToDayRows([{ ...base(), location: 'z'.repeat(1001) }], days, NY);
+        expect(rows[0].location).toBe('z'.repeat(1000));
+    });
+
+    it('gives null when there is no location or it is not a string', () => {
+        expect(eventsToDayRows([base()], days, NY)[0].location).toBeNull();
+        expect(eventsToDayRows([{ ...base(), location: 5 }], days, NY)[0].location).toBeNull();
+    });
+
+    it('carries the location on all-day rows', () => {
+        const event = { id: 'a', summary: 'T', location: 'Paris', start: { date: '2026-06-10' }, end: { date: '2026-06-11' } };
+        expect(eventsToDayRows([event], days, NY)[0].location).toBe('Paris');
     });
 });
 

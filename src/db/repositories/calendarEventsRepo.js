@@ -10,7 +10,7 @@
  */
 
 const SELECT_COLUMNS =
-    'e.id, e.day_id, e.google_event_id, e.title, e.all_day, e.start_minutes, e.duration_minutes, e.created_at, e.updated_at';
+    'e.id, e.day_id, e.google_event_id, e.title, e.all_day, e.start_minutes, e.duration_minutes, e.location, e.created_at, e.updated_at';
 
 /** Every imported event in the owner's calendar, days left to right, all-day first. */
 const listByOwner = async (conn, ownerId) => {
@@ -30,12 +30,12 @@ const listByOwner = async (conn, ownerId) => {
 const replaceForDay = async (conn, dayId, events) => {
     await conn.execute('DELETE FROM calendar_events WHERE day_id = ?', [dayId]);
 
-    for (const { googleEventId, title, allDay, startMinutes, durationMinutes } of events) {
+    for (const { googleEventId, title, allDay, startMinutes, durationMinutes, location } of events) {
         await conn.execute(
             `INSERT INTO calendar_events
-                (day_id, google_event_id, title, all_day, start_minutes, duration_minutes)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [dayId, googleEventId, title, allDay ? 1 : 0, startMinutes, durationMinutes]
+                (day_id, google_event_id, title, all_day, start_minutes, duration_minutes, location)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [dayId, googleEventId, title, allDay ? 1 : 0, startMinutes, durationMinutes, location ?? null]
         );
     }
 };

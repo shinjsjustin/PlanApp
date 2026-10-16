@@ -101,6 +101,7 @@ describe('GET /api/calendar/events', () => {
                 allDay: false,
                 startMinutes: 600,
                 durationMinutes: 30,
+                location: null,
             },
         ]);
     });
@@ -120,6 +121,20 @@ describe('POST /api/calendar/events/import', () => {
             [dayB.id, 'g2', 'Event g2', 600, 30, false],
         ]);
         expect(JSON.stringify(response.body)).not.toContain('the-access');
+    });
+
+    test('stores an event\'s Google location and lists it', async () => {
+        const { userId } = await setup(getConn());
+        fetchMock.mockResolvedValue(googleAnswer([{ ...timed('g1'), location: '1 Main St' }, timed('g2')]));
+
+        const imported = await importAs(userId);
+        const listed = await request(app)
+            .get('/api/calendar/events')
+            .set('Authorization', authHeaderFor(userId));
+
+        const locations = (r) => r.body.data.events.map((e) => [e.googleEventId, e.location]);
+        expect(locations(imported)).toEqual([['g1', '1 Main St'], ['g2', null]]);
+        expect(locations(listed)).toEqual([['g1', '1 Main St'], ['g2', null]]);
     });
 
     test('importing twice with the same answer leaves the same rows', async () => {
