@@ -24,4 +24,6 @@ const forbidden = (message = 'You do not have permission to access this resource
 
 const notFound = (resource = 'Resource') => new HttpError(404, `${resource} not found`);
 
-module.exports = { HttpError, badRequest, forbidden, notFound };
+const conflict = (message) => new HttpError(409, message);
+
+module.exports = { HttpError, badRequest, conflict, forbidden, notFound };

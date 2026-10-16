@@ -11,16 +11,17 @@ const assertTodosInProject = require('../lib/assertTodosInProject');
 const calendarItemsRepo = require('../db/repositories/calendarItemsRepo');
 const layersRepo = require('../db/repositories/layersRepo');
 const projectsRepo = require('../db/repositories/projectsRepo');
+const projectThoughtsRepo = require('../db/repositories/projectThoughtsRepo');
 const sequencesRepo = require('../db/repositories/sequencesRepo');
 const todosRepo = require('../db/repositories/todosRepo');
-const { badRequest, notFound } = require('../lib/httpError');
+const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { writeImportedPlan } = require('../lib/importPlan');
 const { parsePlanSchema } = require('../lib/planSchema');
 const {
     findProjectWithPinnedTodos,
     listProjectsWithPinnedTodos,
 } = require('../lib/projectsPinnedTodos');
-const { toLayer, toProject, toSequence, toTodo } = require('../lib/serializers');
+const { toLayer, toProject, toProjectThoughts, toSequence, toTodo } = require('../lib/serializers');
 const {
     colorSchema,
     descriptionSchema,
@@ -61,6 +62,16 @@ const updateProjectSchema = requireSomeField(
     }),
     PATCHABLE_FIELDS
 );
+
+const MAX_THOUGHTS_LENGTH = 20000;
+
+// Not trimmed, and empty is allowed: this is the user's own autosaved text.
+const saveThoughtsSchema = z.object({
+    text: z
+        .string({ error: 'text must be a string' })
+        .max(MAX_THOUGHTS_LENGTH, `text must be at most ${MAX_THOUGHTS_LENGTH} characters`),
+    version: z.number().int().min(0).optional(),
+});
 
 // An absent or null `afterLayerId` appends; a present one inserts directly
 // below that layer. Both shapes are legal, so neither is an error here — the
@@ -160,6 +171,49 @@ router.get(
         if (!graph) throw notFound('Project');
 
         res.sendData(graph);
+    })
+);
+
+// GET /api/projects/:id/thoughts
+router.get(
+    '/:id/thoughts',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const thoughts = await withConnection(async (conn) => {
+            await assertOwnership(conn, 'project', id, req.user.id);
+            const project = await projectsRepo.findById(conn, id);
+            if (!project) throw notFound('Project');
+
+            return toProjectThoughts(project, await projectThoughtsRepo.findByProject(conn, id));
+        });
+
+        res.sendData(thoughts);
+    })
+);
+
+// PUT /api/projects/:id/thoughts — a sent `version` must match the stored one
+// (0 when there is none yet); an absent one always replaces.
+router.put(
+    '/:id/thoughts',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+        const { text, version } = saveThoughtsSchema.parse(req.body ?? {});
+
+        const thoughts = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'project', id, req.user.id);
+            const project = await projectsRepo.findById(conn, id);
+            if (!project) throw notFound('Project');
+
+            const current = await projectThoughtsRepo.findForUpdate(conn, id);
+            if (version !== undefined && version !== (current?.version ?? 0)) {
+                throw conflict('These thoughts changed elsewhere. Reload to see the latest.');
+            }
+
+            return toProjectThoughts(project, await projectThoughtsRepo.save(conn, id, text));
+        });
+
+        res.sendData(thoughts);
     })
 );
 

@@ -208,6 +208,15 @@ const toThought = (row) => ({
     createdAt: row.created_at,
 });
 
+/** A project's thoughts; with no row yet they read as empty at version 0. */
+const toProjectThoughts = (project, row) => ({
+    projectId: project.id,
+    projectTitle: project.title,
+    text: row?.text ?? '',
+    version: row?.version ?? 0,
+    updatedAt: row?.updated_at ?? null,
+});
+
 /** `owner_id` stays server-side; the 0/1 flag becomes a boolean. */
 const toPlace = (row) => ({
     id: row.id,
@@ -229,6 +238,7 @@ module.exports = {
     toPinnedTodo,
     toPlace,
     toProject,
+    toProjectThoughts,
     toSequence,
     toThought,
     toTodo,

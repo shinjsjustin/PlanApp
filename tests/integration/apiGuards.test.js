@@ -79,6 +79,13 @@ const scopedEndpoints = (graph) => [
         { sequenceId: null, position: 0 },
     ],
     ['DELETE /api/todos/:id', 'delete', `/api/todos/${graph.todo.id}`, undefined],
+    ['GET /api/projects/:id/thoughts', 'get', `/api/projects/${graph.project.id}/thoughts`, undefined],
+    [
+        'PUT /api/projects/:id/thoughts',
+        'put',
+        `/api/projects/${graph.project.id}/thoughts`,
+        { text: 'Taken' },
+    ],
     ['PATCH /api/thoughts/:id', 'patch', `/api/thoughts/${graph.thought.id}`, { text: 'Taken' }],
     ['DELETE /api/thoughts/:id', 'delete', `/api/thoughts/${graph.thought.id}`, undefined],
 ];
