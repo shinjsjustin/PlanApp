@@ -216,6 +216,29 @@ const useProjectMutations = () => {
         [updateEntity]
     );
 
+    const updateSequenceDescription = useCallback(
+        (sequenceId, description) =>
+            updateEntity('sequences', sequenceId, {
+                path: `/sequences/${sequenceId}`,
+                changes: { description: description.trim() || null },
+            }),
+        [updateEntity]
+    );
+
+    // A to-do cannot have empty text, so a blank edit is dropped rather than sent.
+    const renameTodo = useCallback(
+        (todoId, text) => {
+            const trimmedText = text.trim();
+            if (!trimmedText) return Promise.resolve(false);
+
+            return updateEntity('todos', todoId, {
+                path: `/todos/${todoId}`,
+                changes: { text: trimmedText },
+            });
+        },
+        [updateEntity]
+    );
+
     const updateProjectDescription = useCallback(
         (description) => {
             const trimmedDescription = description.trim();
@@ -294,6 +317,8 @@ const useProjectMutations = () => {
             deleteAllUnorganized: removeUnorganizedTodos,
             updateProjectDescription,
             updateTodoNote,
+            updateSequenceDescription,
+            renameTodo,
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
@@ -317,6 +342,8 @@ const useProjectMutations = () => {
             removeUnorganizedTodos,
             updateProjectDescription,
             updateTodoNote,
+            updateSequenceDescription,
+            renameTodo,
             moveTodo,
             moveTodoToUnorganized,
             deleteTodo,
