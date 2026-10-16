@@ -185,3 +185,30 @@
   border-color: var(--color-danger);
   color: var(--color-danger);
 }
+
+.phone-unorganized {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.phone-unorganized-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.phone-unorganized-title {
+  font-size: var(--font-lg);
+}
+
+.phone-unorganized-open,
+.phone-unorganized-back {
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: thin solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  color: var(--text-glow);
+  font-size: var(--font-md);
+}

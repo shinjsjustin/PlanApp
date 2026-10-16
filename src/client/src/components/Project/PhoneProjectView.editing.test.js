@@ -192,3 +192,49 @@ test('layer arrows are disabled while a to-do editor is open', () => {
     fireEvent.click(arrows()[1]);
     expect(screen.getByRole('heading', { name: 'Frame' })).toBeInTheDocument();
 });
+
+test('the composer under the to-dos adds to the current sequence', () => {
+    const value = renderWithTodos();
+    fireEvent.change(screen.getByRole('textbox', { name: 'New to-do' }), { target: { value: 'New one' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(value.createEntity).toHaveBeenCalledWith(
+        'todos',
+        expect.objectContaining({ body: { text: 'New one', sequenceId: 100 } })
+    );
+});
+
+test('Unorganized opens the page and Back returns to the same sequence', () => {
+    renderWithTodos();
+    swipeLeft();
+    expect(screen.getByRole('heading', { name: 'Electronics' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Unorganized' }));
+    expect(screen.getByRole('heading', { name: 'Unorganized' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Electronics' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('heading', { name: 'Electronics' })).toBeInTheDocument();
+});
+
+test('swiping does nothing on the Unorganized page', () => {
+    renderWithTodos();
+    fireEvent.click(screen.getByRole('button', { name: 'Unorganized' }));
+    const page = document.querySelector('.phone-unorganized');
+    fireEvent.touchStart(page, { touches: [{ clientX: 300, clientY: 100 }] });
+    fireEvent.touchEnd(page, { changedTouches: [{ clientX: 100, clientY: 100 }] });
+    expect(screen.getByRole('heading', { name: 'Unorganized' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('heading', { name: 'Aerodynamics' })).toBeInTheDocument();
+});
+
+test('the Unorganized button is shown with no sequences', () => {
+    const value = buildValue();
+    value.state.sequences = {};
+    value.state.layers = {};
+    render(
+        <ProjectProvider value={value}>
+            <PhoneProjectView />
+        </ProjectProvider>
+    );
+    expect(screen.getByText('No sequences yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Unorganized' }));
+    expect(screen.getByText('Nothing unorganized')).toBeInTheDocument();
+});

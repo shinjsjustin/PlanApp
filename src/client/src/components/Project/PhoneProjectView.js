@@ -7,6 +7,8 @@ import { readLastSequence, writeLastSequence } from '../../lib/lastSequence';
 import { buildSequenceGrid, initialSequenceId, layerNeighbours, stepSequence } from '../../lib/phoneSequences';
 import PhoneSequenceEditor from './PhoneSequenceEditor';
 import PhoneTodoRow from './PhoneTodoRow';
+import PhoneUnorganizedView from './PhoneUnorganizedView';
+import TodoComposer from './TodoComposer';
 import '../Styling/ProjectPhone.css';
 
 const LayerArrow = ({ direction, glyph, neighbour, isLocked, onSelect }) => (
@@ -34,6 +36,7 @@ const PhoneProjectView = () => {
     const currentId = isStoredInGrid ? storedId : initialSequenceId(grid, null);
     const [isEditing, setIsEditing] = useState(false);
     const [editingTodoId, setEditingTodoId] = useState(null);
+    const [isUnorganizedOpen, setIsUnorganizedOpen] = useState(false);
     const scrollRef = useRef(null);
     // editingTodoId can outlive its to-do (deleted, or on another sequence).
     const isTodoEditorOpen = Object.values(state.todos).some(
@@ -53,7 +56,22 @@ const PhoneProjectView = () => {
         },
     });
 
-    if (currentId === null) return <p className="phone-empty">No sequences yet</p>;
+    const unorganizedButton = (
+        <button type="button" className="phone-unorganized-open" onClick={() => setIsUnorganizedOpen(true)}>
+            Unorganized
+        </button>
+    );
+
+    if (isUnorganizedOpen) return <PhoneUnorganizedView onBack={() => setIsUnorganizedOpen(false)} />;
+
+    if (currentId === null) {
+        return (
+            <>
+                <p className="phone-empty">No sequences yet</p>
+                {unorganizedButton}
+            </>
+        );
+    }
 
     const row = grid.find((r) => r.sequences.some((s) => s.id === currentId));
     const sequence = state.sequences[currentId];
@@ -93,6 +111,8 @@ const PhoneProjectView = () => {
                         />
                     ))}
                 </ul>
+                <TodoComposer sequenceId={currentId} />
+                {unorganizedButton}
             </div>
             <LayerArrow direction="down" glyph="↓" neighbour={below} isLocked={isLocked} onSelect={setStoredId} />
         </div>

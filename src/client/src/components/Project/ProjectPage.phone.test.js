@@ -53,7 +53,8 @@ describe('ProjectPage on a phone', () => {
         expect(screen.getByRole('heading', { name: 'Learn aerodynamics' })).toBeInTheDocument();
         expect(screen.getByText('Read about lift')).toBeInTheDocument();
         expect(screen.queryByRole('region', { name: 'Learning' })).not.toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: /unorganized/i })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Unorganized' })).toBeInTheDocument();
+        expect(screen.queryByRole('list', { name: 'Unorganized to-dos' })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Pin' })).not.toBeInTheDocument();
         expect(screen.queryByText('Layered plan')).not.toBeInTheDocument();
         expect(screen.queryByDisplayValue('Layered plan')).not.toBeInTheDocument();
