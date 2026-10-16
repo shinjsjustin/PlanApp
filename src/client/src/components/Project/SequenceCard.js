@@ -6,6 +6,7 @@ import ConfirmDialog from './ConfirmDialog';
 import DeleteBubble from '../common/DeleteBubble';
 import DropZone from './DropZone';
 import InlineTitle from './InlineTitle';
+import PlaceSelect from '../Places/PlaceSelect';
 import SequenceCardCollapsed from './SequenceCardCollapsed';
 import SequenceCardFooter from './SequenceCardFooter';
 import SequenceDoneGroup from './SequenceDoneGroup';
@@ -74,6 +75,7 @@ const SequenceCard = ({
         renameSequence,
         setSequenceBlocked,
         setSequenceCollapsed,
+        setSequencePlace,
         setTodoStatus,
     } = useProjectMutations();
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -343,6 +345,11 @@ const SequenceCard = ({
                             onDeleteTodo={(todo) => deleteTodo(todo.id)}
                         />
                     </div>
+
+                    <PlaceSelect
+                        value={sequence.placeId}
+                        onChange={(placeId) => setSequencePlace(sequence.id, placeId)}
+                    />
 
                     <SequenceCardFooter
                         isBlocked={isBlocked}

@@ -4,6 +4,7 @@ import useProjectMutations from '../../hooks/useProjectMutations';
 import { TODO_STATUS } from '../../lib/graph';
 import InlineTitle from './InlineTitle';
 import TodoNote from './TodoNote';
+import PlaceSelect from '../Places/PlaceSelect';
 
 const STATUS_BUTTONS = [
     ['Incomplete', TODO_STATUS.incomplete],
@@ -12,7 +13,7 @@ const STATUS_BUTTONS = [
 ];
 
 const PhoneTodoEditor = ({ todo, onDone }) => {
-    const { renameTodo, setTodoStatus, deleteTodo } = useProjectMutations();
+    const { renameTodo, setTodoStatus, setTodoPlace, deleteTodo } = useProjectMutations();
 
     const handleDelete = () => {
         deleteTodo(todo.id);
@@ -41,6 +42,10 @@ const PhoneTodoEditor = ({ todo, onDone }) => {
                 ))}
             </div>
             <TodoNote todo={todo} autoFocus={false} />
+            <PlaceSelect
+                value={todo.placeId}
+                onChange={(placeId) => setTodoPlace(todo.id, placeId)}
+            />
             <button type="button" className="phone-todo-delete" onClick={handleDelete}>
                 Delete
             </button>

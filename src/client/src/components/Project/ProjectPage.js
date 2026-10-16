@@ -10,6 +10,7 @@ import PhoneProjectView from './PhoneProjectView';
 import PinControls from './PinControls';
 import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
+import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
 import useIsPhone from '../../hooks/useIsPhone';
 import useProjectGraph from '../../hooks/useProjectGraph';
 import useSequenceSpotlight from '../../hooks/useSequenceSpotlight';
@@ -91,19 +92,23 @@ const ProjectPage = () => {
 
             {isPhone && state.status === PROJECT_STATUS.ready && (
                 <ProjectProvider value={graph}>
-                    <PhoneProjectView />
+                    <PlaceOptionsProvider>
+                        <PhoneProjectView />
+                    </PlaceOptionsProvider>
                 </ProjectProvider>
             )}
 
             {!isPhone && state.status === PROJECT_STATUS.ready && (
                 <ProjectProvider value={graph}>
                     <PinSelectionProvider value={pinSelection}>
-                        <DragDropArea>
-                            <div className="project-body">
-                                <UnorganizedPanel />
-                                <Canvas highlightedSequenceId={highlightedSequenceId} />
-                            </div>
-                        </DragDropArea>
+                        <PlaceOptionsProvider>
+                            <DragDropArea>
+                                <div className="project-body">
+                                    <UnorganizedPanel />
+                                    <Canvas highlightedSequenceId={highlightedSequenceId} />
+                                </div>
+                            </DragDropArea>
+                        </PlaceOptionsProvider>
                     </PinSelectionProvider>
                 </ProjectProvider>
             )}

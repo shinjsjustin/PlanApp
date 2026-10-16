@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import DeleteBubble from '../common/DeleteBubble';
 import useProjectMutations from '../../hooks/useProjectMutations';
 import TodoNote from './TodoNote';
+import PlaceSelect from '../Places/PlaceSelect';
 import { PIN_MODE, usePinSelectionContext } from './PinSelectionContext';
 import { PinIcon, PinRowContent, usePinRow } from './PinRow';
 import { TODO_STATUS } from '../../lib/graph';
@@ -50,7 +51,7 @@ const STATUS_LABELS = {
 const CHECK = '✓';
 
 const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
-    const { setTodoStatus, moveTodoToUnorganized, deleteTodo } = useProjectMutations();
+    const { setTodoStatus, setTodoPlace, moveTodoToUnorganized, deleteTodo } = useProjectMutations();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const pinRow = usePinRow(todo);
     const [isNoteOpen, setIsNoteOpen] = useState(false);
@@ -238,6 +239,10 @@ const TodoItem = ({ todo, drag = null, isTopPinned = false }) => {
             {isNoteOpen && (
                 <div className="todo-item-note">
                     <TodoNote todo={todo} />
+                    <PlaceSelect
+                        value={todo.placeId}
+                        onChange={(placeId) => setTodoPlace(todo.id, placeId)}
+                    />
                 </div>
             )}
 
