@@ -153,7 +153,9 @@ describe('PhoneCalendarView', () => {
         const { container } = renderView();
 
         expect(screen.queryByRole('button', { name: /add|delete|drag|note/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('separator')).not.toBeInTheDocument();
         expect(container.querySelector('[draggable="true"]')).not.toBeInTheDocument();
+        expect(container.querySelector('.resize-handle, [class*="resize"]')).not.toBeInTheDocument();
     });
 
     describe('Google events on a day record', () => {
