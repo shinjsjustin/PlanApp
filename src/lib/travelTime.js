@@ -92,4 +92,4 @@ const travelBetween = async ({ originAddress, destinationAddress, departAt, time
     return { status: 'ok', ...drive, mapsUrl };
 };
 
-module.exports = { travelBetween };
+module.exports = { travelBetween, mapsUrlFor };

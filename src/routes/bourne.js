@@ -11,7 +11,7 @@ const { eventsInRange, rangeWindow } = require('../lib/googleEventWindow');
 const assertOwnership = require('../middleware/assertOwnership');
 const placesRepo = require('../db/repositories/placesRepo');
 const { withConnection } = require('../db/unitOfWork');
-const { travelBetween } = require('../lib/travelTime');
+const { travelBetween, mapsUrlFor } = require('../lib/travelTime');
 const { placesPayload } = require('../lib/startPlace');
 const { addDays, isDateKey, timeZoneOf } = require('../lib/localDate');
 
@@ -58,13 +58,6 @@ const travelSchema = z.object({
     to: placeId,
     departAt: z.string().datetime({ offset: true }),
 });
-
-// Mirrors travelTime's link so the same-place answer needs no Google call.
-const mapsUrlFor = (originAddress, destinationAddress) =>
-    'https://www.google.com/maps/dir/?api=1' +
-    `&origin=${encodeURIComponent(originAddress)}` +
-    `&destination=${encodeURIComponent(destinationAddress)}` +
-    '&travelmode=driving';
 
 const loadOwnedPlace = async (conn, id, userId) => {
     await assertOwnership(conn, 'place', id, userId);
