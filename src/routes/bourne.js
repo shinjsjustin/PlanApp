@@ -8,6 +8,10 @@ const { listPrimaryEvents } = require('../lib/google/calendarApi');
 const { listFiles, readFile } = require('../lib/google/driveApi');
 const { accessTokenFor } = require('../lib/google/session');
 const { eventsInRange, rangeWindow } = require('../lib/googleEventWindow');
+const assertOwnership = require('../middleware/assertOwnership');
+const placesRepo = require('../db/repositories/placesRepo');
+const { withConnection } = require('../db/unitOfWork');
+const { travelBetween } = require('../lib/travelTime');
 const { placesPayload } = require('../lib/startPlace');
 const { addDays, isDateKey, timeZoneOf } = require('../lib/localDate');
 
@@ -44,6 +48,57 @@ router.get(
     '/places',
     asyncRoute(async (req, res) => {
         res.sendData(await placesPayload(req.user.id));
+    })
+);
+
+const placeId = z.coerce.number().int().positive();
+
+const travelSchema = z.object({
+    from: placeId,
+    to: placeId,
+    departAt: z.string().datetime({ offset: true }),
+});
+
+// Mirrors travelTime's link so the same-place answer needs no Google call.
+const mapsUrlFor = (originAddress, destinationAddress) =>
+    'https://www.google.com/maps/dir/?api=1' +
+    `&origin=${encodeURIComponent(originAddress)}` +
+    `&destination=${encodeURIComponent(destinationAddress)}` +
+    '&travelmode=driving';
+
+const loadOwnedPlace = async (conn, id, userId) => {
+    await assertOwnership(conn, 'place', id, userId);
+    return placesRepo.findById(conn, id);
+};
+
+// GET /api/bourne/travel?from=&to=&departAt= — the drive between two saved places.
+router.get(
+    '/travel',
+    asyncRoute(async (req, res) => {
+        const { from, to, departAt } = travelSchema.parse(req.query);
+
+        const [origin, destination] = await withConnection(async (conn) => [
+            await loadOwnedPlace(conn, from, req.user.id),
+            await loadOwnedPlace(conn, to, req.user.id),
+        ]);
+
+        const result =
+            from === to
+                ? {
+                      status: 'ok',
+                      durationSeconds: 0,
+                      distanceMeters: 0,
+                      mapsUrl: mapsUrlFor(origin.address, destination.address),
+                  }
+                : await travelBetween({
+                      originAddress: origin.address,
+                      destinationAddress: destination.address,
+                      departAt: new Date(departAt),
+                      timeZone: timeZoneOf(req),
+                      now: new Date(),
+                  });
+
+        res.sendData({ from, to, departAt, ...result });
     })
 );
 
