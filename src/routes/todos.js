@@ -32,13 +32,14 @@ const { withTransaction } = require('../db/unitOfWork');
 
 const router = express.Router();
 
-const PATCHABLE_FIELDS = ['text', 'status', 'note'];
+const PATCHABLE_FIELDS = ['text', 'status', 'note', 'placeId'];
 
 const updateTodoSchema = requireSomeField(
     z.object({
         text: todoTextSchema.optional(),
         status: todoStatusSchema.optional(),
         note: todoNoteSchema.optional(),
+        placeId: idSchema.nullable().optional(),
     }),
     PATCHABLE_FIELDS
 );
@@ -86,6 +87,10 @@ router.patch(
 
         const todo = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'todo', id, req.user.id);
+
+            if (typeof patch.placeId === 'number') {
+                await assertOwnership(conn, 'place', patch.placeId, req.user.id);
+            }
 
             return todosRepo.update(conn, id, patch);
         });

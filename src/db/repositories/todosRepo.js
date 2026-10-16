@@ -24,11 +24,12 @@ const UPDATABLE_COLUMNS = {
     text: 'text',
     status: 'status',
     note: 'note',
+    placeId: 'place_id',
     completedAt: 'completed_at',
 };
 
 const SELECT_COLUMNS =
-    'id, project_id, sequence_id, text, note, status, completed_at, is_pinned, position, created_at, updated_at';
+    'id, project_id, sequence_id, text, note, status, completed_at, is_pinned, place_id, position, created_at, updated_at';
 
 // `project_id` is not part of the pinned wire shape, but carrying it here lets
 // the projects home payload group pins by project without a second read.

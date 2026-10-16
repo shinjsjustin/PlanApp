@@ -25,10 +25,11 @@ const UPDATABLE_COLUMNS = {
     description: 'description',
     isBlocked: 'is_blocked',
     isCollapsed: 'is_collapsed',
+    placeId: 'place_id',
 };
 
 const SELECT_COLUMNS =
-    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, is_pinned, position, ' +
+    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, is_pinned, place_id, position, ' +
     'created_at, updated_at';
 
 const findById = async (conn, id) => {

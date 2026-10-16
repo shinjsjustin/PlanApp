@@ -39,6 +39,7 @@ const SEQUENCE_KEYS = [
     'isCollapsed',
     'isPinned',
     'layerId',
+    'placeId',
     'position',
     'projectId',
     'title',

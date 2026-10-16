@@ -38,7 +38,7 @@ const { withTransaction } = require('../db/unitOfWork');
 
 const router = express.Router();
 
-const PATCHABLE_FIELDS = ['title', 'description', 'isBlocked', 'isCollapsed'];
+const PATCHABLE_FIELDS = ['title', 'description', 'isBlocked', 'isCollapsed', 'placeId'];
 
 const updateSequenceSchema = requireSomeField(
     z.object({
@@ -46,6 +46,7 @@ const updateSequenceSchema = requireSomeField(
         description: descriptionSchema.optional(),
         isBlocked: z.boolean().optional(),
         isCollapsed: z.boolean().optional(),
+        placeId: idSchema.nullable().optional(),
     }),
     PATCHABLE_FIELDS
 );
@@ -89,6 +90,10 @@ router.patch(
 
         const sequence = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'sequence', id, req.user.id);
+
+            if (typeof patch.placeId === 'number') {
+                await assertOwnership(conn, 'place', patch.placeId, req.user.id);
+            }
 
             return sequencesRepo.update(conn, id, patch);
         });
