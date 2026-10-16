@@ -17,6 +17,10 @@ export const PlaceOptionsProvider = ({ children }) => {
         api.get('/places')
             .then((data) => {
                 if (!isActive) return;
+                if (!Array.isArray(data?.places)) {
+                    setStatus('error');
+                    return;
+                }
                 setPlaces(data.places);
                 setStatus('ready');
             })

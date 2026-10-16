@@ -44,4 +44,14 @@ describe('usePlaceOptions', () => {
         await waitFor(() => expect(result.current.status).toBe('error'));
         expect(result.current.places).toEqual([]);
     });
+
+    test('reports error with no places when the response has no places array', async () => {
+        api.get.mockResolvedValue({ projects: [] });
+        const wrapper = ({ children }) => <PlaceOptionsProvider>{children}</PlaceOptionsProvider>;
+
+        const { result } = renderHook(() => usePlaceOptions(), { wrapper });
+
+        await waitFor(() => expect(result.current.status).toBe('error'));
+        expect(result.current).toEqual({ places: [], status: 'error' });
+    });
 });
