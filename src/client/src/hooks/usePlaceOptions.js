@@ -10,6 +10,7 @@ const PlaceOptionsContext = createContext(null);
 export const PlaceOptionsProvider = ({ children }) => {
     const [status, setStatus] = useState('loading');
     const [places, setPlaces] = useState([]);
+    const [startPlaceId, setStartPlaceId] = useState(null);
 
     useEffect(() => {
         let isActive = true;
@@ -22,6 +23,7 @@ export const PlaceOptionsProvider = ({ children }) => {
                     return;
                 }
                 setPlaces(data.places);
+                setStartPlaceId(data.startPlaceId ?? null);
                 setStatus('ready');
             })
             .catch(() => {
@@ -33,7 +35,7 @@ export const PlaceOptionsProvider = ({ children }) => {
         };
     }, []);
 
-    const value = useMemo(() => ({ places, status }), [places, status]);
+    const value = useMemo(() => ({ places, status, startPlaceId }), [places, status, startPlaceId]);
 
     return <PlaceOptionsContext.Provider value={value}>{children}</PlaceOptionsContext.Provider>;
 };

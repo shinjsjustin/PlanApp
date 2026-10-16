@@ -28,7 +28,7 @@ describe('usePlaceOptions', () => {
 
         const { result } = renderHook(() => [usePlaceOptions(), usePlaceOptions()], { wrapper });
 
-        expect(result.current[0]).toEqual({ places: [], status: 'loading' });
+        expect(result.current[0]).toEqual({ places: [], status: 'loading', startPlaceId: null });
         await waitFor(() => expect(result.current[0].status).toBe('ready'));
         expect(result.current[1].places).toEqual(PLACES);
         expect(api.get).toHaveBeenCalledTimes(1);
@@ -52,6 +52,26 @@ describe('usePlaceOptions', () => {
         const { result } = renderHook(() => usePlaceOptions(), { wrapper });
 
         await waitFor(() => expect(result.current.status).toBe('error'));
-        expect(result.current).toEqual({ places: [], status: 'error' });
+        expect(result.current).toEqual({ places: [], status: 'error', startPlaceId: null });
+    });
+
+    test('exposes startPlaceId from the /places answer', async () => {
+        api.get.mockResolvedValue({ places: PLACES, startPlaceId: 2 });
+        const wrapper = ({ children }) => <PlaceOptionsProvider>{children}</PlaceOptionsProvider>;
+
+        const { result } = renderHook(() => usePlaceOptions(), { wrapper });
+
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        expect(result.current.startPlaceId).toBe(2);
+    });
+
+    test('startPlaceId is null when the answer omits it', async () => {
+        api.get.mockResolvedValue({ places: PLACES });
+        const wrapper = ({ children }) => <PlaceOptionsProvider>{children}</PlaceOptionsProvider>;
+
+        const { result } = renderHook(() => usePlaceOptions(), { wrapper });
+
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        expect(result.current.startPlaceId).toBeNull();
     });
 });
