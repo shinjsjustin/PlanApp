@@ -14,6 +14,11 @@ const STATUS_BUTTONS = [
 const PhoneTodoEditor = ({ todo, onDone }) => {
     const { renameTodo, setTodoStatus, deleteTodo } = useProjectMutations();
 
+    const handleDelete = () => {
+        deleteTodo(todo.id);
+        onDone();
+    };
+
     return (
         <div className="phone-todo-editor">
             <InlineTitle
@@ -36,7 +41,7 @@ const PhoneTodoEditor = ({ todo, onDone }) => {
                 ))}
             </div>
             <TodoNote todo={todo} autoFocus={false} />
-            <button type="button" className="phone-todo-delete" onClick={() => deleteTodo(todo.id)}>
+            <button type="button" className="phone-todo-delete" onClick={handleDelete}>
                 Delete
             </button>
             <button type="button" className="phone-todo-done" onClick={onDone}>

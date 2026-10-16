@@ -9,11 +9,11 @@ import PhoneSequenceEditor from './PhoneSequenceEditor';
 import PhoneTodoRow from './PhoneTodoRow';
 import '../Styling/ProjectPhone.css';
 
-const LayerArrow = ({ direction, glyph, neighbour, onSelect }) => (
+const LayerArrow = ({ direction, glyph, neighbour, isLocked, onSelect }) => (
     <button
         type="button"
         className={`phone-layer-arrow phone-layer-arrow--${direction}`}
-        disabled={!neighbour}
+        disabled={!neighbour || isLocked}
         aria-label={neighbour ? `Layer ${direction === 'up' ? 'above' : 'below'}: ${neighbour.layer.title}` : `No layer ${direction === 'up' ? 'above' : 'below'}`}
         onClick={() => onSelect(neighbour.sequences[0].id)}
     >
@@ -35,6 +35,11 @@ const PhoneProjectView = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingTodoId, setEditingTodoId] = useState(null);
     const scrollRef = useRef(null);
+    // editingTodoId can outlive its to-do (deleted, or on another sequence).
+    const isTodoEditorOpen = Object.values(state.todos).some(
+        (t) => t.id === editingTodoId && t.sequenceId === currentId
+    );
+    const isLocked = isEditing || isTodoEditorOpen;
 
     useEffect(() => {
         if (currentId !== null) writeLastSequence(projectId, currentId);
@@ -43,7 +48,7 @@ const PhoneProjectView = () => {
     const swipeHandlers = useSwipe({
         scrollRef,
         onSwipe: (direction) => {
-            if (isEditing || editingTodoId !== null) return;
+            if (isLocked) return;
             setStoredId(stepSequence(grid, currentId, direction));
         },
     });
@@ -60,7 +65,7 @@ const PhoneProjectView = () => {
 
     return (
         <div className="phone-sequence" ref={scrollRef} {...swipeHandlers}>
-            <LayerArrow direction="up" glyph="↑" neighbour={above} onSelect={setStoredId} />
+            <LayerArrow direction="up" glyph="↑" neighbour={above} isLocked={isLocked} onSelect={setStoredId} />
             <div className="phone-sequence-scroll">
                 <p className="phone-layer-title">{row.layer.title}</p>
                 {isEditing ? (
@@ -89,7 +94,7 @@ const PhoneProjectView = () => {
                     ))}
                 </ul>
             </div>
-            <LayerArrow direction="down" glyph="↓" neighbour={below} onSelect={setStoredId} />
+            <LayerArrow direction="down" glyph="↓" neighbour={below} isLocked={isLocked} onSelect={setStoredId} />
         </div>
     );
 };

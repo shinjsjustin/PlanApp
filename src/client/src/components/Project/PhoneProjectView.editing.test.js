@@ -146,3 +146,49 @@ test('Delete in the editor removes the to-do without confirmation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(value.removeEntity).toHaveBeenCalledWith('todos', 1, expect.objectContaining({ path: '/todos/1' }));
 });
+
+test('after deleting the edited to-do a swipe changes the sequence', () => {
+    renderWithTodos();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit “Todo 1”' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByRole('textbox', { name: 'To-do text' })).not.toBeInTheDocument();
+    swipeLeft();
+    expect(screen.getByRole('heading', { name: 'Electronics' })).toBeInTheDocument();
+});
+
+const renderTwoLayers = () => {
+    const value = buildValue();
+    value.state.layers[11] = { id: 11, projectId: 1, title: 'Building', position: 1 };
+    value.state.sequences[102] = seq(102, 'Frame', 0, { layerId: 11 });
+    value.state.todos = { 1: todo(1) };
+    render(
+        <ProjectProvider value={value}>
+            <PhoneProjectView />
+        </ProjectProvider>
+    );
+};
+const arrows = () => [
+    document.querySelector('.phone-layer-arrow--up'),
+    document.querySelector('.phone-layer-arrow--down'),
+];
+
+test('layer arrows are disabled while the sequence editor is open', () => {
+    renderTwoLayers();
+    expect(arrows()[1]).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit sequence' }));
+    expect(arrows()[0]).toBeDisabled();
+    expect(arrows()[1]).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(arrows()[1]).toBeEnabled();
+});
+
+test('layer arrows are disabled while a to-do editor is open', () => {
+    renderTwoLayers();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit “Todo 1”' }));
+    expect(arrows()[0]).toBeDisabled();
+    expect(arrows()[1]).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(arrows()[1]).toBeEnabled();
+    fireEvent.click(arrows()[1]);
+    expect(screen.getByRole('heading', { name: 'Frame' })).toBeInTheDocument();
+});

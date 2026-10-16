@@ -60,12 +60,20 @@ test('note is shown without stealing focus', () => {
     expect(note).not.toHaveFocus();
 });
 
-test('Delete calls deleteTodo at once and Done calls onDone', () => {
-    const onDone = jest.fn();
+test('Delete calls deleteTodo and then onDone', () => {
+    const order = [];
+    verbs.deleteTodo.mockImplementation(() => order.push('delete'));
+    const onDone = jest.fn(() => order.push('done'));
     render(<PhoneTodoEditor todo={todo} onDone={onDone} />);
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(verbs.deleteTodo).toHaveBeenCalledWith(7);
-    expect(onDone).not.toHaveBeenCalled();
+    expect(order).toEqual(['delete', 'done']);
+});
+
+test('Done calls onDone without deleting', () => {
+    const onDone = jest.fn();
+    render(<PhoneTodoEditor todo={todo} onDone={onDone} />);
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(onDone).toHaveBeenCalledTimes(1);
+    expect(verbs.deleteTodo).not.toHaveBeenCalled();
 });
