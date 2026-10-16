@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import ProjectsHome from './components/Projects/ProjectsHome';
 import ProjectPage from './components/Project/ProjectPage';
 import CalendarPage from './components/Calendar/CalendarPage';
+import ProjectThoughtsPage from './components/ProjectThoughts/ProjectThoughtsPage';
 import ThoughtsPage from './components/Thoughts/ThoughtsPage';
 import PlacesPage from './components/Places/PlacesPage';
 
@@ -35,6 +36,7 @@ const routes = [
     // requiredAccessLevel defaults to 1 (approved user)
     { path: '/projects',     element: <ProtectedRoute><ProjectsHome /></ProtectedRoute> },
     { path: '/projects/:id', element: <ProtectedRoute><ProjectPage /></ProtectedRoute> },
+    { path: '/projects/:id/thoughts', element: <ProtectedRoute><ProjectThoughtsPage /></ProtectedRoute> },
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
     { path: '/thoughts',     element: <ProtectedRoute><ThoughtsPage /></ProtectedRoute> },
     { path: '/places',       element: <ProtectedRoute><PlacesPage /></ProtectedRoute> },

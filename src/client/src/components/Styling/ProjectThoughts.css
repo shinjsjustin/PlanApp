@@ -1,0 +1,67 @@
+.project-thoughts-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    min-height: 100vh;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--space-md);
+    color: var(--text-glow);
+    font-family: var(--font-family);
+    box-sizing: border-box;
+}
+
+.project-thoughts-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.project-thoughts-header h1 {
+    margin: 0;
+    font-size: var(--font-xl);
+    text-shadow: var(--glow-text-shadow);
+}
+
+.project-thoughts-title {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.project-thoughts-error {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
+    background: var(--color-danger);
+}
+
+.project-thoughts-input {
+    flex: 1;
+    width: 100%;
+    min-height: 60vh;
+    padding: var(--space-sm);
+    box-sizing: border-box;
+    border: 1px solid var(--neon-blue);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    background: var(--bg-input);
+    font-family: inherit;
+    font-size: var(--font-md); /* keeps iOS from zooming on focus */
+    resize: vertical;
+}
+
+.project-thoughts-status {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.project-thoughts-page--phone {
+    padding: var(--space-sm);
+}
+
+.project-thoughts-page--phone .project-thoughts-input {
+    min-height: 70vh;
+}
