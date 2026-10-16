@@ -23,6 +23,10 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
+/** A visit length rides along only when the server sent one. */
+const visitMinutesOf = (item) =>
+    typeof item.visitMinutes === 'number' ? { visitMinutes: item.visitMinutes } : {};
+
 /** A project with no pins is kept so its card can say so explicitly. */
 const toPoolProjects = (projects) =>
     projects.map((project) => ({
@@ -37,6 +41,7 @@ const toPoolProjects = (projects) =>
             projectTitle: project.title,
             sequenceId: todo.sequenceId,
             sequenceTitle: todo.sequenceTitle,
+            ...visitMinutesOf(todo),
         })),
         sequences: (project.pinnedSequences ?? []).map((sequence) => ({
             kind: 'sequence',
@@ -51,6 +56,7 @@ const toPoolProjects = (projects) =>
             position: sequence.position,
             projectId: project.id,
             projectTitle: project.title,
+            ...visitMinutesOf(sequence),
             todos: sequence.todos.map((todo) => ({ ...todo })),
         })),
     }));

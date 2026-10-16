@@ -99,14 +99,18 @@ export const previewFor = (schedule, target) => {
 
     const { kind, todo, dayId, startMinutes } = target;
 
-    return kind === DRAG_KIND.pool
-        ? placeFromPool(schedule, {
-              ...todo,
-              dayId,
-              startMinutes,
-              durationMinutes: DEFAULT_DURATION,
-          })
-        : moveItem(schedule, { ...todo, dayId, startMinutes });
+    if (kind !== DRAG_KIND.pool) return moveItem(schedule, { ...todo, dayId, startMinutes });
+
+    // The place's usual visit length is only the starting size; the booking
+    // itself carries no visitMinutes.
+    const { visitMinutes, ...poolItem } = todo;
+
+    return placeFromPool(schedule, {
+        ...poolItem,
+        dayId,
+        startMinutes,
+        durationMinutes: visitMinutes ?? DEFAULT_DURATION,
+    });
 };
 
 /**
