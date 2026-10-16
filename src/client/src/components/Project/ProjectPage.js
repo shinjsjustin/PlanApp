@@ -6,6 +6,7 @@ import DragDropArea from './DragDropArea';
 import InlineDescription from './InlineDescription';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
+import ProjectThoughtsLink from '../Navigation/ProjectThoughtsLink';
 import PhoneProjectView from './PhoneProjectView';
 import PinControls from './PinControls';
 import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
@@ -52,7 +53,9 @@ const ProjectPage = () => {
                 {!isPhone && <Link className="neon-button" to="/projects">← All projects</Link>}
                 <ThoughtsLink />
                 <PlacesLink />
+                {!isPhone && <ProjectThoughtsLink projectId={id} />}
                 {state.project && <h1>{state.project.title}</h1>}
+                {isPhone && <ProjectThoughtsLink projectId={id} />}
                 {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>
                         <InlineDescription key={id} value={state.project.description} />
