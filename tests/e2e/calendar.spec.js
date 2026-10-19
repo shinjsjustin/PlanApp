@@ -56,6 +56,8 @@ const signInWithCalendar = async (page, { days }) => {
 const NOTE_PRESS_FRACTION = 0.5;
 const NOTE_DRAG_START_FRACTION = 1 / 3;
 const NOTE_DRAG_END_FRACTION = 2 / 3;
+const DEFAULT_NOTE_MINUTES = 30;
+const NOTE_EARLIER_PRESS_PX = 12;
 
 /** A viewport coordinate inside the visible part of the first notes plane. */
 const visibleNotePlanePoint = async (page, verticalFraction = NOTE_PRESS_FRACTION) => {
@@ -96,11 +98,13 @@ const notePopover = (page) => page.locator('.note-popover');
 const noteTextbox = (page) =>
     notePopover(page).getByRole('textbox', { name: 'Note', exact: true });
 
-/** Presses the notes plane, names the note, and saves it. */
-const createNote = async (page, text) => {
-    const point = await visibleNotePlanePoint(page);
+/** The notes plane's leftmost lane, which stays bare until a fourth note overlaps. */
+const NOTE_PLANE_BARE_LANE_X_PX = 8;
 
-    await page.mouse.move(point.x, point.y);
+/** Presses the notes plane at `point`, names the note, and saves it. */
+const createNote = async (page, text, point = null) => {
+    const { x, y } = point ?? (await visibleNotePlanePoint(page));
+    await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.up();
 
@@ -226,9 +230,10 @@ test.describe('calendar notes', () => {
         await page.mouse.up();
 
         // Assert — the popover reports a range longer than the default block
-        await expect(notePopover(page).locator('.note-popover-range')).not.toHaveText(
-            /:00–.*:30$/
-        );
+        const range = await notePopover(page).locator('.note-popover-range').innerText();
+        const [startHour, startMinute, endHour, endMinute] = range.match(/\d+/g).map(Number);
+        const minutes = (endHour - startHour) * 60 + (endMinute - startMinute);
+        expect(minutes).toBeGreaterThan(DEFAULT_NOTE_MINUTES);
 
         await noteTextbox(page).fill('deep work');
         await notePopover(page).getByRole('button', { name: 'Save', exact: true }).click();
@@ -287,15 +292,16 @@ test.describe('calendar notes', () => {
         // Arrange
         await signInWithCalendar(page, { days: 1 });
 
+        const centre = await visibleNotePlanePoint(page);
+        const point = { x: centre.x - (await page.locator('.note-plane-surface').first().boundingBox()).width / 2 + NOTE_PLANE_BARE_LANE_X_PX, y: centre.y };
+
         for (const name of ['one', 'two', 'three', 'four']) {
             // eslint-disable-next-line no-await-in-loop
-            await createNote(page, name);
+            await createNote(page, name, point);
         }
 
-        // Act — a fifth press over the same minute
-        const point = await visibleNotePlanePoint(page);
-
-        await page.mouse.move(point.x, point.y);
+        // Act — a fifth press whose default block runs into the four stacked notes
+        await page.mouse.move(point.x, point.y - NOTE_EARLIER_PRESS_PX);
         await page.mouse.down();
 
         // Assert — refused while the pointer is still down

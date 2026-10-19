@@ -175,6 +175,8 @@ test('lists a dated sequence on Home and the Calendar, and books its to-do onto 
     await test.step('deleting a booked to-do removes its booking', async () => {
         await openProject(page, projectId);
         const deleted = savedResponse(page, 'DELETE', `/api/todos/${filed.id}`);
+        // The completed to-do sits in the done group, whose × only takes clicks while hovered.
+        await page.locator('.sequence-done-item').filter({ hasText: filed.text }).hover();
         await page.getByRole('button', { name: `Delete “${filed.text}”`, exact: true }).click();
         await assertSaved(deleted);
         await openPool(page);
