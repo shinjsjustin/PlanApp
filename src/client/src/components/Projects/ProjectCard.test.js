@@ -6,34 +6,32 @@ import { clear, click, type } from '../../testUtils/interact';
 
 import ProjectCard from './ProjectCard';
 
-// The card contract returned by every project endpoint. Pins are already in the
-// deterministic order the server chose and the card must preserve it.
+const TODAY = '2026-09-10';
+
+const aSequence = (overrides = {}) => ({
+    id: 2,
+    title: 'Learn electronics',
+    date: TODAY,
+    owner: 'justin',
+    description: null,
+    isBlocked: false,
+    layerId: 1,
+    visitMinutes: null,
+    todos: [
+        { id: 202, text: 'Understand ESCs', status: 'incomplete', position: 0, visitMinutes: null },
+        { id: 203, text: 'Solder motors', status: 'complete', position: 1, visitMinutes: null },
+    ],
+    ...overrides,
+});
+
+// The card contract returned by every project endpoint.
 const project = {
     id: 1,
     title: 'Build a drone',
     description: 'Layered plan',
     todoCount: 4,
     completedTodoCount: 1,
-    pinnedTodos: [
-        {
-            id: 202,
-            text: 'Understand ESCs',
-            status: 'incomplete',
-            sequenceId: 2,
-            sequenceTitle: 'Learn electronics',
-            position: 0,
-            isPinned: true,
-        },
-        {
-            id: 502,
-            text: 'Bring up the radio',
-            status: 'blocked',
-            sequenceId: 5,
-            sequenceTitle: 'Connect drone to wifi',
-            position: 0,
-            isPinned: true,
-        },
-    ],
+    datedSequences: [aSequence()],
     createdAt: '2026-08-27T10:00:00.000Z',
     updatedAt: '2026-08-27T10:00:00.000Z',
 };
@@ -51,6 +49,7 @@ const renderCard = (props = {}) => {
             <ul>
                 <ProjectCard
                     project={{ ...project, ...props.project }}
+                    today={props.today ?? TODAY}
                     onRename={onRename}
                     onDelete={onDelete}
                     onRecolor={onRecolor}
@@ -161,7 +160,7 @@ describe('ProjectCard', () => {
             expect(target).toHaveAttribute('href', '/projects/1');
         });
 
-        test('a click on a pinned row lands on the link too', () => {
+        test('a click on a today to-do lands on the link too', () => {
             // Arrange
             renderCard();
 
@@ -226,7 +225,7 @@ describe('ProjectCard', () => {
         });
     });
 
-    test('renders description and pins in the card, not inside the title heading', () => {
+    test('renders description and the day sequence in the card, not inside the title heading', () => {
         // Arrange & Act
         renderCard();
 
@@ -237,67 +236,116 @@ describe('ProjectCard', () => {
         expect(screen.getByRole('heading', { name: project.title })).not.toHaveTextContent('Layered plan');
     });
 
-    describe('the pinned list', () => {
-        test('shows each pin icon, text, and filed sequence in server order', () => {
-            // Arrange & Act
+    describe("today's sequences", () => {
+        test("lists Justin's to-dos under the sequence title, complete ones with a done class", () => {
             renderCard();
 
-            // Assert
-            const lines = within(pinnedList()).getAllByRole('listitem');
-            expect(lines).toHaveLength(2);
-            expect(lines[0]).toHaveTextContent('📌Understand ESCsLearn electronics');
-            expect(lines[1]).toHaveTextContent('📌Bring up the radioConnect drone to wifi');
+            const list = screen.getByRole('list', { name: 'Learn electronics' });
+            const [open, done] = within(list).getAllByRole('listitem');
+            expect(open).toHaveTextContent('Understand ESCs');
+            expect(open).not.toHaveClass('today-todo--complete');
+            expect(done).toHaveTextContent('Solder motors');
+            expect(done).toHaveClass('today-todo--complete');
         });
 
-        test('labels an unorganized pin', () => {
+        test('labels a sequence by its description when it has one', () => {
+            renderCard({ project: { datedSequences: [aSequence({ description: 'Wire the frame' })] } });
+
+            expect(screen.getByRole('list', { name: 'Wire the frame' })).toBeInTheDocument();
+            expect(screen.queryByText('Learn electronics')).not.toBeInTheDocument();
+        });
+
+        test('lists every one of Justin\'s sequences dated today', () => {
             renderCard({
                 project: {
-                    pinnedTodos: [{
-                        id: 9,
-                        text: 'Buy propellers',
-                        status: 'incomplete',
-                        sequenceId: null,
-                        sequenceTitle: null,
-                        position: 0,
-                        isPinned: true,
-                    }],
+                    datedSequences: [
+                        aSequence(),
+                        aSequence({ id: 3, title: 'Flash firmware', todos: [] }),
+                    ],
                 },
             });
 
-            const [line] = within(pinnedList()).getAllByRole('listitem');
-            expect(line).toHaveTextContent('Buy propellers');
-            expect(line).toHaveTextContent('Unorganized');
+            expect(screen.getByRole('list', { name: 'Learn electronics' })).toBeInTheDocument();
+            expect(screen.getByText('Flash firmware')).toBeInTheDocument();
         });
 
-        test('keeps a complete pin listed and crossed out', () => {
+        test('shows the empty message when Justin has nothing today', () => {
+            renderCard({ project: { datedSequences: [aSequence({ owner: 'bourne' })] } });
+
+            expect(screen.getByText('No sequence for today.')).toBeInTheDocument();
+        });
+
+        test('treats a missing datedSequences as empty', () => {
+            renderCard({ project: { datedSequences: undefined } });
+
+            expect(screen.getByText('No sequence for today.')).toBeInTheDocument();
+        });
+
+        test('never shows sequences dated on other days, and has no pin remnants', () => {
             renderCard({
                 project: {
-                    pinnedTodos: [{ ...project.pinnedTodos[0], status: 'complete' }],
+                    datedSequences: [
+                        aSequence({ date: '2026-09-11', title: 'Tomorrow thing' }),
+                        aSequence({ id: 4, date: '2026-09-11', owner: 'bourne', title: 'Bourne tomorrow' }),
+                    ],
                 },
             });
 
-            const [line] = within(pinnedList()).getAllByRole('listitem');
-            expect(line).toHaveClass('pinned-line--complete');
-            expect(within(line).getByText('Understand ESCs')).toBeInTheDocument();
+            expect(screen.queryByText('Tomorrow thing')).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /^bourne/i })).not.toBeInTheDocument();
+            expect(screen.getByText('No sequence for today.')).toBeInTheDocument();
+            expect(screen.queryByText(/pinned/i)).not.toBeInTheDocument();
+            expect(document.querySelector('.project-card-pin-icon, .project-card-pins')).toBeNull();
         });
 
-        test('marks a blocked pin without removing it', () => {
-            renderCard({
-                project: {
-                    pinnedTodos: [{ ...project.pinnedTodos[0], status: 'blocked' }],
-                },
+        describe("Bourne's sequences", () => {
+            const bourneProject = {
+                datedSequences: [
+                    aSequence({
+                        id: 7,
+                        owner: 'bourne',
+                        title: 'Bourne errands',
+                        todos: [
+                            { id: 1, text: 'Pick up parts', status: 'complete', position: 0, visitMinutes: null },
+                            { id: 2, text: 'Drop off box', status: 'incomplete', position: 1, visitMinutes: null },
+                            { id: 3, text: 'Call vendor', status: 'blocked', position: 2, visitMinutes: null },
+                        ],
+                    }),
+                    aSequence({
+                        id: 8,
+                        owner: 'bourne',
+                        title: 'Bourne more',
+                        todos: [{ id: 4, text: 'Sort bins', status: 'complete', position: 0, visitMinutes: null }],
+                    }),
+                ],
+            };
+
+            test('summarizes complete of all to-dos on a collapsed raised button', () => {
+                renderCard({ project: bourneProject });
+
+                const button = screen.getByRole('button', { name: 'Bourne: 2 of 4 done' });
+                expect(button).toHaveAttribute('aria-expanded', 'false');
+                expect(button).toHaveClass('project-card-raised');
+                expect(screen.queryByText('Pick up parts')).not.toBeInTheDocument();
             });
 
-            const [line] = within(pinnedList()).getAllByRole('listitem');
-            expect(line).toHaveClass('pinned-line--blocked');
-            expect(within(line).getByText('Understand ESCs')).toBeInTheDocument();
-        });
+            test('expands and collapses his sequences on click', async () => {
+                renderCard({ project: bourneProject });
+                const button = screen.getByRole('button', { name: 'Bourne: 2 of 4 done' });
 
-        test('shows one explicit empty state for a project without pins', () => {
-            renderCard({ project: { pinnedTodos: [] } });
+                await click(button);
 
-            expect(screen.getByText('No pinned to-dos yet.')).toBeInTheDocument();
-            expect(screen.queryByRole('list', { name: /^pinned$/i })).not.toBeInTheDocument();
+                expect(button).toHaveAttribute('aria-expanded', 'true');
+                const list = screen.getByRole('list', { name: 'Bourne errands' });
+                const [done] = within(list).getAllByRole('listitem');
+                expect(done).toHaveClass('today-todo--complete');
+                expect(screen.getByRole('list', { name: 'Bourne more' })).toBeInTheDocument();
+
+                await click(button);
+
+                expect(button).toHaveAttribute('aria-expanded', 'false');
+                expect(screen.queryByText('Pick up parts')).not.toBeInTheDocument();
+            });
         });
     });
 

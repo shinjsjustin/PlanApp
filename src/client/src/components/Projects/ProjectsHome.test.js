@@ -7,10 +7,17 @@ import { clear, click, type } from '../../testUtils/interact';
 import ProjectsHome from './ProjectsHome';
 import { api } from '../../lib/api';
 
+jest.mock('../../lib/dates', () => ({
+    ...jest.requireActual('../../lib/dates'),
+    todayKey: () => '2026-09-10',
+}));
+
 jest.mock('../../lib/api', () => ({
     api: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
     ApiError: class ApiError extends Error {},
 }));
+
+const TODAY = '2026-09-10';
 
 // `GET`, `POST`, and `PATCH` all serve this card shape, which lets the grid
 // drop mutation responses straight in without another request.
@@ -20,14 +27,16 @@ const aProject = (overrides = {}) => ({
     description: 'Layered plan',
     todoCount: 4,
     completedTodoCount: 1,
-    pinnedTodos: [{
-        id: 202,
-        text: 'Understand ESCs',
-        status: 'incomplete',
-        sequenceId: 2,
-        sequenceTitle: 'Learn electronics',
-        position: 0,
-        isPinned: true,
+    datedSequences: [{
+        id: 2,
+        title: 'Learn electronics',
+        date: TODAY,
+        owner: 'justin',
+        description: null,
+        isBlocked: false,
+        layerId: 1,
+        visitMinutes: null,
+        todos: [{ id: 202, text: 'Understand ESCs', status: 'incomplete', position: 0, visitMinutes: null }],
     }],
     createdAt: '2026-08-27T10:00:00.000Z',
     updatedAt: '2026-08-27T10:00:00.000Z',
@@ -43,6 +52,24 @@ const waitForLoadToFinish = () =>
 describe('ProjectsHome', () => {
     beforeEach(() => {
         jest.resetAllMocks();
+    });
+
+    test("shows only the sequences dated today on each card", async () => {
+        // Arrange
+        const [today] = aProject().datedSequences;
+        api.get.mockResolvedValue([
+            aProject({
+                datedSequences: [today, { ...today, id: 9, title: 'Other day', date: '2026-09-11' }],
+            }),
+        ]);
+
+        // Act
+        renderHome();
+        await waitForLoadToFinish();
+
+        // Assert
+        expect(screen.getByRole('list', { name: 'Learn electronics' })).toBeInTheDocument();
+        expect(screen.queryByText('Other day')).not.toBeInTheDocument();
     });
 
     test('shows a loading state while the projects are being fetched', async () => {
@@ -80,7 +107,7 @@ describe('ProjectsHome', () => {
                 title: 'Write the spec',
                 todoCount: 0,
                 completedTodoCount: 0,
-                pinnedTodos: [],
+                datedSequences: [],
             }),
         ]);
 
@@ -89,7 +116,7 @@ describe('ProjectsHome', () => {
         await waitForLoadToFinish();
 
         // Assert — counted by card heading rather than by list item, since the
-        // pinned rows inside a card form a list of their own.
+        // to-do rows inside a card form a list of their own.
         expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2);
         expect(screen.getByRole('heading', { name: 'Build a drone' })).toBeInTheDocument();
         expect(screen.getByText('1/4 to-dos done')).toBeInTheDocument();
@@ -127,7 +154,7 @@ describe('ProjectsHome', () => {
                 title: 'Fresh project',
                 todoCount: 0,
                 completedTodoCount: 0,
-                pinnedTodos: [],
+                datedSequences: [],
             })
         );
         renderHome();
@@ -168,9 +195,9 @@ describe('ProjectsHome', () => {
         ).toBeInTheDocument();
     });
 
-    test('keeps the renamed card\'s pins on screen', async () => {
-        // Arrange — a title change cannot alter the pins, and the card must not
-        // lose them just because the grid swapped the object in.
+    test('keeps the renamed card\'s sequence on screen', async () => {
+        // Arrange — a title change cannot alter the sequences, and the card must not
+        // lose it just because the grid swapped the object in.
         api.get.mockResolvedValue([aProject()]);
         api.patch.mockResolvedValue(aProject({ title: 'Build a better drone' }));
         renderHome();
@@ -185,8 +212,8 @@ describe('ProjectsHome', () => {
 
         // Assert
         await screen.findByRole('heading', { name: 'Build a better drone' });
-        expect(screen.getByRole('list', { name: /^pinned$/i })).toHaveTextContent(
-            'Learn electronics'
+        expect(screen.getByRole('list', { name: 'Learn electronics' })).toHaveTextContent(
+            'Understand ESCs'
         );
     });
 
@@ -351,7 +378,7 @@ describe('ProjectsHome', () => {
 
     test('appends a newly created project after the existing ones', async () => {
         api.get.mockResolvedValue([aProject({ id: 1, title: 'First' }), aProject({ id: 2, title: 'Second' })]);
-        api.post.mockResolvedValue(aProject({ id: 9, title: 'Newest', pinnedTodos: [] }));
+        api.post.mockResolvedValue(aProject({ id: 9, title: 'Newest', datedSequences: [] }));
         renderHome();
         await waitForLoadToFinish();
 

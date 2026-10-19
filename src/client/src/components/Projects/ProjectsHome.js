@@ -9,6 +9,7 @@ import useCardHeights from '../../hooks/useCardHeights';
 import useIsPhone from '../../hooks/useIsPhone';
 import useMasonryColumns from '../../hooks/useMasonryColumns';
 import { api } from '../../lib/api';
+import { todayKey } from '../../lib/dates';
 import { layoutMasonry } from '../../lib/masonry';
 import '../Styling/Projects.css';
 
@@ -29,6 +30,7 @@ const ProjectsHome = () => {
     const [gridRef, columns, width] = useMasonryColumns();
     const [refFor, heights] = useCardHeights();
     const isPhone = useIsPhone();
+    const today = todayKey();
 
     // Creation order: oldest first, so a created project (highest id) lands last.
     const orderedProjects = [...projects].sort((a, b) => a.id - b.id);
@@ -140,6 +142,7 @@ const ProjectsHome = () => {
                         <ProjectCard
                             key={project.id}
                             project={project}
+                            today={today}
                             placement={placements[index]}
                             measureRef={refFor(project.id)}
                             onRename={handleRename}

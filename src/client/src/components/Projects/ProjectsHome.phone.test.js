@@ -21,7 +21,7 @@ describe('ProjectsHome on a phone', () => {
                 description: 'Layered plan',
                 todoCount: 0,
                 completedTodoCount: 0,
-                pinnedTodos: [],
+                datedSequences: [],
                 createdAt: '2026-08-27T10:00:00.000Z',
                 updatedAt: '2026-08-27T10:00:00.000Z',
             },

@@ -10,9 +10,8 @@ import { textToneFor } from '../../lib/cardPalette';
 // call and are expected to reject when it fails.
 //
 // The card is fully expanded: title, overall to-do progress, description and the
-// to-dos the user pinned are always in normal flow. The server supplies pins in
-// project order; the card preserves that order rather than inventing a second
-// priority model. Only Rename is hover-revealed, in `Styling/Projects.css`.
+// sequences dated `today` are always in normal flow: Justin's listed with their
+// to-dos, Bourne's behind a summary button. Only Rename is hover-revealed, in `Styling/Projects.css`.
 
 const MODES = {
     idle: 'idle',
@@ -34,27 +33,20 @@ const EDITING = 'project-card--editing';
 // which would fight it for `position`.
 const HAS_BUBBLE = 'has-delete-bubble';
 
-const PinnedBlock = ({ project }) => {
-    const headingId = `pinned-${project.id}`;
+const sequenceLabel = (sequence) => sequence.description || sequence.title;
 
-    if (project.pinnedTodos.length === 0) {
-        return <p className="project-card-pins-empty">No pinned to-dos yet.</p>;
-    }
+const TodaySequence = ({ sequence }) => {
+    const headingId = `today-${sequence.id}`;
 
     return (
-        <div className="project-card-pins">
-            <h4 className="project-card-pins-heading" id={headingId}>Pinned</h4>
+        <div className="project-card-today-sequence">
+            <h4 className="project-card-today-heading" id={headingId}>
+                {sequenceLabel(sequence)}
+            </h4>
             <ul aria-labelledby={headingId}>
-                {project.pinnedTodos.map((todo) => (
-                    <li
-                        key={todo.id}
-                        className={`pinned-line pinned-line--${todo.status}`}
-                    >
-                        <span className="project-card-pin-icon" aria-hidden="true">📌</span>
-                        <span className="pinned-todo">{todo.text}</span>
-                        <span className="pinned-sequence">
-                            {todo.sequenceTitle ?? 'Unorganized'}
-                        </span>
+                {sequence.todos.map((todo) => (
+                    <li key={todo.id} className={`today-todo today-todo--${todo.status}`}>
+                        {todo.text}
                     </li>
                 ))}
             </ul>
@@ -62,7 +54,42 @@ const PinnedBlock = ({ project }) => {
     );
 };
 
-const ProjectCard = ({ project, placement, measureRef, onRename, onDelete, onRecolor }) => {
+const TodayBlock = ({ sequences, today }) => {
+    const [isBourneOpen, setIsBourneOpen] = useState(false);
+
+    const dated = sequences.filter((sequence) => sequence.date === today);
+    const justin = dated.filter((sequence) => sequence.owner === 'justin');
+    const bourne = dated.filter((sequence) => sequence.owner === 'bourne');
+    const bourneTodos = bourne.flatMap((sequence) => sequence.todos);
+    const bourneDone = bourneTodos.filter((todo) => todo.status === 'complete').length;
+
+    return (
+        <div className="project-card-today">
+            {justin.length === 0 ? (
+                <p className="project-card-today-empty">No sequence for today.</p>
+            ) : (
+                justin.map((sequence) => <TodaySequence key={sequence.id} sequence={sequence} />)
+            )}
+
+            {bourne.length > 0 && (
+                <>
+                    <button
+                        type="button"
+                        className={`project-card-bourne-toggle ${RAISED}`}
+                        aria-expanded={isBourneOpen}
+                        onClick={() => setIsBourneOpen((current) => !current)}
+                    >
+                        {`Bourne: ${bourneDone} of ${bourneTodos.length} done`}
+                    </button>
+                    {isBourneOpen &&
+                        bourne.map((sequence) => <TodaySequence key={sequence.id} sequence={sequence} />)}
+                </>
+            )}
+        </div>
+    );
+};
+
+const ProjectCard = ({ project, today, placement, measureRef, onRename, onDelete, onRecolor }) => {
     const [mode, setMode] = useState(MODES.idle);
     const [draftTitle, setDraftTitle] = useState(project.title);
     const [error, setError] = useState('');
@@ -187,7 +214,7 @@ const ProjectCard = ({ project, placement, measureRef, onRename, onDelete, onRec
                         <p className="project-card-description">{project.description}</p>
                     )}
 
-                    <PinnedBlock project={project} />
+                    <TodayBlock sequences={project.datedSequences ?? []} today={today} />
                 </>
             )}
 
