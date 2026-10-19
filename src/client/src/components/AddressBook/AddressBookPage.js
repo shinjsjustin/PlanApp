@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePeople from '../../hooks/usePeople';
 import usePlaces from '../../hooks/usePlaces';
-import { PERSON_GROUPS } from './PersonForm';
+import FormDialog, { confirmDiscard } from './FormDialog';
+import PersonForm, { PERSON_GROUPS } from './PersonForm';
+import PlaceForm from '../Places/PlaceForm';
 import PeopleSection from './PeopleSection';
 import PlacesSection from './PlacesSection';
 import '../Styling/Places.css';
@@ -16,6 +18,9 @@ const AddressBookPage = () => {
     const [group, setGroup] = useState('');
     const people = usePeople();
     const places = usePlaces();
+    const [dialog, setDialog] = useState(null);
+    const [isDirty, setIsDirty] = useState(false);
+    const [saveFailed, setSaveFailed] = useState(false);
 
     // A place's name is embedded in each person, so people must refresh after a place changes.
     const afterPlaceChange = (call) => async (...args) => {
@@ -24,10 +29,52 @@ const AddressBookPage = () => {
         return didChange;
     };
 
+    const closeDialog = () => {
+        setDialog(null);
+        setIsDirty(false);
+        setSaveFailed(false);
+    };
+
+    const openDialog = (kind) => (item) => {
+        setDialog({ kind, item });
+        setIsDirty(false);
+        setSaveFailed(false);
+    };
+
+    const requestCancel = () => {
+        if (confirmDiscard(isDirty)) closeDialog();
+    };
+
+    const placeEdit = afterPlaceChange(places.edit);
+    const saveFns = {
+        person: (item) => (item ? (fields) => people.edit(item.id, fields) : people.add),
+        place: (item) => (item ? (fields) => placeEdit(item.id, fields) : places.add),
+    };
+
+    const submitDialog = async (fields) => {
+        const didSave = await saveFns[dialog.kind](dialog.item)(fields);
+        if (didSave) closeDialog();
+        else setSaveFailed(true);
+        return didSave;
+    };
+
+    const isPerson = dialog?.kind === 'person';
+    const isNew = dialog && !dialog.item;
+    const dialogError = saveFailed ? (isPerson ? people.error : places.error) : null;
+    const formProps = {
+        initial: dialog?.item,
+        submitLabel: isNew ? `Add ${dialog.kind}` : 'Save',
+        onSubmit: submitDialog,
+        onCancel: requestCancel,
+        onDirtyChange: setIsDirty,
+    };
+
     return (
         <main className={isPhone ? 'address-book-page address-book-page--phone' : 'address-book-page'}>
             <header className="places-header">
                 <h1>Address Book</h1>
+                <button type="button" className="neon-button" onClick={() => openDialog('person')()}>Add person</button>
+                <button type="button" className="neon-button" onClick={() => openDialog('place')()}>Add place</button>
                 {!isPhone && (
                     <>
                         <Link className="neon-button" to="/projects">Projects</Link>
@@ -67,8 +114,7 @@ const AddressBookPage = () => {
                 query={query}
                 group={group}
                 status={people.status}
-                onAdd={people.add}
-                onEdit={people.edit}
+                onOpenEdit={openDialog('person')}
                 onRemove={people.remove}
             />
             <PlacesSection
@@ -76,11 +122,22 @@ const AddressBookPage = () => {
                 startPlaceId={places.startPlaceId}
                 status={places.status}
                 query={query}
-                onAdd={places.add}
-                onEdit={afterPlaceChange(places.edit)}
+                onOpenEdit={openDialog('place')}
                 onRemove={afterPlaceChange(places.remove)}
                 onSetStart={places.setStart}
             />
+            {dialog && (
+                <FormDialog
+                    title={`${isNew ? 'New' : 'Edit'} ${dialog.kind}`}
+                    isDirty={isDirty}
+                    error={dialogError}
+                    onClose={closeDialog}
+                >
+                    {isPerson
+                        ? <PersonForm {...formProps} places={places.places} />
+                        : <PlaceForm {...formProps} />}
+                </FormDialog>
+            )}
         </main>
     );
 };
