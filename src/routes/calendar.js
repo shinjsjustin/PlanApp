@@ -291,9 +291,7 @@ router.put(
                     .filter((sequenceId) => sequenceId !== undefined),
                 ownerId
             );
-            await assertSequencesOwned(conn, unscheduleSequences, ownerId, {
-                requirePinned: false,
-            });
+            await assertSequencesOwned(conn, unscheduleSequences, ownerId);
 
             // Deduped first: a gesture that fills one day names it once per item,
             // and the answer is the same every time.
@@ -350,7 +348,7 @@ router.put(
 );
 
 // DELETE /api/calendar/items/sequences/:sequenceId — the same release for a
-// pinned sequence. Registered before `/items/:todoId`; the two do not collide on
+// sequence booking. Registered before `/items/:todoId`; the two do not collide on
 // path depth today, but a looser todo route must not swallow this one.
 router.delete(
     '/items/sequences/:sequenceId',

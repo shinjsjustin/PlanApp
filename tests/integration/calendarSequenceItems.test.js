@@ -13,10 +13,9 @@ const { createFixture } = require('../helpers/todosFixture');
 
 const getConn = useTransaction();
 
-/** An owner with a pinned sequence, a to-do, and one day. */
+/** An owner with a never-pinned sequence, a to-do, and one day. */
 const createWorld = async (conn) => {
     const fixture = await createFixture(conn);
-    await sequencesRepo.setPinned(conn, [fixture.sequence.id], true);
     const todo = await todosRepo.create(conn, { projectId: fixture.project.id, text: 'Solo' });
     const day = await calendarDaysRepo.create(conn, { ownerId: fixture.ownerId });
 
@@ -41,7 +40,7 @@ const countItems = async (conn, ...ownerIds) => {
     return row.n;
 };
 
-describe('booking a pinned sequence', () => {
+describe('booking a sequence', () => {
     test('PUT then GET returns a sequence item', async () => {
         const conn = getConn();
         const { ownerId, project, sequence, day } = await createWorld(conn);
@@ -54,7 +53,7 @@ describe('booking a pinned sequence', () => {
 
         expect(response.status).toBe(200);
         const { items } = (await getCalendar(ownerId)).body.data;
-        expect(items).toEqual([
+        expect(items).toMatchObject([
             {
                 id: expect.any(Number),
                 dayId: day.id,
@@ -63,7 +62,6 @@ describe('booking a pinned sequence', () => {
                 sequenceId: sequence.id,
                 text: 'Learn aerodynamics',
                 status: null,
-                isPinned: true,
                 projectId: project.id,
                 projectTitle: 'Build a drone',
                 sequenceTitle: 'Learn aerodynamics',
@@ -124,10 +122,9 @@ describe('booking a pinned sequence', () => {
         expect(await countItems(conn, ownerId)).toBe(0);
     });
 
-    test('refuses an unpinned sequence and writes nothing', async () => {
+    test('books a sequence that was never pinned', async () => {
         const conn = getConn();
         const { ownerId, sequence, day } = await createWorld(conn);
-        await sequencesRepo.setPinned(conn, [sequence.id], false);
 
         const response = await put(ownerId, {
             placements: [
@@ -135,8 +132,9 @@ describe('booking a pinned sequence', () => {
             ],
         });
 
-        expect(response.status).toBe(400);
-        expect(await countItems(conn, ownerId)).toBe(0);
+        expect(response.status).toBe(200);
+        expect(response.body.data.items.map((item) => item.sequenceId)).toEqual([sequence.id]);
+        expect(await countItems(conn, ownerId)).toBe(1);
     });
 
     test("refuses another user's sequence with 403 and writes nothing", async () => {
@@ -217,11 +215,9 @@ describe('releasing a sequence booking', () => {
         expect(response.body.data.items).toEqual([]);
     });
 
-    test('a sequence unpinned after booking can still be released', async () => {
+    test('a booked sequence can be released', async () => {
         const conn = getConn();
         const { ownerId, sequence } = await book(conn);
-        await sequencesRepo.setPinned(conn, [sequence.id], false);
-
         const response = await put(ownerId, { unscheduleSequences: [sequence.id] });
 
         expect(response.status).toBe(200);
