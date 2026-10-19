@@ -85,7 +85,7 @@ test('Blocked toggle in the editor updates the sequence', () => {
 });
 
 const todo = (id, status = 'incomplete') => ({
-    id, projectId: 1, sequenceId: 100, text: `Todo ${id}`, status, position: id, isPinned: false,
+    id, projectId: 1, sequenceId: 100, text: `Todo ${id}`, status, position: id,
 });
 
 const renderWithTodos = () => {

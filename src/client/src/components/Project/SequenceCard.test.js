@@ -240,11 +240,11 @@ describe('SequenceCard', () => {
         expect(container.querySelector('.sequence-card--blocked')).toBeInTheDocument();
     });
 
-    test('keeps blocked lifecycle status when the sequence is active through a pin', () => {
+    test('keeps blocked lifecycle status when the sequence is active', () => {
         // Act
         const { container } = renderCard({
             sequence: { ...baseSequence, isBlocked: true },
-            todos: [todo(1, 'blocked', { isPinned: true })],
+            todos: [todo(1, 'blocked')],
             isActive: true,
         });
 
@@ -255,10 +255,10 @@ describe('SequenceCard', () => {
         expect(container.querySelector('.sequence-card-status')).toHaveTextContent('Blocked');
     });
 
-    test('keeps complete lifecycle status when the sequence is active through a pin', () => {
+    test('keeps complete lifecycle status when the sequence is active', () => {
         // Act
         const { container } = renderCard({
-            todos: [todo(1, 'complete', { isPinned: true })],
+            todos: [todo(1, 'complete')],
             isActive: true,
         });
 
@@ -432,7 +432,7 @@ describe('SequenceCard', () => {
             ).not.toBeInTheDocument();
         });
 
-        test('deletes rather than folding the card it is pinned to', async () => {
+        test('deletes rather than folding the card it sits on', async () => {
             // Arrange — a click on a control is that control's, never the card's.
             const { value } = renderCard();
 

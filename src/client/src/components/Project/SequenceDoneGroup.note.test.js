@@ -4,7 +4,6 @@ import { render, screen } from '@testing-library/react';
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click } from '../../testUtils/interact';
 
-import { PinSelectionProvider } from './PinSelectionContext';
 import SequenceDoneGroup from './SequenceDoneGroup';
 
 const doneTodo = {
@@ -14,7 +13,6 @@ const doneTodo = {
     text: 'Calibrate the motors',
     status: 'complete',
     note: 'Use the bench rig',
-    isPinned: false,
     completedAt: '2026-09-18T12:00:00.000Z',
 };
 
@@ -30,27 +28,16 @@ const graphValue = (todo) => ({
     removeEntity: jest.fn(),
 });
 
-const selectionValue = (overrides = {}) => ({
-    mode: 'idle',
-    selectedTodoIds: new Set(),
-    isEligible: () => false,
-    isSelected: () => false,
-    toggle: jest.fn(),
-    ...overrides,
-});
-
-const renderGroup = (todo = doneTodo, selection = selectionValue()) => {
+const renderGroup = (todo = doneTodo) => {
     const onReopenTodo = jest.fn();
     const onDeleteTodo = jest.fn();
     render(
         <ProjectProvider value={graphValue(todo)}>
-            <PinSelectionProvider value={selection}>
-                <SequenceDoneGroup
-                    todos={[todo]}
-                    onReopenTodo={onReopenTodo}
-                    onDeleteTodo={onDeleteTodo}
-                />
-            </PinSelectionProvider>
+            <SequenceDoneGroup
+                todos={[todo]}
+                onReopenTodo={onReopenTodo}
+                onDeleteTodo={onDeleteTodo}
+            />
         </ProjectProvider>
     );
 
@@ -114,17 +101,6 @@ describe('SequenceDoneGroup notes', () => {
         // Assert
         expect(onReopenTodo).toHaveBeenCalledTimes(1);
         expect(onDeleteTodo).toHaveBeenCalledTimes(1);
-        expect(noteField()).not.toBeInTheDocument();
-    });
-
-    test('does not open a note while pin selection is running', async () => {
-        // Arrange
-        renderGroup(doneTodo, selectionValue({ mode: 'pin' }));
-
-        // Act
-        await click(textToggle());
-
-        // Assert
         expect(noteField()).not.toBeInTheDocument();
     });
 });

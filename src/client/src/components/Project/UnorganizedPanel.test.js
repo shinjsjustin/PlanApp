@@ -6,7 +6,6 @@ import { join } from 'path';
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click, type } from '../../testUtils/interact';
 
-import { PinSelectionProvider } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
 
 // The floating panel of loose to-dos.
@@ -18,14 +17,13 @@ import UnorganizedPanel from './UnorganizedPanel';
 
 const todo = (
     id,
-    { sequenceId = null, text = `To-do ${id}`, position = 0, isPinned = false } = {}
+    { sequenceId = null, text = `To-do ${id}`, position = 0 } = {}
 ) => ({
     id,
     projectId: 1,
     sequenceId,
     text,
     status: 'incomplete',
-    isPinned,
     position,
 });
 
@@ -50,22 +48,12 @@ const graphValue = (todos) => ({
     removeEntity: jest.fn(),
 });
 
-const idleSelection = {
-    mode: 'idle',
-    selectedTodoIds: new Set(),
-    isEligible: () => false,
-    isSelected: () => false,
-    toggle: jest.fn(),
-};
-
-const renderPanel = (todos = [], selection = idleSelection) => {
+const renderPanel = (todos = []) => {
     const value = graphValue(todos);
 
     const rendered = render(
         <ProjectProvider value={value}>
-            <PinSelectionProvider value={selection}>
-                <UnorganizedPanel />
-            </PinSelectionProvider>
+            <UnorganizedPanel />
         </ProjectProvider>
     );
 
@@ -171,25 +159,6 @@ describe('UnorganizedPanel', () => {
 
         // Assert
         expect(listedTexts()).toEqual(['Buy propellers']);
-    });
-
-    test('makes an eligible unorganized row selectable', async () => {
-        // Arrange
-        const selection = {
-            mode: 'pin',
-            selectedTodoIds: new Set(),
-            isEligible: (entry) => !entry.isPinned,
-            isSelected: () => false,
-            toggle: jest.fn(),
-        };
-        renderPanel([todo(1000, { text: 'Buy propellers' })], selection);
-        await click(toggle());
-
-        // Act
-        await click(screen.getByRole('button', { name: 'Pin “Buy propellers”' }));
-
-        // Assert
-        expect(selection.toggle).toHaveBeenCalledWith(1000);
     });
 
     test('says so when nothing is waiting to be filed', async () => {

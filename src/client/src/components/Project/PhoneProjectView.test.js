@@ -10,7 +10,7 @@ const seq = (id, layerId, title, position) => ({
     id, projectId: 1, layerId, title, position, isBlocked: false, isCollapsed: false,
 });
 const todo = (id, sequenceId, status, position) => ({
-    id, projectId: 1, sequenceId, text: `Todo ${id}`, status, position, isPinned: false,
+    id, projectId: 1, sequenceId, text: `Todo ${id}`, status, position,
 });
 
 const buildValue = ({ sequences, todos = [] } = {}) => ({

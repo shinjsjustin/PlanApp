@@ -5,8 +5,7 @@ import { baseSequence, collapse, renderCard } from './sequenceCardHarness';
 
 // The to-dos inside an open card: every outstanding item uses one sortable row
 // in stored position order, while finished work stays in the DONE group. The
-// split is lifecycle-only, so a pin changes emphasis without moving a row or
-// replacing the status it already carries.
+// split is lifecycle-only.
 
 const filed = (
     id,
@@ -64,49 +63,19 @@ describe('SequenceCard to-dos', () => {
         expect(screen.queryByText('THEN')).not.toBeInTheDocument();
     });
 
-    test('emphasizes the row matching the top pinned to-do id', () => {
+    test('draws no pin emphasis or icon on pinned outstanding or done rows', () => {
         // Act
-        renderCard({
+        const { container } = renderCard({
             todos: [
-                filed(1, { position: 0 }),
-                filed(2, { position: 1, isPinned: true }),
-                filed(3, { position: 2, isPinned: true }),
+                filed(1, { position: 0, isPinned: true }),
+                filed(2, { position: 1, status: 'complete', isPinned: true }),
             ],
         });
 
         // Assert
-        expect(screen.getByText('To-do 2').closest('.todo-item')).toHaveClass(
-            'todo-row--top-pinned'
-        );
-        expect(screen.getByText('To-do 3').closest('.todo-item')).not.toHaveClass(
-            'todo-row--top-pinned'
-        );
-    });
-
-    test('keeps blocked styling alongside top-pin emphasis', () => {
-        // Act
-        renderCard({ todos: [filed(1, { status: 'blocked', isPinned: true })] });
-
-        // Assert
-        expect(screen.getByText('To-do 1').closest('.todo-item')).toHaveClass(
-            'todo-item--blocked',
-            'todo-row--top-pinned'
-        );
-    });
-
-    test('keeps a complete top pin crossed out and emphasized in DONE', () => {
-        // Act
-        renderCard({
-            todos: [filed(1, { status: 'complete', isPinned: true })],
-        });
-
-        // Assert
-        const text = screen.getByText('To-do 1');
-        expect(text).toHaveClass('sequence-done-text');
-        expect(text.closest('.sequence-done-item')).toHaveClass('todo-row--top-pinned');
-        expect(text.closest('.sequence-done-item')).toContainElement(
-            document.querySelector('.todo-pin-icon')
-        );
+        expect(screen.getByText('To-do 1')).toBeInTheDocument();
+        expect(screen.getByText('To-do 2')).toBeInTheDocument();
+        expect(container.querySelector('.todo-row--top-pinned, .todo-pin-icon')).not.toBeInTheDocument();
     });
 
     test('leaves out to-dos belonging elsewhere', () => {

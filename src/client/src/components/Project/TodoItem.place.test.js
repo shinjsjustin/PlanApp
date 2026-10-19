@@ -6,7 +6,6 @@ import { api } from '../../lib/api';
 import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
 import { ProjectProvider } from '../../state/ProjectContext';
 
-import { PinSelectionProvider } from './PinSelectionContext';
 import TodoItem from './TodoItem';
 
 jest.mock('../../lib/api', () => ({
@@ -21,14 +20,6 @@ const todo = {
     status: 'incomplete',
     position: 0,
     placeId: 2,
-};
-
-const idleSelection = {
-    mode: 'idle',
-    selectedTodoIds: new Set(),
-    isEligible: () => false,
-    isSelected: () => false,
-    toggle: jest.fn(),
 };
 
 const renderItem = () => {
@@ -46,13 +37,11 @@ const renderItem = () => {
 
     render(
         <ProjectProvider value={value}>
-            <PinSelectionProvider value={idleSelection}>
-                <PlaceOptionsProvider>
-                    <ul>
-                        <TodoItem todo={todo} />
-                    </ul>
-                </PlaceOptionsProvider>
-            </PinSelectionProvider>
+            <PlaceOptionsProvider>
+                <ul>
+                    <TodoItem todo={todo} />
+                </ul>
+            </PlaceOptionsProvider>
         </ProjectProvider>
     );
 

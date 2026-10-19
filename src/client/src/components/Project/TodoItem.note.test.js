@@ -4,7 +4,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click } from '../../testUtils/interact';
 
-import { PinSelectionProvider } from './PinSelectionContext';
 import TodoItem from './TodoItem';
 
 const noteTodo = {
@@ -30,21 +29,11 @@ const graphValue = (todo) => ({
     removeEntity: jest.fn(),
 });
 
-const selection = (mode = 'idle') => ({
-    mode,
-    selectedTodoIds: new Set(),
-    isEligible: () => false,
-    isSelected: () => false,
-    toggle: jest.fn(),
-});
-
-const tree = (todo, { drag = null, mode = 'idle', value = graphValue(todo) } = {}) => (
+const tree = (todo, { drag = null, value = graphValue(todo) } = {}) => (
     <ProjectProvider value={value}>
-        <PinSelectionProvider value={selection(mode)}>
-            <ul>
-                <TodoItem todo={todo} drag={drag} />
-            </ul>
-        </PinSelectionProvider>
+        <ul>
+            <TodoItem todo={todo} drag={drag} />
+        </ul>
     </ProjectProvider>
 );
 
@@ -115,24 +104,6 @@ describe('TodoItem note', () => {
         await click(screen.getByRole('button', { name: /^actions for/i }));
         await click(screen.getByRole('button', { name: /^drag “/i }));
         await click(screen.getByRole('button', { name: 'Delete “Read about lift”' }));
-
-        expect(noteBox()).not.toBeInTheDocument();
-    });
-
-    test('does not open while a pin selection is running', async () => {
-        render(tree(bareTodo, { mode: 'pin' }));
-
-        await click(text());
-
-        expect(noteBox()).not.toBeInTheDocument();
-    });
-
-    test('closes an open note when a pin selection starts', async () => {
-        const value = graphValue(noteTodo);
-        const { rerender } = render(tree(noteTodo, { value }));
-        await click(text());
-
-        rerender(tree(noteTodo, { value, mode: 'pin' }));
 
         expect(noteBox()).not.toBeInTheDocument();
     });

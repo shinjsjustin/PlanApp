@@ -16,7 +16,6 @@ import useProjectMutations from '../../hooks/useProjectMutations';
 import { DROP_TARGET, isEligibleDropTarget } from '../../lib/dragDrop';
 import { TODO_STATUS, sequenceStatus } from '../../lib/graph';
 import { STATUS_LABELS, sequenceCardModel } from '../../lib/sequenceCard';
-import { PinRowContent, SequencePinIcon, usePinSequence } from './PinRow';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragTodo } from '../../state/DragContext';
 
@@ -24,12 +23,11 @@ import { useActiveDragTodo } from '../../state/DragContext';
 //
 // The card is built around its to-do list, because that is what a person works
 // from: every outstanding item sits in one sortable column, and everything
-// already done drops out of that column into a group at the bottom. The earliest
-// pin is emphasized without replacing the row or its lifecycle styling.
+// already done drops out of that column into a group at the bottom.
 //
 // Lifecycle faces are decided in `lib/sequenceCard` and never stored: blocked,
-// finished, or the quiet default. Pin activity is separate and additive; Canvas
-// tells each card whether it belongs to the active Set.
+// finished, or the quiet default. Canvas tells each card whether it belongs to
+// the active Set.
 //
 // Whether the card is folded *is* stored, on the sequence, so a canvas comes back
 // the way it was left. It is the one piece of card chrome that is: the DONE
@@ -108,10 +106,7 @@ const SequenceCard = ({
         },
     });
 
-    // Everything the card draws, derived from the graph on every render. The
-    // status word underneath is still `sequenceStatus`'s, unchanged: pin
-    // activity adds emphasis, but what the app says about lifecycle does not.
-    const pinRow = usePinSequence(sequence);
+    // Everything the card draws, derived from the graph on every render.
     const model = sequenceCardModel({ sequence, todos });
     const status = sequenceStatus(sequence, todos);
 
@@ -242,7 +237,7 @@ const SequenceCard = ({
             data-sequence-title={sequence.title}
             onClick={handleCardClick}
         >
-            {/* Pinned to the card's corner rather than laid out in the header,
+            {/* Fixed to the card's corner rather than laid out in the header,
                 which reserves the room for it on the right so nothing runs
                 underneath. A direct child of the card, because that is what the
                 shared reveal keys on: a to-do row inside this card has a × of
@@ -259,7 +254,6 @@ const SequenceCard = ({
             {isCollapsed ? (
                 <SequenceCardCollapsed
                     model={model}
-                    sequence={sequence}
                     description={sequence.description}
                     title={title}
                     grip={grip}
@@ -268,8 +262,7 @@ const SequenceCard = ({
                 </SequenceCardCollapsed>
             ) : (
                 <>
-                    <div className={`sequence-card-header ${pinRow.rowClassName}`.trim()}>
-                        <PinRowContent isSelectable={pinRow.isSelectable}>
+                    <div className="sequence-card-header">
                         {chevron}
                         {grip}
 
@@ -299,9 +292,6 @@ const SequenceCard = ({
                         >
                             {badge}
                         </span>
-                        <SequencePinIcon sequence={sequence} />
-                        </PinRowContent>
-                        {pinRow.control}
                     </div>
 
                     <div className="sequence-card-body" ref={setNodeRef}>
@@ -323,7 +313,6 @@ const SequenceCard = ({
                                             <SortableTodo
                                                 todo={todo}
                                                 index={indexOf(todo)}
-                                                isTopPinned={todo.id === model.topPinnedTodoId}
                                             />
                                         </React.Fragment>
                                     ))}
@@ -340,7 +329,6 @@ const SequenceCard = ({
 
                         <SequenceDoneGroup
                             todos={model.done}
-                            topPinnedTodoId={model.topPinnedTodoId}
                             onReopenTodo={reopenTodo}
                             onDeleteTodo={(todo) => deleteTodo(todo.id)}
                         />

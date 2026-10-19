@@ -44,7 +44,7 @@ export const DraggableTodo = ({ todo }) => {
  * A to-do inside an expanded sequence card. `index` is its place in the list as
  * displayed, which is exactly what a drop onto it means: take this one's place.
  */
-export const SortableTodo = ({ todo, index, isTopPinned = false }) => {
+export const SortableTodo = ({ todo, index }) => {
     const sortable = useSortable({
         id: todo.id,
         data: {
@@ -53,5 +53,5 @@ export const SortableTodo = ({ todo, index, isTopPinned = false }) => {
         },
     });
 
-    return <TodoItem todo={todo} drag={dragProps(sortable)} isTopPinned={isTopPinned} />;
+    return <TodoItem todo={todo} drag={dragProps(sortable)} />;
 };

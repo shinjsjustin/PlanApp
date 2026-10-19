@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 
 import { click } from '../../testUtils/interact';
 
-import { PinSelectionProvider } from './PinSelectionContext';
 import SequenceDoneGroup from './SequenceDoneGroup';
 
 const doneTodo = {
@@ -14,58 +13,40 @@ const doneTodo = {
     completedAt: '2026-09-18T12:00:00.000Z',
 };
 
-const selectionValue = (overrides = {}) => ({
-    mode: 'idle',
-    selectedTodoIds: new Set(),
-    isEligible: () => false,
-    isSelected: () => false,
-    toggle: jest.fn(),
-    ...overrides,
-});
-
-const renderGroup = (selection = selectionValue()) => {
+const renderGroup = () => {
     const onReopenTodo = jest.fn();
     const onDeleteTodo = jest.fn();
     const rendered = render(
-        <PinSelectionProvider value={selection}>
-            <SequenceDoneGroup
-                todos={[doneTodo]}
-                onReopenTodo={onReopenTodo}
-                onDeleteTodo={onDeleteTodo}
-            />
-        </PinSelectionProvider>
+        <SequenceDoneGroup
+            todos={[doneTodo]}
+            onReopenTodo={onReopenTodo}
+            onDeleteTodo={onDeleteTodo}
+        />
     );
 
     return { ...rendered, onReopenTodo, onDeleteTodo };
 };
 
-describe('SequenceDoneGroup pinning', () => {
-    test('makes an eligible done row selectable without reopening or deleting it', async () => {
-        // Arrange
-        const selection = selectionValue({
-            mode: 'unpin',
-            isEligible: (todo) => todo.isPinned,
-        });
-        const { onReopenTodo, onDeleteTodo } = renderGroup(selection);
-
-        // Act
-        const control = screen.getByRole('button', { name: 'Unpin “Calibrate the motors”' });
-        await click(control);
-
-        // Assert
-        expect(control).toHaveAttribute('aria-pressed', 'false');
-        expect(selection.toggle).toHaveBeenCalledWith(11);
-        expect(onReopenTodo).not.toHaveBeenCalled();
-        expect(onDeleteTodo).not.toHaveBeenCalled();
-    });
-
-    test('shows a persistent decorative pin outside selection mode', () => {
+describe('SequenceDoneGroup rows', () => {
+    test('shows no pin icon or overlay even when the to-do carries a stale isPinned flag', () => {
         // Act
         const { container } = renderGroup();
 
         // Assert
-        const icon = container.querySelector('.todo-pin-icon');
-        expect(icon).toBeInTheDocument();
-        expect(icon).toHaveAttribute('aria-hidden', 'true');
+        expect(container.querySelector('.todo-pin-icon')).not.toBeInTheDocument();
+        expect(container.querySelector('.pin-select-control')).not.toBeInTheDocument();
+    });
+
+    test('reopens and deletes through the row controls', async () => {
+        // Arrange
+        const { onReopenTodo, onDeleteTodo } = renderGroup();
+
+        // Act
+        await click(screen.getByRole('button', { name: 'Mark “Calibrate the motors” incomplete' }));
+        await click(screen.getByRole('button', { name: 'Delete “Calibrate the motors”' }));
+
+        // Assert
+        expect(onReopenTodo).toHaveBeenCalledWith(doneTodo);
+        expect(onDeleteTodo).toHaveBeenCalledWith(doneTodo);
     });
 });
