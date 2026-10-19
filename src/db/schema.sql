@@ -91,6 +91,10 @@
 -- A database created before places is missing two tables and three columns. Apply
 -- in place rather than re-running this file (db/migration/2026-10-16_add_places.sql).
 --
+-- A database created before people is missing one table, and its places may still
+-- hold kind 'person'. Apply in place rather than re-running this file
+-- (db/migration/2026-10-19_add_people.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -111,6 +115,7 @@ DROP TABLE IF EXISTS `sequence_edges`;
 DROP TABLE IF EXISTS `todos`;
 DROP TABLE IF EXISTS `sequences`;
 DROP TABLE IF EXISTS `layers`;
+DROP TABLE IF EXISTS `people`;
 DROP TABLE IF EXISTS `places`;
 DROP TABLE IF EXISTS `projects`;
 DROP TABLE IF EXISTS `users`;
@@ -153,7 +158,7 @@ CREATE TABLE `places` (
   `owner_id`         int unsigned NOT NULL,
   `name`             varchar(255) NOT NULL,
   `address`          varchar(500) NOT NULL,
-  `kind`             enum('home','work','client','church','supplier','person','other') NOT NULL DEFAULT 'other',
+  `kind`             enum('home','work','client','church','supplier','other') NOT NULL DEFAULT 'other',
   `notes`            text DEFAULT NULL,
   `visit_minutes`    int DEFAULT NULL,
   `is_default_start` tinyint(1) NOT NULL DEFAULT '0',
@@ -163,6 +168,32 @@ CREATE TABLE `places` (
   KEY `idx_places_owner` (`owner_id`),
   CONSTRAINT `fk_places_owner`
     FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- people ----------------------------------------------------------------
+-- Contacts. `place_id` optionally points at where the person is found.
+CREATE TABLE `people` (
+  `id`                  int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`            int unsigned NOT NULL,
+  `name`                varchar(255) NOT NULL,
+  `company`             varchar(255) DEFAULT NULL,
+  `role`                varchar(255) DEFAULT NULL,
+  `emails`              json NOT NULL,
+  `phones`              json NOT NULL,
+  `contact_groups`      set('family','friend','client_contact','supplier','church','other') NOT NULL DEFAULT '',
+  `notes`               text DEFAULT NULL,
+  `place_id`            int unsigned DEFAULT NULL,
+  `leemac_client_id`    int unsigned DEFAULT NULL,
+  `leemac_client_name`  varchar(255) DEFAULT NULL,
+  `created_at`          timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`          timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_people_owner` (`owner_id`),
+  KEY `idx_people_place` (`place_id`),
+  CONSTRAINT `fk_people_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_people_place`
+    FOREIGN KEY (`place_id`) REFERENCES `places` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- -- layers ----------------------------------------------------------------
