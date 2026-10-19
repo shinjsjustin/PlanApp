@@ -198,6 +198,26 @@ const listBySequenceIds = async (conn, sequenceIds) => {
     return rows;
 };
 
+/** To-dos of the given sequences, each with its own place's visit length, else its sequence's. */
+const listBySequenceIdsWithVisitMinutes = async (conn, sequenceIds) => {
+    if (sequenceIds.length === 0) return [];
+
+    // `query` rather than `execute`: the placeholder count varies per call.
+    const [rows] = await conn.query(
+        `SELECT t.id, t.sequence_id, t.text, t.status, t.position,
+                COALESCE(tp.visit_minutes, sp.visit_minutes) AS visit_minutes
+         FROM todos t
+         JOIN sequences s ON s.id = t.sequence_id
+         LEFT JOIN places tp ON tp.id = t.place_id
+         LEFT JOIN places sp ON sp.id = s.place_id
+         WHERE t.sequence_id IN (?)
+         ORDER BY t.sequence_id, t.position, t.id`,
+        [sequenceIds]
+    );
+
+    return rows;
+};
+
 /** A list's to-do ids in display order — the input to the position helpers. */
 const listIds = async (conn, projectId, sequenceId) => {
     const todos = await listInList(conn, projectId, sequenceId);
@@ -346,6 +366,7 @@ module.exports = {
     listUnorganized,
     listBySequence,
     listBySequenceIds,
+    listBySequenceIdsWithVisitMinutes,
     listIds,
     update,
     move,

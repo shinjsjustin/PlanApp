@@ -122,6 +122,36 @@ const listPinnedByOwner = async (conn, ownerId) => {
     return rows;
 };
 
+const VISIT_SELECT = `SELECT s.${SELECT_COLUMNS.split(', ').join(', s.')}, pl.visit_minutes
+         FROM sequences s
+         JOIN projects p ON p.id = s.project_id
+         JOIN layers l ON l.id = s.layer_id
+         LEFT JOIN places pl ON pl.id = s.place_id`;
+
+/** The owner's sequences with their place's visit length, in project, layer, position order. */
+const listWithVisitMinutesByOwner = async (conn, ownerId) => {
+    const [rows] = await conn.execute(
+        `${VISIT_SELECT}
+         WHERE p.owner_id = ?
+         ORDER BY s.project_id, l.position, s.position, s.id`,
+        [ownerId]
+    );
+
+    return rows;
+};
+
+/** One project's sequences, shaped like `listWithVisitMinutesByOwner`. */
+const listWithVisitMinutesByProject = async (conn, projectId) => {
+    const [rows] = await conn.execute(
+        `${VISIT_SELECT}
+         WHERE s.project_id = ?
+         ORDER BY l.position, s.position, s.id`,
+        [projectId]
+    );
+
+    return rows;
+};
+
 /** The layer's sequence ids in display order — the input to the position helpers. */
 const listIds = async (conn, layerId) => {
     const sequences = await listByLayer(conn, layerId);
@@ -286,6 +316,8 @@ module.exports = {
     listByProject,
     listIds,
     listPinnedByOwner,
+    listWithVisitMinutesByOwner,
+    listWithVisitMinutesByProject,
     move,
     setPinned,
     update,

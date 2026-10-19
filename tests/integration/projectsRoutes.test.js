@@ -247,7 +247,7 @@ describe('projects routes', () => {
             expect(response.body.data).toMatchObject({
                 id: project.id,
                 color: '#aabbcc',
-                pinnedTodos: [],
+                datedSequences: [],
             });
         });
 

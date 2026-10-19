@@ -73,34 +73,22 @@ const toTodo = (row) => ({
     updatedAt: row.updated_at,
 });
 
-/** One pinned to-do in the deliberately narrow pinned-list wire shape. */
-const toPinnedTodo = (row) => ({
-    id: row.id,
-    text: row.text,
-    status: row.status,
-    sequenceId: row.sequence_id ?? null,
-    sequenceTitle: row.sequence_title ?? null,
-    position: row.position,
-    isPinned: Boolean(row.is_pinned),
-    visitMinutes: row.visit_minutes ?? null,
-});
-
-/** A pinned sequence with just enough to-do detail for a read-only hover card. */
-const toPinnedSequence = (row, todos) => ({
+/** A dated sequence on a project card, with the to-dos it holds (done ones too). */
+const toDatedSequence = (row, date, todos) => ({
     id: row.id,
     title: row.title,
+    date,
+    owner: row.owner,
     description: row.description ?? null,
     isBlocked: Boolean(row.is_blocked),
-    isPinned: Boolean(row.is_pinned),
     layerId: row.layer_id,
-    position: row.position,
     visitMinutes: row.visit_minutes ?? null,
     todos: todos.map((todo) => ({
         id: todo.id,
         text: todo.text,
         status: todo.status,
-        isPinned: Boolean(todo.is_pinned),
         position: todo.position,
+        visitMinutes: todo.visit_minutes ?? null,
     })),
 });
 
@@ -235,8 +223,7 @@ module.exports = {
     toCalendarItem,
     toCalendarNote,
     toLayer,
-    toPinnedSequence,
-    toPinnedTodo,
+    toDatedSequence,
     toPlace,
     toProject,
     toProjectThoughts,

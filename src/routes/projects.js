@@ -17,10 +17,11 @@ const todosRepo = require('../db/repositories/todosRepo');
 const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { writeImportedPlan } = require('../lib/importPlan');
 const { parsePlanSchema } = require('../lib/planSchema');
+const { localToday, timeZoneOf } = require('../lib/localDate');
 const {
-    findProjectWithPinnedTodos,
-    listProjectsWithPinnedTodos,
-} = require('../lib/projectsPinnedTodos');
+    findProjectWithDatedSequences,
+    listProjectsWithDatedSequences,
+} = require('../lib/projectsDatedSequences');
 const { toLayer, toProject, toProjectThoughts, toSequence, toTodo } = require('../lib/serializers');
 const {
     colorSchema,
@@ -42,7 +43,7 @@ const { withConnection, withTransaction } = require('../db/unitOfWork');
  * `assertOwnership` before touching the row.
  *
  * `GET /:id` returns the whole graph in one payload; `GET /` returns project
- * cards with their pinned to-dos batched in `lib/projectsPinnedTodos.js`.
+ * cards with their dated sequences batched in `lib/projectsDatedSequences.js`.
  */
 
 const router = express.Router();
@@ -92,14 +93,12 @@ const createTodoSchema = z.object({
 });
 
 // GET /api/projects — the caller's projects, each with its to-do progress and
-// pinned to-dos, from one batched set of queries (see projectsPinnedTodos).
+// sequences dated today or later, from one batched set of queries.
 router.get(
     '/',
     asyncRoute(async (req, res) => {
         const projects = await withConnection((conn) =>
-            listProjectsWithPinnedTodos(conn, req.user.id, {
-                includePinnedSequences: req.query.include === 'pinnedSequences',
-            })
+            listProjectsWithDatedSequences(conn, req.user.id, localToday(timeZoneOf(req)))
         );
 
         res.sendData(projects);
@@ -125,7 +124,7 @@ router.post(
 
             await layersRepo.create(conn, { projectId: created.id });
 
-            return findProjectWithPinnedTodos(conn, created.id);
+            return findProjectWithDatedSequences(conn, created.id, localToday(timeZoneOf(req)));
         });
 
         res.sendData(project, 201);
@@ -230,7 +229,7 @@ router.patch(
             await assertOwnership(conn, 'project', id, req.user.id);
             await projectsRepo.update(conn, id, patch);
 
-            return findProjectWithPinnedTodos(conn, id);
+            return findProjectWithDatedSequences(conn, id, localToday(timeZoneOf(req)));
         });
 
         if (!project) throw notFound('Project');
