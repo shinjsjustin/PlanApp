@@ -1,30 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-import PlaceForm, { formatVisit } from '../Places/PlaceForm';
+import { formatVisit } from '../Places/PlaceForm';
 import '../Styling/Places.css';
 
 const deleteConfirmation = (place) => `Delete ${place.name}?`;
 
-const PlaceItem = ({ place, isStart, onEdit, onRemove, onSetStart }) => {
-    const [isEditing, setIsEditing] = useState(false);
-
-    const save = async (fields) => {
-        const didSave = await onEdit(place.id, fields);
-        if (didSave) setIsEditing(false);
-        return didSave;
-    };
-
+const PlaceItem = ({ place, isStart, onOpenEdit, onRemove, onSetStart }) => {
     const confirmRemove = () => {
         if (window.confirm(deleteConfirmation(place))) onRemove(place.id);
     };
-
-    if (isEditing) {
-        return (
-            <li className="place-item">
-                <PlaceForm initial={place} submitLabel="Save" onSubmit={save} onCancel={() => setIsEditing(false)} />
-            </li>
-        );
-    }
 
     return (
         <li className="place-item">
@@ -34,7 +18,7 @@ const PlaceItem = ({ place, isStart, onEdit, onRemove, onSetStart }) => {
             <p className="place-address">{place.address}</p>
             {place.visitMinutes !== null && <p className="place-visit">{formatVisit(place.visitMinutes)}</p>}
             <div className="place-actions">
-                <button type="button" className="neon-button" onClick={() => setIsEditing(true)}>Edit</button>
+                <button type="button" className="neon-button" onClick={() => onOpenEdit(place)}>Edit</button>
                 <button type="button" className="neon-button" onClick={confirmRemove}>Delete</button>
                 {!isStart && (
                     <button type="button" className="neon-button" onClick={() => onSetStart(place.id)}>Make starting place</button>
@@ -44,18 +28,13 @@ const PlaceItem = ({ place, isStart, onEdit, onRemove, onSetStart }) => {
     );
 };
 
-const PlacesSection = ({ places, startPlaceId, status, query, onAdd, onEdit, onRemove, onSetStart }) => {
+const PlacesSection = ({ places, startPlaceId, status, query, onOpenEdit, onRemove, onSetStart }) => {
     const needle = query.trim().toLowerCase();
     const visible = places.filter((place) => place.name.toLowerCase().includes(needle));
 
     return (
         <section className="places-section" aria-labelledby="places-heading">
             <h2 id="places-heading">Places</h2>
-            <section className="place-new" aria-labelledby="place-new-heading">
-                <h3 id="place-new-heading">New place</h3>
-                <PlaceForm submitLabel="Add place" onSubmit={onAdd} clearOnSuccess />
-            </section>
-
             {status === 'loading' ? (
                 <p>Loading places…</p>
             ) : (
@@ -65,7 +44,7 @@ const PlacesSection = ({ places, startPlaceId, status, query, onAdd, onEdit, onR
                             key={place.id}
                             place={place}
                             isStart={place.id === startPlaceId}
-                            onEdit={onEdit}
+                            onOpenEdit={onOpenEdit}
                             onRemove={onRemove}
                             onSetStart={onSetStart}
                         />

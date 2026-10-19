@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import PeopleSection from './PeopleSection';
@@ -30,18 +30,15 @@ const BOB = {
     leemacClientId: null,
     leemacClientName: null,
 };
-const PLACES = [{ id: 4, name: 'Shop' }];
 
 const renderSection = (props = {}) => {
     const handlers = {
-        onAdd: jest.fn().mockResolvedValue(true),
-        onEdit: jest.fn().mockResolvedValue(true),
+        onOpenEdit: jest.fn(),
         onRemove: jest.fn(),
     };
     render(
         <PeopleSection
             people={[ANN, BOB]}
-            places={PLACES}
             query=""
             group=""
             status="ready"
@@ -101,24 +98,18 @@ describe('PeopleSection', () => {
         expect(screen.getByText('Loading people…')).toBeInTheDocument();
     });
 
-    it('adds a person through the New person form', async () => {
-        const { onAdd } = renderSection({ people: [] });
-        await userEvent.type(screen.getByLabelText('Name'), 'Cy');
-        await userEvent.click(screen.getByRole('button', { name: 'Add person' }));
-        await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
-        expect(onAdd.mock.calls[0][0].name).toBe('Cy');
+    it('renders no New person form', () => {
+        renderSection();
+        expect(screen.queryByText('New person')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     });
 
-    it('edits a person with onEdit(id, fields) and closes the form', async () => {
-        const { onEdit } = renderSection();
+    it('calls onOpenEdit with the person when Edit is clicked', async () => {
+        const { onOpenEdit } = renderSection();
         await userEvent.click(within(itemFor('Bob Stone')).getByRole('button', { name: 'Edit' }));
-        const form = screen.getAllByLabelText('Name').find((input) => input.value === 'Bob Stone');
-        await userEvent.type(form, 'e');
-        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-        await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument());
-        expect(onEdit).toHaveBeenCalledTimes(1);
-        expect(onEdit.mock.calls[0][0]).toBe(2);
-        expect(onEdit.mock.calls[0][1].name).toBe('Bob Stonee');
+        expect(onOpenEdit).toHaveBeenCalledTimes(1);
+        expect(onOpenEdit).toHaveBeenCalledWith(BOB);
+        expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     });
 
     it('removes only after confirming', async () => {

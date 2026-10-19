@@ -1,5 +1,6 @@
 /* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
+  --person-card-min-width: 260px;
   /* Brand Colors — TODO: replace values with your brand palette */
   --color-primary:        #4CAF50;
   --color-primary-hover:  #45a049;

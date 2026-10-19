@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import PlacesSection from './PlacesSection';
@@ -16,8 +16,7 @@ const renderPage = (props = {}) =>
             startPlaceId={hook.startPlaceId}
             status={hook.status}
             query=""
-            onAdd={hook.add}
-            onEdit={hook.edit}
+            onOpenEdit={hook.openEdit}
             onRemove={hook.remove}
             onSetStart={hook.setStart}
             {...props}
@@ -31,8 +30,7 @@ beforeEach(() => {
         places: [HOME, SHOP],
         startPlaceId: 2,
         error: null,
-        add: jest.fn().mockResolvedValue(true),
-        edit: jest.fn().mockResolvedValue(true),
+        openEdit: jest.fn(),
         remove: jest.fn(),
         setStart: jest.fn(),
     };
@@ -83,56 +81,18 @@ describe('PlacesSection', () => {
         confirm.mockRestore();
     });
 
-    test('Edit opens a prefilled form whose Save calls edit with the id and fields', async () => {
+    test('Edit calls onOpenEdit with the place instead of opening an inline form', async () => {
         renderPage();
-        const shop = items()[1];
-        await userEvent.click(within(shop).getByRole('button', { name: 'Edit' }));
-        const name = within(shop).getByLabelText('Name');
-        expect(name).toHaveValue('Shop');
-        await userEvent.clear(name);
-        await userEvent.type(name, 'Big Shop');
-        await userEvent.click(within(shop).getByRole('button', { name: 'Save' }));
-
-        expect(hook.edit).toHaveBeenCalledWith(2, {
-            name: 'Big Shop',
-            address: '2 Side St',
-            kind: 'supplier',
-            notes: 'ring bell',
-            visitMinutes: 90,
-        });
-        await waitFor(() => expect(within(shop).queryByLabelText('Name')).not.toBeInTheDocument());
+        await userEvent.click(within(items()[1]).getByRole('button', { name: 'Edit' }));
+        expect(hook.openEdit).toHaveBeenCalledTimes(1);
+        expect(hook.openEdit).toHaveBeenCalledWith(SHOP);
+        expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     });
 
-    test('keeps the edit form open when edit resolves false, and Cancel closes it', async () => {
-        hook.edit.mockResolvedValueOnce(false);
+    test('renders no New place form', () => {
         renderPage();
-        const shop = items()[1];
-        await userEvent.click(within(shop).getByRole('button', { name: 'Edit' }));
-        await userEvent.click(within(shop).getByRole('button', { name: 'Save' }));
-        await waitFor(() => expect(within(shop).getByRole('button', { name: 'Save' })).toBeEnabled());
-        expect(within(shop).getByLabelText('Name')).toBeInTheDocument();
-
-        await userEvent.click(within(shop).getByRole('button', { name: 'Cancel' }));
-        expect(within(shop).queryByLabelText('Name')).not.toBeInTheDocument();
-    });
-
-    test('the New place form calls add with the fields', async () => {
-        renderPage();
-        const section = screen.getByRole('region', { name: 'New place' });
-        await userEvent.type(within(section).getByLabelText('Name'), 'Church');
-        await userEvent.type(within(section).getByLabelText('Address'), '3 Elm St');
-        await userEvent.selectOptions(within(section).getByLabelText('Kind'), 'church');
-        await userEvent.click(within(section).getByRole('button', { name: 'Add place' }));
-
-        expect(hook.add).toHaveBeenCalledWith({
-            name: 'Church',
-            address: '3 Elm St',
-            kind: 'church',
-            notes: null,
-            visitMinutes: null,
-        });
-        await waitFor(() => expect(within(section).getByLabelText('Name')).toHaveValue(''));
-        await waitFor(() => expect(within(section).getByRole('button', { name: 'Add place' })).toBeDisabled());
+        expect(screen.queryByText('New place')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Add place' })).not.toBeInTheDocument();
     });
 
     test('shows a loading state instead of the list', () => {

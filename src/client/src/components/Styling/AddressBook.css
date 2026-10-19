@@ -8,10 +8,6 @@
     text-shadow: var(--glow-text-shadow);
 }
 
-.person-new {
-    margin-bottom: var(--space-lg);
-}
-
 .person-list,
 .person-groups {
     margin: 0;
@@ -19,12 +15,21 @@
     list-style: none;
 }
 
+.person-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--person-card-min-width), 1fr));
+    gap: var(--space-md);
+}
+
+.address-book-page--phone .person-list {
+    grid-template-columns: 1fr;
+}
+
 .person-item {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
     padding: var(--space-md);
-    margin-bottom: var(--space-sm);
     border: 1px solid var(--neon-blue);
     border-radius: var(--radius-md);
     box-shadow: var(--glow-box-shadow);

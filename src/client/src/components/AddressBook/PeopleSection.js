@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-import PersonForm, { PERSON_GROUPS } from './PersonForm';
+import { PERSON_GROUPS } from './PersonForm';
 import '../Styling/AddressBook.css';
 
 const GROUP_LABELS = Object.fromEntries(PERSON_GROUPS.map(({ value, label }) => [value, label]));
@@ -12,32 +12,10 @@ const matchesQuery = (person, query) => {
     return [person.name, person.company ?? ''].some((text) => text.toLowerCase().includes(needle));
 };
 
-const PersonItem = ({ person, places, onEdit, onRemove }) => {
-    const [isEditing, setIsEditing] = useState(false);
-
-    const save = async (fields) => {
-        const didSave = await onEdit(person.id, fields);
-        if (didSave) setIsEditing(false);
-        return didSave;
-    };
-
+const PersonItem = ({ person, onOpenEdit, onRemove }) => {
     const confirmRemove = () => {
         if (window.confirm(deleteConfirmation(person))) onRemove(person.id);
     };
-
-    if (isEditing) {
-        return (
-            <li className="person-item">
-                <PersonForm
-                    initial={person}
-                    places={places}
-                    submitLabel="Save"
-                    onSubmit={save}
-                    onCancel={() => setIsEditing(false)}
-                />
-            </li>
-        );
-    }
 
     return (
         <li className="person-item">
@@ -62,14 +40,14 @@ const PersonItem = ({ person, places, onEdit, onRemove }) => {
             {person.place && <p className="person-place">{person.place.name}</p>}
             {person.leemacClientName && <p className="person-client">{person.leemacClientName}</p>}
             <div className="place-actions">
-                <button type="button" className="neon-button" onClick={() => setIsEditing(true)}>Edit</button>
+                <button type="button" className="neon-button" onClick={() => onOpenEdit(person)}>Edit</button>
                 <button type="button" className="neon-button" onClick={confirmRemove}>Delete</button>
             </div>
         </li>
     );
 };
 
-const PeopleSection = ({ people, places, query, group, status, onAdd, onEdit, onRemove }) => {
+const PeopleSection = ({ people, query, group, status, onOpenEdit, onRemove }) => {
     const visible = people.filter(
         (person) => matchesQuery(person, query) && (group === '' || person.groups.includes(group))
     );
@@ -81,7 +59,7 @@ const PeopleSection = ({ people, places, query, group, status, onAdd, onEdit, on
         return (
             <ul className="person-list">
                 {visible.map((person) => (
-                    <PersonItem key={person.id} person={person} places={places} onEdit={onEdit} onRemove={onRemove} />
+                    <PersonItem key={person.id} person={person} onOpenEdit={onOpenEdit} onRemove={onRemove} />
                 ))}
             </ul>
         );
@@ -90,10 +68,6 @@ const PeopleSection = ({ people, places, query, group, status, onAdd, onEdit, on
     return (
         <section className="people-section" aria-labelledby="people-heading">
             <h2 id="people-heading">People</h2>
-            <div className="person-new">
-                <h3>New person</h3>
-                <PersonForm places={places} submitLabel="Add person" onSubmit={onAdd} clearOnSuccess />
-            </div>
             {renderList()}
         </section>
     );
