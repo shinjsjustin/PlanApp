@@ -128,4 +128,37 @@ describe('PlaceForm', () => {
         renderForm();
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
+
+    describe('onDirtyChange', () => {
+        test('reports false, true after typing a name, false after clearing it', async () => {
+            const onDirtyChange = jest.fn();
+            renderForm({ onDirtyChange });
+            expect(onDirtyChange.mock.calls).toEqual([[false]]);
+            await userEvent.type(screen.getByLabelText('Name'), 'S');
+            expect(onDirtyChange.mock.calls).toEqual([[false], [true]]);
+            await userEvent.clear(screen.getByLabelText('Name'));
+            expect(onDirtyChange.mock.calls).toEqual([[false], [true], [false]]);
+        });
+
+        test('an edit form is clean until a field changes', async () => {
+            const onDirtyChange = jest.fn();
+            renderForm({
+                onDirtyChange,
+                initial: { name: 'Shop', address: '2 Side St', kind: 'supplier', notes: null, visitMinutes: 60 },
+            });
+            expect(onDirtyChange.mock.calls).toEqual([[false]]);
+            await userEvent.selectOptions(screen.getByLabelText('Usual visit'), '90');
+            expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+        });
+
+        test('is clean again after a successful add clears the form', async () => {
+            const onDirtyChange = jest.fn();
+            renderForm({ onDirtyChange, clearOnSuccess: true });
+            await userEvent.type(screen.getByLabelText('Name'), 'Shop');
+            await userEvent.type(screen.getByLabelText('Address'), '2 Side St');
+            await userEvent.click(screen.getByRole('button', { name: 'Add place' }));
+            await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+            expect(onDirtyChange).toHaveBeenCalledWith(true);
+        });
+    });
 });

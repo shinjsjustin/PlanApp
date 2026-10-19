@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export const PERSON_GROUPS = [
     { value: 'family', label: 'Family' },
@@ -45,9 +45,16 @@ const removeAt = (list, index) => list.filter((_, i) => i !== index);
 
 // Controlled form for a new person or an edit. `onSubmit(fields)` resolves true
 // when saved; `clearOnSuccess` empties the form then (for the New person form).
-const PersonForm = ({ initial, places, submitLabel, onSubmit, onCancel, clearOnSuccess = false }) => {
-    const [draft, setDraft] = useState(initial ? toDraft(initial) : EMPTY);
+const PersonForm = ({ initial, places, submitLabel, onSubmit, onCancel, onDirtyChange, clearOnSuccess = false }) => {
+    const [startDraft] = useState(initial ? toDraft(initial) : EMPTY);
+    const [draft, setDraft] = useState(startDraft);
     const [isSaving, setIsSaving] = useState(false);
+    const isDirty = JSON.stringify(draft) !== JSON.stringify(startDraft);
+
+    useEffect(() => {
+        if (onDirtyChange) onDirtyChange(isDirty);
+    }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const isValid = draft.name.trim() !== '';
 
     const update = (changes) => setDraft((current) => ({ ...current, ...changes }));

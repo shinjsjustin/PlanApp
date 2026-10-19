@@ -235,4 +235,41 @@ describe('PersonForm', () => {
         render(<PersonForm submitLabel="Save" places={[]} onSubmit={jest.fn()} />);
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
+
+    describe('onDirtyChange', () => {
+        test('reports false, true after typing a name, false after clearing it', async () => {
+            const onDirtyChange = jest.fn();
+            renderForm({ onDirtyChange });
+            expect(onDirtyChange.mock.calls).toEqual([[false]]);
+            await userEvent.type(screen.getByLabelText('Name'), 'A');
+            expect(onDirtyChange.mock.calls).toEqual([[false], [true]]);
+            await userEvent.clear(screen.getByLabelText('Name'));
+            expect(onDirtyChange.mock.calls).toEqual([[false], [true], [false]]);
+        });
+
+        test('an edit form is clean until a field changes', async () => {
+            const onDirtyChange = jest.fn();
+            renderForm({
+                onDirtyChange,
+                initial: {
+                    ...BLANK_PAYLOAD,
+                    emails: ['a@x.com'],
+                    phones: [{ label: 'home', number: '555' }],
+                    place: { id: 4, name: 'Shop' },
+                },
+            });
+            expect(onDirtyChange.mock.calls).toEqual([[false]]);
+            await userEvent.type(screen.getByLabelText('Phone number 1'), '6');
+            expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+        });
+
+        test('is clean again after a successful add clears the form', async () => {
+            const onDirtyChange = jest.fn();
+            renderForm({ onDirtyChange, clearOnSuccess: true });
+            await userEvent.type(screen.getByLabelText('Name'), 'Ann');
+            await userEvent.click(submitButton());
+            await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+            expect(onDirtyChange).toHaveBeenCalledWith(true);
+        });
+    });
 });

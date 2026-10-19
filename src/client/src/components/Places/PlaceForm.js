@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
 
@@ -31,9 +31,16 @@ const toDraft = (place) => ({
 
 // Controlled form for a new place or an edit. `onSubmit(fields)` resolves true
 // when saved; `clearOnSuccess` empties the form then (for the New place form).
-const PlaceForm = ({ initial, submitLabel, onSubmit, onCancel, clearOnSuccess = false }) => {
-    const [draft, setDraft] = useState(initial ? toDraft(initial) : EMPTY);
+const PlaceForm = ({ initial, submitLabel, onSubmit, onCancel, onDirtyChange, clearOnSuccess = false }) => {
+    const [startDraft] = useState(initial ? toDraft(initial) : EMPTY);
+    const [draft, setDraft] = useState(startDraft);
     const [isSaving, setIsSaving] = useState(false);
+    const isDirty = JSON.stringify(draft) !== JSON.stringify(startDraft);
+
+    useEffect(() => {
+        if (onDirtyChange) onDirtyChange(isDirty);
+    }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const isValid = draft.name.trim() !== '' && draft.address.trim() !== '';
 
     const setField = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
