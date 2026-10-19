@@ -12,8 +12,9 @@ beforeEach(() => {
 });
 afterEach(() => localStorage.clear());
 
-test('phone tab bar renders on /places with a Places link to /places', () => {
-    render(<MemoryRouter initialEntries={['/places']}><TabBar /></MemoryRouter>);
-    expect(screen.getByRole('link', { name: 'Places' })).toHaveAttribute('href', '/places');
+test('phone tab bar renders on /address-book with an Address Book link to /address-book', () => {
+    render(<MemoryRouter initialEntries={['/address-book']}><TabBar /></MemoryRouter>);
+    expect(screen.getByRole('link', { name: 'Address Book' })).toHaveAttribute('href', '/address-book');
+    expect(screen.queryByRole('link', { name: 'Places' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
 });

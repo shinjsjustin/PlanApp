@@ -8,11 +8,11 @@ jest.mock('../../hooks/useIsPhone');
 
 const renderLink = () => render(<MemoryRouter><PlacesLink /></MemoryRouter>);
 
-test('renders a neon-button link to /places on desktop', () => {
+test('renders a neon-button link to /address-book on desktop', () => {
     useIsPhone.mockReturnValue(false);
     renderLink();
-    const link = screen.getByRole('link', { name: 'Places' });
-    expect(link.getAttribute('href')).toBe('/places');
+    const link = screen.getByRole('link', { name: 'Address Book' });
+    expect(link.getAttribute('href')).toBe('/address-book');
     expect(link.className).toContain('neon-button');
 });
 

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import PlaceForm from './PlaceForm';
 
-const KINDS = ['home', 'work', 'client', 'church', 'supplier', 'person', 'other'];
+const KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
 
 const renderForm = (props = {}) => {
     const onSubmit = jest.fn().mockResolvedValue(true);
@@ -25,7 +25,7 @@ describe('PlaceForm', () => {
         expect(screen.getByLabelText('Usual visit')).toBeInTheDocument();
     });
 
-    test('Kind offers the seven kinds', () => {
+    test('Kind offers the six kinds, without person', () => {
         renderForm();
         const values = within(screen.getByLabelText('Kind')).getAllByRole('option').map((o) => o.value);
         expect(values).toEqual(KINDS);

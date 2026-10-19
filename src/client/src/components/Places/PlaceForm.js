@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'person', 'other'];
+export const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
 
 const VISIT_STEP_MINUTES = 30;
 const MAX_VISIT_MINUTES = 720;
