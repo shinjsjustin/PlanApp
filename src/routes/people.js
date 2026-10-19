@@ -25,9 +25,7 @@ const MAX_TEXT = 255;
 const MAX_PHONE_LABEL = 40;
 const MAX_PHONE_NUMBER = 50;
 const MAX_NOTES = 5000;
-const MAX_LEEMAC_CLIENT_ID = 64;
-// The column is an unsigned int, so anything but digits would fail as a 500.
-const DIGITS = /^\d{1,10}$/;
+const MAX_CLIENT_ID_LENGTH = 64;
 
 const text = (field, maxLength) =>
     z
@@ -53,9 +51,7 @@ const fieldSchemas = {
         .refine((groups) => new Set(groups).size === groups.length, { message: 'groups must be unique' }),
     notes: z.string({ error: 'notes must be a string' }).max(MAX_NOTES).nullable(),
     placeId: z.number({ error: 'placeId must be a number' }).int().positive().nullable(),
-    leemacClientId: text('leemacClientId', MAX_LEEMAC_CLIENT_ID)
-        .regex(DIGITS, 'leemacClientId must be digits')
-        .nullable(),
+    leemacClientId: requiredText('leemacClientId', MAX_CLIENT_ID_LENGTH).nullable(),
     leemacClientName: text('leemacClientName', MAX_TEXT).nullable(),
 };
 

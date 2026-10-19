@@ -30,14 +30,14 @@ describe('peopleRepo', () => {
         const created = await repo.create(conn, {
             ownerId, name: 'Bo', company: 'Acme', role: 'CTO', notes: 'n',
             emails: ['a@x.com', 'b@x.com'], phones: [{ label: 'cell', number: '555' }],
-            groups: ['family', 'church'], placeId: place.id, leemacClientId: 5, leemacClientName: 'Acme Inc',
+            groups: ['family', 'church'], placeId: place.id, leemacClientId: 'c5', leemacClientName: 'Acme Inc',
         });
 
         expect(created).toMatchObject({
             company: 'Acme', role: 'CTO', notes: 'n',
             emails: ['a@x.com', 'b@x.com'], phones: [{ label: 'cell', number: '555' }],
             contact_groups: 'family,church', place_id: place.id, place_name: 'Home', place_address: '1 Main',
-            leemac_client_id: 5, leemac_client_name: 'Acme Inc',
+            leemac_client_id: 'c5', leemac_client_name: 'Acme Inc',
         });
     });
 

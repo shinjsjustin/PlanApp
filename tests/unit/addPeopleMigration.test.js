@@ -23,7 +23,7 @@ describe.each([
     expect(sql).toMatch(/`emails`\s+json NOT NULL,/);
     expect(sql).toMatch(/`phones`\s+json NOT NULL,/);
     expect(sql).toMatch(/`notes`\s+text/);
-    expect(sql).toMatch(/`leemac_client_id`/);
+    expect(sql).toMatch(/`leemac_client_id`\s+varchar\(64\) DEFAULT NULL,/);
     expect(sql).toMatch(/`leemac_client_name`/);
     expect(sql).toMatch(/`created_at`/);
     expect(sql).toMatch(/`updated_at`/);

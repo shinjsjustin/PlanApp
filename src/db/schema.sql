@@ -183,7 +183,7 @@ CREATE TABLE `people` (
   `contact_groups`      set('family','friend','client_contact','supplier','church','other') NOT NULL DEFAULT '',
   `notes`               text DEFAULT NULL,
   `place_id`            int unsigned DEFAULT NULL,
-  `leemac_client_id`    int unsigned DEFAULT NULL,
+  `leemac_client_id`    varchar(64) DEFAULT NULL,
   `leemac_client_name`  varchar(255) DEFAULT NULL,
   `created_at`          timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`          timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

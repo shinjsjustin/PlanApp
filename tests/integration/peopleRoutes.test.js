@@ -118,9 +118,23 @@ describe('POST /api/people', () => {
             groups: ['client_contact', 'church'],
             notes: 'hi',
             place: { id: place.id, name: 'Office', address: 'Office St' },
-            leemacClientId: 123,
+            leemacClientId: '123',
             leemacClientName: 'Client One',
         });
+    });
+
+    test('accepts a non-numeric leemacClientId and a 64-character one', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const longId = 'a'.repeat(64);
+
+        const short = await request(app).post('/api/people').set(as(ownerId)).send({ name: 'A', leemacClientId: ' c1 ' });
+        const long = await request(app).post('/api/people').set(as(ownerId)).send({ name: 'B', leemacClientId: longId });
+
+        expect(short.status).toBe(201);
+        expect(short.body.data.leemacClientId).toBe('c1');
+        expect(long.status).toBe(201);
+        expect(long.body.data.leemacClientId).toBe(longId);
     });
 
     test('accepts an email already on another person', async () => {
@@ -166,7 +180,9 @@ describe('POST /api/people', () => {
         ['11 phones', { name: 'n', phones: tooMany(11, (i) => ({ label: '', number: `${i + 1}` })) }],
         ['long notes', { name: 'n', notes: 'a'.repeat(5001) }],
         ['zero placeId', { name: 'n', placeId: 0 }],
-        ['non-numeric leemacClientId', { name: 'n', leemacClientId: 'c1' }],
+        ['65-character leemacClientId', { name: 'n', leemacClientId: 'a'.repeat(65) }],
+        ['blank leemacClientId', { name: 'n', leemacClientId: ' ' }],
+        ['numeric leemacClientId', { name: 'n', leemacClientId: 5 }],
     ])('answers 400 and stores nothing for %s', async (_label, payload) => {
         const conn = getConn();
         const ownerId = await createTestUser(conn);

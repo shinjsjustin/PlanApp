@@ -8,7 +8,7 @@ describe('toPerson', () => {
         emails: ['a@x.com'], phones: [{ label: 'cell', number: '555' }],
         contact_groups: 'family,client_contact', notes: 'hi',
         place_id: 4, place_name: 'Home', place_address: '1 Main',
-        leemac_client_id: 7, leemac_client_name: 'Acme Inc',
+        leemac_client_id: 'c7', leemac_client_name: 'Acme Inc',
         created_at: new Date(), updated_at: new Date(),
     };
 
@@ -18,7 +18,7 @@ describe('toPerson', () => {
             emails: ['a@x.com'], phones: [{ label: 'cell', number: '555' }],
             groups: ['family', 'client_contact'], notes: 'hi',
             place: { id: 4, name: 'Home', address: '1 Main' },
-            leemacClientId: 7, leemacClientName: 'Acme Inc',
+            leemacClientId: 'c7', leemacClientName: 'Acme Inc',
         });
     });
 

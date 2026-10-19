@@ -39,7 +39,7 @@ Text is trimmed before it is checked. On POST every field except `name` is optio
 | `groups` | array of strings | no repeats, each one of the six groups below |
 | `notes` | string or null | up to 5000 characters |
 | `placeId` | integer or null | positive, must be one of your own places |
-| `leemacClientId` | string or null | digits only, 1 to 10 digits |
+| `leemacClientId` | string or null | up to 64 characters |
 | `leemacClientName` | string or null | up to 255 characters |
 
 Responses return `place` (an object) instead of `placeId`.
