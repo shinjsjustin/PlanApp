@@ -31,12 +31,17 @@ const router = express.Router();
 
 const updateLayerSchema = z.object({ title: titleSchema });
 
-// The endpoint takes no input — the sequence it creates is untitled and goes at
-// the end of the layer. Parsing an empty shape drops anything else the caller
-// sent rather than letting it through unexamined.
-const createSequenceSchema = z.object({});
+const ownerSchema = z.enum(sequencesRepo.SEQUENCE_OWNERS);
 
-const importSequencesSchema = z.object({ schema: planSchemaTextSchema });
+// The sequence it creates is untitled and goes at the end of the layer; only the
+// owner can be chosen. Parsing a fixed shape drops anything else the caller sent
+// rather than letting it through unexamined.
+const createSequenceSchema = z.object({ owner: ownerSchema.optional() });
+
+const importSequencesSchema = z.object({
+    schema: planSchemaTextSchema,
+    owner: ownerSchema.optional(),
+});
 
 // PATCH /api/layers/:id — rename.
 router.patch(
@@ -81,12 +86,12 @@ router.post(
     '/:id/sequences',
     asyncRoute(async (req, res) => {
         const layerId = parseId(req.params.id);
-        createSequenceSchema.parse(req.body ?? {});
+        const { owner } = createSequenceSchema.parse(req.body ?? {});
 
         const sequence = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'layer', layerId, req.user.id);
 
-            return sequencesRepo.create(conn, { layerId });
+            return sequencesRepo.create(conn, { layerId, owner });
         });
 
         res.sendData(toSequence(sequence), 201);
@@ -100,13 +105,13 @@ router.post(
     '/:id/sequences/import',
     asyncRoute(async (req, res) => {
         const layerId = parseId(req.params.id);
-        const { schema } = importSequencesSchema.parse(req.body ?? {});
+        const { schema, owner } = importSequencesSchema.parse(req.body ?? {});
         const parsed = parsePlanSchema(schema, { mode: 'sequences' });
 
         const { sequences, todos } = await withTransaction(async (conn) => {
             const project = await assertOwnership(conn, 'layer', layerId, req.user.id);
 
-            return writeImportedPlan(conn, { projectId: project.id, layerId, parsed });
+            return writeImportedPlan(conn, { projectId: project.id, layerId, parsed, owner });
         });
 
         res.sendData({ sequences: sequences.map(toSequence), todos: todos.map(toTodo) }, 201);

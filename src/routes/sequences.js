@@ -38,7 +38,7 @@ const { withTransaction } = require('../db/unitOfWork');
 
 const router = express.Router();
 
-const PATCHABLE_FIELDS = ['title', 'description', 'isBlocked', 'isCollapsed', 'placeId'];
+const PATCHABLE_FIELDS = ['title', 'description', 'isBlocked', 'isCollapsed', 'owner', 'placeId'];
 
 const updateSequenceSchema = requireSomeField(
     z.object({
@@ -46,6 +46,7 @@ const updateSequenceSchema = requireSomeField(
         description: descriptionSchema.optional(),
         isBlocked: z.boolean().optional(),
         isCollapsed: z.boolean().optional(),
+        owner: z.enum(sequencesRepo.SEQUENCE_OWNERS).optional(),
         placeId: idSchema.nullable().optional(),
     }),
     PATCHABLE_FIELDS

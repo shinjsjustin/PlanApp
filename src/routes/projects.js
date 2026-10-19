@@ -81,6 +81,7 @@ const createLayerSchema = z.object({ afterLayerId: idSchema.nullish() });
 const importLayerSchema = z.object({
     schema: planSchemaTextSchema,
     afterLayerId: idSchema.nullish(),
+    owner: z.enum(sequencesRepo.SEQUENCE_OWNERS).optional(),
 });
 
 // An absent or null `sequenceId` means the unorganized panel — the to-do exists
@@ -281,7 +282,7 @@ router.post(
     '/:id/layers/import',
     asyncRoute(async (req, res) => {
         const projectId = parseId(req.params.id);
-        const { schema, afterLayerId = null } = importLayerSchema.parse(req.body ?? {});
+        const { schema, afterLayerId = null, owner } = importLayerSchema.parse(req.body ?? {});
         const parsed = parsePlanSchema(schema, { mode: 'layer' });
 
         const result = await withTransaction(async (conn) => {
@@ -301,7 +302,7 @@ router.post(
                 title: parsed.layerTitle,
                 afterLayerId,
             });
-            const written = await writeImportedPlan(conn, { projectId, layerId: layer.id, parsed });
+            const written = await writeImportedPlan(conn, { projectId, layerId: layer.id, parsed, owner });
 
             return { layer, ...written };
         });

@@ -51,6 +51,12 @@
 -- is for a to-do or a sequence; there is no CHECK saying so, because MySQL forbids
 -- CHECK constraints on columns used by cascading foreign keys.
 --
+-- A database created before sequence owners is missing the owner column. Apply in
+-- place rather than re-running this file (db/migration/2026-10-19_add_sequence_owner.sql):
+--   ALTER TABLE `sequences`
+--     ADD COLUMN `owner` enum('justin','bourne') NOT NULL DEFAULT 'justin' AFTER `is_collapsed`;
+--   UPDATE `sequences` SET `owner` = 'bourne' WHERE LOWER(`description`) LIKE 'bourne%';
+--
 -- A database created before dated calendar days is missing the date column. Add
 -- it in place rather than re-running this file
 -- (db/migration/2026-10-15_add_calendar_day_dates.sql):
@@ -195,6 +201,7 @@ CREATE TABLE `sequences` (
   `description` text DEFAULT NULL,
   `is_blocked` tinyint(1) NOT NULL DEFAULT '0',
   `is_collapsed` tinyint(1) NOT NULL DEFAULT '0',
+  `owner` enum('justin','bourne') NOT NULL DEFAULT 'justin',
   `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
   `place_id` int unsigned DEFAULT NULL,
   `position` int NOT NULL,

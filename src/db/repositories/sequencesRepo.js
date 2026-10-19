@@ -20,16 +20,19 @@ const todosRepo = require('./todosRepo');
 const TABLE = 'sequences';
 const TODOS_TABLE = 'todos';
 
+const SEQUENCE_OWNERS = ['justin', 'bourne'];
+
 const UPDATABLE_COLUMNS = {
     title: 'title',
     description: 'description',
     isBlocked: 'is_blocked',
     isCollapsed: 'is_collapsed',
+    owner: 'owner',
     placeId: 'place_id',
 };
 
 const SELECT_COLUMNS =
-    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, is_pinned, place_id, position, ' +
+    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, owner, is_pinned, place_id, position, ' +
     'created_at, updated_at';
 
 const findById = async (conn, id) => {
@@ -130,7 +133,7 @@ const listIds = async (conn, layerId) => {
  * Creates a sequence at the end of its layer. `project_id` is derived from the
  * layer rather than taken from the caller, so the two can never disagree.
  */
-const create = async (conn, { layerId, title, description }) => {
+const create = async (conn, { layerId, title, description, owner }) => {
     const [layerRows] = await conn.execute(
         'SELECT id, project_id FROM layers WHERE id = ?',
         [layerId]
@@ -153,6 +156,11 @@ const create = async (conn, { layerId, title, description }) => {
     if (description !== undefined) {
         columns.push('description');
         values.push(description);
+    }
+
+    if (owner !== undefined) {
+        columns.push('owner');
+        values.push(owner);
     }
 
     const [result] = await conn.execute(
@@ -269,6 +277,7 @@ const remove = async (conn, id) => {
 };
 
 module.exports = {
+    SEQUENCE_OWNERS,
     create,
     findById,
     findByIds,
