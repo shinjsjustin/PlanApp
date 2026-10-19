@@ -84,3 +84,31 @@
 .address-book-page--phone .address-book-filters {
     flex-direction: column;
 }
+
+.form-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md);
+    background-color: var(--bg-backdrop);
+}
+
+.form-dialog {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 480px;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: var(--space-lg);
+    background-color: var(--bg-page);
+    border: 1px solid var(--neon-blue);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glow-box-shadow);
+}
+
+.form-dialog-error {
+    color: var(--color-danger);
+}

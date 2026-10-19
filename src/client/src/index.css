@@ -22,6 +22,7 @@
   /* One ground for every app page — the project canvas, the projects grid, the
    * auth forms all sit on this. */
   --bg-page:  #000;
+  --bg-backdrop: rgba(0, 0, 0, 0.7);
   --bg-card:  #fff;
   --bg-alt:   #f9f9f9;
   --bg-input: #fff;
