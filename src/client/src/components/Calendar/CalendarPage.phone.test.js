@@ -23,7 +23,7 @@ beforeEach(() => {
                 ? Promise.reject(calendarAnswer)
                 : Promise.resolve(calendarAnswer);
         }
-        return Promise.resolve([{ id: 2, title: 'Auth rewrite', pinnedTodos: [] }]);
+        return Promise.resolve([{ id: 2, title: 'Auth rewrite', datedSequences: [] }]);
     });
 });
 

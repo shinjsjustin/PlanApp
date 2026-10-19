@@ -144,15 +144,26 @@ const poolSequence = (sequenceId) => ({
     title: 'Launch',
     description: 'Ship it',
     isBlocked: false,
-    isPinned: true,
     projectId: 3,
     projectTitle: 'Auth',
-    todos: [{ id: 1, text: 'first step', status: 'incomplete', isPinned: false, position: 0 }],
+    todos: [
+        {
+            id: 1,
+            todoId: 1,
+            text: 'first step',
+            status: 'incomplete',
+            position: 0,
+            projectId: 3,
+            projectTitle: 'Auth',
+            sequenceId: 5,
+            sequenceTitle: 'Launch',
+        },
+    ],
 });
 
 const poolFor = (sequences) => ({
     status: POOL_STATUS.ready,
-    projects: [{ id: 3, title: 'Auth', todos: [], sequences }],
+    days: [{ date: '2030-05-10', sequences }],
     refreshError: '',
     loadError: '',
     reload: () => {},
@@ -188,8 +199,6 @@ const renderArea = (state, { pool = poolFor([]), onOpenSource = () => {} } = {})
                 pool={pool}
                 notes={NOTES}
                 onOpenSource={onOpenSource}
-                expandedProjectIds={new Set([3])}
-                onToggleProject={() => {}}
             />
         </CalendarProvider>
     );
@@ -253,7 +262,7 @@ describe('a pool sequence dropped on a day', () => {
             { days: [day(1, 0)], items: [todoBooking(5, 1, 540)] },
             { pool: poolFor([poolSequence(5)]) }
         );
-        const grip = document.querySelector('.panel-sequence-row .panel-todo-grip');
+        const grip = document.querySelector('.panel-sequence-head .panel-todo-grip');
 
         await dragTo(grip, { x: 500, y: 300 }, { x: 100, y: 300 + minutesToPx(600) });
 
@@ -265,14 +274,29 @@ describe('a pool sequence dropped on a day', () => {
         );
     });
 
+    test('one to-do dragged out of its block books that to-do on the day it is dropped', async () => {
+        const { commit } = renderArea(
+            { days: [day(1, 0), day(2, 1)], items: [] },
+            { pool: poolFor([poolSequence(5)]) }
+        );
+        const grip = document.querySelector('.panel-sequence-todos .panel-todo-grip');
+
+        await dragTo(grip, { x: 500, y: 300 }, { x: COLUMN_PITCH_PX + 100, y: 300 + minutesToPx(600) });
+
+        expect(commit).toHaveBeenCalledTimes(1);
+        const items = commit.mock.calls[0][0].items;
+        expect(items.map(itemKeyOf)).toEqual(['todo:1']);
+        expect(items[0]).toEqual(expect.objectContaining({ todoId: 1, dayId: 2 }));
+    });
+
     test('is not draggable once that sequence is booked, though a to-do with its id is free', () => {
         renderArea(
             { days: [day(1, 0)], items: [sequenceBooking(5, 1, 540)] },
             { pool: poolFor([poolSequence(5)]) }
         );
 
-        expect(document.querySelector('.panel-sequence-row .panel-todo-grip')).toBeNull();
-        expect(document.querySelector('.panel-sequence-row .panel-todo-badge')).toHaveTextContent('Day 1');
+        expect(document.querySelector('.panel-sequence-head .panel-todo-grip')).toBeNull();
+        expect(document.querySelector('.panel-sequence-head .panel-todo-badge')).toHaveTextContent('Day 1');
     });
 });
 
@@ -332,10 +356,10 @@ describe('a sequence booking in the grid', () => {
 
             fireEvent.mouseEnter(card);
             act(() => jest.advanceTimersByTime(399));
-            expect(screen.queryByText('first step')).toBeNull();
+            expect(screen.queryByRole('tooltip')).toBeNull();
 
             act(() => jest.advanceTimersByTime(1));
-            expect(screen.getByText('first step')).toBeInTheDocument();
+            expect(screen.getByRole('tooltip')).toHaveTextContent('first step');
         });
     });
 });

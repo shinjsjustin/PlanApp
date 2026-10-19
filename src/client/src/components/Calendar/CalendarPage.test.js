@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import CalendarPage from './CalendarPage';
 import { api } from '../../lib/api';
 import { loadStylesheets } from '../../testUtils/stylesheet';
+import { dayLabel, todayKey } from '../../lib/dates';
 
 jest.mock('../../lib/api');
 
@@ -56,12 +57,28 @@ const mockNotesFailure = (message) => {
     notesError = message;
 };
 
-const pin = (overrides = {}) => ({
-    id: 7, text: 'Wire up the token refresh', status: 'incomplete', isPinned: true,
-    sequenceId: 9, sequenceTitle: 'Session handling', position: 0, ...overrides,
+const TODAY = todayKey();
+const LATER = '2099-01-02';
+
+const planned = (overrides = {}) => ({
+    id: 7, text: 'Wire up the token refresh', status: 'incomplete', position: 0, ...overrides,
 });
 
-const pinnedProjects = (todos = [pin()]) => [{ id: 2, title: 'Auth rewrite', pinnedTodos: todos }];
+const datedSequence = (overrides = {}) => ({
+    id: 9, title: 'Session handling', date: TODAY, owner: 'justin', description: null,
+    isBlocked: false, layerId: 1, visitMinutes: null, todos: [planned()], ...overrides,
+});
+
+const datedProjects = (sequences = [datedSequence()]) => [
+    { id: 2, title: 'Auth rewrite', datedSequences: sequences },
+];
+
+const bookingOf = (overrides = {}) => ({
+    id: 40, dayId: 1, todoId: 7, text: 'Wire up the token refresh', status: 'incomplete',
+    projectId: 2, projectTitle: 'Auth rewrite', sequenceId: 9, sequenceTitle: 'Session handling',
+    startMinutes: 540, durationMinutes: 60, ...overrides,
+});
+
 
 /** One day, in the shape `GET /api/calendar` answers with. */
 const day = (id) => ({ id, position: id - 1, createdAt: '2026-09-16T08:00:00.000Z' });
@@ -76,57 +93,58 @@ beforeEach(() => {
 });
 
 describe('CalendarPage', () => {
+
     test('styles the back link as a neon button', async () => {
-        poolAnswer = pinnedProjects([pin()]);
+        poolAnswer = datedProjects();
         renderPage();
 
         expect(await screen.findByRole('link', { name: /all projects/i })).toHaveClass('neon-button');
     });
 
-    test('complete pins are inert while blocked unscheduled pins remain drag sources', async () => {
-        poolAnswer = pinnedProjects([
-            pin({ status: 'complete' }),
-            pin({ id: 8, text: 'Blocked pin', status: 'blocked', sequenceId: null, sequenceTitle: null }),
+    test("the panel lists Justin's dated sequences grouped by day, with their to-dos inside", async () => {
+        poolAnswer = datedProjects([
+            datedSequence({ id: 10, title: 'Later work', date: LATER, todos: [planned({ id: 8, text: 'Ship it' })] }),
+            datedSequence(),
+            datedSequence({ id: 11, title: 'Bourne work', owner: 'bourne', todos: [planned({ id: 9, text: 'Not mine' })] }),
         ]);
         renderPage();
-        await userEvent.click(await screen.findByRole('button', { name: /Auth rewrite/ }));
 
-        const complete = screen.getByText('Wire up the token refresh').closest('li');
-        const blocked = screen.getByText('Blocked pin').closest('li');
-        expect(complete).toHaveClass('panel-todo-row--complete');
-        expect(complete.querySelector('[draggable="true"]')).toBeNull();
-        expect(complete.querySelector('[role="button"]')).toBeNull();
-        expect(blocked).toHaveClass('panel-todo-row--blocked');
-        expect(blocked.querySelector('[draggable="true"]')).toBeInTheDocument();
-        expect(blocked).toHaveTextContent('Unorganized');
-        expect(blocked.querySelector('.calendar-pin-icon')).toBeInTheDocument();
+        await screen.findByText('Session handling');
+        const panel = within(screen.getByRole('region', { name: 'Projects' }));
+        const headings = panel.getAllByRole('heading', { level: 3 });
+        expect(headings.map((heading) => heading.textContent)).toEqual(['Today', dayLabel(LATER)]);
+        const block = panel.getByText('Session handling').closest('.panel-sequence-row');
+        expect(within(block).getByText('Wire up the token refresh')).toBeInTheDocument();
+        expect(panel.getByText('Ship it')).toBeInTheDocument();
+        expect(panel.queryByText('Bourne work')).not.toBeInTheDocument();
+        expect(panel.queryByText('Not mine')).not.toBeInTheDocument();
     });
 
-    test('a booking remains after unpinning and loses its icon on the next calendar read', async () => {
-        const booking = {
-            id: 40, todoId: 7, dayId: 1, text: 'Booked pin', status: 'blocked',
-            isPinned: true, projectId: 2, projectTitle: 'Auth rewrite',
-            sequenceId: 9, sequenceTitle: 'Session handling',
-            startMinutes: 540, durationMinutes: 60,
-        };
-        mockCalendar({ days: [day(1)], items: [booking] });
-        poolAnswer = pinnedProjects([pin({ text: 'Booked pin', status: 'blocked' })]);
-        const first = renderPage();
+    test('a complete to-do in a block is inert while an incomplete one is a drag source', async () => {
+        poolAnswer = datedProjects([
+            datedSequence({
+                todos: [planned({ status: 'complete' }), planned({ id: 8, text: 'Open step', position: 1 })],
+            }),
+        ]);
+        renderPage();
+
+        const complete = (await screen.findByText('Wire up the token refresh')).closest('li');
+        const open = screen.getByText('Open step').closest('li');
+        expect(complete).toHaveClass('panel-todo-row--complete');
+        expect(complete.querySelector('[draggable="true"]')).toBeNull();
+        expect(open.querySelector('[draggable="true"]')).toBeInTheDocument();
+    });
+
+    test('a booking shows no pin icon or Pinned text', async () => {
+        mockCalendar({ days: [day(1)], items: [bookingOf({ status: 'blocked', isPinned: true })] });
+        poolAnswer = datedProjects();
+        const { container } = renderPage();
         await screen.findByRole('region', { name: 'Days' });
-        expect(first.container.querySelector('.day-item-card .calendar-pin-icon')).toBeInTheDocument();
-        first.unmount();
 
-        mockCalendar({ days: [day(1)], items: [{ ...booking, isPinned: false }] });
-        poolAnswer = pinnedProjects([]);
-        const second = renderPage();
-        await screen.findByText('Booked pin');
-        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
-
-        const card = second.container.querySelector('.day-item-card');
+        const card = container.querySelector('.day-item-card');
         expect(card).toHaveClass('day-item-card--blocked');
-        expect(card).toHaveTextContent('Booked pin');
         expect(card.querySelector('.calendar-pin-icon')).toBeNull();
-        expect(screen.getByText('No pinned to-dos yet.')).toBeInTheDocument();
+        expect(card).not.toHaveTextContent('Pinned');
         expect(api.delete).not.toHaveBeenCalled();
     });
 
@@ -202,180 +220,83 @@ describe('CalendarPage', () => {
         expect(screen.getByRole('region', { name: 'Projects' })).toBeInTheDocument();
     });
 
-    test('a failed calendar leaves the pool listed but with no count to claim', async () => {
-        // Arrange — the panels fail independently (design section 10), so a
-        // calendar that will not load still leaves the pool on screen. What it
-        // cannot leave behind is an answer: with no calendar, every booked to-do
-        // would otherwise be counted as unscheduled and the pill would read a
-        // number that is simply wrong.
-        const projects = pinnedProjects();
+    test('a failed calendar leaves the pool listed but with no day to claim', async () => {
+        // The panels fail independently (design section 10): with no calendar,
+        // no to-do may claim to be booked.
         mockCalendarFailure('Could not reach the server.');
-        poolAnswer = projects;
+        poolAnswer = datedProjects();
 
-        // Act
         const { container } = renderPage();
         await screen.findByText('Could not reach the server.');
-        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
 
-        // Assert — the row is still listed, but nothing claims where it went.
         expect(screen.getByText('Wire up the token refresh')).toBeInTheDocument();
-        expect(container.querySelector('.pool-card-count')).not.toBeInTheDocument();
         expect(container.querySelector('.panel-todo-badge')).not.toBeInTheDocument();
 
-        // Act — and a retry that succeeds restores both, without a reload.
-        mockCalendar({
-            days: [{ id: 1, position: 0 }],
-            items: [
-                {
-                    id: 40,
-                    dayId: 1,
-                    todoId: 7,
-                    text: 'Wire up the token refresh',
-                    status: 'incomplete',
-                    projectId: 2,
-                    projectTitle: 'Auth rewrite',
-                    sequenceId: 9,
-                    sequenceTitle: 'Session handling',
-                    startMinutes: 540,
-                    durationMinutes: 60,
-                },
-            ],
-        });
+        mockCalendar({ days: [{ id: 1, position: 0 }], items: [bookingOf()] });
         await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-        // Assert
         await waitFor(() =>
-            expect(container.querySelector('.pool-card-count')).toHaveTextContent('0')
+            expect(container.querySelector('.panel-todo-badge')).toHaveTextContent('Day 1')
         );
-        expect(container.querySelector('.panel-todo-badge')).toHaveTextContent('Day 1');
     });
 
-    test('completing a booking refreshes the same pin as complete and keeps its Day badge', async () => {
-        mockCalendar({
-            days: [{ id: 1, position: 0 }],
-            items: [
-                {
-                    id: 40,
-                    dayId: 1,
-                    todoId: 7,
-                    text: 'Wire up the token refresh',
-                    status: 'incomplete',
-                    projectId: 2,
-                    projectTitle: 'Auth rewrite',
-                    sequenceId: 9,
-                    sequenceTitle: 'Session handling',
-                    startMinutes: 540,
-                    durationMinutes: 60,
-                },
-            ],
-        });
-        poolAnswer = pinnedProjects();
+    test('completing a booking refreshes the same to-do as complete and keeps its Day badge', async () => {
+        mockCalendar({ days: [{ id: 1, position: 0 }], items: [bookingOf()] });
+        poolAnswer = datedProjects();
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
 
         const { container } = renderPage();
         await screen.findByRole('region', { name: 'Days' });
-        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
-        expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
 
         mockCalendarFailure('The calendar is not asked again.');
-        poolAnswer = pinnedProjects([pin({ status: 'complete' })]);
+        poolAnswer = datedProjects([datedSequence({ todos: [planned({ status: 'complete' })] })]);
 
-        // Act
         await userEvent.click(
             screen.getByRole('button', { name: 'Complete “Wire up the token refresh”' })
         );
 
-        // Assert — the same row remains in the open panel and on its booked day.
-        const row = container.querySelector('.panel-todo-row');
+        const row = container.querySelector('.panel-sequence-todos .panel-todo-row');
         await waitFor(() => expect(row).toHaveClass('panel-todo-row--complete'));
-        expect(row).toHaveTextContent('Wire up the token refresh');
         expect(row).toHaveTextContent('Day 1');
-        expect(row.querySelector('.calendar-pin-icon')).toBeInTheDocument();
         expect(container.querySelector('.day-item-card')).toHaveClass('day-item-card--complete');
-        expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
     });
 
-    test('a refill that fails says so and leaves the open pool alone', async () => {
-        // Arrange — the read behind a tick is one nobody asked to wait for, so
-        // losing it must not fold the panel away: the rows on screen are still
-        // the last thing the server actually said.
-        mockCalendar({
-            days: [{ id: 1, position: 0 }],
-            items: [
-                {
-                    id: 40,
-                    dayId: 1,
-                    todoId: 7,
-                    text: 'Wire up the token refresh',
-                    status: 'incomplete',
-                    projectId: 2,
-                    projectTitle: 'Auth rewrite',
-                    sequenceId: 9,
-                    sequenceTitle: 'Session handling',
-                    startMinutes: 540,
-                    durationMinutes: 60,
-                },
-            ],
-        });
-        poolAnswer = pinnedProjects();
+    test('a refill that fails says so and leaves the listed sequences alone', async () => {
+        mockCalendar({ days: [{ id: 1, position: 0 }], items: [bookingOf()] });
+        poolAnswer = datedProjects();
         api.patch.mockResolvedValue({ id: 7, status: 'complete' });
 
-        const { container } = renderPage();
+        renderPage();
         await screen.findByRole('region', { name: 'Days' });
-        await userEvent.click(screen.getByRole('button', { name: /Auth rewrite/ }));
 
         mockCalendar({ days: [], items: [] });
         mockPoolFailure('Could not reach the server.');
 
-        // Act
         await userEvent.click(
             screen.getByRole('button', { name: 'Complete “Wire up the token refresh”' })
         );
 
-        // Assert — the panel says what went wrong above rows that are still
-        // there, still expanded, and no retry screen has replaced them.
         const panel = within(screen.getByRole('region', { name: 'Projects' }));
         expect(await panel.findByText('Could not reach the server.')).toBeInTheDocument();
         expect(panel.getByText('Wire up the token refresh')).toBeInTheDocument();
         expect(panel.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
-        expect(container.querySelector('.pool-card-count')).toHaveTextContent('0');
     });
 
     test('a booking whose day is not in the payload reads as unscheduled', async () => {
-        // Arrange — the two reads behind GET /calendar are not snapshotted
-        // against each other, so an item can name a day the payload does not
-        // carry. The strip draws no such item; the pool must agree with it.
-        mockCalendar({
-            days: [{ id: 1, position: 0 }],
-            items: [
-                {
-                    id: 40,
-                    dayId: 99,
-                    todoId: 7,
-                    text: 'Wire up the token refresh',
-                    status: 'incomplete',
-                    projectId: 2,
-                    projectTitle: 'Auth rewrite',
-                    sequenceId: 9,
-                    sequenceTitle: 'Session handling',
-                    startMinutes: 540,
-                    durationMinutes: 60,
-                },
-            ],
-        });
-        poolAnswer = pinnedProjects();
+        // The two reads behind GET /calendar are not snapshotted against each
+        // other; the strip draws no such item and the panel must agree.
+        mockCalendar({ days: [{ id: 1, position: 0 }], items: [bookingOf({ dayId: 99 })] });
+        poolAnswer = datedProjects();
 
-        // Act
         const { container } = renderPage();
-        await userEvent.click(await screen.findByRole('button', { name: /Auth rewrite/ }));
+        await screen.findByText('Wire up the token refresh');
 
-        // Assert — no phantom "Day 0" badge, the row is still draggable work,
-        // and the count of unscheduled to-dos is not one short.
         expect(screen.queryByText('Day 0')).not.toBeInTheDocument();
         expect(container.querySelector('.panel-todo-row--scheduled')).not.toBeInTheDocument();
-        expect(container.querySelector('.pool-card-count')).toHaveTextContent('1');
+        expect(container.querySelector('.panel-todo-grip')).toBeInTheDocument();
     });
 });
+
 
 describe('notes on the page', () => {
     test('draws the notes it loaded into their day', async () => {

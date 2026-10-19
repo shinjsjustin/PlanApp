@@ -240,7 +240,7 @@ const useNoteDroppable = (dayId, registerPlane, isDisabled) => {
     };
 };
 
-const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onToggleProject, events = null }) => {
+const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
     const { state, commit, unschedule, hasUnsavedDay } = useCalendarContext();
 
     const [active, setActive] = useState(null);
@@ -301,10 +301,10 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
     /** The pool's copy of a sequence, for a booking's hover preview. */
     const sequenceFor = useCallback(
         (sequenceId) =>
-            pool.projects
-                .flatMap((project) => project.sequences ?? [])
+            pool.days
+                .flatMap((day) => day.sequences)
                 .find((sequence) => sequence.sequenceId === sequenceId) ?? null,
-        [pool.projects]
+        [pool.days]
     );
 
     /** What the drop would be, from the event, or null when it is over nothing. */
@@ -588,8 +588,6 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, expandedProjectIds, onTog
                                 : !scheduledByTodoId.has(item.todoId)
                         }
                         overlay={<RemoveOverlay isActive={isDraggingBooking} />}
-                        expandedProjectIds={expandedProjectIds}
-                        onToggleProject={onToggleProject}
                     />
                 </div>
 

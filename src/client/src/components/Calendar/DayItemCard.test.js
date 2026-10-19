@@ -33,43 +33,37 @@ const renderCard = (overrides = {}, handlers = {}) =>
 
 describe('DayItemCard', () => {
     test.each([
-        ['incomplete', true, 'Pinned.'],
-        ['blocked', true, 'Pinned. Blocked.'],
-        ['complete', true, 'Pinned. Complete.'],
-        ['blocked', false, 'Blocked.'],
-        ['complete', false, 'Complete.'],
-    ])('exposes status text for a %s booking with pin %s', (status, isPinned, expected) => {
-        const { container } = renderCard({ status, isPinned });
+        ['incomplete', ''],
+        ['blocked', 'Blocked.'],
+        ['complete', 'Complete.'],
+    ])('exposes status text for a %s booking', (status, expected) => {
+        const { container } = renderCard({ status });
 
-        const statusText = screen.getByText(expected);
-        expect(statusText).toHaveClass('calendar-sr-only');
-        expect(isInaccessible(statusText)).toBe(false);
-        expect(statusText).not.toHaveTextContent('Wire up the token refresh');
+        const statusEl = container.querySelector('.calendar-sr-only');
+        if (!expected) {
+            expect(statusEl).toBeNull();
+            return;
+        }
+        expect(statusEl).toHaveTextContent(expected);
+        expect(isInaccessible(statusEl)).toBe(false);
+        expect(statusEl).not.toHaveTextContent('Wire up the token refresh');
         expect(container.querySelector('.day-item-card')).not.toHaveAttribute('aria-label');
         expect(screen.getByRole('button', { name: 'Wire up the token refresh' })).toHaveTextContent('Wire up the token refresh');
         expect(screen.getAllByText('Wire up the token refresh')).toHaveLength(1);
-        const pin = container.querySelector('.calendar-pin-icon');
-        if (isPinned) expect(pin).toHaveAttribute('aria-hidden', 'true');
-        else expect(pin).toBeNull();
     });
 
-    test('does not announce a pin or special status for an unpinned incomplete booking', () => {
-        const { container } = renderCard({ isPinned: false });
-        expect(container.querySelector('.calendar-sr-only')).toBeNull();
-    });
-
-    test('a blocked pinned booking has the blocked modifier and a pin icon', () => {
+    test('shows no pin icon and no Pinned text even for a booking still carrying isPinned', () => {
         const { container } = renderCard({ status: 'blocked', isPinned: true });
         expect(container.querySelector('.day-item-card')).toHaveClass('day-item-card--blocked');
-        expect(container.querySelector('.calendar-pin-icon')).toBeInTheDocument();
+        expect(container.querySelector('.calendar-pin-icon')).toBeNull();
+        expect(screen.queryByText(/Pinned/)).toBeNull();
     });
 
-    test('a complete pinned booking remains crossed out', () => {
+    test('a complete booking remains crossed out', () => {
         const unload = loadStylesheets('Calendar.css');
         try {
-            const { container } = renderCard({ status: 'complete', isPinned: true });
+            const { container } = renderCard({ status: 'complete' });
             expect(getComputedStyle(container.querySelector('.day-item-name')).textDecoration).toBe('line-through');
-            expect(container.querySelector('.calendar-pin-icon')).toBeInTheDocument();
         } finally {
             unload();
         }

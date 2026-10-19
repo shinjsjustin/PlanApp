@@ -120,7 +120,7 @@ const booking = (todoId, dayId, startMinutes, durationMinutes = 60) => ({
 
 const POOL = {
     status: POOL_STATUS.ready,
-    projects: [],
+    days: [],
     refreshError: '',
     loadError: '',
     reload: () => {},
@@ -163,8 +163,6 @@ const renderArea = (state) => {
                 pool={POOL}
                 notes={NOTES}
                 onOpenSource={() => {}}
-                expandedProjectIds={new Set()}
-                onToggleProject={() => {}}
             />
         </CalendarProvider>
     );

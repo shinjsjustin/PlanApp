@@ -53,7 +53,6 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
         .filter(Boolean)
         .join(' ');
     const statusText = [
-        item.isPinned ? 'Pinned.' : '',
         item.status === 'blocked' ? 'Blocked.' : '',
         isComplete ? 'Complete.' : '',
     ].filter(Boolean).join(' ');
@@ -84,9 +83,6 @@ const DayItemCard = ({ item, onComplete, onOpenSource = null, isDraggable = fals
             )}
 
             <div className="day-item-row">
-                {item.isPinned ? (
-                    <span className="calendar-pin-icon" aria-hidden="true">📌</span>
-                ) : null}
                 {statusText ? <span className="calendar-sr-only">{statusText}</span> : null}
 
                 {isSequence ? null : isComplete ? (

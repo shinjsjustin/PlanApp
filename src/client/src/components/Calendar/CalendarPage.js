@@ -20,7 +20,7 @@ import { CalendarProvider } from '../../state/CalendarContext';
 import '../Styling/Calendar.css';
 import '../Styling/CalendarPhone.css';
 
-// The calendar: a strip of day columns on the left, the pool of pinned work on
+// The calendar: a strip of day columns on the left, Justin's dated sequences on
 // the right (design section 8).
 //
 // Two requests, two failure states. The calendar and the pool are loaded
@@ -41,7 +41,7 @@ const CalendarPage = () => {
 
     // The two hooks meet here and nowhere else: neither knows the other exists,
     // and the page is what tells the pool that a booking was ticked off, so the
-    // same pinned row can refresh into its completed state.
+    // same to-do row can refresh into its completed state.
     const pool = usePool();
     const notes = useCalendarNotes();
     const events = useCalendarEvents();
@@ -69,26 +69,11 @@ const CalendarPage = () => {
         else exporter.dismissError();
     }, [dismissActionError, notes, events, exporter, state.actionError]);
 
-    // Which cards are open has to outlive the ready/error branch: the panel is
-    // rendered on both sides of it, so a retry remounts it. Held here, where
-    // nothing remounts, a failed load that succeeds on retry comes back with the
-    // same cards the user left open.
-    const [expandedProjectIds, setExpandedProjectIds] = useState(() => new Set());
-
-    const toggleProject = useCallback((projectId) => {
-        setExpandedProjectIds((open) => {
-            const next = new Set(open);
-            if (next.has(projectId)) next.delete(projectId);
-            else next.add(projectId);
-            return next; // a new Set every time; never mutate the old one
-        });
-    }, []);
-
     /**
      * "Where did this come from?" — the project, and the sequence within it.
      *
      * Both are read off the booking itself rather than looked up in the pool:
-     * bookings remain useful even after their to-do is unpinned, and that is
+     * bookings remain useful even after their sequence is no longer listed, and that is
      * exactly when a user may need to find its source.
      *
      * A booking whose to-do has since been returned to the unorganized panel has
@@ -223,8 +208,6 @@ const CalendarPage = () => {
                                 notes={notes}
                                 events={events}
                                 onOpenSource={openSource}
-                                expandedProjectIds={expandedProjectIds}
-                                onToggleProject={toggleProject}
                             />
                         )}
                     </PlaceOptionsProvider>
@@ -256,8 +239,6 @@ const CalendarPage = () => {
                             scheduledByTodoId={null}
                             scheduledBySequenceId={null}
                             onOpenSource={openSource}
-                            expandedProjectIds={expandedProjectIds}
-                            onToggleProject={toggleProject}
                         />
                     )}
                 </div>
