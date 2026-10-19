@@ -17,7 +17,6 @@ import {
     loadSucceeded,
     rolledBack,
     projectUpdated,
-    todosPinned,
 } from './projectActions';
 
 const GRAPH = {
@@ -211,7 +210,7 @@ describe('projectReducer', () => {
                 id: 1,
                 title: 'Build a drone',
                 description: 'Updated',
-                pinnedTodos: [{ id: 1000 }],
+                datedSequences: [{ id: 100 }],
                 todoCount: 4,
                 completedTodoCount: 2,
             };
@@ -224,69 +223,6 @@ describe('projectReducer', () => {
             expect(next.layers).toBe(loaded.layers);
             expect(next.sequences).toBe(loaded.sequences);
             expect(next.todos).toBe(loaded.todos);
-        });
-    });
-
-    describe('todosPinned', () => {
-        const stateWithThreeTodos = () =>
-            dispatch(
-                initialProjectState,
-                loadSucceeded({
-                    ...GRAPH,
-                    todos: [
-                        { ...GRAPH.todos[0], isPinned: false },
-                        { id: 1001, projectId: 1, sequenceId: null, text: 'Sketch', isPinned: false },
-                        { id: 1002, projectId: 1, sequenceId: null, text: 'Measure', isPinned: false },
-                    ],
-                })
-            );
-
-        test('sets every named to-do in one new map', () => {
-            // Arrange
-            const loaded = stateWithThreeTodos();
-
-            // Act
-            const next = dispatch(loaded, todosPinned([1000, 1001], true));
-
-            // Assert
-            expect(next.todos).not.toBe(loaded.todos);
-            expect(next.todos[1000]).not.toBe(loaded.todos[1000]);
-            expect(next.todos[1001]).not.toBe(loaded.todos[1001]);
-            expect(next.todos[1000].isPinned).toBe(true);
-            expect(next.todos[1001].isPinned).toBe(true);
-        });
-
-        test('leaves unnamed to-dos referentially identical', () => {
-            // Arrange
-            const loaded = stateWithThreeTodos();
-
-            // Act
-            const next = dispatch(loaded, todosPinned([1000, 1001], true));
-
-            // Assert
-            expect(next.todos[1002]).toBe(loaded.todos[1002]);
-        });
-
-        test('does not mutate the previous map or its to-do objects', () => {
-            // Arrange
-            const loaded = stateWithThreeTodos();
-            const before = clone(loaded.todos);
-
-            // Act
-            dispatch(loaded, todosPinned([1000, 1001], true));
-
-            // Assert
-            expect(loaded.todos).toEqual(before);
-        });
-
-        test('throws rather than silently ignoring an unknown id', () => {
-            // Arrange
-            const loaded = stateWithThreeTodos();
-
-            // Act & Assert
-            expect(() => projectReducer(loaded, todosPinned([1000, 9999], true))).toThrow(
-                /9999/
-            );
         });
     });
 

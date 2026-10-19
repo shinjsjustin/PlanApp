@@ -12,12 +12,8 @@ import {
     loadFailed,
     loadStarted,
     loadSucceeded,
-    pinsSet,
     projectUpdated,
     rolledBack,
-    sequencesReconciled,
-    todosPinned,
-    todosReconciled,
 } from '../state/projectActions';
 
 // Loads a project's graph and applies changes to it optimistically
@@ -36,13 +32,6 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
 const writtenFields = (actions, collection, id) => actions.flatMap((action) => {
-    if (action.type === PROJECT_ACTIONS.pinsSet) {
-        const ids = collection === 'todos' ? action.ids.todoIds
-            : collection === 'sequences' ? action.ids.sequenceIds : [];
-        if (ids.some((pinnedId) => String(pinnedId) === id)) return ['isPinned'];
-    }
-    if (action.type === PROJECT_ACTIONS.todosPinned && collection === 'todos' &&
-        action.todoIds.some((todoId) => String(todoId) === id)) return ['isPinned'];
     if (action.type === PROJECT_ACTIONS.projectUpdated && collection === 'project') {
         return Object.keys(action.changes);
     }
@@ -251,39 +240,16 @@ const useProjectGraph = (projectId) => {
 
     /**
      * Changes the project's own fields. The response is the projects-home CARD
-     * shape, which carries a `pinnedTodos` snapshot the graph does not own — pins
-     * live on the to-dos themselves, and nothing here would ever refresh that
-     * copy. Reconcile the project's fields and drop the card's extras.
+     * shape, which carries a `datedSequences` list the graph does not own — the
+     * sequences live in their own collection, and nothing here would ever refresh
+     * that copy. Reconcile the project's fields and drop the card's extras.
      */
     const updateProject = useCallback(
         (changes) =>
             mutate({
                 apply: projectUpdated(changes),
                 send: () => api.patch(`/projects/${projectId}`, changes),
-                onSuccess: ({ pinnedTodos, ...projectFields }) => projectUpdated(projectFields),
-            }),
-        [mutate, projectId]
-    );
-
-    const setTodosPinned = useCallback(
-        (todoIds, isPinned) =>
-            mutate({
-                apply: todosPinned(todoIds, isPinned),
-                send: () => api.put(`/projects/${projectId}/todos/pins`, { todoIds, isPinned }),
-                onSuccess: ({ todos }) => todosReconciled(todos),
-            }),
-        [mutate, projectId]
-    );
-
-    const setPinned = useCallback(
-        ({ todoIds = [], sequenceIds = [] }, isPinned) =>
-            mutate({
-                apply: pinsSet({ todoIds, sequenceIds }, isPinned),
-                send: () => api.put(`/projects/${projectId}/pins`, { todoIds, sequenceIds, isPinned }),
-                onSuccess: ({ todos, sequences }) => [
-                    todosReconciled(todos),
-                    sequencesReconciled(sequences),
-                ],
+                onSuccess: ({ datedSequences, ...projectFields }) => projectUpdated(projectFields),
             }),
         [mutate, projectId]
     );
@@ -358,8 +324,6 @@ const useProjectGraph = (projectId) => {
         createEntity,
         updateEntity,
         updateProject,
-        setTodosPinned,
-        setPinned,
         removeUnorganizedTodos,
         removeEntity,
         importSchema,

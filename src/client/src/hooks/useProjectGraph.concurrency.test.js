@@ -6,7 +6,7 @@ import { cascadeTodoMove, cascadeTodoRemoval } from '../state/cascades';
 jest.mock('../lib/api', () => ({ api: {
     get: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn(), post: jest.fn(),
 } }));
-const todo = { id: 1, projectId: 1, text: 'Work', status: 'incomplete', isPinned: false };
+const todo = { id: 1, projectId: 1, text: 'Work', status: 'incomplete' };
 const graph = { project: { id: 1 }, layers: [], sequences: [], todos: [todo] };
 const deferred = () => {
     let resolve, reject;
@@ -21,38 +21,37 @@ const setup = async (initialGraph = graph) => {
 };
 beforeEach(() => jest.resetAllMocks());
 
-test.each(['resolve', 'reject'])('older pin %s preserves a newer completion', async (settle) => {
+const edit = (result, changes) => result.current.updateEntity('todos', 1, { path: '/todos/1', changes });
+
+test.each(['resolve', 'reject'])('older completion %s preserves a newer text edit', async (settle) => {
     const { result } = await setup();
     const pending = deferred();
-    api.put.mockReturnValue(pending.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
-    api.patch.mockResolvedValue({ ...todo, isPinned: true, status: 'complete' });
-    await act(async () => result.current.updateEntity('todos', 1, {
-        path: '/todos/1', changes: { status: 'complete' },
-    }));
+    api.patch.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ ...todo, text: 'Edited' });
+    act(() => { edit(result, { status: 'complete' }); });
+    await act(async () => edit(result, { text: 'Edited' }));
     await act(async () => pending[settle](settle === 'resolve'
-        ? { todos: [{ ...todo, isPinned: true }] } : new Error('Pin failed')));
-    expect(result.current.state.todos[1].status).toBe('complete');
-    expect(result.current.state.todos[1].isPinned).toBe(settle === 'resolve');
-    expect(result.current.state.actionError).toBe(settle === 'reject' ? 'Pin failed' : null);
+        ? { ...todo, text: 'Edited', status: 'complete' } : new Error('Completion failed')));
+    expect(result.current.state.todos[1].text).toBe('Edited');
+    expect(result.current.state.todos[1].status).toBe(settle === 'resolve' ? 'complete' : 'incomplete');
+    expect(result.current.state.actionError).toBe(settle === 'reject' ? 'Completion failed' : null);
 });
 
-test('older pin success does not resurrect a deleted row or throw', async () => {
+test('older completion success does not resurrect a deleted row or throw', async () => {
     const { result } = await setup();
     const pending = deferred();
-    api.put.mockReturnValue(pending.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
+    api.patch.mockReturnValue(pending.promise);
+    act(() => { edit(result, { status: 'complete' }); });
     api.delete.mockResolvedValue({ id: 1 });
     await act(async () => result.current.removeEntity('todos', 1, { path: '/todos/1' }));
-    await act(async () => pending.resolve({ todos: [{ ...todo, isPinned: true }] }));
+    await act(async () => pending.resolve({ ...todo, status: 'complete' }));
     expect(result.current.state.todos[1]).toBeUndefined();
 });
 
-test.each(['resolve', 'reject'])('ignores pin %s after navigating away and back', async (settle) => {
+test.each(['resolve', 'reject'])('ignores completion %s after navigating away and back', async (settle) => {
     const { result, rerender } = await setup();
     const pending = deferred();
-    api.put.mockReturnValue(pending.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
+    api.patch.mockReturnValue(pending.promise);
+    act(() => { edit(result, { status: 'complete' }); });
     api.get.mockResolvedValue({ ...graph, project: { id: 2 }, todos: [] });
     rerender({ id: 2 });
     await waitFor(() => expect(result.current.state.project.id).toBe(2));
@@ -60,66 +59,63 @@ test.each(['resolve', 'reject'])('ignores pin %s after navigating away and back'
     rerender({ id: 1 });
     await waitFor(() => expect(result.current.state.project.id).toBe(1));
     await act(async () => pending[settle](settle === 'resolve'
-        ? { todos: [{ ...todo, isPinned: true }] } : new Error('Old failure')));
+        ? { ...todo, status: 'complete' } : new Error('Old failure')));
     expect(result.current.state.todos[1]).toEqual(todo);
     expect(result.current.state.actionError).toBeNull();
 });
 
-test.each([true, false])('two failed overlapping pins restore the original value (oldest first=%s)', async (oldestFirst) => {
+test.each([true, false])('two failed overlapping edits restore the original value (oldest first=%s)', async (oldestFirst) => {
     const { result } = await setup();
     const first = deferred(), second = deferred();
-    api.put.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
-    act(() => { result.current.setTodosPinned([1], false); });
+    api.patch.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    act(() => { edit(result, { status: 'complete' }); });
+    act(() => { edit(result, { status: 'incomplete' }); });
     const order = oldestFirst ? [first, second] : [second, first];
     await act(async () => order[0].reject(new Error('First failure')));
     await act(async () => order[1].reject(new Error('Second failure')));
-    expect(result.current.state.todos[1].isPinned).toBe(false);
+    expect(result.current.state.todos[1].status).toBe('incomplete');
 });
 
-test('keeps a newer pending completion when pin succeeds, then rolls back only the failed completion', async () => {
+test('keeps a newer pending text edit when completion succeeds, then rolls back only the failed edit', async () => {
     const { result } = await setup();
-    const pin = deferred(), completion = deferred();
-    api.put.mockReturnValue(pin.promise);
-    api.patch.mockReturnValue(completion.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
-    act(() => { result.current.updateEntity('todos', 1, {
-        path: '/todos/1', changes: { status: 'complete' },
-    }); });
-    await act(async () => pin.resolve({ todos: [{ ...todo, isPinned: true }] }));
-    expect(result.current.state.todos[1].status).toBe('complete');
-    await act(async () => completion.reject(new Error('Completion failed')));
-    expect(result.current.state.todos[1]).toEqual({ ...todo, isPinned: true });
-    expect(result.current.state.actionError).toBe('Completion failed');
+    const completion = deferred(), rename = deferred();
+    api.patch.mockReturnValueOnce(completion.promise).mockReturnValueOnce(rename.promise);
+    act(() => { edit(result, { status: 'complete' }); });
+    act(() => { edit(result, { text: 'Edited' }); });
+    await act(async () => completion.resolve({ ...todo, status: 'complete' }));
+    expect(result.current.state.todos[1].text).toBe('Edited');
+    await act(async () => rename.reject(new Error('Rename failed')));
+    expect(result.current.state.todos[1]).toEqual({ ...todo, status: 'complete' });
+    expect(result.current.state.actionError).toBe('Rename failed');
 });
 
-test('a newer successful pin keeps its intent when an identical older pin fails', async () => {
+test('a newer successful completion keeps its intent when an identical older one fails', async () => {
     const { result } = await setup();
     const first = deferred(), second = deferred();
-    api.put.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
-    act(() => { result.current.setTodosPinned([1], true); });
-    await act(async () => second.resolve({ todos: [{ ...todo, isPinned: true }] }));
+    api.patch.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    act(() => { edit(result, { status: 'complete' }); });
+    act(() => { edit(result, { status: 'complete' }); });
+    await act(async () => second.resolve({ ...todo, status: 'complete' }));
     await act(async () => first.reject(new Error('First failed')));
-    expect(result.current.state.todos[1].isPinned).toBe(true);
+    expect(result.current.state.todos[1].status).toBe('complete');
 });
 
-test.each(['resolve', 'reject'])('older pin %s preserves an unrelated created row', async (settle) => {
+test.each(['resolve', 'reject'])('older completion %s preserves an unrelated created row', async (settle) => {
     const { result } = await setup();
     const pending = deferred();
-    api.put.mockReturnValue(pending.promise);
-    act(() => { result.current.setTodosPinned([1], true); });
+    api.patch.mockReturnValue(pending.promise);
+    act(() => { edit(result, { status: 'complete' }); });
     api.post.mockResolvedValue({ ...todo, id: 2 });
     await act(async () => result.current.createEntity('todos', {
         path: '/projects/1/todos', optimistic: todo,
     }));
     const created = result.current.state.todos[2];
     await act(async () => pending[settle](settle === 'resolve'
-        ? { todos: [{ ...todo, isPinned: true }] } : new Error('Pin failed')));
+        ? { ...todo, status: 'complete' } : new Error('Completion failed')));
     expect(result.current.state.todos[2]).toEqual(created);
 });
 
-test('create then pin preserves the row clientKey', async () => {
+test('create then edit preserves the row clientKey', async () => {
     const { result } = await setup();
     api.post.mockResolvedValue({ ...todo, id: 2 });
     await act(async () => result.current.createEntity('todos', {
@@ -127,8 +123,10 @@ test('create then pin preserves the row clientKey', async () => {
     }));
     const key = result.current.state.todos[2].clientKey;
     expect(key).toBeLessThan(0);
-    api.put.mockResolvedValue({ todos: [{ ...todo, id: 2, isPinned: true }] });
-    await act(async () => result.current.setTodosPinned([2], true));
+    api.patch.mockResolvedValue({ ...todo, id: 2, status: 'complete' });
+    await act(async () => result.current.updateEntity('todos', 2, {
+        path: '/todos/2', changes: { status: 'complete' },
+    }));
     expect(result.current.state.todos[2].clientKey).toBe(key);
 });
 
@@ -231,22 +229,22 @@ test.each(['resolve', 'reject'])('ignores authoritative read %s after navigation
     expect(result.current.state.loadError).toBeNull();
 });
 
-test('waits for newer pending pins before reading the authoritative graph', async () => {
+test('waits for newer pending edits before reading the authoritative graph', async () => {
     const { result } = await setup({ ...graph, todos: [todo, { ...todo, id: 2 }, { ...todo, id: 3 }] });
-    const pin = deferred();
+    const completion = deferred();
     api.delete.mockResolvedValue({});
-    api.put.mockReturnValue(pin.promise);
+    api.patch.mockReturnValue(completion.promise);
     act(() => {
         result.current.removeEntity('todos', 1, { path: '/todos/1' });
         result.current.removeEntity('todos', 2, { path: '/todos/2' });
-        result.current.setTodosPinned([3], true);
+        result.current.updateEntity('todos', 3, { path: '/todos/3', changes: { status: 'complete' } });
     });
     await act(async () => {});
     expect(api.get).toHaveBeenCalledTimes(1);
-    expect(result.current.state.todos[3].isPinned).toBe(true);
-    const saved = { ...todo, id: 3, isPinned: true };
+    expect(result.current.state.todos[3].status).toBe('complete');
+    const saved = { ...todo, id: 3, status: 'complete' };
     api.get.mockResolvedValue({ ...graph, todos: [saved] });
-    await act(async () => pin.resolve({ todos: [saved] }));
+    await act(async () => completion.resolve(saved));
     expect(api.get).toHaveBeenCalledTimes(2);
     expect(result.current.state.todos).toEqual({ 3: saved });
 });

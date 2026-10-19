@@ -14,7 +14,7 @@ jest.mock('../lib/api', () => {
 });
 
 const todo = (id, sequenceId, position) => ({
-    id, projectId: 1, sequenceId, text: `To-do ${id}`, status: 'incomplete', isPinned: false, position, note: null,
+    id, projectId: 1, sequenceId, text: `To-do ${id}`, status: 'incomplete', position, note: null,
 });
 
 const GRAPH = {

@@ -210,14 +210,14 @@ describe('useProjectGraph', () => {
             expect(result.current.state.layers[10]).toEqual(GRAPH.layers[0]);
         });
 
-        test('keeps the card-only pinned list out of the graph project', async () => {
+        test('keeps the card-only dated sequences out of the graph project', async () => {
             // Arrange — PATCH answers in the projects-home card shape, which
-            // carries a pinnedTodos snapshot nothing here would ever refresh.
+            // carries a datedSequences snapshot nothing here would ever refresh.
             const { result } = await renderLoaded();
             api.patch.mockResolvedValue({
                 ...GRAPH.project,
                 description: 'Saved',
-                pinnedTodos: [{ id: 1000, text: 'A pin from the card payload' }],
+                datedSequences: [{ id: 100, title: 'Oct 5' }],
             });
 
             // Act
@@ -227,7 +227,7 @@ describe('useProjectGraph', () => {
 
             // Assert
             expect(result.current.state.project.description).toBe('Saved');
-            expect(result.current.state.project).not.toHaveProperty('pinnedTodos');
+            expect(result.current.state.project).not.toHaveProperty('datedSequences');
         });
     });
 

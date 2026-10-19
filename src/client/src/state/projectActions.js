@@ -27,21 +27,9 @@ export const projectUpdated = (changes) => ({
     changes,
 });
 
-export const todosPinned = (todoIds, isPinned) => ({
-    type: PROJECT_ACTIONS.todosPinned,
-    todoIds,
-    isPinned,
-});
-
 export const todosReconciled = (todos) => ({
     type: PROJECT_ACTIONS.todosReconciled,
     todos,
-});
-
-export const pinsSet = (ids, isPinned) => ({
-    type: PROJECT_ACTIONS.pinsSet,
-    ids,
-    isPinned,
 });
 
 export const sequencesReconciled = (sequences) => ({
