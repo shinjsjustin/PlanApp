@@ -2,7 +2,7 @@ import React from 'react';
 
 import { usePoolDrag } from '../../hooks/useCalendarDrag';
 
-// One pinned to-do in the pool.
+// One to-do inside a sequence block in the pool.
 //
 // Draggable while unscheduled and not complete; inert once booked, carrying the day it went to
 // (design decision 4). The row stays listed either way, so the panel remains a
@@ -31,12 +31,7 @@ const PanelTodoRow = ({ todo, scheduled = null, isDraggable = false }) => {
         .filter(Boolean)
         .join(' ');
 
-    const pin = todo.isPinned
-        ? <span className="calendar-pin-icon" aria-hidden="true">📌</span>
-        : null;
-
     const statusText = [
-        todo.isPinned ? 'Pinned.' : '',
         todo.status === 'blocked' ? 'Blocked.' : '',
         todo.status === TODO_COMPLETE ? 'Complete.' : '',
     ].filter(Boolean).join(' ');
@@ -45,7 +40,6 @@ const PanelTodoRow = ({ todo, scheduled = null, isDraggable = false }) => {
     if (scheduled) {
         return (
             <li className={className}>
-                {pin}
                 <span className="panel-todo-text">{todo.text}</span>
                 {status}
                 <span className="panel-todo-badge">Day {scheduled.dayIndex + 1}</span>
@@ -60,10 +54,8 @@ const PanelTodoRow = ({ todo, scheduled = null, isDraggable = false }) => {
                     <span aria-hidden="true">⠿</span>
                 </span>
             ) : null}
-            {pin}
             <span className="panel-todo-text">{todo.text}</span>
             {status}
-            <span className="panel-todo-sequence">{todo.sequenceTitle ?? 'Unorganized'}</span>
         </li>
     );
 };

@@ -1,5 +1,5 @@
-/* The calendar page: a strip of day columns on the left, the pool of pinned
- * work on the right.
+/* The calendar page: a strip of day columns on the left, the pool of dated
+ * sequences on the right.
  *
  * Two things make this layout unlike the project page's. The strip scrolls
  * sideways and the pool does not, so the page itself must not scroll sideways
@@ -799,73 +799,27 @@ button.note-ribbon-body:hover .note-ribbon-text {
     color: var(--text-white);
 }
 
-.pool-cards {
+.pool-day {
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.pool-day-heading {
     margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.pool-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-card);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-}
-
-.pool-card--expanded {
-    border-color: var(--border-alt);
-    box-shadow: var(--shadow-md);
-}
-
-/* The whole header is the toggle, so it is a button styled as a row rather than
- * a row with a button in it — there is one target and it is the obvious one. */
-.pool-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    width: 100%;
-    padding: var(--space-sm) var(--space-md);
-    background: none;
-    color: inherit;
-    text-align: left;
-}
-
-.pool-card-title {
+    color: var(--text-secondary);
     font-size: var(--font-base);
     font-weight: 600;
 }
 
-/* The count is unscheduled work left, so it is a quantity rather than a status:
- * a quiet pill that ticks down as the days fill. */
-.pool-card-count {
-    flex: 0 0 auto;
-    min-width: var(--space-lg);
-    padding: 0 var(--space-xs);
-    border-radius: var(--radius-pill);
-    background: var(--bg-alt);
-    color: var(--text-secondary);
-    font-size: var(--font-sm);
-    text-align: center;
-}
-
-.pool-card-empty {
-    margin: 0;
-    padding: 0 var(--space-md) var(--space-sm);
-    color: var(--text-muted);
-    font-size: var(--font-sm);
-}
-
-.pool-card-todos {
+.pool-day-sequences,
+.panel-sequence-todos {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
     margin: 0;
-    padding: 0 var(--space-sm) var(--space-sm);
+    padding: 0;
     list-style: none;
 }
 
@@ -898,11 +852,6 @@ button.note-ribbon-body:hover .note-ribbon-text {
     text-decoration: line-through;
 }
 
-.calendar-pin-icon {
-    flex: 0 0 auto;
-    line-height: 1;
-}
-
 .calendar-sr-only {
     position: absolute;
     width: 1px;
@@ -930,7 +879,6 @@ button.note-ribbon-body:hover .note-ribbon-text {
     white-space: nowrap;
 }
 
-.panel-todo-sequence,
 .panel-todo-badge {
     flex: 0 0 auto;
     font-size: var(--font-sm);
@@ -944,10 +892,21 @@ button.note-ribbon-body:hover .note-ribbon-text {
     border: 1px solid var(--border);
 }
 
-/* A pinned sequence: one bold row; the preview hangs below it on hover. */
+/* A dated sequence: one bold block; its to-dos are nested rows beneath the head. */
 .panel-sequence-row {
-    position: relative;
+    flex-direction: column;
+    align-items: stretch;
     font-weight: 600;
+}
+
+.panel-sequence-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.panel-sequence-todos {
+    font-weight: normal;
 }
 
 .panel-sequence-title {
@@ -963,16 +922,6 @@ button.note-ribbon-body:hover .note-ribbon-text {
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
-}
-
-.panel-sequence-preview {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    margin-top: var(--space-xs);
-    font-weight: normal;
 }
 
 /* ─── The bin ────────────────────────────────────────────────────────────── */

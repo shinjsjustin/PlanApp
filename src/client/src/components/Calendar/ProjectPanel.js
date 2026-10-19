@@ -1,9 +1,11 @@
 import React from 'react';
 
-import ProjectAccordionCard from './ProjectAccordionCard';
+import PanelSequenceRow from './PanelSequenceRow';
 import { POOL_STATUS } from '../../hooks/usePool';
+import { dayLabel, todayKey } from '../../lib/dates';
 
-// The right panel: every project and the to-dos explicitly pinned in it.
+// The right panel: Justin's dated sequences, one group per day, each sequence a
+// block with its to-dos inside.
 //
 // Its own loading and failure states rather than the page's. The calendar and
 // the pool are separate requests and either can fail alone; a calendar you cannot
@@ -13,11 +15,6 @@ import { POOL_STATUS } from '../../hooks/usePool';
 // calendar rather than from here, because the pool has no idea what a day is —
 // and is `null` while the calendar has not loaded, meaning unknown rather than
 // none.
-//
-// Which cards are open is held above this panel, not in it. The page renders one
-// panel while the calendar is loading or failed and another once it is ready, so
-// state kept here — or in a card — would be thrown away by a retry that
-// succeeded, folding every card the user had opened.
 
 const ProjectPanel = ({
     pool,
@@ -26,8 +23,7 @@ const ProjectPanel = ({
     onOpenSource = null,
     dragFor = null,
     overlay = null,
-    expandedProjectIds,
-    onToggleProject,
+    today = todayKey(),
 }) => (
     <section className="calendar-panel" aria-label="Projects">
         {overlay}
@@ -58,23 +54,28 @@ const ProjectPanel = ({
         )}
 
         {pool.status === POOL_STATUS.ready &&
-            (pool.projects.length === 0 ? (
-                <p className="pool-empty">No projects yet.</p>
+            (pool.days.length === 0 ? (
+                <p className="pool-empty">No dated sequences ahead.</p>
             ) : (
-                <ul className="pool-cards">
-                    {pool.projects.map((project) => (
-                        <ProjectAccordionCard
-                            key={project.id}
-                            project={project}
-                            scheduledByTodoId={scheduledByTodoId}
-                            scheduledBySequenceId={scheduledBySequenceId}
-                            onOpenSource={onOpenSource}
-                            dragFor={dragFor}
-                            isExpanded={expandedProjectIds.has(project.id)}
-                            onToggle={() => onToggleProject(project.id)}
-                        />
-                    ))}
-                </ul>
+                pool.days.map((day) => (
+                    <div key={day.date} className="pool-day">
+                        <h3 className="pool-day-heading">
+                            {day.date === today ? 'Today' : dayLabel(day.date)}
+                        </h3>
+                        <ul className="pool-day-sequences">
+                            {day.sequences.map((sequence) => (
+                                <PanelSequenceRow
+                                    key={sequence.sequenceId}
+                                    item={sequence}
+                                    scheduled={scheduledBySequenceId?.get(sequence.sequenceId) ?? null}
+                                    scheduledByTodoId={scheduledByTodoId}
+                                    dragFor={dragFor}
+                                    onOpenSource={onOpenSource}
+                                />
+                            ))}
+                        </ul>
+                    </div>
+                ))
             ))}
     </section>
 );
