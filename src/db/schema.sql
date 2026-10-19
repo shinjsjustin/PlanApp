@@ -15,12 +15,6 @@
 --   ALTER TABLE `todos`     ADD COLUMN `completed_at` timestamp NULL DEFAULT NULL AFTER `status`;
 --   UPDATE `todos` SET `completed_at` = `updated_at` WHERE `status` = 'complete';
 --
--- A database created before pinned to-dos is missing the pin flag and its lookup
--- index. Add them in place rather than re-running this file:
---   ALTER TABLE `todos`
---     ADD COLUMN `is_pinned` tinyint(1) NOT NULL DEFAULT '0' AFTER `completed_at`,
---     ADD KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`);
---
 -- A database created before project card colors is missing the color column. Add
 -- it in place rather than re-running this file:
 --   ALTER TABLE `projects` ADD COLUMN `color` CHAR(7) NULL AFTER `description`;
@@ -45,11 +39,11 @@
 -- at, so re-running this file against such a database cannot fail on the foreign
 -- keys it holds.
 --
--- A database created before sequence pins is missing the sequence pin flag, and
--- calendar bookings cannot yet point at a sequence. Apply in place rather than
--- re-running this file (db/migration/2026-10-01_add_sequence_pins.sql). A booking
--- is for a to-do or a sequence; there is no CHECK saying so, because MySQL forbids
--- CHECK constraints on columns used by cascading foreign keys.
+-- A database created before pinning was removed still has the pin flags and
+-- holds old bookings. Apply in place rather than re-running this file
+-- (db/migration/2026-10-19_remove_pins.sql). A booking is for a to-do or a
+-- sequence; there is no CHECK saying so, because MySQL forbids CHECK
+-- constraints on columns used by cascading foreign keys.
 --
 -- A database created before sequence owners is missing the owner column. Apply in
 -- place rather than re-running this file (db/migration/2026-10-19_add_sequence_owner.sql):
@@ -202,7 +196,6 @@ CREATE TABLE `sequences` (
   `is_blocked` tinyint(1) NOT NULL DEFAULT '0',
   `is_collapsed` tinyint(1) NOT NULL DEFAULT '0',
   `owner` enum('justin','bourne') NOT NULL DEFAULT 'justin',
-  `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
   `place_id` int unsigned DEFAULT NULL,
   `position` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -236,14 +229,12 @@ CREATE TABLE `todos` (
   `note` text DEFAULT NULL,
   `status` enum('incomplete','complete','blocked') NOT NULL DEFAULT 'incomplete',
   `completed_at` timestamp NULL DEFAULT NULL,
-  `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
   `place_id` int unsigned DEFAULT NULL,
   `position` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_todos_project_sequence_position` (`project_id`, `sequence_id`, `position`),
-  KEY `idx_todos_project_pinned` (`project_id`, `is_pinned`),
   KEY `idx_todos_sequence` (`sequence_id`),
   KEY `idx_todos_place` (`place_id`),
   CONSTRAINT `fk_todos_project`
