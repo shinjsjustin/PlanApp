@@ -78,6 +78,11 @@ const OWNER_QUERIES = {
         label: 'Place',
         sql: 'SELECT id, owner_id FROM places WHERE id = ?',
     },
+    // Owned directly by a user; the row returned is the person itself.
+    person: {
+        label: 'Person',
+        sql: 'SELECT id, owner_id FROM people WHERE id = ?',
+    },
 };
 
 const assertOwnership = async (conn, resourceType, id, userId) => {

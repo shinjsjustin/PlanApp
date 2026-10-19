@@ -3,6 +3,7 @@
 const assertOwnership = require('../../src/middleware/assertOwnership');
 const calendarDaysRepo = require('../../src/db/repositories/calendarDaysRepo');
 const calendarNotesRepo = require('../../src/db/repositories/calendarNotesRepo');
+const peopleRepo = require('../../src/db/repositories/peopleRepo');
 const layersRepo = require('../../src/db/repositories/layersRepo');
 const projectsRepo = require('../../src/db/repositories/projectsRepo');
 const sequencesRepo = require('../../src/db/repositories/sequencesRepo');
@@ -243,5 +244,47 @@ describe('assertOwnership thought', () => {
         await expect(
             assertOwnership(conn, 'thought', 987654321, ownerId)
         ).rejects.toMatchObject({ status: 404, message: 'Thought not found' });
+    });
+});
+
+describe('assertOwnership person', () => {
+    test('returns the person row for the owner', async () => {
+        // Arrange — a stranger's person goes in first so an unfiltered query fails.
+        const conn = getConn();
+        const intruderId = await createTestUser(conn);
+        await peopleRepo.create(conn, { ownerId: intruderId, name: 'Not this one' });
+        const ownerId = await createTestUser(conn);
+        const person = await peopleRepo.create(conn, { ownerId, name: 'Mine' });
+
+        // Act
+        const owned = await assertOwnership(conn, 'person', person.id, ownerId);
+
+        // Assert
+        expect(owned.id).toBe(person.id);
+        expect(owned.owner_id).toBe(ownerId);
+    });
+
+    test('forbids another user’s person', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const strangerId = await createTestUser(conn);
+        const person = await peopleRepo.create(conn, { ownerId, name: 'Mine' });
+
+        // Act & Assert
+        await expect(
+            assertOwnership(conn, 'person', person.id, strangerId)
+        ).rejects.toMatchObject({ status: 403 });
+    });
+
+    test('404s for a missing person', async () => {
+        // Arrange
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+
+        // Act & Assert
+        await expect(
+            assertOwnership(conn, 'person', 987654321, ownerId)
+        ).rejects.toMatchObject({ status: 404 });
     });
 });

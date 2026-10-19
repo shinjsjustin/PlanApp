@@ -213,6 +213,30 @@ const toPlace = (row) => ({
     isDefaultStart: Boolean(row.is_default_start),
 });
 
+// A JSON column arrives parsed or, on some drivers, as a string.
+const parseJsonColumn = (value) => (typeof value === 'string' ? JSON.parse(value) : value);
+
+/**
+ * `contact_groups` is a SET, so it arrives as a comma-joined string ('' for
+ * none). `owner_id` stays server-side.
+ */
+const toPerson = (row) => ({
+    id: row.id,
+    name: row.name,
+    company: row.company ?? null,
+    role: row.role ?? null,
+    emails: parseJsonColumn(row.emails),
+    phones: parseJsonColumn(row.phones),
+    groups: row.contact_groups ? row.contact_groups.split(',') : [],
+    notes: row.notes ?? null,
+    place:
+        row.place_id == null
+            ? null
+            : { id: row.place_id, name: row.place_name, address: row.place_address },
+    leemacClientId: row.leemac_client_id ?? null,
+    leemacClientName: row.leemac_client_name ?? null,
+});
+
 module.exports = {
     toCalendarDay,
     toCalendarEvent,
@@ -220,6 +244,7 @@ module.exports = {
     toCalendarNote,
     toLayer,
     toDatedSequence,
+    toPerson,
     toPlace,
     toProject,
     toProjectThoughts,
