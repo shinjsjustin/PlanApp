@@ -5,7 +5,7 @@ import ImportDialog from './ImportDialog';
 import LayerRow from './LayerRow';
 import useContextMenu from '../../hooks/useContextMenu';
 import useProjectMutations from '../../hooks/useProjectMutations';
-import { activeSequenceIds, sortByPosition } from '../../lib/graph';
+import { sortByPosition } from '../../lib/graph';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useProjectContext } from '../../state/ProjectContext';
 
@@ -17,10 +17,6 @@ import { useProjectContext } from '../../state/ProjectContext';
 // button, and its own full-width divider below it for adding a layer, so the
 // only add-layer button that belongs here is the one for a project with no
 // layers for it to sit under.
-//
-// It is also where pin activity is derived. A card cannot work that out from its
-// own props alone, so the canvas computes the Set once and every row asks it the
-// same question. Any number of sequences may be active at once.
 
 const IMPORT_HINT =
     'Paste a plan: "## layer" starts a layer, "### sequence" starts a sequence, ' +
@@ -32,19 +28,10 @@ const Canvas = ({ highlightedSequenceId = null }) => {
     const [isImporting, setIsImporting] = useState(false);
     const { menu, close, triggerProps } = useContextMenu();
 
-    // Each collection is derived once per change rather than once per render,
-    // because the active sequence Set is memoised on them and rebuilding them every
-    // time would defeat that.
+    // Each collection is derived once per change rather than once per render.
     const layers = useMemo(() => sortByPosition(Object.values(state.layers)), [state.layers]);
     const sequences = useMemo(() => Object.values(state.sequences), [state.sequences]);
     const todos = useMemo(() => Object.values(state.todos), [state.todos]);
-
-    /**
-     * Every card containing a pin. Recomputed with the graph rather than stored,
-     * so pinning and unpinning update all cards without lifecycle or layer-order
-     * rules leaking into activity.
-     */
-    const activeIds = useMemo(() => activeSequenceIds(sequences, todos), [sequences, todos]);
 
     if (layers.length === 0) {
         return (
@@ -83,7 +70,6 @@ const Canvas = ({ highlightedSequenceId = null }) => {
                     layer={layer}
                     sequences={sequences}
                     todos={todos}
-                    activeSequenceIds={activeIds}
                     highlightedSequenceId={highlightedSequenceId}
                 />
             ))}

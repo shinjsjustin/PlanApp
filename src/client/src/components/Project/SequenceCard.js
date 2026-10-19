@@ -26,8 +26,7 @@ import { useActiveDragTodo } from '../../state/DragContext';
 // already done drops out of that column into a group at the bottom.
 //
 // Lifecycle faces are decided in `lib/sequenceCard` and never stored: blocked,
-// finished, or the quiet default. Canvas tells each card whether it belongs to
-// the active Set.
+// finished, or the quiet default.
 //
 // Whether the card is folded *is* stored, on the sequence, so a canvas comes back
 // the way it was left. It is the one piece of card chrome that is: the DONE
@@ -63,7 +62,6 @@ const INTERACTIVE_WITHIN_CARD = [
 const SequenceCard = ({
     sequence,
     todos,
-    isActive = false,
     highlightedSequenceId = null,
     index,
 }) => {
@@ -173,7 +171,6 @@ const SequenceCard = ({
         'has-delete-bubble',
         `sequence-card--${status}`,
         `sequence-card--state-${model.state}`,
-        isActive ? 'sequence-card--active' : '',
         isCollapsed ? 'sequence-card--folded' : 'sequence-card--open',
         activeDragTodo ? `sequence-card--${isEligibleTarget ? 'eligible' : 'ineligible'}` : '',
         isOver ? 'sequence-card--over' : '',

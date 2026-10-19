@@ -50,17 +50,13 @@ export const graphValue = (sequence, todos) => ({
     removeEntity: jest.fn(),
 });
 
-export const renderCard = ({ sequence = baseSequence, todos = [], isActive = false } = {}) => {
+export const renderCard = ({ sequence = baseSequence, todos = [] } = {}) => {
     const value = graphValue(sequence, todos);
 
     const tree = (nextSequence, nextTodos) => (
         <ProjectProvider value={value}>
             <ul>
-                <SequenceCard
-                    sequence={nextSequence}
-                    todos={nextTodos}
-                    isActive={isActive}
-                />
+                <SequenceCard sequence={nextSequence} todos={nextTodos} />
             </ul>
         </ProjectProvider>
     );

@@ -50,26 +50,6 @@ const renderRow = (sequences = [], todos = [], props = {}) => {
 };
 
 describe('LayerRow', () => {
-    test('marks each sequence whose id is in the active set', () => {
-        // Arrange
-        const sequences = [
-            sequence(100, 10, 'Learn aerodynamics', 0),
-            sequence(101, 10, 'Learn electronics', 1),
-            sequence(102, 10, 'Learn controls', 2),
-        ];
-
-        // Act
-        const { container } = renderRow(sequences, [], {
-            activeSequenceIds: new Set([100, 101]),
-        });
-
-        // Assert
-        const active = [...container.querySelectorAll('.sequence-card--active')].map(
-            (card) => card.dataset.sequenceTitle
-        );
-        expect(active).toEqual(['Learn aerodynamics', 'Learn electronics']);
-    });
-
     test('shows the layer title in an editable field', () => {
         // Act
         renderRow();

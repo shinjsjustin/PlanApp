@@ -240,35 +240,6 @@ describe('SequenceCard', () => {
         expect(container.querySelector('.sequence-card--blocked')).toBeInTheDocument();
     });
 
-    test('keeps blocked lifecycle status when the sequence is active', () => {
-        // Act
-        const { container } = renderCard({
-            sequence: { ...baseSequence, isBlocked: true },
-            todos: [todo(1, 'blocked')],
-            isActive: true,
-        });
-
-        // Assert
-        const card = container.querySelector('.sequence-card');
-        expect(card).toHaveClass('sequence-card--active', 'sequence-card--state-blocked');
-        expect(card).toHaveAttribute('data-state', 'blocked');
-        expect(container.querySelector('.sequence-card-status')).toHaveTextContent('Blocked');
-    });
-
-    test('keeps complete lifecycle status when the sequence is active', () => {
-        // Act
-        const { container } = renderCard({
-            todos: [todo(1, 'complete')],
-            isActive: true,
-        });
-
-        // Assert
-        const card = container.querySelector('.sequence-card');
-        expect(card).toHaveClass('sequence-card--active', 'sequence-card--state-complete');
-        expect(card).toHaveAttribute('data-state', 'complete');
-        expect(container.querySelector('.sequence-card-status')).toHaveTextContent('Complete');
-    });
-
     test('sets the blocked override from the footer toggle', async () => {
         // Arrange
         const { value } = renderCard();

@@ -1,18 +1,16 @@
 // What a sequence card is showing, as a pure function of the graph.
 //
-// This is the card's lifecycle face, separate from pin activity. A pin adds
-// emphasis to a card and one row; it never changes whether the work is blocked,
-// complete or still outstanding.
+// This is the card's lifecycle face: whether the work is blocked, complete or
+// still outstanding.
 
 import {
     SEQUENCE_STATUS,
     TODO_STATUS,
     sortByPosition,
     todoCountsOf,
-    topPinnedTodoOf,
 } from './graph';
 
-/** The lifecycle faces of a card. Pin activity is rendered independently. */
+/** The lifecycle faces of a card. */
 export const CARD_STATE = {
     blocked: 'blocked',
     complete: 'complete',
@@ -40,7 +38,6 @@ const cardStateOf = ({ sequence, counts }) => {
 export const sequenceCardModel = ({ sequence, todos }) => {
     const own = sortByPosition(todos.filter((todo) => todo.sequenceId === sequence.id));
     const counts = todoCountsOf(sequence, todos);
-    const topPinnedTodo = topPinnedTodoOf(sequence, todos);
 
     const done = own.filter((todo) => todo.status === TODO_STATUS.complete);
     const outstanding = own.filter((todo) => todo.status !== TODO_STATUS.complete);
@@ -51,7 +48,6 @@ export const sequenceCardModel = ({ sequence, todos }) => {
         // that still think in one list: the drop targets and the delete prompt.
         own,
         outstanding,
-        topPinnedTodoId: topPinnedTodo?.id ?? null,
         done,
     };
 };

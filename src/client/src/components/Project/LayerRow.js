@@ -16,7 +16,6 @@ import { layerToSchema } from '../../lib/planSchema';
 import { clientKeyOf } from '../../state/projectReducer';
 import { useActiveDragSequence } from '../../state/DragContext';
 
-const EMPTY_ACTIVE_SEQUENCE_IDS = new Set();
 const COPY_STATUS_MS = 2000;
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -42,17 +41,13 @@ const prefersReducedMotion = () =>
 // creates rather than like the card the other button creates.
 //
 // `sequences` is the whole project's — the row picks out its own, so the canvas
-// does not have to group them first. `activeSequenceIds` passes straight through:
-// the row has no opinion about which cards contain pins, but it is the only thing
-// standing between the canvas that derives the Set and the cards that draw it.
-// `highlightedSequenceId` — the card arrived at from the calendar — rides the
-// same route for the same reason.
+// does not have to group them first. `highlightedSequenceId` — the card arrived at
+// from the calendar — passes straight through to the cards.
 
 const LayerRow = ({
     layer,
     sequences,
     todos,
-    activeSequenceIds = EMPTY_ACTIVE_SEQUENCE_IDS,
     highlightedSequenceId = null,
 }) => {
     const { addLayer, addSequence, deleteLayer, renameLayer, importLayer, importSequences } =
@@ -193,7 +188,6 @@ const LayerRow = ({
                                         key={clientKeyOf(sequence)}
                                         sequence={sequence}
                                         todos={todos}
-                                        isActive={activeSequenceIds.has(sequence.id)}
                                         highlightedSequenceId={highlightedSequenceId}
                                         index={index}
                                     />

@@ -22,7 +22,6 @@ const todo = (id, status = 'incomplete', position = id, overrides = {}) => ({
     status,
     completedAt: null,
     position,
-    isPinned: false,
     ...overrides,
 });
 
@@ -123,46 +122,12 @@ describe('sequenceCardModel', () => {
             // Assert
             expect(todos.map((t) => t.id)).toEqual(before);
         });
-
-        test('exposes the top pinned to-do id', () => {
-            // Act
-            const model = sequenceCardModel({
-                sequence: sequence(),
-                todos: [
-                    todo(2, 'incomplete', 2, { isPinned: true }),
-                    todo(1, 'complete', 1, { isPinned: true }),
-                ],
-            });
-
-            // Assert
-            expect(model.topPinnedTodoId).toBe(1);
-        });
-
-        test('exposes null when the sequence has no pin', () => {
-            // Act
-            const model = sequenceCardModel({ sequence: sequence(), todos: [todo(1)] });
-
-            // Assert
-            expect(model.topPinnedTodoId).toBeNull();
-        });
     });
 
     describe('lifecycle faces', () => {
         test('wears the quiet default when there is outstanding work', () => {
             // Act
             const model = sequenceCardModel({ sequence: sequence(), todos: [todo(1)] });
-
-            // Assert
-            expect(model.state).toBe(CARD_STATE.notStarted);
-        });
-
-        test('keeps pin activity out of the lifecycle state', () => {
-            // Act
-            const model = sequenceCardModel({
-                sequence: sequence(),
-                todos: [todo(1)],
-                isActive: true,
-            });
 
             // Assert
             expect(model.state).toBe(CARD_STATE.notStarted);
@@ -204,18 +169,6 @@ describe('sequenceCardModel', () => {
             const model = sequenceCardModel({
                 sequence: sequence({ isBlocked: true }),
                 todos: [todo(1, 'complete')],
-            });
-
-            // Assert
-            expect(model.state).toBe(CARD_STATE.blocked);
-        });
-
-        test('keeps blocked when the sequence is active through a pin', () => {
-            // Act
-            const model = sequenceCardModel({
-                sequence: sequence({ isBlocked: true }),
-                todos: [todo(1)],
-                isActive: true,
             });
 
             // Assert

@@ -25,7 +25,6 @@ const todo = (id, sequenceId, status, position = 0, overrides = {}) => ({
     text: `To-do ${id}`,
     status,
     position,
-    isPinned: false,
     ...overrides,
 });
 
@@ -168,44 +167,5 @@ describe('Canvas', () => {
             expect(container.querySelector('[data-connect]')).toBeNull();
             expect(container.querySelector('.canvas--connecting')).toBeNull();
         });
-    });
-
-    test('marks every sequence containing a pin active at the same time', () => {
-        // Arrange
-        const state = graphState({
-            layers: { 10: layer(10, 'Learning', 0), 20: layer(20, 'Design', 1) },
-            sequences: {
-                100: sequence(100, 10, 'Learn aerodynamics'),
-                200: sequence(200, 20, 'Design rotor system'),
-            },
-            todos: {
-                1: todo(1, 100, 'complete', 0, { isPinned: true }),
-                2: todo(2, 200, 'blocked', 0, { isPinned: true }),
-            },
-        });
-
-        // Act
-        const { container } = renderCanvas(state);
-
-        // Assert
-        const active = [...container.querySelectorAll('.sequence-card--active')].map(
-            (card) => card.dataset.sequenceTitle
-        );
-        expect(active).toEqual(['Learn aerodynamics', 'Design rotor system']);
-    });
-
-    test('does not mark a sequence active when it contains no pin', () => {
-        // Arrange
-        const state = graphState({
-            layers: { 10: layer(10, 'Learning', 0) },
-            sequences: { 100: sequence(100, 10, 'Learn aerodynamics') },
-            todos: { 1: todo(1, 100, 'incomplete') },
-        });
-
-        // Act
-        const { container } = renderCanvas(state);
-
-        // Assert
-        expect(container.querySelector('.sequence-card--active')).toBeNull();
     });
 });

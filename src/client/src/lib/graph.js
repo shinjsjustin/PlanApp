@@ -5,7 +5,7 @@
 // to-do is ticked off; it is recomputed from the to-dos every render.
 //
 // The server no longer mirrors these helpers. This module is the client-owned
-// source of truth for sequence lifecycle, pin activity and card counts.
+// source of truth for sequence lifecycle and card counts.
 
 export const SEQUENCE_STATUS = {
     blocked: 'blocked',
@@ -23,23 +23,6 @@ export const TODO_STATUS = {
 export const sortByPosition = (items) => [...items].sort((a, b) => a.position - b.position);
 
 const todosOf = (sequence, todos) => todos.filter((todo) => todo.sequenceId === sequence.id);
-
-/** The sequence's pinned to-dos in stored display order. */
-export const pinnedTodosOf = (sequence, todos) =>
-    sortByPosition(todosOf(sequence, todos).filter((todo) => todo.isPinned));
-
-/** The earliest stored pin, regardless of lifecycle status. */
-export const topPinnedTodoOf = (sequence, todos) => pinnedTodosOf(sequence, todos)[0] ?? null;
-
-/** Every sequence containing at least one pin. Pin activity is not exclusive. */
-export const activeSequenceIds = (sequences, todos) =>
-    new Set(
-        sequences
-            .filter((sequence) =>
-                todos.some((todo) => todo.sequenceId === sequence.id && todo.isPinned)
-            )
-            .map((sequence) => sequence.id)
-    );
 
 /**
  * `blocked` is the manual override and wins over everything. Otherwise a
