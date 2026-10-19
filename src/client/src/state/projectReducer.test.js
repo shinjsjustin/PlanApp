@@ -1,5 +1,6 @@
 import { createTempId } from '../lib/tempIds';
 import {
+    PROJECT_ACTIONS,
     PROJECT_STATUS,
     clientKeyOf,
     initialProjectState,
@@ -405,6 +406,13 @@ describe('projectReducer', () => {
             expect(() =>
                 projectReducer(initialProjectState, entityAdded('edges', { id: 1 }))
             ).toThrow(/edges/);
+        });
+
+        test('has no reconcile actions beyond entityReconciled', () => {
+            const reconcileKeys = Object.keys(PROJECT_ACTIONS).filter((key) =>
+                key.endsWith('Reconciled')
+            );
+            expect(reconcileKeys).toEqual(['entityReconciled']);
         });
     });
 });

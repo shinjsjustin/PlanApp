@@ -27,16 +27,6 @@ export const projectUpdated = (changes) => ({
     changes,
 });
 
-export const todosReconciled = (todos) => ({
-    type: PROJECT_ACTIONS.todosReconciled,
-    todos,
-});
-
-export const sequencesReconciled = (sequences) => ({
-    type: PROJECT_ACTIONS.sequencesReconciled,
-    sequences,
-});
-
 export const entityRemoved = (collection, id) => ({
     type: PROJECT_ACTIONS.entityRemoved,
     collection,

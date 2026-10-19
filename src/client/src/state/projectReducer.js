@@ -25,8 +25,6 @@ export const PROJECT_ACTIONS = {
     entityAdded: 'entityAdded',
     entityUpdated: 'entityUpdated',
     projectUpdated: 'projectUpdated',
-    todosReconciled: 'todosReconciled',
-    sequencesReconciled: 'sequencesReconciled',
     entityRemoved: 'entityRemoved',
     entityReconciled: 'entityReconciled',
     rolledBack: 'rolledBack',
@@ -102,17 +100,6 @@ const assertPresent = (state, collection, id) => {
 const withoutKey = (collection, id) =>
     Object.fromEntries(Object.entries(collection).filter(([key]) => key !== String(id)));
 
-const withSaved = (state, collection, saved) => {
-    saved.forEach((entity) => assertPresent(state, collection, entity.id));
-    const savedById = keyById(saved);
-    return Object.fromEntries(
-        Object.entries(state[collection]).map(([id, entity]) => [
-            id,
-            savedById[id] ? { ...entity, ...savedById[id] } : entity,
-        ])
-    );
-};
-
 const handlers = {
     [PROJECT_ACTIONS.loadStarted]: (state) => ({
         ...state,
@@ -161,16 +148,6 @@ const handlers = {
     [PROJECT_ACTIONS.projectUpdated]: (state, { changes }) => ({
         ...state,
         project: { ...state.project, ...changes },
-    }),
-
-    [PROJECT_ACTIONS.todosReconciled]: (state, { todos }) => ({
-        ...state,
-        todos: withSaved(state, 'todos', todos),
-    }),
-
-    [PROJECT_ACTIONS.sequencesReconciled]: (state, { sequences }) => ({
-        ...state,
-        sequences: withSaved(state, 'sequences', sequences),
     }),
 
     [PROJECT_ACTIONS.entityRemoved]: (state, { collection, id }) => {
