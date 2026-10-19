@@ -1,0 +1,70 @@
+.people-section {
+    margin-bottom: var(--space-xl);
+    color: var(--text-glow);
+}
+
+.people-section h2 {
+    font-size: var(--font-lg);
+    text-shadow: var(--glow-text-shadow);
+}
+
+.person-new {
+    margin-bottom: var(--space-lg);
+}
+
+.person-list,
+.person-groups {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.person-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-md);
+    margin-bottom: var(--space-sm);
+    border: 1px solid var(--neon-blue);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glow-box-shadow);
+}
+
+.person-name {
+    margin: 0;
+    font-size: var(--font-md);
+}
+
+.person-company,
+.person-role,
+.person-place,
+.person-client {
+    margin: 0;
+    font-size: var(--font-sm);
+}
+
+.person-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+}
+
+.person-group {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--neon-blue);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-sm);
+}
+
+.person-link {
+    color: var(--neon-blue);
+    font-size: var(--font-sm);
+}
+
+.address-book-page--phone .person-item {
+    padding: var(--space-sm);
+}
+
+.address-book-page--phone .person-link {
+    padding: var(--space-sm) 0; /* larger tap target */
+}
