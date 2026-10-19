@@ -1,9 +1,45 @@
 'use strict';
 
+const http = require('http');
+
 const pool = require('../../src/db/db');
 const { bindConnection, unbindConnection } = require('../../src/db/unitOfWork');
 
 const TEST_DB_SUFFIX = '_test';
+
+/**
+ * supertest wraps `request(app)` in a brand-new `http.createServer(app)` that
+ * listens on a fresh ephemeral port and is closed after the request. Over a few
+ * hundred requests that churn occasionally resets, hangs or answers with
+ * another process's bytes on loopback, so a random test in the full run failed
+ * (ECONNRESET, "Parse Error: Expected HTTP/", ETIMEDOUT) and passed on rerun.
+ *
+ * Instead each app gets one server that listens up front, so supertest finds it
+ * already bound and neither opens nor closes anything per request. The servers
+ * are unref'd so they never hold a test process open.
+ */
+const SHARED_SERVERS = Symbol.for('planapp.sharedTestServers');
+
+// `http` outlives each test file's module registry, so install the wrapper once
+// per process or every file would wrap the previous wrapper.
+if (!http.createServer[SHARED_SERVERS]) {
+    const sharedServers = new Map();
+    const createServer = http.createServer;
+
+    http.createServer = (...args) => {
+        const [handler] = args;
+        if (args.length !== 1 || typeof handler !== 'function') return createServer(...args);
+
+        if (!sharedServers.has(handler)) {
+            const server = createServer(handler);
+            server.listen(0);
+            server.unref();
+            sharedServers.set(handler, server);
+        }
+        return sharedServers.get(handler);
+    };
+    http.createServer[SHARED_SERVERS] = sharedServers;
+}
 
 /**
  * Integration tests run against a real MySQL schema. Every test body runs inside

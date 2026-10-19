@@ -24,6 +24,18 @@ const patchNote = (ownerId, todoId, body) =>
         .set('Authorization', authHeaderFor(ownerId))
         .send(body);
 
+// A fresh listening server per request occasionally resets, hangs or answers
+// with another process's bytes on loopback, which surfaced as random failures in
+// whichever test happened to be unlucky. The helper keeps one server per app.
+describe('request transport', () => {
+    test('supertest requests to one app share a single listening server', () => {
+        const first = request(app).get('/api/todos/1').url;
+        const second = request(app).get('/api/todos/1').url;
+
+        expect(second).toBe(first);
+    });
+});
+
 describe('todo notes', () => {
     test('PATCH saves a trimmed multi-line note and returns it', async () => {
         const { conn, ownerId, todo } = await setup();
