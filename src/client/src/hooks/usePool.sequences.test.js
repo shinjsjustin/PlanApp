@@ -7,15 +7,21 @@ jest.mock('../lib/api', () => ({
     api: { get: jest.fn() },
 }));
 
-const pinnedSequence = (id, title, overrides = {}) => ({
+// Far-future and far-past dates keep these independent of the real clock.
+const PAST = '2000-01-01';
+const SOON = '2999-01-05';
+const LATER = '2999-03-09';
+
+const datedSequence = (id, title, overrides = {}) => ({
     id,
     title,
+    date: SOON,
+    owner: 'justin',
     description: 'Keeps sessions fresh',
     isBlocked: false,
-    isPinned: true,
     layerId: 4,
-    position: 1,
-    todos: [{ id: 11, text: 'Expire tokens', status: 'incomplete', isPinned: false, position: 0 }],
+    visitMinutes: null,
+    todos: [{ id: 11, text: 'Expire tokens', status: 'incomplete', position: 0, visitMinutes: null }],
     ...overrides,
 });
 
@@ -30,27 +36,24 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
-describe('usePool pinned sequences', () => {
-    test('reads projects and pinned sequences in one request', async () => {
+describe('usePool dated sequences', () => {
+    test('reads /projects once, with no query string', async () => {
         await renderPool([]);
 
         expect(api.get).toHaveBeenCalledTimes(1);
-        expect(api.get).toHaveBeenCalledWith('/projects?include=pinnedSequences');
+        expect(api.get).toHaveBeenCalledWith('/projects');
     });
 
-    test('maps each pinned sequence to a pool item, in the server order', async () => {
+    test('maps a sequence to a pool item', async () => {
         const { result } = await renderPool([{
             id: 2,
             title: 'Auth rewrite',
-            pinnedTodos: [],
-            pinnedSequences: [
-                pinnedSequence(9, 'Session handling'),
-                pinnedSequence(5, 'Login', { description: null, isBlocked: true, layerId: 1, position: 0 }),
-            ],
+            datedSequences: [datedSequence(9, 'Session handling')],
         }]);
 
-        expect(result.current.projects[0].sequences).toEqual([
-            {
+        expect(result.current.days).toEqual([{
+            date: SOON,
+            sequences: [{
                 kind: 'sequence',
                 sequenceId: 9,
                 todoId: null,
@@ -58,48 +61,67 @@ describe('usePool pinned sequences', () => {
                 title: 'Session handling',
                 description: 'Keeps sessions fresh',
                 isBlocked: false,
-                isPinned: true,
                 layerId: 4,
-                position: 1,
+                date: SOON,
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
-                todos: [{ id: 11, text: 'Expire tokens', status: 'incomplete', isPinned: false, position: 0 }],
-            },
-            {
-                kind: 'sequence',
-                sequenceId: 5,
-                todoId: null,
-                text: 'Login',
-                title: 'Login',
-                description: null,
-                isBlocked: true,
-                isPinned: true,
-                layerId: 1,
-                position: 0,
-                projectId: 2,
-                projectTitle: 'Auth rewrite',
-                todos: [{ id: 11, text: 'Expire tokens', status: 'incomplete', isPinned: false, position: 0 }],
-            },
-        ]);
+                todos: [{
+                    id: 11,
+                    todoId: 11,
+                    text: 'Expire tokens',
+                    status: 'incomplete',
+                    position: 0,
+                    projectId: 2,
+                    projectTitle: 'Auth rewrite',
+                    sequenceId: 9,
+                    sequenceTitle: 'Session handling',
+                }],
+            }],
+        }]);
     });
 
-    test('yields no sequences when the payload has no pinnedSequences', async () => {
-        const { result } = await renderPool([{ id: 3, title: 'Bare', pinnedTodos: [] }]);
+    test('orders days ascending and keeps server order within a day', async () => {
+        const { result } = await renderPool([
+            {
+                id: 2,
+                title: 'A',
+                datedSequences: [datedSequence(1, 'Later', { date: LATER }), datedSequence(2, 'Soon A')],
+            },
+            { id: 3, title: 'B', datedSequences: [datedSequence(3, 'Soon B')] },
+        ]);
 
-        expect(result.current.projects[0].sequences).toEqual([]);
+        expect(result.current.days.map((day) => day.date)).toEqual([SOON, LATER]);
+        expect(result.current.days[0].sequences.map((sequence) => sequence.sequenceId)).toEqual([2, 3]);
+    });
+
+    test("drops Bourne's sequences and sequences dated before today", async () => {
+        const { result } = await renderPool([{
+            id: 2,
+            title: 'A',
+            datedSequences: [
+                datedSequence(1, 'Mine'),
+                datedSequence(2, 'Theirs', { owner: 'bourne' }),
+                datedSequence(3, 'Old', { date: PAST }),
+            ],
+        }]);
+
+        expect(result.current.days.flatMap((day) => day.sequences.map((s) => s.sequenceId))).toEqual([1]);
+    });
+
+    test('yields no days when nothing qualifies', async () => {
+        const { result } = await renderPool([
+            { id: 2, title: 'A', datedSequences: [datedSequence(2, 'Old', { date: PAST })] },
+        ]);
+
+        expect(result.current.days).toEqual([]);
     });
 
     test('copies the server todos instead of aliasing them', async () => {
-        const source = [{
-            id: 2,
-            title: 'Auth rewrite',
-            pinnedTodos: [],
-            pinnedSequences: [pinnedSequence(9, 'Session handling')],
-        }];
+        const source = [{ id: 2, title: 'A', datedSequences: [datedSequence(9, 'S')] }];
         const { result } = await renderPool(source);
 
-        const mapped = result.current.projects[0].sequences[0].todos;
-        expect(mapped).not.toBe(source[0].pinnedSequences[0].todos);
-        expect(mapped[0]).not.toBe(source[0].pinnedSequences[0].todos[0]);
+        const mapped = result.current.days[0].sequences[0].todos;
+        expect(mapped).not.toBe(source[0].datedSequences[0].todos);
+        expect(mapped[0]).not.toBe(source[0].datedSequences[0].todos[0]);
     });
 });

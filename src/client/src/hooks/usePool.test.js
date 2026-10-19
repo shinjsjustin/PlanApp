@@ -14,14 +14,27 @@ jest.mock('../lib/api', () => {
     };
 });
 
-const pinnedTodo = (id, text, overrides = {}) => ({
+const FUTURE = '2999-05-02';
+
+const todoRow = (id, text, overrides = {}) => ({
     id,
     text,
     status: 'incomplete',
-    sequenceId: 9,
-    sequenceTitle: 'Session handling',
     position: 0,
-    isPinned: true,
+    visitMinutes: null,
+    ...overrides,
+});
+
+const datedSequence = (id, todos, overrides = {}) => ({
+    id,
+    title: 'Session handling',
+    date: FUTURE,
+    owner: 'justin',
+    description: null,
+    isBlocked: false,
+    layerId: 4,
+    visitMinutes: null,
+    todos,
     ...overrides,
 });
 
@@ -29,10 +42,12 @@ const projects = [
     {
         id: 2,
         title: 'Auth rewrite',
-        pinnedTodos: [pinnedTodo(7, 'Wire up the token refresh')],
+        datedSequences: [datedSequence(9, [todoRow(7, 'Wire up the token refresh')])],
     },
-    { id: 3, title: 'Empty project', pinnedTodos: [] },
+    { id: 3, title: 'Empty project', datedSequences: [] },
 ];
+
+const firstTodoId = (result) => result.current.days[0].sequences[0].todos[0].todoId;
 
 /** Renders the hook with the pool already loaded. */
 const renderReady = async () => {
@@ -44,16 +59,16 @@ const renderReady = async () => {
     return view;
 };
 
-/** One project offering exactly one pin, for telling reads apart. */
+/** One project with one dated sequence holding exactly one to-do, for telling reads apart. */
 const pinnedProjectsOf = (todoId, text, overrides) => [
     {
         id: 2,
         title: 'Auth rewrite',
-        pinnedTodos: [pinnedTodo(todoId, text, overrides)],
+        datedSequences: [datedSequence(9, [todoRow(todoId, text, overrides)])],
     },
 ];
 
-/** Another pinned selection, for distinguishing concurrent reads. */
+/** Another selection, for distinguishing concurrent reads. */
 const updatedProjects = pinnedProjectsOf(8, 'Rotate the signing keys');
 
 const OLDER_FAILED = 'The older read could not reach the server.';
@@ -159,18 +174,21 @@ beforeEach(() => {
 });
 
 describe('usePool', () => {
-    test('maps pinned to-dos without changing their order', async () => {
+    test('reads /projects with no query string and groups sequences into a day', async () => {
         // Arrange + Act
         const { result } = await renderReady();
 
         // Assert
-        expect(api.get).toHaveBeenCalledWith('/projects?include=pinnedSequences');
-        expect(result.current.projects[0].todos).toEqual([
+        expect(api.get).toHaveBeenCalledWith('/projects');
+        expect(result.current.days).toHaveLength(1);
+        expect(result.current.days[0].date).toBe(FUTURE);
+        expect(result.current.days[0].sequences[0].todos).toEqual([
             {
+                id: 7,
                 todoId: 7,
                 text: 'Wire up the token refresh',
                 status: 'incomplete',
-                isPinned: true,
+                position: 0,
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
                 sequenceId: 9,
@@ -179,57 +197,44 @@ describe('usePool', () => {
         ]);
     });
 
-    test('includes complete, blocked, and unorganized pins', async () => {
+    test('keeps complete and blocked to-dos in their sequence, in order', async () => {
         api.get.mockResolvedValue([{
             id: 6,
-            title: 'Every kind of pin',
-            pinnedTodos: [
-                pinnedTodo(20, 'Done', { status: 'complete' }),
-                pinnedTodo(2, 'Waiting', { status: 'blocked' }),
-                pinnedTodo(3, 'Loose', { sequenceId: null, sequenceTitle: null }),
-            ],
+            title: 'Every kind',
+            datedSequences: [datedSequence(9, [
+                todoRow(20, 'Done', { status: 'complete' }),
+                todoRow(2, 'Waiting', { status: 'blocked' }),
+                todoRow(3, 'Open'),
+            ])],
         }]);
 
         const { result } = renderHook(() => usePool());
         await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
 
-        expect(result.current.projects[0].todos.map((todo) => ({
-            todoId: todo.todoId,
-            status: todo.status,
-            sequenceId: todo.sequenceId,
-        }))).toEqual([
-            { todoId: 20, status: 'complete', sequenceId: 9 },
-            { todoId: 2, status: 'blocked', sequenceId: 9 },
-            { todoId: 3, status: 'incomplete', sequenceId: null },
-        ]);
+        expect(result.current.days[0].sequences[0].todos.map((todo) => [todo.todoId, todo.status]))
+            .toEqual([[20, 'complete'], [2, 'blocked'], [3, 'incomplete']]);
     });
 
-    test('maps frozen pinned payloads without mutating the server response', async () => {
+    test('maps frozen payloads without mutating the server response', async () => {
+        const row = Object.freeze(todoRow(7, 'Work'));
         const source = Object.freeze([Object.freeze({
             id: 2,
             title: 'Auth rewrite',
-            pinnedTodos: Object.freeze([Object.freeze(pinnedTodo(7, 'Pinned work'))]),
+            datedSequences: Object.freeze([Object.freeze(datedSequence(9, Object.freeze([row])))]),
         })]);
         api.get.mockResolvedValue(source);
 
         const { result } = renderHook(() => usePool());
         await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
 
-        expect(result.current.projects[0].todos[0]).not.toBe(source[0].pinnedTodos[0]);
-        expect(source[0].pinnedTodos[0]).toEqual(pinnedTodo(7, 'Pinned work'));
+        expect(result.current.days[0].sequences[0].todos[0]).not.toBe(row);
+        expect(row).toEqual(todoRow(7, 'Work'));
     });
 
-    test('keeps a project with no pins, so it can say so', async () => {
-        // Arrange + Act
+    test('a project with no dated sequences adds no day', async () => {
         const { result } = await renderReady();
 
-        // Assert
-        expect(result.current.projects[1]).toEqual({
-            id: 3,
-            title: 'Empty project',
-            todos: [],
-            sequences: [],
-        });
+        expect(result.current.days.map((day) => day.date)).toEqual([FUTURE]);
     });
 
     test('reports a failed load without emptying the panel silently', async () => {
@@ -242,7 +247,7 @@ describe('usePool', () => {
 
         // Assert
         expect(result.current.loadError).toBe('Could not reach the server.');
-        expect(result.current.projects).toEqual([]);
+        expect(result.current.days).toEqual([]);
     });
 
     test('starts in the loading status before the request settles', () => {
@@ -254,7 +259,7 @@ describe('usePool', () => {
 
         // Assert
         expect(result.current.status).toBe(POOL_STATUS.loading);
-        expect(result.current.projects).toEqual([]);
+        expect(result.current.days).toEqual([]);
     });
 
     test('reload re-fetches, clearing the prior error along with the rows it left behind', async () => {
@@ -269,7 +274,7 @@ describe('usePool', () => {
 
         // Assert
         await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
-        expect(result.current.projects[1].title).toBe('Empty project');
+        expect(result.current.days).toHaveLength(1);
         expect(result.current.loadError).toBe('');
     });
 
@@ -288,7 +293,7 @@ describe('usePool', () => {
 
         // Assert — still ready, still listing what it listed, mid-flight.
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(firstTodoId(result)).toBe(7);
 
         // Act — and the answer replaces the rows without a reload.
         await act(async () => {
@@ -298,7 +303,7 @@ describe('usePool', () => {
 
         // Assert
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0]).toMatchObject({ todoId: 7, status: 'complete', isPinned: true });
+        expect(result.current.days[0].sequences[0].todos[0]).toMatchObject({ todoId: 7, status: 'complete' });
     });
 
     test('a failed refresh says so without taking the rows down with it', async () => {
@@ -313,7 +318,7 @@ describe('usePool', () => {
         // Assert
         expect(result.current.refreshError).toBe('Could not reach the server.');
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(firstTodoId(result)).toBe(7);
         expect(result.current.loadError).toBe('');
     });
 
@@ -352,7 +357,7 @@ describe('usePool', () => {
             fresh.resolve(updatedProjects);
             await fresh.promise;
         });
-        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+        expect(firstTodoId(result)).toBe(8);
 
         await act(async () => {
             stale.resolve(projects);
@@ -360,7 +365,7 @@ describe('usePool', () => {
         });
 
         // Assert
-        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+        expect(firstTodoId(result)).toBe(8);
     });
 
     test('an overtaken read that fails is not reported over the answer that won', async () => {
@@ -406,7 +411,7 @@ describe('usePool', () => {
             }
 
             // Assert
-            expect(result.current.projects[0].todos[0].todoId).toBe(expected.todoId);
+            expect(firstTodoId(result)).toBe(expected.todoId);
             expect(result.current.refreshError).toBe(expected.refreshError);
             expect(result.current.status).toBe(POOL_STATUS.ready);
         });
@@ -440,7 +445,7 @@ describe('usePool', () => {
         // Assert — the only answer anybody got is the one on screen, and the
         // refill says what went wrong from above it.
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(firstTodoId(result)).toBe(7);
         expect(result.current.refreshError).toBe('Could not reach the server.');
     });
 
@@ -468,7 +473,7 @@ describe('usePool', () => {
 
         // Assert
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0].todoId).toBe(8);
+        expect(firstTodoId(result)).toBe(8);
         expect(result.current.refreshError).toBe('');
     });
 
@@ -505,7 +510,7 @@ describe('usePool', () => {
 
         // Assert
         expect(result.current.status).toBe(POOL_STATUS.ready);
-        expect(result.current.projects[0].todos[0].todoId).toBe(7);
+        expect(firstTodoId(result)).toBe(7);
         expect(result.current.refreshError).toBe('');
     });
 

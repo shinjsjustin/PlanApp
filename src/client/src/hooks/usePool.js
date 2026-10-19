@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../lib/api';
+import { todayKey } from '../lib/dates';
 
-// The right panel's pinned work, including completed pins for review.
+// The right panel's dated sequences, grouped by day.
 //
 // There is no calendar-specific pool endpoint. `GET /api/projects` already
-// carries each project's pinned to-dos, which are the same explicit choices the
-// projects home page shows. Every pin stays visible regardless of lifecycle
-// status or whether it belongs to a sequence. Asking for
-// `include=pinnedSequences` makes the pool carry pinned sequences too, in the
-// same single request, so the settled-read invariant covers them as well.
+// carries each project's `datedSequences`, so the pool is one request. Only
+// Justin's sequences dated today or later are listed: Bourne's belong to
+// Bourne, and a day that has passed is no longer something to schedule.
 //
 // Loaded separately from the calendar, and failing separately: a calendar you
 // cannot schedule into is still worth reading, and a pool you cannot drag from
@@ -27,39 +26,59 @@ const messageOf = (error) => error?.message || GENERIC_FAILURE;
 const visitMinutesOf = (item) =>
     typeof item.visitMinutes === 'number' ? { visitMinutes: item.visitMinutes } : {};
 
-/** A project with no pins is kept so its card can say so explicitly. */
-const toPoolProjects = (projects) =>
-    projects.map((project) => ({
-        id: project.id,
-        title: project.title,
-        todos: project.pinnedTodos.map((todo) => ({
-            todoId: todo.id,
-            text: todo.text,
-            status: todo.status,
-            isPinned: todo.isPinned,
-            projectId: project.id,
-            projectTitle: project.title,
-            sequenceId: todo.sequenceId,
-            sequenceTitle: todo.sequenceTitle,
-            ...visitMinutesOf(todo),
-        })),
-        sequences: (project.pinnedSequences ?? []).map((sequence) => ({
-            kind: 'sequence',
-            sequenceId: sequence.id,
-            todoId: null,
-            text: sequence.title,
-            title: sequence.title,
-            description: sequence.description,
-            isBlocked: sequence.isBlocked,
-            isPinned: sequence.isPinned,
-            layerId: sequence.layerId,
-            position: sequence.position,
-            projectId: project.id,
-            projectTitle: project.title,
-            ...visitMinutesOf(sequence),
-            todos: sequence.todos.map((todo) => ({ ...todo })),
-        })),
-    }));
+const OWNER = 'justin';
+
+const toPoolTodo = (todo, project, sequence) => ({
+    id: todo.id,
+    todoId: todo.id,
+    text: todo.text,
+    status: todo.status,
+    position: todo.position,
+    projectId: project.id,
+    projectTitle: project.title,
+    sequenceId: sequence.id,
+    sequenceTitle: sequence.title,
+    ...visitMinutesOf(todo),
+});
+
+const toPoolSequence = (sequence, project) => ({
+    kind: 'sequence',
+    sequenceId: sequence.id,
+    todoId: null,
+    text: sequence.title,
+    title: sequence.title,
+    description: sequence.description,
+    isBlocked: sequence.isBlocked,
+    layerId: sequence.layerId,
+    date: sequence.date,
+    projectId: project.id,
+    projectTitle: project.title,
+    ...visitMinutesOf(sequence),
+    todos: sequence.todos.map((todo) => toPoolTodo(todo, project, sequence)),
+});
+
+/**
+ * Justin's sequences dated today or later, grouped by date ascending. Within a
+ * date they keep the server's order: project order, then each project's own.
+ * 'YYYY-MM-DD' keys compare correctly as strings.
+ */
+const toPoolDays = (projects) => {
+    const today = todayKey();
+    const byDate = new Map();
+
+    projects.forEach((project) => {
+        project.datedSequences
+            .filter((sequence) => sequence.owner === OWNER && sequence.date >= today)
+            .forEach((sequence) => {
+                const sequences = byDate.get(sequence.date) ?? [];
+                byDate.set(sequence.date, [...sequences, toPoolSequence(sequence, project)]);
+            });
+    });
+
+    return [...byDate.keys()]
+        .sort()
+        .map((date) => ({ date, sequences: byDate.get(date) }));
+};
 
 /**
  * The panel's whole read-derived state, written in one place and only ever from
@@ -85,7 +104,7 @@ const settledFrom = (current, outcome) => {
     if (!outcome.error) {
         return {
             status: POOL_STATUS.ready,
-            projects: outcome.projects,
+            days: outcome.days,
             loadError: '',
             refreshError: '',
         };
@@ -103,15 +122,15 @@ const settledFrom = (current, outcome) => {
 
 const INITIAL_POOL = {
     status: POOL_STATUS.loading,
-    projects: [],
+    days: [],
     loadError: '',
     refreshError: '',
 };
 
-/** Reads pinned projects, turning either ending into a value rather than a throw. */
-const readPinnedProjects = async () => {
+/** Reads the dated sequences, turning either ending into a value rather than a throw. */
+const readDays = async () => {
     try {
-        return { projects: toPoolProjects(await api.get('/projects?include=pinnedSequences')) };
+        return { days: toPoolDays(await api.get('/projects')) };
     } catch (err) {
         return { error: messageOf(err) };
     }
@@ -129,7 +148,7 @@ const usePool = () => {
         const requestId = requestRef.current + 1;
         requestRef.current = requestId;
 
-        const outcome = await readPinnedProjects();
+        const outcome = await readDays();
 
         if (requestId < settledRef.current) return;
 
@@ -159,7 +178,7 @@ const usePool = () => {
     }, [load]);
 
     // The quiet re-read behind rows already on screen, after work was ticked off
-    // and its pin changed status. It is the bare read: what a failure means is
+    // and its status changed. It is the bare read: what a failure means is
     // `settledFrom`'s decision, taken from what is on screen rather than from
     // which caller asked.
     return { ...pool, reload: load, refresh: read };

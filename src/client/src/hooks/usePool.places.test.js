@@ -8,55 +8,51 @@ jest.mock('../lib/api', () => ({
     api: { get: jest.fn() },
 }));
 
-const pinnedTodo = (id, overrides = {}) => ({
+const todoRow = (id, overrides = {}) => ({
     id,
     text: `Todo ${id}`,
     status: 'incomplete',
-    sequenceId: null,
-    sequenceTitle: null,
-    isPinned: true,
+    position: 0,
     ...overrides,
 });
 
-const pinnedSequence = (id, overrides = {}) => ({
+const datedSequence = (id, todos, overrides = {}) => ({
     id,
     title: `Sequence ${id}`,
-    description: '',
+    date: '2999-01-05',
+    owner: 'justin',
+    description: null,
     isBlocked: false,
-    isPinned: true,
     layerId: 1,
-    position: 0,
-    todos: [],
+    todos,
     ...overrides,
 });
 
-const loadPool = async (project) => {
-    api.get.mockResolvedValue([{ id: 2, title: 'Errands', ...project }]);
+const loadSequence = async (sequence) => {
+    api.get.mockResolvedValue([{ id: 2, title: 'Errands', datedSequences: [sequence] }]);
     const { result } = renderHook(() => usePool());
     await waitFor(() => expect(result.current.status).toBe(POOL_STATUS.ready));
 
-    return result.current.projects[0];
+    return result.current.days[0].sequences[0];
 };
 
 describe('usePool visit length', () => {
-    test('copies a numeric visitMinutes onto to-do and sequence pool items', async () => {
-        const project = await loadPool({
-            pinnedTodos: [pinnedTodo(7, { visitMinutes: 90 })],
-            pinnedSequences: [pinnedSequence(4, { visitMinutes: 45 })],
-        });
+    test('copies a numeric visitMinutes onto sequence and to-do pool items', async () => {
+        const sequence = await loadSequence(
+            datedSequence(4, [todoRow(7, { visitMinutes: 90 })], { visitMinutes: 45 }),
+        );
 
-        expect(project.todos[0].visitMinutes).toBe(90);
-        expect(project.sequences[0].visitMinutes).toBe(45);
+        expect(sequence.visitMinutes).toBe(45);
+        expect(sequence.todos[0].visitMinutes).toBe(90);
     });
 
     test('leaves out the visitMinutes key when the server sends none or a non-number', async () => {
-        const project = await loadPool({
-            pinnedTodos: [pinnedTodo(7), pinnedTodo(8, { visitMinutes: null })],
-            pinnedSequences: [pinnedSequence(4, { visitMinutes: '60' })],
-        });
+        const sequence = await loadSequence(
+            datedSequence(4, [todoRow(7), todoRow(8, { visitMinutes: null })], { visitMinutes: '60' }),
+        );
 
-        expect(project.todos[0]).not.toHaveProperty('visitMinutes');
-        expect(project.todos[1]).not.toHaveProperty('visitMinutes');
-        expect(project.sequences[0]).not.toHaveProperty('visitMinutes');
+        expect(sequence).not.toHaveProperty('visitMinutes');
+        expect(sequence.todos[0]).not.toHaveProperty('visitMinutes');
+        expect(sequence.todos[1]).not.toHaveProperty('visitMinutes');
     });
 });
