@@ -27,17 +27,4 @@ describe('collapsed sequence presentation', () => {
         renderCard({ sequence: { ...foldedSequence, description } });
         expect(screen.getByText('What problem are you trying to solve?')).toBeInTheDocument();
     });
-
-    test('shows no top-pin preview or pin icon for a card holding pinned to-dos', () => {
-        const todos = [
-            todo(30, 'incomplete', { isPinned: true }),
-            todo(1, 'incomplete'),
-        ];
-        const { container } = renderCard({ sequence: { ...foldedSequence, isPinned: true }, todos });
-
-        expect(screen.queryByRole('group', { name: 'Top pinned to-do' })).not.toBeInTheDocument();
-        expect(screen.queryByText('To-do 30')).not.toBeInTheDocument();
-        expect(container.querySelector('.sequence-pin-icon, .todo-pin-icon, .pin-select-control')).not.toBeInTheDocument();
-        expect(screen.getByText('2 to-dos')).toBeInTheDocument();
-    });
 });

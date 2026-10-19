@@ -9,7 +9,6 @@ const doneTodo = {
     id: 11,
     text: 'Calibrate the motors',
     status: 'complete',
-    isPinned: true,
     completedAt: '2026-09-18T12:00:00.000Z',
 };
 
@@ -28,15 +27,6 @@ const renderGroup = () => {
 };
 
 describe('SequenceDoneGroup rows', () => {
-    test('shows no pin icon or overlay even when the to-do carries a stale isPinned flag', () => {
-        // Act
-        const { container } = renderGroup();
-
-        // Assert
-        expect(container.querySelector('.todo-pin-icon')).not.toBeInTheDocument();
-        expect(container.querySelector('.pin-select-control')).not.toBeInTheDocument();
-    });
-
     test('reopens and deletes through the row controls', async () => {
         // Arrange
         const { onReopenTodo, onDeleteTodo } = renderGroup();

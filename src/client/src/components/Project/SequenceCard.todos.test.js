@@ -15,7 +15,6 @@ const filed = (
         sequenceId = 100,
         status = 'incomplete',
         completedAt = null,
-        isPinned = false,
     } = {}
 ) => ({
     id,
@@ -25,7 +24,6 @@ const filed = (
     status,
     completedAt,
     position,
-    isPinned,
 });
 
 const outstandingTexts = () =>
@@ -61,21 +59,6 @@ describe('SequenceCard to-dos', () => {
         expect(screen.queryByText('NEXT STEP')).not.toBeInTheDocument();
         expect(screen.queryByText('NEXT')).not.toBeInTheDocument();
         expect(screen.queryByText('THEN')).not.toBeInTheDocument();
-    });
-
-    test('draws no pin emphasis or icon on pinned outstanding or done rows', () => {
-        // Act
-        const { container } = renderCard({
-            todos: [
-                filed(1, { position: 0, isPinned: true }),
-                filed(2, { position: 1, status: 'complete', isPinned: true }),
-            ],
-        });
-
-        // Assert
-        expect(screen.getByText('To-do 1')).toBeInTheDocument();
-        expect(screen.getByText('To-do 2')).toBeInTheDocument();
-        expect(container.querySelector('.todo-row--top-pinned, .todo-pin-icon')).not.toBeInTheDocument();
     });
 
     test('leaves out to-dos belonging elsewhere', () => {

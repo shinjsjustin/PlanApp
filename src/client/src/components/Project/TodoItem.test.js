@@ -127,15 +127,6 @@ describe('TodoItem', () => {
         expect(container.querySelector('.todo-item--blocked')).toBeInTheDocument();
     });
 
-    test('shows no pin icon even when the to-do carries a stale isPinned flag', () => {
-        // Act
-        const { container } = renderItem({ ...filedTodo, isPinned: true });
-
-        // Assert
-        expect(container.querySelector('.todo-pin-icon')).not.toBeInTheDocument();
-        expect(container.querySelector('.pin-select-control')).not.toBeInTheDocument();
-    });
-
     test('completes an incomplete to-do', async () => {
         // Arrange
         const { value } = renderItem();

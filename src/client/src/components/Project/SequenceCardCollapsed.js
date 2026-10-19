@@ -62,7 +62,7 @@ const CollapsedSummary = ({ model, title, children, grip }) => {
 
             <div className="sequence-card-collapsed-lines">
                 <div className="sequence-card-collapsed-line">
-                        <span className="sequence-card-collapsed-title">{title}</span>
+                    <span className="sequence-card-collapsed-title">{title}</span>
                     <span className="sequence-card-progress">
                         {counts.done}/{counts.total}
                     </span>
