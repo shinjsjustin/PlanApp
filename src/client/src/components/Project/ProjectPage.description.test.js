@@ -40,7 +40,7 @@ test.each([
     ['  First\n\nSecond  ', 'First\n\nSecond'],
     [' \n  ', null],
 ])('PATCH normalizes %j and retains the saved value on reload', async (draft, description) => {
-    api.patch.mockResolvedValue({ ...GRAPH.project, description, pinnedTodos: [] });
+    api.patch.mockResolvedValue({ ...GRAPH.project, description });
     const { unmount } = render(<MemoryRouter><ProjectPage /></MemoryRouter>);
     await act(async () => {});
 
@@ -58,7 +58,7 @@ test.each([
 });
 
 test('flushes a blurred description when route navigation unmounts the project page', async () => {
-    api.patch.mockResolvedValue({ ...GRAPH.project, description: 'Draft', pinnedTodos: [] });
+    api.patch.mockResolvedValue({ ...GRAPH.project, description: 'Draft' });
     render(
         <MemoryRouter initialEntries={['/projects/7']}>
             <Routes>

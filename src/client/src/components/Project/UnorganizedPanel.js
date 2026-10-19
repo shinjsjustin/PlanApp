@@ -90,7 +90,7 @@ const UnorganizedPanel = () => {
             {isConfirmingDelete && (
                 <ConfirmDialog
                     title={`Delete all ${todos.length} unorganized to-dos?`}
-                    message="Their bookings and pins are deleted with them."
+                    message="Their bookings are deleted with them."
                     confirmLabel={`Delete all ${todos.length} to-dos`}
                     onConfirm={() => {
                         setIsConfirmingDelete(false);

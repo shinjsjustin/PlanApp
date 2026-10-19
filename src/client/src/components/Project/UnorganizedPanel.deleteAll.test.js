@@ -4,11 +4,10 @@ import { render, screen } from '@testing-library/react';
 import { ProjectProvider } from '../../state/ProjectContext';
 import { click } from '../../testUtils/interact';
 
-import { PinSelectionProvider } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
 
 const todo = (id, sequenceId = null) => ({
-    id, projectId: 1, sequenceId, text: `To-do ${id}`, status: 'incomplete', isPinned: false, position: id, note: null,
+    id, projectId: 1, sequenceId, text: `To-do ${id}`, status: 'incomplete', position: id, note: null,
 });
 
 const renderPanel = (todos) => {
@@ -24,15 +23,9 @@ const renderPanel = (todos) => {
         removeEntity: jest.fn(),
         removeUnorganizedTodos: jest.fn(),
     };
-    const selection = {
-        mode: 'idle', selectedTodoIds: new Set(), isEligible: () => false, isSelected: () => false, toggle: jest.fn(),
-    };
-
     render(
         <ProjectProvider value={value}>
-            <PinSelectionProvider value={selection}>
-                <UnorganizedPanel />
-            </PinSelectionProvider>
+            <UnorganizedPanel />
         </ProjectProvider>
     );
 
@@ -63,6 +56,7 @@ describe('UnorganizedPanel Delete all', () => {
         await click(deleteAll());
 
         expect(screen.getByRole('dialog', { name: 'Delete all 2 unorganized to-dos?' })).toBeInTheDocument();
+        expect(screen.getByText('Their bookings are deleted with them.')).toBeInTheDocument();
         expect(value.removeUnorganizedTodos).not.toHaveBeenCalled();
     });
 

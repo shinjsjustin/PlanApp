@@ -8,8 +8,6 @@ import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
 import ProjectThoughtsLink from '../Navigation/ProjectThoughtsLink';
 import PhoneProjectView from './PhoneProjectView';
-import PinControls from './PinControls';
-import { PinSelectionProvider, usePinSelectionState } from './PinSelectionContext';
 import UnorganizedPanel from './UnorganizedPanel';
 import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
 import useIsPhone from '../../hooks/useIsPhone';
@@ -39,7 +37,6 @@ const ProjectPage = () => {
     const isPhone = useIsPhone();
     const graph = useProjectGraph(id);
     const { state, reload, dismissActionError } = graph;
-    const pinSelection = usePinSelectionState(graph.setTodosPinned, graph.setPinned);
 
     // Arriving from the calendar's "where did this come from?". The wait starts
     // from the graph being ready, because there is no card to flash before then.
@@ -60,9 +57,6 @@ const ProjectPage = () => {
                     <ProjectProvider value={graph}>
                         <InlineDescription key={id} value={state.project.description} />
                     </ProjectProvider>
-                )}
-                {!isPhone && state.status === PROJECT_STATUS.ready && (
-                    <PinControls selection={pinSelection} />
                 )}
             </header>
 
@@ -103,16 +97,14 @@ const ProjectPage = () => {
 
             {!isPhone && state.status === PROJECT_STATUS.ready && (
                 <ProjectProvider value={graph}>
-                    <PinSelectionProvider value={pinSelection}>
-                        <PlaceOptionsProvider>
-                            <DragDropArea>
-                                <div className="project-body">
-                                    <UnorganizedPanel />
-                                    <Canvas highlightedSequenceId={highlightedSequenceId} />
-                                </div>
-                            </DragDropArea>
-                        </PlaceOptionsProvider>
-                    </PinSelectionProvider>
+                    <PlaceOptionsProvider>
+                        <DragDropArea>
+                            <div className="project-body">
+                                <UnorganizedPanel />
+                                <Canvas highlightedSequenceId={highlightedSequenceId} />
+                            </div>
+                        </DragDropArea>
+                    </PlaceOptionsProvider>
                 </ProjectProvider>
             )}
         </main>
