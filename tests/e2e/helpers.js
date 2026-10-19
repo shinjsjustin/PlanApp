@@ -273,20 +273,36 @@ const openProject = async (page, projectId) => {
     await page.locator('.canvas-layer').first().waitFor();
 };
 
-/** Persist a pin batch through the same endpoint used by the selection UI. */
-const setPins = async (page, headers, projectId, todoIds, isPinned = true) =>
-    dataOf(await page.request.put(`/api/projects/${projectId}/todos/pins`, {
-        headers, data: { todoIds, isPinned },
-    }));
+const MONTH_ABBREVIATIONS = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
 
+/**
+ * Today's 'Mon D' sequence title, e.g. 'Oct 19'. The month is spelled out here
+ * rather than taken from `toLocaleDateString`, whose abbreviation depends on the
+ * machine's locale; the day has no zero padding. Local time, like the client's.
+ */
+const todayTitle = (now = new Date()) => `${MONTH_ABBREVIATIONS[now.getMonth()]} ${now.getDate()}`;
+
+/** Retitles an existing sequence with today's date, which is what dates it. */
+const dateSequenceToday = async (page, headers, sequenceId) =>
+    dataOf(
+        await page.request.patch(`/api/sequences/${sequenceId}`, {
+            headers,
+            data: { title: todayTitle() },
+        })
+    );
+
+/** The drag grip of a to-do row in the calendar panel, not of the sequence holding it. */
 const poolGrip = (page, text) =>
-    page.locator('.panel-todo-row')
+    page.locator('.panel-todo-row:not(.panel-sequence-row)')
         .filter({ has: page.getByText(text, { exact: true }) })
         .locator('.panel-todo-grip');
 
 module.exports = {
     dataOf,
-    setPins,
+    todayTitle,
+    dateSequenceToday,
     poolGrip,
     attachDiagnostics,
     addTodo,

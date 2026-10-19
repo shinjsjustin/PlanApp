@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const { newCredentials, seedPlan, addTodo, dragOnto, setPins, poolGrip } = require('./helpers');
+const { newCredentials, seedPlan, addTodo, dragOnto, dateSequenceToday, poolGrip } = require('./helpers');
 
 // One flow, chosen because it is the only one that exercises the whole feature
 // at once: the cascade, the spill, and the day it creates.
@@ -10,12 +10,12 @@ const { newCredentials, seedPlan, addTodo, dragOnto, setPins, poolGrip } = requi
 // none of those can prove is that a pointer dragged across a real layout produces
 // the schedule the arithmetic says it should.
 
-/** A signed-in account with exactly one pinned pool item: `Refresh tokens`. */
+/** A signed-in account whose pool holds one to-do, `Refresh tokens`, in a sequence titled today. */
 const seedCalendarWork = async (page) => {
     const { projectId, headers, parent } = await seedPlan(page, newCredentials(), 'Auth rewrite');
 
-    const todo = await addTodo(page, headers, projectId, 'Refresh tokens', parent.id);
-    await setPins(page, headers, projectId, [todo.id]);
+    await addTodo(page, headers, projectId, 'Refresh tokens', parent.id);
+    await dateSequenceToday(page, headers, parent.id);
 
     return { projectId };
 };
@@ -86,6 +86,9 @@ const visibleNotePlanePoint = async (page, verticalFraction = NOTE_PRESS_FRACTIO
     };
 };
 
+const poolRowOf = (page, text) =>
+    page.locator('.panel-todo-row:not(.panel-sequence-row)').filter({ hasText: text });
+
 const firstDay = (page) => page.getByRole('region', { name: 'Day 1', exact: true });
 
 const notePopover = (page) => page.locator('.note-popover');
@@ -116,13 +119,14 @@ test.describe('Calendar', () => {
 
         const column = page.getByRole('region', { name: 'Day 1' });
 
-        // Act — open the project card and drag its pin into the day
-        await page.getByRole('button', { name: /Auth rewrite/ }).click();
+        // Act — drag the pool to-do into the day
         await dragOnto(page, poolGrip(page, 'Refresh tokens'), column);
 
-        // Assert — booked, and gone from the pool's count
+        // Assert — booked, and the pool row says which day
         await expect(column.getByText('Refresh tokens')).toBeVisible();
-        await expect(page.getByRole('button', { name: /Auth rewrite/ })).toContainText('0');
+        await expect(poolRowOf(page, 'Refresh tokens').locator('.panel-todo-badge')).toHaveText(
+            'Day 1'
+        );
 
         // Act — grow the bottom edge far enough that the booking cannot fit in
         // the day it is in. The raw mouse moves are deliberate: this is the one
@@ -162,9 +166,7 @@ test.describe('Calendar', () => {
 
         const column = page.getByRole('region', { name: 'Day 1' });
 
-        await page.getByRole('button', { name: /Auth rewrite/ }).click();
-
-        // The card paints from the optimistic dispatch, so it says nothing about
+        // The booking paints from the optimistic dispatch, so it says nothing about
         // whether the booking exists on the server yet — and the `DELETE` below
         // would be answered `Booking not found` if it overtook the `PUT` that
         // creates it. A booking has no × of its own to wait on the way a day
@@ -186,9 +188,10 @@ test.describe('Calendar', () => {
             page.getByRole('region', { name: 'Projects' })
         );
 
-        // Assert — back in the pool, and the count restored
+        // Assert — back in the pool, with no day badge
         await expect(column.getByText('Refresh tokens')).toHaveCount(0);
-        await expect(page.getByRole('button', { name: /Auth rewrite/ })).toContainText('1');
+        await expect(poolRowOf(page, 'Refresh tokens').locator('.panel-todo-badge')).toHaveCount(0);
+        await expect(poolGrip(page, 'Refresh tokens')).toBeVisible();
     });
 });
 

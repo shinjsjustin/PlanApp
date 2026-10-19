@@ -3,23 +3,21 @@
 const { test, expect } = require('@playwright/test');
 const { deleteUserByEmail } = require('./database');
 const {
-    attachDiagnostics, addTodo, dataOf, dragOnto, newCredentials, openProject,
-    poolGrip, seedPlan, seedCrowdedPlan, seedLayeredPlan,
+    attachDiagnostics, addTodo, dataOf, dateSequenceToday, dragOnto, newCredentials, openProject,
+    poolGrip, seedPlan, todayTitle, seedCrowdedPlan, seedLayeredPlan,
 } = require('./helpers');
 
 const credentials = newCredentials();
 const onboardingCredentials = newCredentials();
-const PROJECT = 'Pinned work';
+const PROJECT = 'Dated work';
 const ONBOARDING_PROJECT = 'Card navigation';
 const ONBOARDING_LAYER = 'Planning';
 const ONBOARDING_SECOND_LAYER = 'Execution';
 const ONBOARDING_SEQUENCE = 'First sequence';
 const DESCRIPTION = 'Build a reliable aircraft.\nKeep the design reviewable.';
 const SEQUENCE_DESCRIPTION = 'Understand lift.\nThen test the assumptions.';
-const sequenceCard = (page, title) => page.locator('li[data-sequence-title]').filter({
-    has: page.getByLabel(`Sequence title: ${title}`, { exact: true }),
-});
-const poolRow = (page, text) => page.locator('.panel-todo-row').filter({ hasText: text });
+const poolRow = (page, text) =>
+    page.locator('.panel-todo-row:not(.panel-sequence-row)').filter({ hasText: text });
 const booking = (page, text) => page.locator('.day-item-card').filter({ hasText: text });
 
 // Wait for persistence, not just an optimistic paint, before navigating away.
@@ -34,46 +32,24 @@ const assertSaved = async (response) => expect((await response).ok()).toBe(true)
 const expectCrossedOut = async (locator) =>
     expect(locator).toHaveCSS('text-decoration-line', 'line-through');
 
-const expectBlockedBorder = async (locator) => {
-    const danger = await locator.evaluate((node) => {
-        const probe = document.createElement('span');
-        probe.style.color = 'var(--color-danger)';
-        node.appendChild(probe);
-        const color = getComputedStyle(probe).color;
-        probe.remove();
-        return color;
-    });
-    for (const edge of ['top', 'right', 'bottom', 'left']) {
-        await expect(locator).toHaveCSS(`border-${edge}-color`, danger);
-        await expect(locator).toHaveCSS(`border-${edge}-style`, 'solid');
-        await expect(locator).not.toHaveCSS(`border-${edge}-width`, '0px');
-    }
-};
-
 const seedCriticalPlan = async (page) => {
     const plan = await seedPlan(page, credentials, PROJECT);
-    const { headers, projectId, parent, child } = plan;
+    const { headers, projectId, parent } = plan;
+    await dateSequenceToday(page, headers, parent.id);
     await dataOf(await page.request.patch(`/api/sequences/${parent.id}`, {
         headers, data: { description: SEQUENCE_DESCRIPTION },
     }));
-    // An earlier unpinned row proves top-pin means first PIN, not first row.
-    await addTodo(page, headers, projectId, 'Not selected', parent.id);
     const filed = await addTodo(page, headers, projectId, 'Review lift', parent.id);
     const completed = await addTodo(page, headers, projectId, 'Read handbook', parent.id);
-    const blocked = await addTodo(page, headers, projectId, 'Await motor', child.id);
-    const loose = await addTodo(page, headers, projectId, 'Collect ideas');
     await dataOf(await page.request.patch(`/api/todos/${completed.id}`, {
         headers, data: { status: 'complete' },
     }));
-    await dataOf(await page.request.patch(`/api/todos/${blocked.id}`, {
-        headers, data: { status: 'blocked' },
-    }));
-    return { ...plan, filed, completed, blocked, loose };
+    return { ...plan, filed, completed };
 };
 
 const openPool = async (page) => {
     await page.goto('/calendar');
-    await page.getByRole('button', { name: new RegExp(PROJECT) }).click();
+    await expect(page.getByRole('region', { name: 'Projects' })).toBeVisible();
 };
 
 const schedule = async (page, text, day) => {
@@ -160,67 +136,33 @@ test('registers, creates a project, and opens it through the full card hit area'
     ).toBeVisible();
 });
 
-test('pins across locations and preserves bookings through completion and unpinning', async ({ page }) => {
+test('lists a dated sequence on Home and the Calendar, and books its to-do onto a day', async ({ page }) => {
     const plan = await seedCriticalPlan(page);
-    const { projectId, parent, child, filed, completed, blocked, loose } = plan;
-    const pins = [filed, completed, blocked, loose];
+    const { projectId, filed, completed } = plan;
 
-    await test.step('select all statuses and locations in one atomic Pin confirmation', async () => {
-        await openProject(page, projectId);
-        await page.getByRole('button', { name: 'Unorganized (1)', exact: true }).click();
-        await page.getByRole('button', { name: 'Pin', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeDisabled();
-        let requests = [];
-        const track = (request) => {
-            if (request.method() === 'PUT' && request.url().endsWith(`/projects/${projectId}/todos/pins`)) {
-                requests = [...requests, request.postDataJSON()];
-            }
-        };
-        page.on('request', track);
-        for (const todo of pins) {
-            const selection = page.getByRole('button', { name: `Pin “${todo.text}”`, exact: true });
-            await selection.click();
-            await expect(selection).toHaveAttribute('aria-pressed', 'true');
-        }
-        const saved = savedResponse(page, 'PUT', `/api/projects/${projectId}/todos/pins`);
-        await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-        await assertSaved(saved);
-        await expect(page.getByRole('button', { name: 'Pin', exact: true })).toBeVisible();
-        page.off('request', track);
-        expect(requests).toHaveLength(1);
-        expect(requests[0]).toMatchObject({ isPinned: true });
-        expect(requests[0].todoIds).toHaveLength(pins.length);
-        expect(requests[0].todoIds).toEqual(
-            expect.arrayContaining(pins.map((todo) => todo.id))
-        );
-        await expect(page.locator('.todo-pin-icon')).toHaveCount(pins.length);
-        await expect(page.locator('.sequence-card--active')).toHaveCount(2);
-        await expect(sequenceCard(page, parent.title).locator('.todo-row--top-pinned')).toHaveText(new RegExp(filed.text));
-        await expect(sequenceCard(page, child.title).locator('.todo-row--top-pinned')).toHaveText(new RegExp(blocked.text));
+    await test.step('the Home card lists exactly today\'s to-dos', async () => {
+        await page.goto('/projects');
+        await expect(page.locator('.today-todo')).toHaveText([filed.text, completed.text]);
+        await expect(page.locator('.project-card-today-heading')).toHaveText(SEQUENCE_DESCRIPTION);
+        await expectCrossedOut(page.locator('.today-todo--complete'));
     });
 
-    await test.step('Home and Calendar show exactly the selected pins', async () => {
-        await page.getByRole('link', { name: '← All projects' }).click();
-        await expect(page.locator('.pinned-todo')).toHaveText(pins.map((todo) => todo.text));
-        await expect(page.locator('.project-card-pin-icon')).toHaveCount(pins.length);
-        await expect(page.locator('.pinned-sequence')).toHaveText([parent.title, parent.title, child.title, 'Unorganized']);
-        await expectCrossedOut(page.locator('.pinned-line--complete .pinned-todo'));
+    await test.step('the Calendar panel shows the sequence and its to-dos', async () => {
         await openPool(page);
-        await expect(page.locator('.panel-todo-text')).toHaveText(pins.map((todo) => todo.text));
-        await expect(page.locator('.panel-todo-row .calendar-pin-icon')).toHaveCount(pins.length);
-        await expect(poolRow(page, completed.text).getByRole('button')).toHaveCount(0);
+        await expect(page.locator('.pool-day-heading')).toHaveText('Today');
+        await expect(page.locator('.panel-sequence-title')).toHaveText(todayTitle());
+        await expect(page.locator('.panel-sequence-todos .panel-todo-text')).toHaveText(
+            [filed.text, completed.text]
+        );
+        await expect(poolRow(page, completed.text).locator('.panel-todo-grip')).toHaveCount(0);
         await expectCrossedOut(poolRow(page, completed.text).locator('.panel-todo-text'));
-        await expectBlockedBorder(poolRow(page, blocked.text));
     });
 
-    await test.step('schedule incomplete and blocked pins, then complete without losing the booking', async () => {
+    await test.step('dragging a to-do onto a day books it, and completing keeps the booking', async () => {
         await page.getByRole('button', { name: 'Add the first day' }).click();
         await expect(page.getByRole('button', { name: 'Delete Day 1' })).toBeAttached();
         const day = page.getByRole('region', { name: 'Day 1', exact: true });
         await schedule(page, filed.text, day);
-        await schedule(page, blocked.text, day);
-        await expectBlockedBorder(booking(page, blocked.text));
-        await expect(booking(page, blocked.text).locator('.calendar-pin-icon')).toHaveCount(1);
         const saved = savedResponse(page, 'PATCH', `/api/todos/${filed.id}`);
         await booking(page, filed.text).getByRole('button', { name: `Complete “${filed.text}”` }).click();
         await assertSaved(saved);
@@ -228,28 +170,14 @@ test('pins across locations and preserves bookings through completion and unpinn
         await expectCrossedOut(poolRow(page, filed.text).locator('.panel-todo-text'));
         await page.reload();
         await expectCrossedOut(booking(page, filed.text).locator('.day-item-name'));
-        await expect(booking(page, filed.text).locator('.calendar-pin-icon')).toHaveCount(1);
     });
 
-    await test.step('unpin a booked item without unscheduling it, then delete it', async () => {
-        await openProject(page, projectId);
-        await page.getByRole('button', { name: 'Unpin', exact: true }).click();
-        await page.getByRole('button', { name: `Unpin “${filed.text}”`, exact: true }).click();
-        const saved = savedResponse(page, 'PUT', `/api/projects/${projectId}/todos/pins`);
-        await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-        await assertSaved(saved);
-        await expect(sequenceCard(page, parent.title).locator('.todo-row--top-pinned')).toContainText(completed.text);
-        await openPool(page);
-        await expect(poolRow(page, filed.text)).toHaveCount(0);
-        await expect(booking(page, filed.text)).toBeVisible();
-        await expectCrossedOut(booking(page, filed.text).locator('.day-item-name'));
-        await expect(booking(page, filed.text).locator('.calendar-pin-icon')).toHaveCount(0);
+    await test.step('deleting a booked to-do removes its booking', async () => {
         await openProject(page, projectId);
         const deleted = savedResponse(page, 'DELETE', `/api/todos/${filed.id}`);
         await page.getByRole('button', { name: `Delete “${filed.text}”`, exact: true }).click();
         await assertSaved(deleted);
         await openPool(page);
-        await expect(booking(page, blocked.text)).toBeVisible();
         await expect(booking(page, filed.text)).toHaveCount(0);
     });
 
@@ -262,7 +190,7 @@ test('pins across locations and preserves bookings through completion and unpinn
         await assertSaved(saved);
         await page.reload();
         await expect(description).toHaveValue(DESCRIPTION);
-        await page.getByRole('button', { name: `Collapse ${parent.title}`, exact: true }).click();
+        await page.getByRole('button', { name: `Collapse ${todayTitle()}`, exact: true }).click();
         const collapsed = page.locator('.sequence-card--folded');
         await expect(collapsed.locator('.sequence-card-description')).toHaveText(SEQUENCE_DESCRIPTION);
         await expect(collapsed.locator('.sequence-card-description')).toBeVisible();
