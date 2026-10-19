@@ -14,7 +14,6 @@ const TITLE_MAX_LENGTH = 255;
 const DESCRIPTION_MAX_LENGTH = 2000;
 const TODO_TEXT_MAX_LENGTH = 500;
 const TODO_NOTE_MAX_LENGTH = 5000;
-const TODO_PIN_BATCH_MAX_SIZE = 100;
 const PLAN_SCHEMA_MAX_LENGTH = 20000;
 const PLAN_SCHEMA_MAX_SEQUENCES = 50;
 const PLAN_SCHEMA_MAX_TODOS = 500;
@@ -67,49 +66,6 @@ const todoStatusSchema = z.enum(TODO_STATUSES, {
     error: `status must be one of: ${TODO_STATUSES.join(', ')}`,
 });
 
-const todoPinIdSchema = z
-    .number({ error: 'todoIds must contain only positive integers' })
-    .int('todoIds must contain only positive integers')
-    .positive('todoIds must contain only positive integers');
-
-const todoPinsSchema = z.object({
-    todoIds: z
-        .array(todoPinIdSchema, { error: 'todoIds must be an array' })
-        .min(1, 'todoIds must contain at least one id')
-        .max(
-            TODO_PIN_BATCH_MAX_SIZE,
-            `todoIds must contain at most ${TODO_PIN_BATCH_MAX_SIZE} ids`
-        )
-        .transform((todoIds) => [...new Set(todoIds)]),
-    isPinned: z.boolean({ error: 'isPinned must be a boolean' }),
-});
-
-const pinIdListSchema = (field) =>
-    z
-        .array(
-            z
-                .number({ error: `${field} must contain only positive integers` })
-                .int(`${field} must contain only positive integers`)
-                .positive(`${field} must contain only positive integers`),
-            { error: `${field} must be an array` }
-        )
-        .max(
-            TODO_PIN_BATCH_MAX_SIZE,
-            `${field} must contain at most ${TODO_PIN_BATCH_MAX_SIZE} ids`
-        )
-        .transform((ids) => [...new Set(ids)])
-        .default([]);
-
-const pinsSchema = z
-    .object({
-        todoIds: pinIdListSchema('todoIds'),
-        sequenceIds: pinIdListSchema('sequenceIds'),
-        isPinned: z.boolean({ error: 'isPinned must be a boolean' }),
-    })
-    .refine((body) => body.todoIds.length + body.sequenceIds.length > 0, {
-        message: 'todoIds and sequenceIds must contain at least one id together',
-    });
-
 const idSchema = z.coerce
     .number({ error: 'id must be a positive integer' })
     .int('id must be a positive integer')
@@ -141,19 +97,16 @@ module.exports = {
     DESCRIPTION_MAX_LENGTH,
     TITLE_MAX_LENGTH,
     TODO_NOTE_MAX_LENGTH,
-    TODO_PIN_BATCH_MAX_SIZE,
     TODO_STATUSES,
     TODO_TEXT_MAX_LENGTH,
     colorSchema,
     descriptionSchema,
     idSchema,
     parseId,
-    pinsSchema,
     planSchemaTextSchema,
     requireSomeField,
     titleSchema,
     todoNoteSchema,
-    todoPinsSchema,
     todoStatusSchema,
     todoTextSchema,
 };

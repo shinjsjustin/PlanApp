@@ -28,12 +28,12 @@
  * user's day.
  */
 
-// A booking is for a to-do or for a pinned sequence. The to-do side keeps its
-// columns exactly; a sequence booking has no `t` row, so the sequence and project
-// are reached through COALESCE and `is_pinned` is the sequence's own.
+// A booking is for a to-do or for a sequence. The to-do side keeps its columns
+// exactly; a sequence booking has no `t` row, so the sequence and project are
+// reached through COALESCE.
 const SELECT_COLUMNS = `ci.id, ci.day_id, ci.todo_id, ci.sequence_id AS booked_sequence_id,
             ci.start_minutes, ci.duration_minutes, ci.created_at, ci.updated_at,
-            t.text, t.status, COALESCE(t.is_pinned, s.is_pinned) AS is_pinned,
+            t.text, t.status,
             COALESCE(t.project_id, s.project_id) AS project_id,
             COALESCE(t.sequence_id, ci.sequence_id) AS sequence_id,
             COALESCE(t.place_id, s.place_id) AS place_id,

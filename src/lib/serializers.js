@@ -45,7 +45,6 @@ const toSequence = (row) => ({
     description: row.description ?? null,
     isBlocked: Boolean(row.is_blocked),
     isCollapsed: Boolean(row.is_collapsed),
-    isPinned: Boolean(row.is_pinned),
     owner: row.owner,
     placeId: row.place_id ?? null,
     position: row.position,
@@ -66,7 +65,6 @@ const toTodo = (row) => ({
     note: row.note ?? null,
     status: row.status,
     completedAt: row.completed_at ?? null,
-    isPinned: Boolean(row.is_pinned),
     placeId: row.place_id ?? null,
     position: row.position,
     createdAt: row.created_at,
@@ -109,8 +107,8 @@ const toCalendarDay = (row) => ({
  *
  * A day column has to draw a name, tick a bubble and link to a project and a
  * sequence, and it cannot get those from the right-hand pool: a to-do leaves the
- * pool when it is unpinned, while its booking stays on screen. The booking must
- * retain its own display data; completion removes neither the pin nor the booking.
+ * pool when it is completed, while its booking stays on screen. The booking must
+ * retain its own display data; completion does not remove the booking.
  *
  * `sequenceId` is null when the to-do has since been returned to the unorganized
  * panel — `todos.sequence_id` is nullable, and nothing stops a to-do being
@@ -128,7 +126,6 @@ const toSequenceBooking = (row) => ({
     sequenceId: row.booked_sequence_id,
     text: row.sequence_title,
     status: null,
-    isPinned: Boolean(row.is_pinned),
     projectId: row.project_id,
     projectTitle: row.project_title,
     sequenceTitle: row.sequence_title,
@@ -143,7 +140,6 @@ const toTodoBooking = (row) => ({
     todoId: row.todo_id,
     text: row.text,
     status: row.status,
-    isPinned: Boolean(row.is_pinned),
     projectId: row.project_id,
     projectTitle: row.project_title,
     sequenceId: row.sequence_id ?? null,
@@ -153,7 +149,7 @@ const toTodoBooking = (row) => ({
     durationMinutes: row.duration_minutes,
 });
 
-// A booking with no to-do is a pinned sequence's (see `toSequenceBooking`).
+// A booking with no to-do is a sequence's (see `toSequenceBooking`).
 const toCalendarItem = (row) => (row.todo_id === null ? toSequenceBooking(row) : toTodoBooking(row));
 
 /**

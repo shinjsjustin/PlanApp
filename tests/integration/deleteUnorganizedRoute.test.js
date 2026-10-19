@@ -50,7 +50,7 @@ describe('DELETE /api/projects/:id/todos/unorganized', () => {
         expect(remaining.map((row) => row.id).sort()).toEqual([filed.id, otherLoose.id].sort());
     });
 
-    test('removes calendar bookings and pins of the deleted to-dos', async () => {
+    test('removes calendar bookings of the deleted to-dos', async () => {
         // Arrange
         const conn = getConn();
         const { ownerId, project } = await createFixture(conn);
@@ -62,7 +62,6 @@ describe('DELETE /api/projects/:id/todos/unorganized', () => {
             startMinutes: 60,
             durationMinutes: 30,
         });
-        await todosRepo.setPinned(conn, [todo.id], true);
 
         // Act
         const response = await requestClear(ownerId, project.id);
@@ -70,7 +69,6 @@ describe('DELETE /api/projects/:id/todos/unorganized', () => {
         // Assert
         expect(response.status).toBe(200);
         expect(await calendarItemsRepo.listByOwner(conn, ownerId)).toEqual([]);
-        expect(await todosRepo.listPinnedByProject(conn, project.id)).toEqual([]);
     });
 
     test('answers 200 with no ids when the panel is empty', async () => {

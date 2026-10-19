@@ -46,7 +46,7 @@ describe('POST /api/projects/:id/layers/import', () => {
             ['Second', 1, created.id],
         ]);
         expect(todos.map((t) => t.text)).toEqual(['a', 'b', 'c', 'loose one', 'loose two']);
-        expect(todos.every((t) => t.status === 'incomplete' && t.isPinned === false)).toBe(true);
+        expect(todos.every((t) => t.status === 'incomplete')).toBe(true);
         expect(await sequenceOrder(conn, sequences[0].id)).toEqual([['a', 0], ['b', 1]]);
         expect(await sequenceOrder(conn, sequences[1].id)).toEqual([['c', 0]]);
     });

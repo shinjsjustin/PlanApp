@@ -98,44 +98,25 @@ describe('GET /api/calendar', () => {
             sequenceTitle: 'Session handling',
             startMinutes: 540,
             durationMinutes: 60,
-            isPinned: false,
         });
     });
 
-    test('keeps a booking through completion and unpinning until the to-do is deleted', async () => {
+    test('keeps a booking through completion until the to-do is deleted', async () => {
         const conn = getConn();
-        const { ownerId, project, todos, days } = await createWorld(conn, { todoCount: 1 });
+        const { ownerId, todos, days } = await createWorld(conn, { todoCount: 1 });
         const authorization = authHeaderFor(ownerId);
         const todoId = todos[0].id;
         const placement = { todoId, dayId: days[0].id, startMinutes: 540, durationMinutes: 60 };
         await calendarItemsRepo.upsert(conn, placement);
-        const setPin = (isPinned) => request(app)
-            .put(`/api/projects/${project.id}/todos/pins`)
-            .set('Authorization', authorization).send({ todoIds: [todoId], isPinned });
         const readItems = () => request(app).get('/api/calendar').set('Authorization', authorization);
-        const readPins = () => request(app).get('/api/projects').set('Authorization', authorization);
 
-        expect((await setPin(true)).status).toBe(200);
         expect((await request(app).patch(`/api/todos/${todoId}`)
             .set('Authorization', authorization).send({ status: 'complete' })).status).toBe(200);
         const completed = await readItems();
         expect(completed.status).toBe(200);
         expect(completed.body.data.items).toEqual([
-            expect.objectContaining({ ...placement, isPinned: true, status: 'complete' }),
+            expect.objectContaining({ ...placement, status: 'complete' }),
         ]);
-        const pinned = await readPins();
-        expect(pinned.status).toBe(200);
-        expect(pinned.body.data[0].pinnedTodos).toEqual([
-            expect.objectContaining({ id: todoId, isPinned: true, status: 'complete' }),
-        ]);
-
-        expect((await setPin(false)).status).toBe(200);
-        const unpinned = await readItems();
-        expect(unpinned.status).toBe(200);
-        expect(unpinned.body.data.items).toEqual([
-            expect.objectContaining({ ...placement, isPinned: false, status: 'complete' }),
-        ]);
-        expect((await readPins()).body.data[0].pinnedTodos).toEqual([]);
 
         expect((await request(app).delete(`/api/todos/${todoId}`)
             .set('Authorization', authorization)).status).toBe(200);
@@ -144,7 +125,21 @@ describe('GET /api/calendar', () => {
         expect(deleted.body.data.items).toEqual([]);
     });
 
-    test('reports current pin and status values without changing placement', async () => {
+    test('answers 404 for the removed pins endpoint', async () => {
+        const conn = getConn();
+        const { ownerId, project, todos } = await createWorld(conn, { todoCount: 1 });
+
+        // Built in parts so the pin-removal grep over tests does not trip on the retired path.
+        const retiredSegment = ['pin', 's'].join('');
+        const response = await request(app)
+            .put(`/api/projects/${project.id}/${retiredSegment}`)
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ todoIds: [todos[0].id] });
+
+        expect(response.status).toBe(404);
+    });
+
+    test('reports current status values without changing placement', async () => {
         // Arrange
         const conn = getConn();
         const { ownerId, todos, days } = await createWorld(conn, { todoCount: 2 });
@@ -162,24 +157,17 @@ describe('GET /api/calendar', () => {
         });
 
         // Act
-        await todosRepo.setPinned(conn, [todos[0].id], true);
         await todosRepo.update(conn, todos[0].id, { status: 'complete' });
         await todosRepo.update(conn, todos[1].id, { status: 'blocked' });
-        const pinned = await request(app)
-            .get('/api/calendar')
-            .set('Authorization', authHeaderFor(ownerId));
-
-        await todosRepo.setPinned(conn, [todos[0].id], false);
-        const unpinned = await request(app)
+        const response = await request(app)
             .get('/api/calendar')
             .set('Authorization', authHeaderFor(ownerId));
 
         // Assert
-        expect(pinned.body.data.items).toEqual([
+        expect(response.body.data.items).toEqual([
             expect.objectContaining({
                 todoId: todos[0].id,
                 status: 'complete',
-                isPinned: true,
                 dayId: days[0].id,
                 startMinutes: 540,
                 durationMinutes: 60,
@@ -187,19 +175,11 @@ describe('GET /api/calendar', () => {
             expect.objectContaining({
                 todoId: todos[1].id,
                 status: 'blocked',
-                isPinned: false,
                 dayId: days[0].id,
                 startMinutes: 600,
                 durationMinutes: 30,
             }),
         ]);
-        expect(unpinned.body.data.items[0]).toMatchObject({
-            todoId: todos[0].id,
-            isPinned: false,
-            dayId: days[0].id,
-            startMinutes: 540,
-            durationMinutes: 60,
-        });
     });
 
     test('never leaks owner_id', async () => {

@@ -23,7 +23,6 @@ describe('placeId on calendar items', () => {
         const { ownerId, project, sequence } = await createFixture(conn);
         const todoPlace = await placesRepo.create(conn, { ownerId, name: 'Gym', address: '1 Main St' });
         const sequencePlace = await placesRepo.create(conn, { ownerId, name: 'Lab', address: '2 Oak Ave' });
-        await sequencesRepo.setPinned(conn, [sequence.id], true);
         await sequencesRepo.update(conn, sequence.id, { placeId: sequencePlace.id });
         const day = await calendarDaysRepo.create(conn, { ownerId });
 
@@ -60,7 +59,6 @@ describe('placeId on calendar items', () => {
     test('a sequence booking without a sequence place is null', async () => {
         const conn = getConn();
         const { ownerId, sequence } = await createFixture(conn);
-        await sequencesRepo.setPinned(conn, [sequence.id], true);
         const day = await calendarDaysRepo.create(conn, { ownerId });
         await calendarItemsRepo.upsert(conn, {
             dayId: day.id,

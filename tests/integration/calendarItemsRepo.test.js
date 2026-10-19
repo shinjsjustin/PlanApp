@@ -146,37 +146,6 @@ describe('calendarItemsRepo.listByOwner', () => {
         expect(item.sequence_title).toBe('Session handling');
     });
 
-    test('reports the to-do current pin state without moving its booking', async () => {
-        // Arrange
-        const conn = getConn();
-        const { ownerId, todos, day } = await createWorld(conn);
-        await calendarItemsRepo.upsert(conn, {
-            dayId: day.id,
-            todoId: todos[0].id,
-            startMinutes: 540,
-            durationMinutes: 60,
-        });
-
-        // Act + Assert
-        await todosRepo.setPinned(conn, [todos[0].id], true);
-        const [pinned] = await calendarItemsRepo.listByOwner(conn, ownerId);
-        expect(pinned).toMatchObject({
-            is_pinned: 1,
-            day_id: day.id,
-            start_minutes: 540,
-            duration_minutes: 60,
-        });
-
-        await todosRepo.setPinned(conn, [todos[0].id], false);
-        const [unpinned] = await calendarItemsRepo.listByOwner(conn, ownerId);
-        expect(unpinned).toMatchObject({
-            is_pinned: 0,
-            day_id: day.id,
-            start_minutes: 540,
-            duration_minutes: 60,
-        });
-    });
-
     test('keeps the booking of a to-do returned to the unorganized panel', async () => {
         // Arrange
         const conn = getConn();

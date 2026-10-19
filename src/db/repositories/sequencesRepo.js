@@ -32,7 +32,7 @@ const UPDATABLE_COLUMNS = {
 };
 
 const SELECT_COLUMNS =
-    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, owner, is_pinned, place_id, position, ' +
+    'id, project_id, layer_id, title, description, is_blocked, is_collapsed, owner, place_id, position, ' +
     'created_at, updated_at';
 
 const findById = async (conn, id) => {
@@ -99,22 +99,6 @@ const listByOwner = async (conn, ownerId) => {
          JOIN projects p ON p.id = s.project_id
          JOIN layers l ON l.id = s.layer_id
          WHERE p.owner_id = ?
-         ORDER BY s.project_id, l.position, s.position, s.id`,
-        [ownerId]
-    );
-
-    return rows;
-};
-
-/** Owner's pinned sequences, contiguous by project, in layer then sequence order. */
-const listPinnedByOwner = async (conn, ownerId) => {
-    const [rows] = await conn.execute(
-        `SELECT s.${SELECT_COLUMNS.split(', ').join(', s.')}, pl.visit_minutes
-         FROM sequences s
-         JOIN projects p ON p.id = s.project_id
-         JOIN layers l ON l.id = s.layer_id
-         LEFT JOIN places pl ON pl.id = s.place_id
-         WHERE p.owner_id = ? AND s.is_pinned = 1
          ORDER BY s.project_id, l.position, s.position, s.id`,
         [ownerId]
     );
@@ -219,20 +203,6 @@ const update = async (conn, id, patch) => {
     return findById(conn, id);
 };
 
-/** Pins or unpins all named sequences in one statement. */
-const setPinned = async (conn, ids, isPinned) => {
-    if (ids.length === 0) return 0;
-
-    const placeholders = ids.map(() => '?').join(', ');
-    // `query` rather than `execute`: the placeholder count varies per call.
-    const [result] = await conn.query(
-        `UPDATE sequences SET is_pinned = ? WHERE id IN (${placeholders})`,
-        [Number(Boolean(isPinned)), ...ids]
-    );
-
-    return result.affectedRows;
-};
-
 /**
  * Puts a sequence at a position in a layer — the verb behind dragging a card
  * from one band to another, and behind reordering one within its band.
@@ -315,11 +285,9 @@ module.exports = {
     listByOwner,
     listByProject,
     listIds,
-    listPinnedByOwner,
     listWithVisitMinutesByOwner,
     listWithVisitMinutesByProject,
     move,
-    setPinned,
     update,
     remove,
 };

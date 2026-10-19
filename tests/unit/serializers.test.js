@@ -7,7 +7,6 @@ const {
     toCalendarNote,
     toLayer,
     toProject,
-    toPinnedTodo,
     toSequence,
     toThought,
     toTodo,
@@ -56,7 +55,6 @@ describe('serializers', () => {
                 description: null,
                 is_blocked: 1,
                 is_collapsed: 0,
-                is_pinned: 1,
                 owner: 'bourne',
                 position: 2,
                 created_at: 'then',
@@ -75,7 +73,6 @@ describe('serializers', () => {
                 description: null,
                 isBlocked: true,
                 isCollapsed: false,
-                isPinned: true,
                 owner: 'bourne',
                 placeId: null,
                 position: 2,
@@ -88,10 +85,6 @@ describe('serializers', () => {
             expect(toSequence({ is_blocked: 0 }).isBlocked).toBe(false);
         });
 
-        test('turns is_pinned into a boolean', () => {
-            expect(toSequence({ is_pinned: 1 }).isPinned).toBe(true);
-            expect(toSequence({ is_pinned: 0 }).isPinned).toBe(false);
-        });
 
         test('turns is_collapsed into a boolean too', () => {
             expect(toSequence({ is_collapsed: 1 }).isCollapsed).toBe(true);
@@ -109,7 +102,6 @@ describe('serializers', () => {
                 text: 'Read about lift',
                 status: 'incomplete',
                 completed_at: null,
-                is_pinned: 0,
                 position: 0,
                 created_at: 'then',
                 updated_at: 'later',
@@ -124,7 +116,6 @@ describe('serializers', () => {
                 note: null,
                 status: 'incomplete',
                 completedAt: null,
-                isPinned: false,
                 placeId: null,
                 position: 0,
                 createdAt: 'then',
@@ -148,61 +139,6 @@ describe('serializers', () => {
             expect(toTodo({ status: 'incomplete' }).completedAt).toBeNull();
         });
 
-        test('serializes isPinned as a boolean for both stored values', () => {
-            expect(toTodo({ is_pinned: 0 }).isPinned).toBe(false);
-            expect(toTodo({ is_pinned: 1 }).isPinned).toBe(true);
-        });
-    });
-
-    describe('toPinnedTodo', () => {
-        test('maps a filed row to exactly the pinned-list shape', () => {
-            // Arrange
-            const row = {
-                id: 12,
-                text: 'Wire up token refresh',
-                status: 'blocked',
-                sequence_id: 9,
-                sequence_title: 'Session handling',
-                position: 2,
-                is_pinned: 1,
-                project_id: 3,
-                layer_position: 1,
-                sequence_position: 4,
-            };
-
-            // Act + Assert
-            expect(toPinnedTodo(row)).toEqual({
-                id: 12,
-                text: 'Wire up token refresh',
-                status: 'blocked',
-                sequenceId: 9,
-                sequenceTitle: 'Session handling',
-                position: 2,
-                isPinned: true,
-                visitMinutes: null,
-            });
-        });
-
-        test('nulls sequence fields for an unorganized pinned row', () => {
-            // Arrange
-            const row = {
-                id: 31,
-                text: 'Sort later',
-                status: 'complete',
-                sequence_id: null,
-                sequence_title: null,
-                position: 0,
-                is_pinned: 1,
-            };
-
-            // Act
-            const todo = toPinnedTodo(row);
-
-            // Assert
-            expect(todo.sequenceId).toBeNull();
-            expect(todo.sequenceTitle).toBeNull();
-            expect(todo.isPinned).toBe(true);
-        });
     });
 
     describe('toProject', () => {
@@ -268,7 +204,6 @@ describe('serializers', () => {
                 duration_minutes: 60,
                 text: 'Wire up the token refresh',
                 status: 'incomplete',
-                is_pinned: 1,
                 project_id: 2,
                 project_title: 'Auth rewrite',
                 sequence_id: 9,
@@ -283,7 +218,6 @@ describe('serializers', () => {
                 todoId: 12,
                 text: 'Wire up the token refresh',
                 status: 'incomplete',
-                isPinned: true,
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
                 sequenceId: 9,
@@ -305,7 +239,6 @@ describe('serializers', () => {
                 duration_minutes: 90,
                 text: null,
                 status: null,
-                is_pinned: 1,
                 project_id: 2,
                 project_title: 'Auth rewrite',
                 sequence_id: 9,
@@ -322,7 +255,6 @@ describe('serializers', () => {
                 sequenceId: 9,
                 text: 'Session handling',
                 status: null,
-                isPinned: true,
                 projectId: 2,
                 projectTitle: 'Auth rewrite',
                 sequenceTitle: 'Session handling',
@@ -338,15 +270,11 @@ describe('serializers', () => {
         });
 
         test('leaves a to-do item without a kind', () => {
-            const item = toCalendarItem({ id: 1, day_id: 4, todo_id: 12, is_pinned: 0 });
+            const item = toCalendarItem({ id: 1, day_id: 4, todo_id: 12 });
 
             expect(item).not.toHaveProperty('kind');
         });
 
-        test('serializes the current pin state as a boolean', () => {
-            expect(toCalendarItem({ is_pinned: 1 }).isPinned).toBe(true);
-            expect(toCalendarItem({ is_pinned: 0 }).isPinned).toBe(false);
-        });
 
         test('nulls the sequence for a to-do returned to the unorganized panel', () => {
             // Arrange — the LEFT JOIN produces nulls rather than dropping the row
