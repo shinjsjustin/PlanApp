@@ -1,21 +1,28 @@
 import React from 'react';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 
-import PlacesPage from './PlacesPage';
-import usePlaces from '../../hooks/usePlaces';
-import useIsPhone from '../../hooks/useIsPhone';
-
-jest.mock('../../hooks/usePlaces');
-jest.mock('../../hooks/useIsPhone');
+import PlacesSection from './PlacesSection';
 
 const HOME = { id: 1, name: 'Home', address: '1 Main St', kind: 'home', notes: null, visitMinutes: null, isDefaultStart: false };
 const SHOP = { id: 2, name: 'Shop', address: '2 Side St', kind: 'supplier', notes: 'ring bell', visitMinutes: 90, isDefaultStart: true };
 
 let hook;
 
-const renderPage = () => render(<PlacesPage />, { wrapper: MemoryRouter });
+const renderPage = (props = {}) =>
+    render(
+        <PlacesSection
+            places={hook.places}
+            startPlaceId={hook.startPlaceId}
+            status={hook.status}
+            query=""
+            onAdd={hook.add}
+            onEdit={hook.edit}
+            onRemove={hook.remove}
+            onSetStart={hook.setStart}
+            {...props}
+        />
+    );
 const items = () => screen.getAllByRole('listitem');
 
 beforeEach(() => {
@@ -29,23 +36,12 @@ beforeEach(() => {
         remove: jest.fn(),
         setStart: jest.fn(),
     };
-    usePlaces.mockImplementation(() => hook);
-    useIsPhone.mockReturnValue(false);
 });
 
-describe('PlacesPage', () => {
-    test('shows heading and header links on desktop, no links on a phone', () => {
-        const { unmount } = renderPage();
+describe('PlacesSection', () => {
+    test('shows a Places heading', () => {
+        renderPage();
         expect(screen.getByRole('heading', { name: 'Places' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /projects/i })).toHaveAttribute('href', '/projects');
-        expect(screen.getByRole('link', { name: /calendar/i })).toHaveAttribute('href', '/calendar');
-        expect(screen.getByRole('link', { name: /thoughts/i })).toHaveAttribute('href', '/thoughts');
-        unmount();
-
-        useIsPhone.mockReturnValue(true);
-        const { container } = renderPage();
-        expect(screen.queryByRole('link')).not.toBeInTheDocument();
-        expect(container.firstChild).toHaveClass('places-page--phone');
     });
 
     test('lists places with kind, address and visit length', () => {
@@ -147,9 +143,10 @@ describe('PlacesPage', () => {
         expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
     });
 
-    test('shows the hook error in an alert', () => {
-        hook.error = 'Could not reach the server';
-        renderPage();
-        expect(screen.getByRole('alert')).toHaveTextContent('Could not reach the server');
+    test('narrows the list by case-insensitive name substring', () => {
+        renderPage({ query: ' sHo ' });
+        expect(items()).toHaveLength(1);
+        expect(screen.getByText('Shop')).toBeInTheDocument();
+        expect(screen.queryByText('Home')).not.toBeInTheDocument();
     });
 });

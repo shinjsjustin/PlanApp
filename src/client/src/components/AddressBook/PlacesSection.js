@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 
-import useIsPhone from '../../hooks/useIsPhone';
-import usePlaces from '../../hooks/usePlaces';
-import PlaceForm, { formatVisit } from './PlaceForm';
+import PlaceForm, { formatVisit } from '../Places/PlaceForm';
 import '../Styling/Places.css';
 
 const deleteConfirmation = (place) => `Delete ${place.name}?`;
@@ -47,48 +44,36 @@ const PlaceItem = ({ place, isStart, onEdit, onRemove, onSetStart }) => {
     );
 };
 
-const PlacesPage = () => {
-    const isPhone = useIsPhone();
-    const { status, places, startPlaceId, error, add, edit, remove, setStart } = usePlaces();
+const PlacesSection = ({ places, startPlaceId, status, query, onAdd, onEdit, onRemove, onSetStart }) => {
+    const needle = query.trim().toLowerCase();
+    const visible = places.filter((place) => place.name.toLowerCase().includes(needle));
 
     return (
-        <main className={isPhone ? 'places-page places-page--phone' : 'places-page'}>
-            <header className="places-header">
-                <h1>Places</h1>
-                {!isPhone && (
-                    <>
-                        <Link className="neon-button" to="/projects">Projects</Link>
-                        <Link className="neon-button" to="/calendar">Calendar</Link>
-                        <Link className="neon-button" to="/thoughts">Thoughts</Link>
-                    </>
-                )}
-            </header>
-
-            {error && <p role="alert" className="places-error">{error}</p>}
-
+        <section className="places-section" aria-labelledby="places-heading">
+            <h2 id="places-heading">Places</h2>
             <section className="place-new" aria-labelledby="place-new-heading">
-                <h2 id="place-new-heading">New place</h2>
-                <PlaceForm submitLabel="Add place" onSubmit={add} clearOnSuccess />
+                <h3 id="place-new-heading">New place</h3>
+                <PlaceForm submitLabel="Add place" onSubmit={onAdd} clearOnSuccess />
             </section>
 
             {status === 'loading' ? (
                 <p>Loading places…</p>
             ) : (
                 <ul className="place-list">
-                    {places.map((place) => (
+                    {visible.map((place) => (
                         <PlaceItem
                             key={place.id}
                             place={place}
                             isStart={place.id === startPlaceId}
-                            onEdit={edit}
-                            onRemove={remove}
-                            onSetStart={setStart}
+                            onEdit={onEdit}
+                            onRemove={onRemove}
+                            onSetStart={onSetStart}
                         />
                     ))}
                 </ul>
             )}
-        </main>
+        </section>
     );
 };
 
-export default PlacesPage;
+export default PlacesSection;

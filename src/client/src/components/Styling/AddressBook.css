@@ -68,3 +68,19 @@
 .address-book-page--phone .person-link {
     padding: var(--space-sm) 0; /* larger tap target */
 }
+
+.address-book-page {
+    padding: var(--space-lg);
+}
+
+.address-book-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+    color: var(--text-glow);
+}
+
+.address-book-page--phone .address-book-filters {
+    flex-direction: column;
+}
