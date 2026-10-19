@@ -77,11 +77,17 @@ const patchSchema = z
 const assertPlaceOwned = (conn, placeId, userId) =>
     placeId == null ? undefined : assertOwnership(conn, 'place', placeId, userId);
 
-// GET /api/people
+const listQuerySchema = z.object({
+    q: text('q', MAX_TEXT).optional(),
+    group: z.enum(CONTACT_GROUPS).optional(),
+});
+
+// GET /api/people?q=&group=
 router.get(
     '/',
     asyncRoute(async (req, res) => {
-        const rows = await withTransaction((conn) => peopleRepo.listByOwner(conn, req.user.id));
+        const options = listQuerySchema.parse(req.query);
+        const rows = await withTransaction((conn) => peopleRepo.listByOwner(conn, req.user.id, options));
 
         res.sendData({ people: rows.map(toPerson) });
     })

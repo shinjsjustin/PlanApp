@@ -17,12 +17,18 @@ const startPlaceId = (places) => {
     return homeIds.length > 0 ? Math.min(...homeIds) : null;
 };
 
-/** The `{ places, startPlaceId }` payload shared by the app and Bourne routes. */
-const placesPayload = async (ownerId) => {
+/**
+ * The `{ places, startPlaceId }` payload shared by the app and Bourne routes.
+ * `q` keeps places whose name contains it; the start is still found among all.
+ */
+const placesPayload = async (ownerId, { q } = {}) => {
     const rows = await withConnection((conn) => placesRepo.listByOwner(conn, ownerId));
     const places = rows.map(toPlace);
 
-    return { places, startPlaceId: startPlaceId(places) };
+    const needle = q?.toLowerCase();
+    const matching = needle ? places.filter((place) => place.name.toLowerCase().includes(needle)) : places;
+
+    return { places: matching, startPlaceId: startPlaceId(places) };
 };
 
 module.exports = { placesPayload, startPlaceId };

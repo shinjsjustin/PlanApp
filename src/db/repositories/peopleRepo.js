@@ -41,11 +41,30 @@ const findById = async (conn, id) => {
     return firstRow(rows) ?? null;
 };
 
-/** By name; `id` breaks ties. Takes an options object later for search. */
-const listByOwner = async (conn, ownerId) => {
-    const [rows] = await conn.execute(`${SELECT_SQL} WHERE pe.owner_id = ? ORDER BY pe.name, pe.id`, [
-        ownerId,
-    ]);
+const escapeLike = (value) => value.replace(/[\\%_]/g, '\\$&');
+
+/**
+ * By name; `id` breaks ties. `q` matches name or company as a substring and
+ * `group` keeps one contact group; both are optional.
+ */
+const listByOwner = async (conn, ownerId, { q, group } = {}) => {
+    const conditions = ['pe.owner_id = ?'];
+    const params = [ownerId];
+
+    if (q) {
+        const pattern = `%${escapeLike(q)}%`;
+        conditions.push('(pe.name LIKE ? OR pe.company LIKE ?)');
+        params.push(pattern, pattern);
+    }
+    if (group) {
+        conditions.push('FIND_IN_SET(?, pe.contact_groups) > 0');
+        params.push(group);
+    }
+
+    const [rows] = await conn.execute(
+        `${SELECT_SQL} WHERE ${conditions.join(' AND ')} ORDER BY pe.name, pe.id`,
+        params
+    );
 
     return rows;
 };

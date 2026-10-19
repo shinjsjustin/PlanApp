@@ -19,7 +19,7 @@ const { withTransaction } = require('../db/unitOfWork');
 
 const router = express.Router();
 
-const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'person', 'other'];
+const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
 // Bookings are slot-aligned, so visits run in half-hour steps.
 const VISIT_STEP_MINUTES = 30;
 const MIN_VISIT_MINUTES = 30;
@@ -70,11 +70,15 @@ const patchSchema = z
     .partial()
     .refine((body) => Object.keys(body).length > 0, { message: 'at least one field is required' });
 
-// GET /api/places — the caller's places and where their day starts.
+const listQuerySchema = z.object({
+    q: z.string({ error: 'q must be a string' }).trim().max(255, 'q must be at most 255 characters').optional(),
+});
+
+// GET /api/places?q= — the caller's places and where their day starts.
 router.get(
     '/',
     asyncRoute(async (req, res) => {
-        res.sendData(await placesPayload(req.user.id));
+        res.sendData(await placesPayload(req.user.id, listQuerySchema.parse(req.query)));
     })
 );
 
