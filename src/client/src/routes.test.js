@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom';
 import ProtectedRoute from './config/ProtectedRoute';
 import routes from './routes';
 
@@ -24,6 +25,12 @@ describe('routes', () => {
         // The calendar is a second view onto the same private plan, so it is no
         // more public than the project pages it schedules work from.
         expect(routeFor('/calendar').element.type).toBe(ProtectedRoute);
+    });
+
+    test('redirects /register to /login', () => {
+        const { element } = routeFor('/register');
+        expect(element.type).toBe(Navigate);
+        expect(element.props.to).toBe('/login');
     });
 
     test('mounts the thoughts page at /thoughts behind ProtectedRoute', () => {

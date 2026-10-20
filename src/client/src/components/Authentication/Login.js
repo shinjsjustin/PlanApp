@@ -58,7 +58,6 @@ const Login = () => {
                     required
                 />
                 <button type="submit">Log In</button>
-                <Link to="/register">Don't have an account? Register</Link>
                 <Link to="/">Home</Link>
             </form>
             {error && <p>{error}</p>}

@@ -75,3 +75,14 @@
     max-width: 200px;
   }
 }
+
+.Home-footer {
+  margin-top: var(--space-xl);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+.Home-footer a {
+  color: inherit;
+}

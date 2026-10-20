@@ -23,16 +23,17 @@ function Home() {
                         Tech Stack: React, Node.js, Express, MySQL
                     </p>
 
-                    <button className="industrial-button" onClick={() => navigate('/about')}>
+                    <button className="industrial-button" onClick={() => window.location.assign('/about')}>
                         Learn More
                     </button>
                     <button className="industrial-button" onClick={() => navigate('/login')}>
                         Login
                     </button>
-                    <button className="industrial-button" onClick={() => navigate('/register')}>
-                        Register
-                    </button>
                 </div>
+                {/* Plain anchors: Express serves these pages, not React. */}
+                <footer className="Home-footer">
+                    <a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+                </footer>
             </header>
         </div>
     );

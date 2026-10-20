@@ -1,7 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import Home from './components/Home';
 import Login from './components/Authentication/Login';
-import Register from './components/Authentication/Register';
 import AccessDenied from './components/Authentication/AccessDenied';
 import PostRegisterPage from './components/Authentication/PostRegisterPage';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -31,7 +30,7 @@ const routes = [
 
     // Auth pages — redirect away if already logged in
     { path: '/login',    element: <UnprotectedRoute><Login /></UnprotectedRoute> },
-    { path: '/register', element: <UnprotectedRoute><Register /></UnprotectedRoute> },
+    { path: '/register', element: <Navigate to="/login" replace /> },
 
     // Protected pages — redirect to /login if no valid token
     // requiredAccessLevel defaults to 1 (approved user)
