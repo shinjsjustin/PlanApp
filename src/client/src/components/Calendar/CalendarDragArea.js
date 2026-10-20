@@ -17,6 +17,8 @@ import NoteLayer from './NoteLayer';
 import ProjectPanel from './ProjectPanel';
 import RemoveOverlay from './RemoveOverlay';
 import useDayScale from '../../hooks/useDayScale';
+import { knownDriveMinutes } from '../../hooks/useDriveTimes';
+import { usePlaceOptions } from '../../hooks/usePlaceOptions';
 import useResizeEdge, { EDGE } from '../../hooks/useResizeEdge';
 import {
     DAY_MINUTES,
@@ -94,23 +96,27 @@ export const minutesAtRect = (geometry, activeRect, gridRect) =>
  * The schedule as it would be if the drag were released now. Null target — the
  * pointer is over no column — previews nothing and returns the input unchanged.
  */
-export const previewFor = (schedule, target) => {
+export const previewFor = (schedule, target, drives) => {
     if (!target) return schedule;
 
     const { kind, todo, dayId, startMinutes } = target;
 
-    if (kind !== DRAG_KIND.pool) return moveItem(schedule, { ...todo, dayId, startMinutes });
+    if (kind !== DRAG_KIND.pool) return moveItem(schedule, { ...todo, dayId, startMinutes }, drives);
 
     // The place's usual visit length is only the starting size; the booking
     // itself carries no visitMinutes.
     const { visitMinutes, ...poolItem } = todo;
 
-    return placeFromPool(schedule, {
-        ...poolItem,
-        dayId,
-        startMinutes,
-        durationMinutes: visitMinutes ?? DEFAULT_DURATION,
-    });
+    return placeFromPool(
+        schedule,
+        {
+            ...poolItem,
+            dayId,
+            startMinutes,
+            durationMinutes: visitMinutes ?? DEFAULT_DURATION,
+        },
+        drives
+    );
 };
 
 /**
@@ -267,6 +273,21 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
         else planesRef.current.delete(dayId);
     }, []);
 
+    // Drive times the ghost can use now: places must be loaded, and each pair
+    // falls back to what is already cached. None until then, as before drives.
+    const placeOptions = usePlaceOptions();
+    const drives = useMemo(
+        () =>
+            placeOptions?.status === 'ready'
+                ? {
+                      places: placeOptions.places,
+                      startPlaceId: placeOptions.startPlaceId,
+                      minutesFor: knownDriveMinutes,
+                  }
+                : undefined,
+        [placeOptions]
+    );
+
     const sensors = useSensors(
         useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
         useSensor(KeyboardSensor)
@@ -377,14 +398,14 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
 
             setPreview((current) => {
                 try {
-                    return withStableTempDays(current, previewFor(scheduleOf(state), target));
+                    return withStableTempDays(current, previewFor(scheduleOf(state), target, drives));
                 } catch (err) {
                     console.error('Could not preview this drop:', err);
                     return current;
                 }
             });
         },
-        [state, targetFrom]
+        [drives, state, targetFrom]
     );
 
     /**
@@ -423,9 +444,9 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
             // Unguarded on purpose, unlike the move handler: a drop is a single
             // event, and a gesture that cannot be computed is a wiring bug that
             // should be loud rather than silently doing nothing.
-            commit(previewFor(scheduleOf(state), target));
+            commit(previewFor(scheduleOf(state), target, drives));
         },
-        [commit, noteTargetFrom, notes, state, targetFrom, unschedule]
+        [commit, drives, noteTargetFrom, notes, state, targetFrom, unschedule]
     );
 
     // Escape, and any cancel dnd-kit reports. The preview simply goes.
@@ -450,7 +471,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
                 try {
                     return withStableTempDays(
                         current,
-                        resizeItem(scheduleOf(state), { ...refOfKey(key), ...rect })
+                        resizeItem(scheduleOf(state), { ...refOfKey(key), ...rect }, drives)
                     );
                 } catch (err) {
                     console.error('Could not preview this resize:', err);
@@ -458,7 +479,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
                 }
             });
         },
-        [state]
+        [drives, state]
     );
 
     // The release has the same exposure and not a drop's: it runs from a raw
@@ -476,7 +497,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
             let next;
 
             try {
-                next = resizeItem(scheduleOf(state), { ...refOfKey(key), ...rect });
+                next = resizeItem(scheduleOf(state), { ...refOfKey(key), ...rect }, drives);
             } catch (err) {
                 console.error('Could not save this resize:', err);
                 return;
@@ -484,7 +505,7 @@ const CalendarDragArea = ({ pool, notes, onOpenSource, events = null }) => {
 
             commit(next);
         },
-        [commit, state]
+        [commit, drives, state]
     );
 
     const handleResizeCancel = useCallback(() => setPreview(null), []);
