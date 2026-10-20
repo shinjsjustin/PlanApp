@@ -7,7 +7,7 @@ const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
 const calendarNotesRepo = require('../db/repositories/calendarNotesRepo');
 const { badRequest, notFound } = require('../lib/httpError');
-const { DAY_MINUTES, SLOT_MINUTES } = require('../lib/calendarPlacement');
+const { DAY_MINUTES, STEP_MINUTES } = require('../lib/calendarPlacement');
 const { findLaneProblem } = require('../lib/calendarNoteLanes');
 const { toCalendarNote } = require('../lib/serializers');
 const { idSchema, parseId } = require('../lib/validation');
@@ -34,20 +34,20 @@ const { withConnection, withTransaction } = require('../db/unitOfWork');
 const router = express.Router();
 
 // Notes and bookings share a day, a clock and a grid (design 2026-09-16,
-// section 5) — `DAY_MINUTES` and `SLOT_MINUTES` come from `calendarPlacement`
+// section 5) — `DAY_MINUTES` and `STEP_MINUTES` come from `calendarPlacement`
 // rather than being restated here, so the two grids cannot drift apart.
 // `MIN_DURATION` and `MAX_TEXT_LENGTH` stay local: they are note-specific
 // rules that merely happen to share a value with something else today, not
 // facts about the shared grid.
-const MIN_DURATION = 30;
+const MIN_DURATION = 15;
 const MAX_TEXT_LENGTH = 500;
 
 const slotAlignedSchema = (label) =>
     z
         .number({ error: `${label} must be an integer number of minutes` })
         .int(`${label} must be an integer number of minutes`)
-        .refine((value) => value % SLOT_MINUTES === 0, {
-            message: `${label} must be a multiple of ${SLOT_MINUTES}`,
+        .refine((value) => value % STEP_MINUTES === 0, {
+            message: `${label} must be a multiple of ${STEP_MINUTES}`,
         });
 
 const startSchema = slotAlignedSchema('startMinutes').min(0, 'startMinutes must be 0 or more');

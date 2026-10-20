@@ -24,10 +24,10 @@
  */
 
 const DAY_MINUTES = 1440;
-const SLOT_MINUTES = 30;
-const MIN_DURATION = 30;
+const STEP_MINUTES = 5;
+const MIN_DURATION = 15;
 
-const isSlotAligned = (value) => Number.isInteger(value) && value % SLOT_MINUTES === 0;
+const isStepAligned = (value) => Number.isInteger(value) && value % STEP_MINUTES === 0;
 
 /**
  * How a placement is named in messages and compared for duplicates. A booking is
@@ -46,11 +46,11 @@ const validatePlacement = (placement) => {
     const { startMinutes, durationMinutes } = placement;
     const at = `(${labelOf(placement)})`;
 
-    if (!isSlotAligned(startMinutes)) {
-        return `startMinutes must be a multiple of ${SLOT_MINUTES} ${at}`;
+    if (!isStepAligned(startMinutes)) {
+        return `startMinutes must be a multiple of ${STEP_MINUTES} ${at}`;
     }
-    if (!isSlotAligned(durationMinutes)) {
-        return `durationMinutes must be a multiple of ${SLOT_MINUTES} ${at}`;
+    if (!isStepAligned(durationMinutes)) {
+        return `durationMinutes must be a multiple of ${STEP_MINUTES} ${at}`;
     }
     if (startMinutes < 0) return `startMinutes must be 0 or more ${at}`;
     if (durationMinutes < MIN_DURATION) {
@@ -158,7 +158,7 @@ const findPlacementProblem = (placements) => {
 module.exports = {
     DAY_MINUTES,
     MIN_DURATION,
-    SLOT_MINUTES,
+    STEP_MINUTES,
     findOverlap,
     findPlacementProblem,
     validatePlacement,

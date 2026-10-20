@@ -20,9 +20,9 @@ const { withTransaction } = require('../db/unitOfWork');
 const router = express.Router();
 
 const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
-// Bookings are slot-aligned, so visits run in half-hour steps.
-const VISIT_STEP_MINUTES = 30;
-const MIN_VISIT_MINUTES = 30;
+// Bookings are step-aligned, so visits run in 5-minute steps, 15 minutes at least.
+const VISIT_STEP_MINUTES = 5;
+const MIN_VISIT_MINUTES = 15;
 const MAX_VISIT_MINUTES = 720;
 
 const requiredText = (field, maxLength) =>

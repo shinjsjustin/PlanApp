@@ -11,8 +11,6 @@ const calendarDaysRepo = require('../db/repositories/calendarDaysRepo');
 const calendarItemsRepo = require('../db/repositories/calendarItemsRepo');
 const { badRequest, notFound } = require('../lib/httpError');
 const {
-    DAY_MINUTES,
-    SLOT_MINUTES,
     findOverlap,
     findPlacementProblem,
 } = require('../lib/calendarPlacement');
@@ -83,7 +81,7 @@ const placementSchema = z
  * amount of sorting and an unbounded `IN (...)`; without it the only bound is
  * the body parser's byte limit, which is a limit on a different thing.
  */
-const MAX_BULK_ITEMS = (DAY_MINUTES / SLOT_MINUTES) * 7;
+const MAX_BULK_ITEMS = 336; // 48 half-hours a day times 7 days; does not grow with the finer step
 
 /**
  * `appendDays` is capped at the number of placements because a day is only ever

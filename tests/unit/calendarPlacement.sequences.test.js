@@ -44,8 +44,8 @@ describe('findPlacementProblem with sequences', () => {
     });
 
     test('names the sequence when its arithmetic is wrong', () => {
-        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 541 })])).toBe(
-            'startMinutes must be a multiple of 30 (sequence 7)'
+        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 542 })])).toBe(
+            'startMinutes must be a multiple of 5 (sequence 7)'
         );
     });
 

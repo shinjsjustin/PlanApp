@@ -112,6 +112,19 @@ describe('POST /api/calendar/notes', () => {
         });
     });
 
+    test('accepts a 15-minute note at 605', async () => {
+        const conn = getConn();
+        const { ownerId, days } = await createWorld(conn);
+
+        const response = await request(app)
+            .post('/api/calendar/notes')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send(body({ dayId: days[0].id, startMinutes: 605, durationMinutes: 15 }));
+
+        expect(response.status).toBe(201);
+        expect(response.body.data).toMatchObject({ startMinutes: 605, durationMinutes: 15 });
+    });
+
     test('trims the text', async () => {
         // Arrange
         const conn = getConn();
@@ -145,8 +158,9 @@ describe('POST /api/calendar/notes', () => {
     });
 
     test.each([
-        ['an off-grid start', { startMinutes: 545 }],
-        ['an off-grid duration', { durationMinutes: 45 }],
+        ['an off-grid start', { startMinutes: 602 }],
+        ['an off-grid duration', { durationMinutes: 17 }],
+        ['a duration of 10', { durationMinutes: 10 }],
         ['a negative start', { startMinutes: -30 }],
         ['a duration below the minimum', { durationMinutes: 0 }],
         ['empty text', { text: '   ' }],

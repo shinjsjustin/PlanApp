@@ -46,16 +46,35 @@ describe('findPlacementProblem', () => {
         ).toBeNull();
     });
 
-    test('rejects a start off the 30-minute grid', () => {
-        expect(findPlacementProblem([placement({ startMinutes: 545 })])).toMatch(
-            /startMinutes must be a multiple of 30/
+    test('accepts a 15-minute booking starting on a 5-minute step', () => {
+        expect(
+            findPlacementProblem([placement({ startMinutes: 605, durationMinutes: 15 })])
+        ).toBeNull();
+    });
+
+    test('rejects a start off the 5-minute grid', () => {
+        expect(findPlacementProblem([placement({ startMinutes: 602 })])).toMatch(
+            /startMinutes must be a multiple of 5/
         );
     });
 
-    test('rejects a duration off the 30-minute grid', () => {
-        expect(findPlacementProblem([placement({ durationMinutes: 45 })])).toMatch(
-            /durationMinutes must be a multiple of 30/
+    test('rejects a duration off the 5-minute grid', () => {
+        expect(findPlacementProblem([placement({ durationMinutes: 17 })])).toMatch(
+            /durationMinutes must be a multiple of 5/
         );
+    });
+
+    test('rejects a duration of 10, below the 15-minute minimum', () => {
+        expect(findPlacementProblem([placement({ durationMinutes: 10 })])).toMatch(
+            /durationMinutes must be at least 15/
+        );
+    });
+
+    test('exports STEP_MINUTES and MIN_DURATION but not SLOT_MINUTES', () => {
+        const exported = require('../../src/lib/calendarPlacement');
+        expect(exported.STEP_MINUTES).toBe(5);
+        expect(exported.MIN_DURATION).toBe(15);
+        expect(exported.SLOT_MINUTES).toBeUndefined();
     });
 
     test('rejects a negative start', () => {
@@ -66,7 +85,7 @@ describe('findPlacementProblem', () => {
 
     test('rejects a duration below one slot', () => {
         expect(findPlacementProblem([placement({ durationMinutes: 0 })])).toMatch(
-            /durationMinutes must be at least 30/
+            /durationMinutes must be at least 15/
         );
     });
 

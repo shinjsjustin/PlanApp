@@ -498,32 +498,59 @@ describe('PUT /api/calendar/items — refusals', () => {
         expect(item).toMatchObject({ day_id: days[0].id, start_minutes: 0 });
     });
 
-    test('refuses a start off the 30-minute grid', async () => {
+    test('refuses a start off the 5-minute grid', async () => {
         const conn = getConn();
         const { ownerId, todos, days } = await createWorld(conn);
 
         const response = await put(ownerId, {
             placements: [
-                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 545, durationMinutes: 60 },
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 602, durationMinutes: 60 },
             ],
         });
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toMatch(/multiple of 30/);
+        expect(response.body.error).toMatch(/multiple of 5/);
     });
 
-    test('refuses a duration below one slot', async () => {
+    test('refuses a duration below the 15-minute minimum', async () => {
         const conn = getConn();
         const { ownerId, todos, days } = await createWorld(conn);
 
         const response = await put(ownerId, {
             placements: [
-                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 0 },
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 10 },
             ],
         });
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toMatch(/at least 30/);
+        expect(response.body.error).toMatch(/at least 15/);
+    });
+
+    test('refuses a duration off the 5-minute grid', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 17 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/multiple of 5/);
+    });
+
+    test('accepts a 15-minute booking at 605', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 605, durationMinutes: 15 },
+            ],
+        });
+
+        expect(response.status).toBe(200);
     });
 
     test('refuses a booking running past the end of its day', async () => {
@@ -686,7 +713,7 @@ describe('PUT /api/calendar/items — refusals', () => {
         const response = await put(ownerId, {
             appendDays: 1,
             placements: [
-                { todoId: todos[0].id, dayIndex: 1, startMinutes: 545, durationMinutes: 60 },
+                { todoId: todos[0].id, dayIndex: 1, startMinutes: 602, durationMinutes: 60 },
             ],
         });
 
