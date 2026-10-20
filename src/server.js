@@ -20,6 +20,7 @@ const bourneRoutes = require('./routes/bourne');
 const thoughtsRoutes = require('./routes/thoughts');
 const placesRoutes = require('./routes/places');
 const peopleRoutes = require('./routes/people');
+const legalRoutes = require('./routes/legal');
 
 const isAuth = require('./middleware/isAuth');
 const { respond, errorHandler } = require('./middleware/respond');
@@ -85,6 +86,11 @@ app.use('/api/people', isAuth, respond, peopleRoutes);
 
 // Terminal error handler for the resource routes above.
 app.use(errorHandler);
+
+// Public legal pages for Google's reviewers and crawlers. Must stay above the
+// static block and `app.get('*')`, which would otherwise answer these paths
+// with the React shell.
+app.use(legalRoutes);
 
 // ── Serve the built React app in production ──────────────────────────────────
 // During development `npm run dev` runs the React dev server separately.
