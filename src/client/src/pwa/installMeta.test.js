@@ -21,7 +21,7 @@ describe('index.html install meta', () => {
         ['apple-mobile-web-app-capable', 'yes'],
         ['mobile-web-app-capable', 'yes'],
         ['apple-mobile-web-app-status-bar-style', 'black'],
-        ['apple-mobile-web-app-title', 'PlanApp'],
+        ['apple-mobile-web-app-title', 'ShinPlan'],
     ])('%s is %s', (name, value) => {
         expect(metaContent(name)).toBe(value);
     });
