@@ -64,6 +64,10 @@ A placement creates a booking or moves the existing one for that to-do or sequen
 
 The request's placements are checked against the rules, then the stored bookings of every touched day are checked for overlap, so a placement that lands on a booking the request never mentioned is refused. Answers the full calendar, as GET /api/calendar does.
 
+After saving, the server re-lays every touched day, in start order. A booking at a different place from the one before it starts no earlier than the previous booking's end plus the drive time (rounded up to 5 minutes), and later bookings are pushed down to follow. The day's first booking with a place also gets a drive from the start place (home), except when it is at the shop (place kind `work`), which gets none. A drive with no known time counts 15 minutes. Bookings with no place get no drive. A push that takes a booking past 23:00 answers 400 and nothing is saved.
+
+Example: home is the start place, to-do 88 is booked 09:00-10:00 at place 12 (a customer), and to-do 89 at the shop (place kind `work`) is booked 10:00-11:00. The drive from 12 to the shop takes 20 minutes, so the saved booking for 89 starts at 10:20. The first booking (place 12, not the shop) also has a drive from home, but 09:00 leaves room after 08:00, so it stays put.
+
 ## DELETE /api/calendar/items/:todoId
 
 Releases the to-do's booking. Answers `{ "todoId": 88 }`, or 404 if it has no booking.
