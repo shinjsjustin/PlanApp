@@ -79,7 +79,7 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
                 <DayGrid>
                     {day && <NotePlane dayId={day.id} notes={notes.notesForDay(day.id)} label={`Notes for ${label}`} />}
                     <EventLayer events={shownEvents} />
-                    <DriveLayer date={selectedDate} items={dayItems} events={shownEvents} />
+                    <DriveLayer date={selectedDate} items={dayItems} />
                     {dayItems.map((item) => (
                         <DayItemCard
                             key={itemKeyOf(item)}

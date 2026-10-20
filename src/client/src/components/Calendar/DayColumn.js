@@ -192,7 +192,7 @@ const DayColumn = ({
                         )}
 
                         <EventLayer events={events} />
-                        <DriveLayer date={day.date} items={items} events={events} />
+                        <DriveLayer date={day.date} items={items} />
 
                         {items.map((item) =>
                             cardFor ? (

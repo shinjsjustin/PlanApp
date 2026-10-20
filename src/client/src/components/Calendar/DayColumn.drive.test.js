@@ -50,7 +50,7 @@ describe('DayColumn drive blocks', () => {
     test('draws a Drive to block for a booking with a place', async () => {
         renderColumn([booking]);
 
-        expect(await screen.findByLabelText('Drive to Office')).toHaveTextContent('Drive 11 min');
+        expect(await screen.findByLabelText('Drive to Office')).toHaveTextContent('Drive 15 min');
     });
 
     test('draws no drive block for a booking without a place', async () => {

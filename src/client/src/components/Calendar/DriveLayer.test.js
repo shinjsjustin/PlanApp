@@ -31,7 +31,7 @@ const mockApi = (travel) =>
 const renderLayer = (props, { withProvider = true } = {}) => {
     const layer = (
         <DayScaleProvider value={geometry}>
-            <DriveLayer date="2026-10-16" items={[item()]} events={[]} {...props} />
+            <DriveLayer date="2026-10-16" items={[item()]} {...props} />
         </DayScaleProvider>
     );
     return render(withProvider ? <PlaceOptionsProvider>{layer}</PlaceOptionsProvider> : layer);
@@ -65,22 +65,22 @@ describe('DriveLayer', () => {
 
         const block = await screen.findByLabelText('Drive to Office');
         expect(block).toHaveClass('calendar-drive');
-        expect(block.style.top).toBe(`${minutesToPx(600 - 11)}px`);
-        expect(block.style.height).toBe(`${minutesToPx(11)}px`);
-        expect(block).toHaveTextContent('Drive 11 min');
+        expect(block.style.top).toBe(`${minutesToPx(600 - 15)}px`);
+        expect(block.style.height).toBe(`${minutesToPx(15)}px`);
+        expect(block).toHaveTextContent('Drive 15 min');
         const link = screen.getByRole('link', { name: 'Maps' });
         expect(link).toHaveAttribute('href', 'https://maps/x');
         expect(link).toHaveAttribute('target', '_blank');
         expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     });
 
-    test('clamps the top at 0 when the drive starts before midnight', async () => {
+    test('clamps the top at 08:00 when the drive would start earlier', async () => {
         mockApi(OK);
-        renderLayer({ items: [item({ startMinutes: 5 })] });
+        renderLayer({ items: [item({ startMinutes: 485 })] });
 
         const block = await screen.findByLabelText('Drive to Office');
-        expect(block.style.top).toBe(`${minutesToPx(0)}px`);
-        expect(block.style.height).toBe(`${minutesToPx(11)}px`);
+        expect(block.style.top).toBe(`${minutesToPx(480)}px`);
+        expect(block.style.height).toBe(`${minutesToPx(15)}px`);
     });
 
     test('an unavailable leg is a 15 minute block with no link when mapsUrl is null', async () => {

@@ -1,4 +1,4 @@
-import { legsForDay, matchPlace, normalize } from './driveLegs';
+import { driveMinutesOf, legsForDay, matchPlace, normalize } from './driveLegs';
 
 const HOME = { id: 1, address: '1 Main St, Springfield' };
 const GYM = { id: 2, address: '22 Oak Ave' };
@@ -31,8 +31,19 @@ describe('matchPlace', () => {
     });
 });
 
+describe('driveMinutesOf', () => {
+    it.each([
+        [{ status: 'ok', durationSeconds: 601 }, 15],
+        [{ status: 'ok', durationSeconds: 600 }, 10],
+        [{ status: 'ok', durationSeconds: 1 }, 5],
+        [{ status: 'unavailable', mapsUrl: null }, 15],
+    ])('answers %j take %i minutes', (answer, minutes) => {
+        expect(driveMinutesOf(answer)).toBe(minutes);
+    });
+});
+
 describe('legsForDay', () => {
-    const base = { date: '2026-10-05', places, startPlaceId: 1, items: [], events: [] };
+    const base = { date: '2026-10-05', places, startPlaceId: 1, items: [] };
 
     it('measures the first stop from the start place, departing 60 minutes before', () => {
         const items = [{ id: 7, placeId: 2, startMinutes: 600, durationMinutes: 30 }];
@@ -41,20 +52,31 @@ describe('legsForDay', () => {
         ]);
     });
 
-    it('clamps the first departure at midnight', () => {
-        const items = [{ id: 7, placeId: 2, startMinutes: 20, durationMinutes: 30 }];
-        expect(legsForDay({ ...base, items })[0].departAt).toBe(iso(0));
+    it('never departs the first leg before 08:00', () => {
+        const items = [{ id: 7, placeId: 2, startMinutes: 500, durationMinutes: 30 }];
+        expect(legsForDay({ ...base, items })[0].departAt).toBe(iso(8));
     });
 
-    it('orders mixed stops and departs each later leg at the previous end', () => {
-        const items = [{ id: 7, placeId: 2, startMinutes: 720, durationMinutes: 30 }];
-        const events = [
-            { id: 'g1', allDay: false, startMinutes: 600, durationMinutes: 45, location: '1 Main St, Springfield' },
+    it('makes no leg before the first placed booking when that place is work', () => {
+        const work = { id: 5, address: '5 Job Rd', kind: 'work' };
+        const items = [
+            { id: 1, placeId: 5, startMinutes: 600, durationMinutes: 30 },
+            { id: 2, placeId: 2, startMinutes: 700, durationMinutes: 30 },
         ];
-        const legs = legsForDay({ ...base, startPlaceId: 3, items, events });
-        expect(legs).toEqual([
-            { key: 'event-g1', fromPlaceId: 3, toPlaceId: 1, startMinutes: 600, departAt: iso(9) },
-            { key: 'item-7', fromPlaceId: 1, toPlaceId: 2, startMinutes: 720, departAt: iso(10, 45) },
+        expect(legsForDay({ ...base, places: [...places, work], items })).toEqual([
+            { key: 'item-2', fromPlaceId: 5, toPlaceId: 2, startMinutes: 700, departAt: iso(10, 30) },
+        ]);
+    });
+
+    it('still drives to a work place that is not the first stop', () => {
+        const work = { id: 5, address: '5 Job Rd', kind: 'work' };
+        const items = [
+            { id: 1, placeId: 2, startMinutes: 600, durationMinutes: 30 },
+            { id: 2, placeId: 5, startMinutes: 700, durationMinutes: 30 },
+        ];
+        expect(legsForDay({ ...base, places: [...places, work], items }).map((leg) => leg.key)).toEqual([
+            'item-1',
+            'item-2',
         ]);
     });
 
@@ -70,16 +92,24 @@ describe('legsForDay', () => {
         ]);
     });
 
-    it('ignores all-day, unmatched and placeless items and events', () => {
+    it('an unplaced booking between placed ones leaves the last place unchanged', () => {
+        const items = [
+            { id: 1, placeId: 2, startMinutes: 600, durationMinutes: 30 },
+            { id: 2, placeId: null, startMinutes: 650, durationMinutes: 30 },
+            { id: 3, placeId: 1, startMinutes: 720, durationMinutes: 30 },
+        ];
+        const legs = legsForDay({ ...base, startPlaceId: 2, items });
+        expect(legs).toEqual([
+            { key: 'item-3', fromPlaceId: 2, toPlaceId: 1, startMinutes: 720, departAt: iso(10, 30) },
+        ]);
+    });
+
+    it('ignores placeless and unknown-place items', () => {
         const items = [
             { id: 1, placeId: null, startMinutes: 600, durationMinutes: 30 },
             { id: 2, placeId: 99, startMinutes: 650, durationMinutes: 30 },
         ];
-        const events = [
-            { id: 'a', allDay: true, startMinutes: 0, durationMinutes: 1440, location: '22 Oak Ave' },
-            { id: 'b', allDay: false, startMinutes: 700, durationMinutes: 30, location: 'Nowhere' },
-        ];
-        expect(legsForDay({ ...base, items, events })).toEqual([]);
+        expect(legsForDay({ ...base, items })).toEqual([]);
     });
 
     it('makes no leg for the first stop without a start place', () => {
