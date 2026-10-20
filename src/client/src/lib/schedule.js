@@ -26,11 +26,14 @@ import { createTempId } from './tempIds';
 /** A day is 00:00 to 24:00, ordered by position. It may carry a date key; undated days are tolerated. */
 export const DAY_MINUTES = 1440;
 
-/** The grid, and therefore the snap. */
+/** The drawn grid: one labelled row. */
 export const SLOT_MINUTES = 30;
 
-/** One slot. Nothing can be shorter and still carry a readable label. */
-export const MIN_DURATION = SLOT_MINUTES;
+/** What a pointer snaps to, and the server's booking granularity. */
+export const STEP_MINUTES = 5;
+
+/** Nothing can be shorter and still carry a readable label. */
+export const MIN_DURATION = 15;
 
 /**
  * A full day. This is what guarantees the spill terminates: an item that has
@@ -43,7 +46,7 @@ export const MAX_DURATION = DAY_MINUTES;
 export const DEFAULT_DURATION = 60;
 
 /**
- * A duration held to what a booking may legally be: at least one slot, at most
+ * A duration held to what a booking may legally be: at least `MIN_DURATION`, at most
  * one day.
  *
  * Both bounds are load-bearing rather than cosmetic. `settleDay` refuses a
@@ -61,12 +64,12 @@ export const DEFAULT_DURATION = 60;
  *
  * It does not snap, either. `lib/scheduleGeometry` needs a duration that is
  * bounded *and* on the grid, to size a resize ghost while the pointer is still
- * down; it composes its `clampDuration` as `boundDuration(snapToSlot(minutes))`.
+ * down; it composes its `clampDuration` as `boundDuration(snapToStep(minutes))`.
  * The bounds are defined once, here beside the constants they read; the snap
  * belongs with the pointer arithmetic that needs it, and stays there. That
  * composition is safe in that order because both bounds are themselves multiples
- * of `SLOT_MINUTES`: bounding a snapped duration returns it, `MIN_DURATION` or
- * `MAX_DURATION`, and all three are on the grid.
+ * of `STEP_MINUTES`: bounding a snapped duration returns it, `MIN_DURATION` or
+ * `MAX_DURATION`, and all three are on the step grid.
  */
 export const boundDuration = (durationMinutes) =>
     Number.isFinite(durationMinutes)
@@ -183,7 +186,7 @@ const describeValue = (value) =>
  * That division of labour makes this guard deliberately narrower than "a legal
  * booking": grid alignment is nobody's business here either, so `37.5` passes.
  * The fold only refuses what would corrupt its own arithmetic. Nothing in this
- * file snaps to `SLOT_MINUTES` — that happens upstream of the gestures, in
+ * file snaps to `STEP_MINUTES` — that happens upstream of the gestures, in
  * `lib/scheduleGeometry`, where a pointer position becomes minutes — and the
  * server rejects anything that still arrives off-grid.
  */

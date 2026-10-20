@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { MIN_DURATION } from '../lib/schedule';
-import { clampDuration, snapToSlot } from '../lib/scheduleGeometry';
+import { clampDuration, snapToStep } from '../lib/scheduleGeometry';
 
 // Dragging the top or bottom edge of a booking.
 //
@@ -38,7 +38,7 @@ export const rectFor = (item, { edge, deltaMinutes, floor }) => {
     }
 
     const end = item.startMinutes + item.durationMinutes;
-    const wanted = snapToSlot(item.startMinutes + deltaMinutes);
+    const wanted = snapToStep(item.startMinutes + deltaMinutes);
 
     // The floor is the outer clamp, so it is the one that wins when the two
     // disagree. They only can in a degenerate arrangement — an item above that
@@ -83,7 +83,7 @@ export const rectFor = (item, { edge, deltaMinutes, floor }) => {
  * decision 10). It is read on every move rather than captured with the gesture,
  * so a window resized mid-drag is followed rather than ignored.
  *
- * Only the pixel conversion needs it. `snapToSlot` and `clampDuration` work in
+ * Only the pixel conversion needs it. `snapToStep` and `clampDuration` work in
  * minutes and are scale-independent, which is why they are still imported
  * directly.
  */
@@ -109,7 +109,7 @@ const useResizeEdge = ({ geometry, resolve, onPreview, onCommit, onCancel }) => 
         (event) => {
             if (!gesture) return;
 
-            const deltaMinutes = snapToSlot(
+            const deltaMinutes = snapToStep(
                 geometry.pxToMinutes(event.clientY - gesture.originY)
             );
             const rect = rectFor(gesture.item, {

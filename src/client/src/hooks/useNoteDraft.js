@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { DAY_MINUTES, MIN_DURATION } from '../lib/schedule';
-import { clampStart, snapToSlot } from '../lib/scheduleGeometry';
+import { clampStart, snapToStep } from '../lib/scheduleGeometry';
 
 // Pressing and dragging on empty notes background to describe a new note
 // (design 2026-09-16, section 8.2).
@@ -67,7 +67,7 @@ const useNoteDraft = ({ geometry, canPlaceAt, onCommit }) => {
      * added — the same reasoning `minutesAtRect` records for a drop.
      */
     const minuteAt = useCallback(
-        (clientY, planeTop) => clampStart(snapToSlot(geometry.pxToMinutes(clientY - planeTop))),
+        (clientY, planeTop) => clampStart(snapToStep(geometry.pxToMinutes(clientY - planeTop))),
         [geometry]
     );
 

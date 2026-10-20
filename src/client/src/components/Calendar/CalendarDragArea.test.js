@@ -43,7 +43,7 @@ describe('minutesAtRect', () => {
         const grid = { top: 100 };
 
         expect(minutesAtRect(geometry, { top: -500 }, grid)).toBe(0);
-        expect(minutesAtRect(geometry, { top: 99999 }, grid)).toBe(1410);
+        expect(minutesAtRect(geometry, { top: 99999 }, grid)).toBe(1425);
     });
 });
 

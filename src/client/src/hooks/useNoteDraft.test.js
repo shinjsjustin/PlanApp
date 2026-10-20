@@ -63,9 +63,10 @@ describe('rangeFor', () => {
         expect(rangeFor(660, 540)).toEqual({ startMinutes: 540, durationMinutes: 120 });
     });
 
-    test('never returns less than one slot', () => {
+    test('never returns less than fifteen minutes', () => {
         // Act & Assert
         expect(rangeFor(540, 545).durationMinutes).toBe(MIN_DURATION);
+        expect(MIN_DURATION).toBe(15);
     });
 
     test('is held inside the day at the bottom', () => {
@@ -112,6 +113,18 @@ describe('useNoteDraft', () => {
             startMinutes: 540,
             durationMinutes: 120,
         });
+    });
+
+    test('dragging moves in five-minute steps', () => {
+        // Arrange
+        const { result } = renderDraft();
+        press(result, geometry.minutesToPx(540));
+
+        // Act — 17 minutes down snaps to 15
+        movePointer(geometry.minutesToPx(557));
+
+        // Assert
+        expect(result.current.draft).toMatchObject({ startMinutes: 540, durationMinutes: 15 });
     });
 
     test('marks a draft the day has no room for', () => {

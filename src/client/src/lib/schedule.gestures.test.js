@@ -1,7 +1,6 @@
 import {
     DEFAULT_DURATION,
     MAX_DURATION,
-    MIN_DURATION,
     SLOT_MINUTES,
     moveItem,
     placeFromPool,
@@ -103,7 +102,7 @@ describe('placeFromPool', () => {
         expect(dayLayout(next, 1)).toEqual([[7, 0, MAX_DURATION]]);
     });
 
-    test('bounds a caller-supplied duration up to one slot', () => {
+    test('bounds a caller-supplied duration up to fifteen minutes', () => {
         // Arrange — `settleDay` refuses a duration of zero for the same reason.
         const state = { days: days(1), items: [] };
 
@@ -116,7 +115,7 @@ describe('placeFromPool', () => {
         });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[7, 540, MIN_DURATION]]);
+        expect(dayLayout(next, 1)).toEqual([[7, 540, 15]]);
     });
 
     // Bounding a duration must not validate one, and `Math.min`/`Math.max` run
@@ -252,7 +251,7 @@ describe('resizeItem', () => {
         expect(next.days).toHaveLength(1);
     });
 
-    test('bounds a shrink past one slot to one slot', () => {
+    test('bounds a shrink past fifteen minutes to fifteen minutes', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 540)] };
 
@@ -260,7 +259,7 @@ describe('resizeItem', () => {
         const next = resizeItem(state, { todoId: 1, startMinutes: 540, durationMinutes: 0 });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[1, 540, MIN_DURATION]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 540, 15]]);
     });
 });
 
