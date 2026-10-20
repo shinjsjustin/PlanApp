@@ -26,6 +26,12 @@ import { createTempId } from './tempIds';
 /** A day is 00:00 to 24:00, ordered by position. It may carry a date key; undated days are tolerated. */
 export const DAY_MINUTES = 1440;
 
+/** Bookings start no earlier than 08:00; the server answers 400 otherwise. */
+export const WAKE_MINUTES = 480;
+
+/** Bookings end no later than 23:00; what runs past it spills to the next morning. */
+export const SLEEP_START_MINUTES = 1380;
+
 /** The drawn grid: one labelled row. */
 export const SLOT_MINUTES = 30;
 
@@ -249,14 +255,20 @@ export const settleDay = (items, anchorTodoIds = []) => {
 };
 
 /**
- * Splits a settled day into what stays and what has been pushed past midnight.
+ * Splits a settled day into what stays and what has been pushed past bedtime.
  *
  * The overflow is always a contiguous tail, which is why a single index is
  * enough: the list is ordered and non-overlapping, so if one item ends past
- * 24:00 then every item after it starts past 24:00 too.
+ * 23:00 then every item after it starts past 23:00 too.
+ *
+ * An item starting at or before 08:00 never spills, however long it is: moving
+ * it to the next morning would land it at the same start and spill it again. That
+ * is what lets a loaded long or early booking stay put and the spill end.
  */
 const partitionOverflow = (settled) => {
-    const index = settled.findIndex((item) => endOf(item) > DAY_MINUTES);
+    const index = settled.findIndex(
+        (item) => item.startMinutes > WAKE_MINUTES && endOf(item) > SLEEP_START_MINUTES
+    );
 
     if (index === -1) return { keep: settled, overflow: [] };
 
@@ -264,22 +276,25 @@ const partitionOverflow = (settled) => {
 };
 
 /**
- * Slides a group so its first item starts at 00:00, preserving the spacing
+ * Slides a group so its first item starts at 08:00, preserving the spacing
  * between its members.
  *
  * A spilled group is contiguous whenever every start handed to the fold sat
- * inside the day: the first overflowing item ends past 24:00, so the cursor is
+ * inside the day: the first overflowing item ends past 23:00, so the cursor is
  * already beyond any later item's own start and each one is pushed flush against
- * the one above. A start past 24:00 — which the fold permits and no gesture
- * produces — is not raised, and its gap survives: `1300/200` and `1600/60` spill
- * to `0/200` and `300/60`, still a legal day. Shifting the whole group is what
+ * the one above. A start past 23:00 — which the fold permits and no gesture
+ * produces — is not raised, and its gap survives: `1400/200` and `1700/60` spill
+ * to `480/200` and `780/60`, still a legal day. Shifting the whole group is what
  * makes that degrade gracefully, and it does not depend on the caller having
  * settled first.
  */
 const rebaseToTop = (group) => {
     const offset = group[0].startMinutes;
 
-    return group.map((item) => ({ ...item, startMinutes: item.startMinutes - offset }));
+    return group.map((item) => ({
+        ...item,
+        startMinutes: item.startMinutes - offset + WAKE_MINUTES,
+    }));
 };
 
 /**
@@ -318,9 +333,10 @@ const assertFitsInADay = (item) => {
  * day's contents down rather than weaving into them.
  *
  * This terminates. Every pass but the first places at least one item for good:
- * the first overflowing item is rebased to 00:00 and sorts to the top of the
- * receiving day, so it settles at 00:00 there and ends at its own duration,
- * which `assertFitsInADay` holds to a day. The first pass can place nothing —
+ * the first overflowing item is rebased to 08:00 and sorts to the top of the
+ * receiving day, so it settles at 08:00 there. It may still end past 23:00 if it
+ * is long, but an item starting at or before 08:00 never spills, so it stays and
+ * the pass places it for good. The first pass can place nothing —
  * the caller's anchor is wherever the gesture put it, not rebased — so the bound
  * is one pass per item plus one, and the loop states it. Left unstated, a change
  * that breaks the proof would hang the tab on a pointer move instead of failing
@@ -434,6 +450,13 @@ const requireBooking = (state, ref) => {
 };
 
 /**
+ * A start raised to 08:00 when earlier. A non-number passes through for
+ * `assertSchedulable` to refuse, as `boundDuration` does.
+ */
+const wakeFloor = (startMinutes) =>
+    Number.isFinite(startMinutes) ? Math.max(startMinutes, WAKE_MINUTES) : startMinutes;
+
+/**
  * Books a to-do dragged out of the pool. Everything beyond the four scheduling
  * fields — text, status, project and sequence — is carried through untouched, so
  * the new card can draw itself before the save lands.
@@ -470,7 +493,7 @@ export const placeFromPool = (
         ...(sequenceId === undefined ? {} : { sequenceId }),
         todoId,
         dayId,
-        startMinutes,
+        startMinutes: wakeFloor(startMinutes),
         durationMinutes: boundDuration(durationMinutes),
     };
 
@@ -489,7 +512,7 @@ export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
     requireBooking(state, key);
 
     const items = state.items.map((item) =>
-        itemKeyOf(item) === key ? { ...item, dayId, startMinutes } : item
+        itemKeyOf(item) === key ? { ...item, dayId, startMinutes: wakeFloor(startMinutes) } : item
     );
 
     return spillFrom({ ...state, items }, dayId, [key]);
@@ -511,7 +534,9 @@ export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }) => 
     const bounded = boundDuration(durationMinutes);
 
     const items = state.items.map((item) =>
-        itemKeyOf(item) === key ? { ...item, startMinutes, durationMinutes: bounded } : item
+        itemKeyOf(item) === key
+            ? { ...item, startMinutes: wakeFloor(startMinutes), durationMinutes: bounded }
+            : item
     );
 
     return spillFrom({ ...state, items }, existing.dayId, [key]);
@@ -530,7 +555,9 @@ export const unscheduleItem = (state, ref) => {
 
 /**
  * The earliest a top-edge drag may pull a booking's start: the end of the item
- * above it, or midnight when it is the first of its day.
+ * above it, or 08:00 when it is the first of its day. A booking that already
+ * starts earlier keeps midnight as its floor, so a loaded early booking can
+ * still be resized.
  *
  * The top edge clamps rather than pushes, because the cascade only ever runs
  * downward. Letting it push upward would be a second, opposite rule for one
@@ -550,7 +577,9 @@ export const topEdgeFloor = (state, ref) => {
         )
         .sort((a, b) => a.startMinutes - b.startMinutes);
 
-    return above.length === 0 ? 0 : endOf(above[above.length - 1]);
+    const floor = booking.startMinutes < WAKE_MINUTES ? 0 : WAKE_MINUTES;
+
+    return above.length === 0 ? floor : Math.max(floor, endOf(above[above.length - 1]));
 };
 
 /**
