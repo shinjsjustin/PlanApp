@@ -1,7 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { deleteUserByEmail } = require('./database');
+const { createUser, deleteUserByEmail } = require('./database');
 const {
     attachDiagnostics, addTodo, dataOf, dateSequenceToday, dragOnto, newCredentials, openProject,
     poolGrip, seedPlan, todayTitle, seedCrowdedPlan, seedLayeredPlan,
@@ -66,14 +66,8 @@ test.afterAll(() => Promise.all([
     onboardingCredentials.email,
 ].map(deleteUserByEmail)));
 
-test('registers, creates a project, and opens it through the full card hit area', async ({ page }) => {
-    await page.goto('/register');
-    await page.getByPlaceholder('Full Name').fill(onboardingCredentials.name);
-    await page.getByPlaceholder('Email').fill(onboardingCredentials.email);
-    await page.getByPlaceholder('Password (min 8 characters)').fill(onboardingCredentials.password);
-    await page.getByPlaceholder('Confirm Password').fill(onboardingCredentials.password);
-    await page.getByRole('button', { name: 'Create Account' }).click();
-    await expect(page).toHaveURL(/\/post-register$/);
+test('logs in, creates a project, and opens it through the full card hit area', async ({ page }) => {
+    await createUser(onboardingCredentials);
 
     await page.goto('/login');
     await page.getByPlaceholder('Email').fill(onboardingCredentials.email);

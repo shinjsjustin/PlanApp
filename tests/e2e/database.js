@@ -1,6 +1,7 @@
 'use strict';
 
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -48,6 +49,24 @@ const connect = () =>
         database: testDatabaseName(),
     });
 
+const BCRYPT_COST = 10;
+const SEEDED_ACCESS_LEVEL = 1;
+
+/** Signup is closed, so E2E accounts are inserted directly, already approved. */
+const createUser = async ({ name, email, password }) => {
+    const hash = await bcrypt.hash(password, BCRYPT_COST);
+    const connection = await connect();
+
+    try {
+        await connection.execute(
+            'INSERT INTO users (name, email, password, access_level) VALUES (?, ?, ?, ?)',
+            [name, email, hash, SEEDED_ACCESS_LEVEL]
+        );
+    } finally {
+        await connection.end();
+    }
+};
+
 const OWNED_BY = 'SELECT id FROM users WHERE email = ?';
 
 /**
@@ -82,4 +101,4 @@ const deleteUserByEmail = async (email) => {
     }
 };
 
-module.exports = { deleteUserByEmail, testDatabaseName };
+module.exports = { createUser, deleteUserByEmail, testDatabaseName };

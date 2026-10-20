@@ -1,5 +1,7 @@
 'use strict';
 
+const { createUser } = require('./database');
+
 // The few things the critical flow needs that Playwright does not give it
 // directly: a throwaway account, a plan seeded through the API, and a pointer
 // drag the `@dnd-kit` sensor accepts.
@@ -115,7 +117,7 @@ const dataOf = async (response) => {
 };
 
 /**
- * Registers a throwaway account through the API and leaves the browser signed
+ * Seeds a throwaway account straight into the database and leaves the browser signed
  * in as it.
  *
  * Every seed helper below needs the same account and the same bearer headers
@@ -123,7 +125,7 @@ const dataOf = async (response) => {
  * call itself is not duplicated in each of them.
  */
 const registerAndLogin = async (page, credentials) => {
-    await page.request.post('/api/auth/register', { data: credentials });
+    await createUser(credentials);
 
     const login = await (
         await page.request.post('/api/auth/login', {
