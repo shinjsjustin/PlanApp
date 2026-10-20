@@ -217,6 +217,23 @@ const assertSchedulable = (item) => {
 };
 
 /**
+ * Minutes of driving before a placed item, mirroring the server's `relayDay`.
+ * `lastPlaceId` is `undefined` for the day's first placed item, which drives from
+ * `startPlaceId` and not at all to a 'work' place. No drive when the origin is
+ * unknown or the same place.
+ */
+const driveBefore = (item, lastPlaceId, drives) => {
+    const isFirst = lastPlaceId === undefined;
+    const fromPlaceId = isFirst ? drives.startPlaceId : lastPlaceId;
+    const placeKind = drives.places.find((place) => place.id === item.placeId)?.kind;
+
+    if (fromPlaceId == null || fromPlaceId === item.placeId) return 0;
+    if (isFirst && placeKind === 'work') return 0;
+
+    return drives.minutesFor(fromPlaceId, item.placeId);
+};
+
+/**
  * One day, resolved so nothing overlaps — the whole push-down rule, in a fold.
  *
  * `start = max(start, cursor)` is the entire behaviour. Because a start is only
@@ -230,6 +247,11 @@ const assertSchedulable = (item) => {
  * is the spill's job, and it can only find the overrun if this leaves it in
  * place. So a returned `startMinutes` of 1500 is a result, not a bug.
  *
+ * With `drives` ({ places, startPlaceId, minutesFor }) the fold also mirrors the
+ * server's drive push-down: the cursor starts at 08:00 and a placed item starts no
+ * earlier than the cursor plus the drive from the last placed item's place.
+ * Unplaced items add no drive and leave the last place alone.
+ *
  * `anchorTodoIds` is what the gesture is acting on: one id for a drag or a
  * resize, a whole group for the items a spill has just carried in from the day
  * above. A bare id may be passed unwrapped. It affects ordering only, never
@@ -242,19 +264,36 @@ const assertSchedulable = (item) => {
  * an untouched item keeps its identity, which is what lets a rendered day column
  * memoize per item and re-render only the rows that actually moved.
  */
-export const settleDay = (items, anchorTodoIds = []) => {
+export const settleDay = (items, anchorTodoIds = [], drives) => {
     items.forEach(assertSchedulable);
 
     const anchors = new Set([].concat(anchorTodoIds).map(keyOfRef));
 
-    let cursor = 0;
+    let cursor = drives ? WAKE_MINUTES : 0;
+    let lastPlaceId = null;
+    let hasPlaced = false;
 
     return orderFor(items, anchors).map((item) => {
-        const startMinutes = Math.max(item.startMinutes, cursor);
+        let drive = 0;
+
+        if (drives && item.placeId != null) {
+            drive = driveBefore(item, hasPlaced ? lastPlaceId : undefined, drives);
+            hasPlaced = true;
+            lastPlaceId = item.placeId;
+        }
+
+        const startMinutes = Math.max(item.startMinutes, cursor + drive);
         cursor = startMinutes + item.durationMinutes;
 
         return startMinutes === item.startMinutes ? item : { ...item, startMinutes };
     });
+};
+
+/** The drive before the day's first item, or 0 when that item is unplaced. */
+const firstDriveOf = (settled, drives) => {
+    const first = settled.find((item) => item.placeId != null);
+
+    return first === settled[0] ? driveBefore(first, undefined, drives) : 0;
 };
 
 /**
@@ -268,10 +307,18 @@ export const settleDay = (items, anchorTodoIds = []) => {
  * it to the next morning would land it at the same start and spill it again. That
  * is what lets a loaded long or early booking stay put and the spill end. Gestures
  * cap a booking at `MAX_BOOKING_MINUTES`, so only a loaded one can run past 23:00 from 08:00.
+ *
+ * With drives the day's first item settles at 08:00 plus its drive at the earliest,
+ * so that is its threshold instead: a rebased item always lands exactly there, and
+ * still stays put rather than spilling again.
  */
-const partitionOverflow = (settled) => {
+const partitionOverflow = (settled, drives) => {
+    const firstDrive = drives && settled.length > 0 ? firstDriveOf(settled, drives) : 0;
+
     const index = settled.findIndex(
-        (item) => item.startMinutes > WAKE_MINUTES && endOf(item) > SLEEP_START_MINUTES
+        (item, position) =>
+            item.startMinutes > WAKE_MINUTES + (position === 0 ? firstDrive : 0) &&
+            endOf(item) > SLEEP_START_MINUTES
     );
 
     if (index === -1) return { keep: settled, overflow: [] };
@@ -339,7 +386,7 @@ const assertFitsInADay = (item) => {
  * This terminates. Every pass but the first places at least one item for good:
  * the first overflowing item is rebased to 08:00 and sorts to the top of the
  * receiving day, so it settles at 08:00 there. It may still end past 23:00 if it
- * is long, but an item starting at or before 08:00 never spills, so it stays and
+ * is long, but an item starting at or before 08:00 (plus its drive, with `drives`) never spills, so it stays and
  * the pass places it for good. The first pass can place nothing —
  * the caller's anchor is wherever the gesture put it, not rebased — so the bound
  * is one pass per item plus one, and the loop states it. Left unstated, a change
@@ -354,7 +401,7 @@ const assertFitsInADay = (item) => {
  * consumes would buy nothing. The first thing that asserts on, sorts by, or
  * renders `createdAt` makes that false and turns it into a parameter.
  */
-export const spillFrom = (state, dayId, anchorTodoIds = []) => {
+export const spillFrom = (state, dayId, anchorTodoIds = [], drives) => {
     let days = state.days;
     let items = state.items;
     let index = days.findIndex((day) => day.id === dayId);
@@ -368,8 +415,8 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 
         onThisDay.forEach(assertFitsInADay);
 
-        const settled = settleDay(onThisDay, anchors);
-        const { keep, overflow } = partitionOverflow(settled);
+        const settled = settleDay(onThisDay, anchors, drives);
+        const { keep, overflow } = partitionOverflow(settled, drives);
 
         items = [...items.filter((item) => item.dayId !== day.id), ...keep];
 
@@ -490,7 +537,8 @@ const wakeFloor = (startMinutes) =>
  */
 export const placeFromPool = (
     state,
-    { todoId, kind, sequenceId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display }
+    { todoId, kind, sequenceId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display },
+    drives
 ) => {
     const key = itemKeyOf({ todoId, kind, sequenceId });
 
@@ -508,7 +556,7 @@ export const placeFromPool = (
         durationMinutes: capBooking(durationMinutes),
     };
 
-    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [key]);
+    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [key], drives);
 };
 
 /**
@@ -518,7 +566,7 @@ export const placeFromPool = (
  * leaves, which is the same asymmetry a shrink has: positions are what they are
  * drawn as, and nothing rearranges itself behind the user's back (decision 7).
  */
-export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
+export const moveItem = (state, { dayId, startMinutes, ...ref }, drives) => {
     const key = itemKeyOf(ref);
     requireBooking(state, key);
 
@@ -526,7 +574,7 @@ export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
         itemKeyOf(item) === key ? { ...item, dayId, startMinutes: wakeFloor(startMinutes) } : item
     );
 
-    return spillFrom({ ...state, items }, dayId, [key]);
+    return spillFrom({ ...state, items }, dayId, [key], drives);
 };
 
 /**
@@ -539,7 +587,7 @@ export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
  * answer to: the geometry's clamp serves the rectangle on screen, and this bound
  * is the last thing between a pointer and the state tree.
  */
-export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }) => {
+export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }, drives) => {
     const key = itemKeyOf(ref);
     const existing = requireBooking(state, key);
     const bounded = capBooking(durationMinutes);
@@ -550,7 +598,7 @@ export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }) => 
             : item
     );
 
-    return spillFrom({ ...state, items }, existing.dayId, [key]);
+    return spillFrom({ ...state, items }, existing.dayId, [key], drives);
 };
 
 /**
