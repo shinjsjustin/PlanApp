@@ -2,20 +2,15 @@ import React from 'react';
 
 import { usePlaceOptions } from '../../hooks/usePlaceOptions';
 import useDriveTimes from '../../hooks/useDriveTimes';
-import { legsForDay } from '../../lib/driveLegs';
+import { DAY_START_MINUTES, driveMinutesOf, legsForDay } from '../../lib/driveLegs';
 import { todayKey } from '../../lib/dates';
 import { useDayGeometry } from '../../state/DayScaleContext';
-
-const SECONDS_PER_MINUTE = 60;
-const UNAVAILABLE_BLOCK_MINUTES = 15;
 
 const DriveBlock = ({ leg, answer, placeName }) => {
     const geometry = useDayGeometry();
     const isOk = answer.status === 'ok';
-    const minutes = isOk
-        ? Math.ceil(answer.durationSeconds / SECONDS_PER_MINUTE)
-        : UNAVAILABLE_BLOCK_MINUTES;
-    const startMinutes = Math.max(0, leg.startMinutes - minutes);
+    const minutes = driveMinutesOf(answer);
+    const startMinutes = Math.max(DAY_START_MINUTES, leg.startMinutes - minutes);
 
     return (
         <div
@@ -36,8 +31,8 @@ const DriveBlock = ({ leg, answer, placeName }) => {
     );
 };
 
-const DriveBlocks = ({ date, items, events, places, startPlaceId }) => {
-    const legs = legsForDay({ date: date ?? todayKey(), items, events, places, startPlaceId });
+const DriveBlocks = ({ date, items, places, startPlaceId }) => {
+    const legs = legsForDay({ date: date ?? todayKey(), items, places, startPlaceId });
     const answers = useDriveTimes(legs);
 
     return legs
@@ -53,7 +48,7 @@ const DriveBlocks = ({ date, items, events, places, startPlaceId }) => {
 };
 
 /** The drives into each placed stop of one day, drawn behind the cards. */
-const DriveLayer = ({ date, items, events }) => {
+const DriveLayer = ({ date, items }) => {
     const options = usePlaceOptions();
     if (!options || options.status !== 'ready') return null;
 
@@ -61,7 +56,6 @@ const DriveLayer = ({ date, items, events }) => {
         <DriveBlocks
             date={date}
             items={items}
-            events={events}
             places={options.places}
             startPlaceId={options.startPlaceId}
         />

@@ -72,6 +72,18 @@ describe('POST /api/places', () => {
         expect(stored[0]).toMatchObject({ name: 'Acme', address: '2 Elm', kind: 'client', visit_minutes: 720 });
     });
 
+    test.each([15, 45])('accepts visitMinutes %i', async (visitMinutes) => {
+        const ownerId = await createTestUser(getConn());
+
+        const response = await request(app)
+            .post('/api/places')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ name: 'X', address: 'Y', visitMinutes });
+
+        expect(response.status).toBe(201);
+        expect(response.body.data).toMatchObject({ visitMinutes });
+    });
+
     test('defaults kind to other and accepts null visitMinutes', async () => {
         const ownerId = await createTestUser(getConn());
 
@@ -89,9 +101,9 @@ describe('POST /api/places', () => {
         ['missing name', { address: 'a' }],
         ['blank address', { name: 'n', address: ' ' }],
         ['unknown kind', { name: 'n', address: 'a', kind: 'castle' }],
-        ['visitMinutes below 30', { name: 'n', address: 'a', visitMinutes: 0 }],
-        ['visitMinutes 15', { name: 'n', address: 'a', visitMinutes: 15 }],
-        ['visitMinutes off the 30 step', { name: 'n', address: 'a', visitMinutes: 45 }],
+        ['visitMinutes below 15', { name: 'n', address: 'a', visitMinutes: 0 }],
+        ['visitMinutes 10', { name: 'n', address: 'a', visitMinutes: 10 }],
+        ['visitMinutes off the 5 step', { name: 'n', address: 'a', visitMinutes: 47 }],
         ['visitMinutes above 720', { name: 'n', address: 'a', visitMinutes: 750 }],
         ['non-number visitMinutes', { name: 'n', address: 'a', visitMinutes: '60' }],
     ])('answers 400 and stores nothing for %s', async (_label, payload) => {
@@ -158,7 +170,7 @@ describe('PATCH /api/places/:id', () => {
         ['blank name', { name: ' ' }],
         ['blank address', { address: '' }],
         ['unknown kind', { kind: 'castle' }],
-        ['bad visitMinutes', { visitMinutes: 40 }],
+        ['bad visitMinutes', { visitMinutes: 47 }],
         ['non-boolean isDefaultStart', { isDefaultStart: 'yes' }],
     ])('answers 400 and changes nothing for %s', async (_label, body) => {
         const conn = getConn();

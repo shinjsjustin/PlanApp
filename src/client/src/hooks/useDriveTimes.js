@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import { api } from '../lib/api';
+import { driveMinutesOf } from '../lib/driveLegs';
 
 // Answers outlive the hook so remounting a calendar day never re-asks Bourne.
 const cache = new Map();
 
 const UNAVAILABLE = { status: 'unavailable', mapsUrl: null };
+
+const UNKNOWN_DRIVE_MINUTES = 15;
 
 const identityOf = (leg) => `${leg.fromPlaceId}|${leg.toPlaceId}|${leg.departAt}`;
 
@@ -26,6 +29,17 @@ const answersFor = (legs) =>
         const answer = cache.get(identityOf(leg));
         return answer ? { ...answers, [leg.key]: answer } : answers;
     }, {});
+
+// Synchronous, since the drag ghost recomputes on every pointer move: it reads
+// whatever the cache already holds, newest answer for the pair at any departAt.
+export const knownDriveMinutes = (fromPlaceId, toPlaceId) => {
+    if (fromPlaceId === toPlaceId) return 0;
+
+    const prefix = `${fromPlaceId}|${toPlaceId}|`;
+    const answers = [...cache].filter(([identity]) => identity.startsWith(prefix));
+
+    return answers.length > 0 ? driveMinutesOf(answers[answers.length - 1][1]) : UNKNOWN_DRIVE_MINUTES;
+};
 
 export const clearDriveTimeCache = () => cache.clear();
 

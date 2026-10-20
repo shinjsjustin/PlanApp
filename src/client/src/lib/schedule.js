@@ -26,11 +26,23 @@ import { createTempId } from './tempIds';
 /** A day is 00:00 to 24:00, ordered by position. It may carry a date key; undated days are tolerated. */
 export const DAY_MINUTES = 1440;
 
-/** The grid, and therefore the snap. */
+/** Bookings start no earlier than 08:00; the server answers 400 otherwise. */
+export const WAKE_MINUTES = 480;
+
+/** Bookings end no later than 23:00; what runs past it spills to the next morning. */
+export const SLEEP_START_MINUTES = 1380;
+
+/** The longest a gesture may book: 08:00 to 23:00, so a booking at 08:00 never ends past bedtime. */
+export const MAX_BOOKING_MINUTES = SLEEP_START_MINUTES - WAKE_MINUTES;
+
+/** The drawn grid: one labelled row. */
 export const SLOT_MINUTES = 30;
 
-/** One slot. Nothing can be shorter and still carry a readable label. */
-export const MIN_DURATION = SLOT_MINUTES;
+/** What a pointer snaps to, and the server's booking granularity. */
+export const STEP_MINUTES = 5;
+
+/** Nothing can be shorter and still carry a readable label. */
+export const MIN_DURATION = 15;
 
 /**
  * A full day. This is what guarantees the spill terminates: an item that has
@@ -43,7 +55,7 @@ export const MAX_DURATION = DAY_MINUTES;
 export const DEFAULT_DURATION = 60;
 
 /**
- * A duration held to what a booking may legally be: at least one slot, at most
+ * A duration held to what a booking may legally be: at least `MIN_DURATION`, at most
  * one day.
  *
  * Both bounds are load-bearing rather than cosmetic. `settleDay` refuses a
@@ -61,12 +73,12 @@ export const DEFAULT_DURATION = 60;
  *
  * It does not snap, either. `lib/scheduleGeometry` needs a duration that is
  * bounded *and* on the grid, to size a resize ghost while the pointer is still
- * down; it composes its `clampDuration` as `boundDuration(snapToSlot(minutes))`.
+ * down; it composes its `clampDuration` as `boundDuration(snapToStep(minutes))`.
  * The bounds are defined once, here beside the constants they read; the snap
  * belongs with the pointer arithmetic that needs it, and stays there. That
  * composition is safe in that order because both bounds are themselves multiples
- * of `SLOT_MINUTES`: bounding a snapped duration returns it, `MIN_DURATION` or
- * `MAX_DURATION`, and all three are on the grid.
+ * of `STEP_MINUTES`: bounding a snapped duration returns it, `MIN_DURATION` or
+ * `MAX_DURATION`, and all three are on the step grid.
  */
 export const boundDuration = (durationMinutes) =>
     Number.isFinite(durationMinutes)
@@ -183,7 +195,7 @@ const describeValue = (value) =>
  * That division of labour makes this guard deliberately narrower than "a legal
  * booking": grid alignment is nobody's business here either, so `37.5` passes.
  * The fold only refuses what would corrupt its own arithmetic. Nothing in this
- * file snaps to `SLOT_MINUTES` — that happens upstream of the gestures, in
+ * file snaps to `STEP_MINUTES` — that happens upstream of the gestures, in
  * `lib/scheduleGeometry`, where a pointer position becomes minutes — and the
  * server rejects anything that still arrives off-grid.
  */
@@ -205,6 +217,23 @@ const assertSchedulable = (item) => {
 };
 
 /**
+ * Minutes of driving before a placed item, mirroring the server's `relayDay`.
+ * `lastPlaceId` is `undefined` for the day's first placed item, which drives from
+ * `startPlaceId` and not at all to a 'work' place. No drive when the origin is
+ * unknown or the same place.
+ */
+const driveBefore = (item, lastPlaceId, drives) => {
+    const isFirst = lastPlaceId === undefined;
+    const fromPlaceId = isFirst ? drives.startPlaceId : lastPlaceId;
+    const placeKind = drives.places.find((place) => place.id === item.placeId)?.kind;
+
+    if (fromPlaceId == null || fromPlaceId === item.placeId) return 0;
+    if (isFirst && placeKind === 'work') return 0;
+
+    return drives.minutesFor(fromPlaceId, item.placeId);
+};
+
+/**
  * One day, resolved so nothing overlaps — the whole push-down rule, in a fold.
  *
  * `start = max(start, cursor)` is the entire behaviour. Because a start is only
@@ -218,6 +247,11 @@ const assertSchedulable = (item) => {
  * is the spill's job, and it can only find the overrun if this leaves it in
  * place. So a returned `startMinutes` of 1500 is a result, not a bug.
  *
+ * With `drives` ({ places, startPlaceId, minutesFor }) the fold also mirrors the
+ * server's drive push-down: the cursor starts at 08:00 and a placed item starts no
+ * earlier than the cursor plus the drive from the last placed item's place.
+ * Unplaced items add no drive and leave the last place alone.
+ *
  * `anchorTodoIds` is what the gesture is acting on: one id for a drag or a
  * resize, a whole group for the items a spill has just carried in from the day
  * above. A bare id may be passed unwrapped. It affects ordering only, never
@@ -230,30 +264,62 @@ const assertSchedulable = (item) => {
  * an untouched item keeps its identity, which is what lets a rendered day column
  * memoize per item and re-render only the rows that actually moved.
  */
-export const settleDay = (items, anchorTodoIds = []) => {
+export const settleDay = (items, anchorTodoIds = [], drives) => {
     items.forEach(assertSchedulable);
 
     const anchors = new Set([].concat(anchorTodoIds).map(keyOfRef));
 
-    let cursor = 0;
+    let cursor = drives ? WAKE_MINUTES : 0;
+    let lastPlaceId = null;
+    let hasPlaced = false;
 
     return orderFor(items, anchors).map((item) => {
-        const startMinutes = Math.max(item.startMinutes, cursor);
+        let drive = 0;
+
+        if (drives && item.placeId != null) {
+            drive = driveBefore(item, hasPlaced ? lastPlaceId : undefined, drives);
+            hasPlaced = true;
+            lastPlaceId = item.placeId;
+        }
+
+        const startMinutes = Math.max(item.startMinutes, cursor + drive);
         cursor = startMinutes + item.durationMinutes;
 
         return startMinutes === item.startMinutes ? item : { ...item, startMinutes };
     });
 };
 
+/** The drive before the day's first item, or 0 when that item is unplaced. */
+const firstDriveOf = (settled, drives) => {
+    const first = settled.find((item) => item.placeId != null);
+
+    return first === settled[0] ? driveBefore(first, undefined, drives) : 0;
+};
+
 /**
- * Splits a settled day into what stays and what has been pushed past midnight.
+ * Splits a settled day into what stays and what has been pushed past bedtime.
  *
  * The overflow is always a contiguous tail, which is why a single index is
  * enough: the list is ordered and non-overlapping, so if one item ends past
- * 24:00 then every item after it starts past 24:00 too.
+ * 23:00 then every item after it starts past 23:00 too.
+ *
+ * An item starting at or before 08:00 never spills, however long it is: moving
+ * it to the next morning would land it at the same start and spill it again. That
+ * is what lets a loaded long or early booking stay put and the spill end. Gestures
+ * cap a booking at `MAX_BOOKING_MINUTES`, so only a loaded one can run past 23:00 from 08:00.
+ *
+ * With drives the day's first item settles at 08:00 plus its drive at the earliest,
+ * so that is its threshold instead: a rebased item always lands exactly there, and
+ * still stays put rather than spilling again.
  */
-const partitionOverflow = (settled) => {
-    const index = settled.findIndex((item) => endOf(item) > DAY_MINUTES);
+const partitionOverflow = (settled, drives) => {
+    const firstDrive = drives && settled.length > 0 ? firstDriveOf(settled, drives) : 0;
+
+    const index = settled.findIndex(
+        (item, position) =>
+            item.startMinutes > WAKE_MINUTES + (position === 0 ? firstDrive : 0) &&
+            endOf(item) > SLEEP_START_MINUTES
+    );
 
     if (index === -1) return { keep: settled, overflow: [] };
 
@@ -261,22 +327,25 @@ const partitionOverflow = (settled) => {
 };
 
 /**
- * Slides a group so its first item starts at 00:00, preserving the spacing
+ * Slides a group so its first item starts at 08:00, preserving the spacing
  * between its members.
  *
  * A spilled group is contiguous whenever every start handed to the fold sat
- * inside the day: the first overflowing item ends past 24:00, so the cursor is
+ * inside the day: the first overflowing item ends past 23:00, so the cursor is
  * already beyond any later item's own start and each one is pushed flush against
- * the one above. A start past 24:00 — which the fold permits and no gesture
- * produces — is not raised, and its gap survives: `1300/200` and `1600/60` spill
- * to `0/200` and `300/60`, still a legal day. Shifting the whole group is what
+ * the one above. A start past 23:00 — which the fold permits and no gesture
+ * produces — is not raised, and its gap survives: `1400/200` and `1700/60` spill
+ * to `480/200` and `780/60`, still a legal day. Shifting the whole group is what
  * makes that degrade gracefully, and it does not depend on the caller having
  * settled first.
  */
 const rebaseToTop = (group) => {
     const offset = group[0].startMinutes;
 
-    return group.map((item) => ({ ...item, startMinutes: item.startMinutes - offset }));
+    return group.map((item) => ({
+        ...item,
+        startMinutes: item.startMinutes - offset + WAKE_MINUTES,
+    }));
 };
 
 /**
@@ -315,9 +384,10 @@ const assertFitsInADay = (item) => {
  * day's contents down rather than weaving into them.
  *
  * This terminates. Every pass but the first places at least one item for good:
- * the first overflowing item is rebased to 00:00 and sorts to the top of the
- * receiving day, so it settles at 00:00 there and ends at its own duration,
- * which `assertFitsInADay` holds to a day. The first pass can place nothing —
+ * the first overflowing item is rebased to 08:00 and sorts to the top of the
+ * receiving day, so it settles at 08:00 there. It may still end past 23:00 if it
+ * is long, but an item starting at or before 08:00 (plus its drive, with `drives`) never spills, so it stays and
+ * the pass places it for good. The first pass can place nothing —
  * the caller's anchor is wherever the gesture put it, not rebased — so the bound
  * is one pass per item plus one, and the loop states it. Left unstated, a change
  * that breaks the proof would hang the tab on a pointer move instead of failing
@@ -331,7 +401,7 @@ const assertFitsInADay = (item) => {
  * consumes would buy nothing. The first thing that asserts on, sorts by, or
  * renders `createdAt` makes that false and turns it into a parameter.
  */
-export const spillFrom = (state, dayId, anchorTodoIds = []) => {
+export const spillFrom = (state, dayId, anchorTodoIds = [], drives) => {
     let days = state.days;
     let items = state.items;
     let index = days.findIndex((day) => day.id === dayId);
@@ -345,8 +415,8 @@ export const spillFrom = (state, dayId, anchorTodoIds = []) => {
 
         onThisDay.forEach(assertFitsInADay);
 
-        const settled = settleDay(onThisDay, anchors);
-        const { keep, overflow } = partitionOverflow(settled);
+        const settled = settleDay(onThisDay, anchors, drives);
+        const { keep, overflow } = partitionOverflow(settled, drives);
 
         items = [...items.filter((item) => item.dayId !== day.id), ...keep];
 
@@ -430,6 +500,20 @@ const requireBooking = (state, ref) => {
     return booking;
 };
 
+/** A bounded duration held to `MAX_BOOKING_MINUTES`; a non-number passes through. */
+const capBooking = (durationMinutes) => {
+    const bounded = boundDuration(durationMinutes);
+
+    return Number.isFinite(bounded) ? Math.min(bounded, MAX_BOOKING_MINUTES) : bounded;
+};
+
+/**
+ * A start raised to 08:00 when earlier. A non-number passes through for
+ * `assertSchedulable` to refuse, as `boundDuration` does.
+ */
+const wakeFloor = (startMinutes) =>
+    Number.isFinite(startMinutes) ? Math.max(startMinutes, WAKE_MINUTES) : startMinutes;
+
 /**
  * Books a to-do dragged out of the pool. Everything beyond the four scheduling
  * fields — text, status, project and sequence — is carried through untouched, so
@@ -453,7 +537,8 @@ const requireBooking = (state, ref) => {
  */
 export const placeFromPool = (
     state,
-    { todoId, kind, sequenceId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display }
+    { todoId, kind, sequenceId, dayId, startMinutes, durationMinutes = DEFAULT_DURATION, ...display },
+    drives
 ) => {
     const key = itemKeyOf({ todoId, kind, sequenceId });
 
@@ -467,11 +552,11 @@ export const placeFromPool = (
         ...(sequenceId === undefined ? {} : { sequenceId }),
         todoId,
         dayId,
-        startMinutes,
-        durationMinutes: boundDuration(durationMinutes),
+        startMinutes: wakeFloor(startMinutes),
+        durationMinutes: capBooking(durationMinutes),
     };
 
-    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [key]);
+    return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [key], drives);
 };
 
 /**
@@ -481,15 +566,15 @@ export const placeFromPool = (
  * leaves, which is the same asymmetry a shrink has: positions are what they are
  * drawn as, and nothing rearranges itself behind the user's back (decision 7).
  */
-export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
+export const moveItem = (state, { dayId, startMinutes, ...ref }, drives) => {
     const key = itemKeyOf(ref);
     requireBooking(state, key);
 
     const items = state.items.map((item) =>
-        itemKeyOf(item) === key ? { ...item, dayId, startMinutes } : item
+        itemKeyOf(item) === key ? { ...item, dayId, startMinutes: wakeFloor(startMinutes) } : item
     );
 
-    return spillFrom({ ...state, items }, dayId, [key]);
+    return spillFrom({ ...state, items }, dayId, [key], drives);
 };
 
 /**
@@ -502,16 +587,18 @@ export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
  * answer to: the geometry's clamp serves the rectangle on screen, and this bound
  * is the last thing between a pointer and the state tree.
  */
-export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }) => {
+export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }, drives) => {
     const key = itemKeyOf(ref);
     const existing = requireBooking(state, key);
-    const bounded = boundDuration(durationMinutes);
+    const bounded = capBooking(durationMinutes);
 
     const items = state.items.map((item) =>
-        itemKeyOf(item) === key ? { ...item, startMinutes, durationMinutes: bounded } : item
+        itemKeyOf(item) === key
+            ? { ...item, startMinutes: wakeFloor(startMinutes), durationMinutes: bounded }
+            : item
     );
 
-    return spillFrom({ ...state, items }, existing.dayId, [key]);
+    return spillFrom({ ...state, items }, existing.dayId, [key], drives);
 };
 
 /**
@@ -527,7 +614,9 @@ export const unscheduleItem = (state, ref) => {
 
 /**
  * The earliest a top-edge drag may pull a booking's start: the end of the item
- * above it, or midnight when it is the first of its day.
+ * above it, or 08:00 when it is the first of its day. The floor is 08:00 even
+ * for a loaded booking that starts earlier, because `resizeItem` raises its start
+ * to 08:00 anyway and the server refuses starts before it.
  *
  * The top edge clamps rather than pushes, because the cascade only ever runs
  * downward. Letting it push upward would be a second, opposite rule for one
@@ -547,7 +636,7 @@ export const topEdgeFloor = (state, ref) => {
         )
         .sort((a, b) => a.startMinutes - b.startMinutes);
 
-    return above.length === 0 ? 0 : endOf(above[above.length - 1]);
+    return above.length === 0 ? WAKE_MINUTES : Math.max(WAKE_MINUTES, endOf(above[above.length - 1]));
 };
 
 /**

@@ -24,10 +24,12 @@
  */
 
 const DAY_MINUTES = 1440;
-const SLOT_MINUTES = 30;
-const MIN_DURATION = 30;
+const STEP_MINUTES = 5;
+const MIN_DURATION = 15;
+const WAKE_MINUTES = 480;
+const SLEEP_START_MINUTES = 1380;
 
-const isSlotAligned = (value) => Number.isInteger(value) && value % SLOT_MINUTES === 0;
+const isStepAligned = (value) => Number.isInteger(value) && value % STEP_MINUTES === 0;
 
 /**
  * How a placement is named in messages and compared for duplicates. A booking is
@@ -46,11 +48,11 @@ const validatePlacement = (placement) => {
     const { startMinutes, durationMinutes } = placement;
     const at = `(${labelOf(placement)})`;
 
-    if (!isSlotAligned(startMinutes)) {
-        return `startMinutes must be a multiple of ${SLOT_MINUTES} ${at}`;
+    if (!isStepAligned(startMinutes)) {
+        return `startMinutes must be a multiple of ${STEP_MINUTES} ${at}`;
     }
-    if (!isSlotAligned(durationMinutes)) {
-        return `durationMinutes must be a multiple of ${SLOT_MINUTES} ${at}`;
+    if (!isStepAligned(durationMinutes)) {
+        return `durationMinutes must be a multiple of ${STEP_MINUTES} ${at}`;
     }
     if (startMinutes < 0) return `startMinutes must be 0 or more ${at}`;
     if (durationMinutes < MIN_DURATION) {
@@ -61,6 +63,9 @@ const validatePlacement = (placement) => {
     }
     if (endOf({ startMinutes, durationMinutes }) > DAY_MINUTES) {
         return `a booking may not run past the end of its day ${at}`;
+    }
+    if (startMinutes < WAKE_MINUTES || endOf({ startMinutes, durationMinutes }) > SLEEP_START_MINUTES) {
+        return `a booking must sit between 08:00 and 23:00 ${at}`;
     }
 
     return null;
@@ -158,7 +163,9 @@ const findPlacementProblem = (placements) => {
 module.exports = {
     DAY_MINUTES,
     MIN_DURATION,
-    SLOT_MINUTES,
+    SLEEP_START_MINUTES,
+    STEP_MINUTES,
+    WAKE_MINUTES,
     findOverlap,
     findPlacementProblem,
     validatePlacement,

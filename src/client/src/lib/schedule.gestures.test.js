@@ -1,8 +1,10 @@
 import {
     DEFAULT_DURATION,
     MAX_DURATION,
-    MIN_DURATION,
+    SLEEP_START_MINUTES,
+    MAX_BOOKING_MINUTES,
     SLOT_MINUTES,
+    WAKE_MINUTES,
     moveItem,
     placeFromPool,
     resizeItem,
@@ -77,15 +79,15 @@ describe('placeFromPool', () => {
         const state = { days: days(1), items: [] };
 
         // Act
-        const next = placeFromPool(state, { todoId: 7, dayId: 1, startMinutes: 1410 });
+        const next = placeFromPool(state, { todoId: 7, dayId: 1, startMinutes: 1350 });
 
         // Assert
         expect(next.days).toHaveLength(2);
         expect(dayLayout(next, 1)).toEqual([]);
-        expect(dayLayout(next, next.days[1].id)).toEqual([[7, 0, 60]]);
+        expect(dayLayout(next, next.days[1].id)).toEqual([[7, 480, 60]]);
     });
 
-    test('bounds a caller-supplied duration down to one day', () => {
+    test('caps a caller-supplied duration at the longest booking', () => {
         // Arrange — `spillFrom` refuses a booking longer than a day, and this
         // runs on a pointer move, where a throw is a frozen drag rather than a
         // visible failure. The refusal has to be unreachable from here.
@@ -95,15 +97,15 @@ describe('placeFromPool', () => {
         const next = placeFromPool(state, {
             todoId: 7,
             dayId: 1,
-            startMinutes: 0,
+            startMinutes: 480,
             durationMinutes: MAX_DURATION + SLOT_MINUTES,
         });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[7, 0, MAX_DURATION]]);
+        expect(dayLayout(next, 1)).toEqual([[7, 480, MAX_BOOKING_MINUTES]]);
     });
 
-    test('bounds a caller-supplied duration up to one slot', () => {
+    test('bounds a caller-supplied duration up to fifteen minutes', () => {
         // Arrange — `settleDay` refuses a duration of zero for the same reason.
         const state = { days: days(1), items: [] };
 
@@ -116,7 +118,7 @@ describe('placeFromPool', () => {
         });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[7, 540, MIN_DURATION]]);
+        expect(dayLayout(next, 1)).toEqual([[7, 540, 15]]);
     });
 
     // Bounding a duration must not validate one, and `Math.min`/`Math.max` run
@@ -151,6 +153,115 @@ describe('placeFromPool', () => {
     });
 });
 
+describe('the sleep window', () => {
+    test('exports the wake and sleep times', () => {
+        // Assert
+        expect(WAKE_MINUTES).toBe(480);
+        expect(SLEEP_START_MINUTES).toBe(1380);
+        expect(MAX_BOOKING_MINUTES).toBe(900);
+    });
+
+    test('a pool drop at 07:00 lands at 08:00', () => {
+        // Arrange
+        const state = { days: days(1), items: [] };
+
+        // Act
+        const next = placeFromPool(state, { todoId: 7, dayId: 1, startMinutes: 420 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[7, 480, 60]]);
+    });
+
+    test('a move to 07:00 lands at 08:00', () => {
+        // Arrange
+        const state = { days: days(1), items: [item(1, 1, 600)] };
+
+        // Act
+        const next = moveItem(state, { todoId: 1, dayId: 1, startMinutes: 420 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[1, 480, 60]]);
+    });
+
+    test('a resize starting at 07:00 starts at 08:00', () => {
+        // Arrange
+        const state = { days: days(1), items: [item(1, 1, 600)] };
+
+        // Act
+        const next = resizeItem(state, { todoId: 1, startMinutes: 420, durationMinutes: 180 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[1, 480, 180]]);
+    });
+
+    test('a drop ending past 23:00 spills whole to 08:00 and pushes that day down', () => {
+        // Arrange
+        const state = { days: days(2), items: [item(2, 2, 480)] };
+
+        // Act
+        const next = placeFromPool(state, { todoId: 7, dayId: 1, startMinutes: 1350 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([]);
+        expect(dayLayout(next, 2)).toEqual([
+            [7, 480, 60],
+            [2, 540, 60],
+        ]);
+    });
+
+    test('a drop ending exactly at 23:00 stays', () => {
+        // Arrange
+        const state = { days: days(1), items: [] };
+
+        // Act
+        const next = placeFromPool(state, { todoId: 7, dayId: 1, startMinutes: 1320 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[7, 1320, 60]]);
+        expect(next.days).toHaveLength(1);
+    });
+
+    test('resizing a booking at 08:00 to 1000 minutes caps it at 900', () => {
+        // Arrange
+        const state = { days: days(1), items: [item(1, 1, 480, 60)] };
+
+        // Act
+        const next = resizeItem(state, { todoId: 1, startMinutes: 480, durationMinutes: 1000 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[1, 480, 900]]);
+        expect(next.days).toHaveLength(1);
+    });
+
+    test('a pool drop asking for 1000 minutes books 900', () => {
+        // Arrange
+        const state = { days: days(1), items: [] };
+
+        // Act
+        const next = placeFromPool(state, {
+            todoId: 7,
+            dayId: 1,
+            startMinutes: 480,
+            durationMinutes: 1000,
+        });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[7, 480, 900]]);
+    });
+
+    test('a booking at 10:00 resized to 900 minutes spills whole to 08:00 next day', () => {
+        // Arrange
+        const state = { days: days(1), items: [item(1, 1, 600, 60)] };
+
+        // Act
+        const next = resizeItem(state, { todoId: 1, startMinutes: 600, durationMinutes: 900 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([]);
+        expect(dayLayout(next, next.days[1].id)).toEqual([[1, 480, 900]]);
+    });
+});
+
 describe('moveItem', () => {
     test('reorders within a day, pushing what it lands on', () => {
         // Arrange
@@ -174,14 +285,14 @@ describe('moveItem', () => {
         };
 
         // Act
-        const next = moveItem(state, { todoId: 2, dayId: 2, startMinutes: 0 });
+        const next = moveItem(state, { todoId: 2, dayId: 2, startMinutes: 480 });
 
         // Assert
         expect(dayLayout(next, 1)).toEqual([
             [1, 540, 60],
             [3, 660, 60],
         ]);
-        expect(dayLayout(next, 2)).toEqual([[2, 0, 60]]);
+        expect(dayLayout(next, 2)).toEqual([[2, 480, 60]]);
     });
 
     test('throws for a to-do that is not booked', () => {
@@ -226,33 +337,33 @@ describe('resizeItem', () => {
 
     test('growing at the bottom of a day spills the stack onward', () => {
         // Arrange
-        const state = { days: days(2), items: [item(1, 1, 1320), item(2, 1, 1380)] };
+        const state = { days: days(2), items: [item(1, 1, 1200), item(2, 1, 1260)] };
 
         // Act
-        const next = resizeItem(state, { todoId: 1, startMinutes: 1320, durationMinutes: 120 });
+        const next = resizeItem(state, { todoId: 1, startMinutes: 1200, durationMinutes: 180 });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[1, 1320, 120]]);
-        expect(dayLayout(next, 2)).toEqual([[2, 0, 60]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 1200, 180]]);
+        expect(dayLayout(next, 2)).toEqual([[2, 480, 60]]);
     });
 
-    test('bounds a grow past midnight to one day', () => {
+    test('caps a grow past midnight at the longest booking', () => {
         // Arrange
-        const state = { days: days(1), items: [item(1, 1, 0)] };
+        const state = { days: days(1), items: [item(1, 1, 480)] };
 
         // Act
         const next = resizeItem(state, {
             todoId: 1,
-            startMinutes: 0,
+            startMinutes: 480,
             durationMinutes: MAX_DURATION + SLOT_MINUTES,
         });
 
-        // Assert — one day is the longest booking there is, so nothing spills
-        expect(dayLayout(next, 1)).toEqual([[1, 0, MAX_DURATION]]);
+        // Assert — the cap keeps it ending by 23:00, so nothing spills
+        expect(dayLayout(next, 1)).toEqual([[1, 480, MAX_BOOKING_MINUTES]]);
         expect(next.days).toHaveLength(1);
     });
 
-    test('bounds a shrink past one slot to one slot', () => {
+    test('bounds a shrink past fifteen minutes to fifteen minutes', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 540)] };
 
@@ -260,17 +371,17 @@ describe('resizeItem', () => {
         const next = resizeItem(state, { todoId: 1, startMinutes: 540, durationMinutes: 0 });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[1, 540, MIN_DURATION]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 540, 15]]);
     });
 });
 
 describe('topEdgeFloor', () => {
-    test('is midnight for the first item in a day', () => {
+    test('is 08:00 for the first item in a day', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 540)] };
 
         // Act + Assert
-        expect(topEdgeFloor(state, 1)).toBe(0);
+        expect(topEdgeFloor(state, 1)).toBe(480);
     });
 
     test('is the end of the item above', () => {
@@ -286,7 +397,7 @@ describe('topEdgeFloor', () => {
         const state = { days: days(2), items: [item(1, 1, 540, 600), item(2, 2, 660)] };
 
         // Act + Assert
-        expect(topEdgeFloor(state, 2)).toBe(0);
+        expect(topEdgeFloor(state, 2)).toBe(480);
     });
 
     test('throws for a to-do that is not booked', () => {
@@ -295,6 +406,14 @@ describe('topEdgeFloor', () => {
 
         // Act + Assert
         expect(() => topEdgeFloor(state, 9)).toThrow('To-do 9 is not booked');
+    });
+});
+
+describe('topEdgeFloor and the wake time', () => {
+    test('floors a booking already before 08:00 at 08:00', () => {
+        const state = { days: days(1), items: [item(1, 1, 300)] };
+
+        expect(topEdgeFloor(state, 1)).toBe(480);
     });
 });
 

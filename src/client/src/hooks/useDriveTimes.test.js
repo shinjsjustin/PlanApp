@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 
 import { api } from '../lib/api';
-import useDriveTimes, { clearDriveTimeCache } from './useDriveTimes';
+import useDriveTimes, { clearDriveTimeCache, knownDriveMinutes } from './useDriveTimes';
 
 jest.mock('../lib/api', () => ({
     api: { get: jest.fn() },
@@ -91,5 +91,43 @@ describe('useDriveTimes', () => {
         expect(result.current).toEqual({});
         expect(errorSpy).not.toHaveBeenCalled();
         errorSpy.mockRestore();
+    });
+});
+
+describe('knownDriveMinutes', () => {
+    test('is 15 for a pair nothing has answered', () => {
+        expect(knownDriveMinutes(1, 2)).toBe(15);
+    });
+
+    test('is 0 for the same place', () => {
+        expect(knownDriveMinutes(4, 4)).toBe(0);
+    });
+
+    test('rounds a cached ok answer up to 5 minutes at any departAt', async () => {
+        api.get.mockResolvedValue(ANSWER);
+        const { result } = renderHook(() => useDriveTimes([LEG_A]));
+        await waitFor(() => expect(result.current.a).toEqual(ANSWER));
+
+        expect(knownDriveMinutes(1, 2)).toBe(10);
+        expect(knownDriveMinutes(2, 1)).toBe(15);
+    });
+
+    test('is 15 for a cached unavailable answer', async () => {
+        api.get.mockResolvedValue({ status: 'unavailable', mapsUrl: null });
+        const { result } = renderHook(() => useDriveTimes([LEG_A]));
+        await waitFor(() => expect(result.current.a).toBeDefined());
+
+        expect(knownDriveMinutes(1, 2)).toBe(15);
+    });
+
+    test('uses the most recently cached answer for the pair', async () => {
+        api.get.mockResolvedValueOnce(ANSWER).mockResolvedValueOnce({ ...ANSWER, durationSeconds: 1500 });
+        const later = { ...LEG_A, key: 'l', departAt: '2026-10-16T15:00:00-07:00' };
+        const first = renderHook(() => useDriveTimes([LEG_A]));
+        await waitFor(() => expect(first.result.current.a).toBeDefined());
+        const second = renderHook(() => useDriveTimes([later]));
+        await waitFor(() => expect(second.result.current.l).toBeDefined());
+
+        expect(knownDriveMinutes(1, 2)).toBe(25);
     });
 });

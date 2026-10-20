@@ -1,4 +1,4 @@
-import { DAY_MINUTES, DEFAULT_DURATION, MIN_DURATION, SLOT_MINUTES, settleDay } from './schedule';
+import { DAY_MINUTES, DEFAULT_DURATION, MIN_DURATION, SLOT_MINUTES, STEP_MINUTES, settleDay } from './schedule';
 
 /** A booking. Times in minutes from midnight. */
 const item = (todoId, startMinutes, durationMinutes = 60) => ({
@@ -13,17 +13,12 @@ const layout = (items) =>
     items.map((entry) => [entry.todoId, entry.startMinutes, entry.durationMinutes]);
 
 describe('schedule constants', () => {
-    test('a day is 24 hours on a 30-minute grid', () => {
+    test('a day is 24 hours on a 30-minute grid with 5-minute steps', () => {
         expect(DAY_MINUTES).toBe(1440);
         expect(SLOT_MINUTES).toBe(30);
-        expect(MIN_DURATION).toBe(30);
+        expect(STEP_MINUTES).toBe(5);
+        expect(MIN_DURATION).toBe(15);
         expect(DEFAULT_DURATION).toBe(60);
-    });
-
-    test('the shortest booking is exactly one slot', () => {
-        // Regridding to 15 minutes must carry the floor with it, so the
-        // relationship is what is pinned here, not the number.
-        expect(MIN_DURATION).toBe(SLOT_MINUTES);
     });
 });
 

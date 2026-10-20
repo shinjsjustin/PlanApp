@@ -25,7 +25,7 @@ const STEP_BY_DIRECTION = { left: nextDateKey, right: previousDateKey };
 // One read-only date at a time, opening on today. Arrows and left/right swipes
 // walk real dates without end; a date with no day record shows its Google events.
 const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
-    const { state, completeTodo, isUnsavedDay } = useCalendarContext();
+    const { state, completeTodo } = useCalendarContext();
     const geometry = useDayGeometry();
     const scrollRef = useRef(null);
     const { days, items } = state;
@@ -70,16 +70,6 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
                 </button>
                 {isToday && <span className="phone-day-today-badge">Today</span>}
                 <AllDayEvents events={shownEvents} />
-                {day && events && !isUnsavedDay(day.id) && (
-                    <button
-                        type="button"
-                        className="phone-day-import"
-                        onClick={() => events.importDay(day.id)}
-                        disabled={events.isImporting}
-                    >
-                        Import this day
-                    </button>
-                )}
                 {!day && <p className="phone-day-nothing">Nothing booked</p>}
                 {!day && dateEvents.isUnavailable && (
                     <p className="phone-day-unavailable">Google events unavailable</p>
@@ -89,7 +79,7 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
                 <DayGrid>
                     {day && <NotePlane dayId={day.id} notes={notes.notesForDay(day.id)} label={`Notes for ${label}`} />}
                     <EventLayer events={shownEvents} />
-                    <DriveLayer date={selectedDate} items={dayItems} events={shownEvents} />
+                    <DriveLayer date={selectedDate} items={dayItems} />
                     {dayItems.map((item) => (
                         <DayItemCard
                             key={itemKeyOf(item)}

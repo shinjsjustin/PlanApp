@@ -373,8 +373,8 @@ describe('PUT /api/calendar/items', () => {
             .send({
                 appendDays: 1,
                 placements: [
-                    { todoId: todos[0].id, dayId: days[0].id, startMinutes: 1380, durationMinutes: 60 },
-                    { todoId: todos[1].id, dayIndex: 1, startMinutes: 0, durationMinutes: 60 },
+                    { todoId: todos[0].id, dayId: days[0].id, startMinutes: 1320, durationMinutes: 60 },
+                    { todoId: todos[1].id, dayIndex: 1, startMinutes: 480, durationMinutes: 60 },
                 ],
             });
 
@@ -385,7 +385,7 @@ describe('PUT /api/calendar/items', () => {
         const created = response.body.data.days[1];
         const spilled = response.body.data.items.find((item) => item.todoId === todos[1].id);
         expect(spilled.dayId).toBe(created.id);
-        expect(spilled.startMinutes).toBe(0);
+        expect(spilled.startMinutes).toBe(480);
     });
 
     test('moves an existing booking rather than duplicating it', async () => {
@@ -405,7 +405,7 @@ describe('PUT /api/calendar/items', () => {
             .set('Authorization', authHeaderFor(ownerId))
             .send({
                 placements: [
-                    { todoId: todos[0].id, dayId: days[1].id, startMinutes: 0, durationMinutes: 30 },
+                    { todoId: todos[0].id, dayId: days[1].id, startMinutes: 480, durationMinutes: 30 },
                 ],
             });
 
@@ -413,7 +413,7 @@ describe('PUT /api/calendar/items', () => {
         expect(response.body.data.items).toHaveLength(1);
         expect(response.body.data.items[0]).toMatchObject({
             dayId: days[1].id,
-            startMinutes: 0,
+            startMinutes: 480,
             durationMinutes: 30,
         });
     });
@@ -436,7 +436,7 @@ describe('PUT /api/calendar/items', () => {
             .send({
                 unschedule: [todos[0].id],
                 placements: [
-                    { todoId: todos[1].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 60 },
+                    { todoId: todos[1].id, dayId: days[0].id, startMinutes: 480, durationMinutes: 60 },
                 ],
             });
 
@@ -498,32 +498,113 @@ describe('PUT /api/calendar/items — refusals', () => {
         expect(item).toMatchObject({ day_id: days[0].id, start_minutes: 0 });
     });
 
-    test('refuses a start off the 30-minute grid', async () => {
+    test('refuses a start off the 5-minute grid', async () => {
         const conn = getConn();
         const { ownerId, todos, days } = await createWorld(conn);
 
         const response = await put(ownerId, {
             placements: [
-                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 545, durationMinutes: 60 },
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 602, durationMinutes: 60 },
             ],
         });
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toMatch(/multiple of 30/);
+        expect(response.body.error).toMatch(/multiple of 5/);
     });
 
-    test('refuses a duration below one slot', async () => {
+    test('refuses a duration below the 15-minute minimum', async () => {
         const conn = getConn();
         const { ownerId, todos, days } = await createWorld(conn);
 
         const response = await put(ownerId, {
             placements: [
-                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 0 },
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 10 },
             ],
         });
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toMatch(/at least 30/);
+        expect(response.body.error).toMatch(/at least 15/);
+    });
+
+    test('refuses a duration off the 5-minute grid', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 0, durationMinutes: 17 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/multiple of 5/);
+    });
+
+    test('accepts a 15-minute booking at 605', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 605, durationMinutes: 15 },
+            ],
+        });
+
+        expect(response.status).toBe(200);
+    });
+
+    test('refuses a placement starting at 07:55', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 475, durationMinutes: 60 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/between 08:00 and 23:00 \(to-do /);
+    });
+
+    test('refuses a placement ending at 23:05', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 1325, durationMinutes: 60 },
+            ],
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/between 08:00 and 23:00 \(to-do /);
+    });
+
+    test('accepts placements from exactly 08:00 and ending exactly at 23:00', async () => {
+        const conn = getConn();
+        const { ownerId, todos, days } = await createWorld(conn);
+
+        const response = await put(ownerId, {
+            placements: [
+                { todoId: todos[0].id, dayId: days[0].id, startMinutes: 480, durationMinutes: 60 },
+                { todoId: todos[1].id, dayId: days[0].id, startMinutes: 1320, durationMinutes: 60 },
+            ],
+        });
+
+        expect(response.status).toBe(200);
+    });
+
+    test('still accepts a note at 02:00', async () => {
+        const conn = getConn();
+        const { ownerId, days } = await createWorld(conn);
+
+        const response = await request(app)
+            .post('/api/calendar/notes')
+            .set('Authorization', authHeaderFor(ownerId))
+            .send({ dayId: days[0].id, text: 'night shift', startMinutes: 120, durationMinutes: 60 });
+
+        expect(response.status).toBe(201);
     });
 
     test('refuses a booking running past the end of its day', async () => {
@@ -686,7 +767,7 @@ describe('PUT /api/calendar/items — refusals', () => {
         const response = await put(ownerId, {
             appendDays: 1,
             placements: [
-                { todoId: todos[0].id, dayIndex: 1, startMinutes: 545, durationMinutes: 60 },
+                { todoId: todos[0].id, dayIndex: 1, startMinutes: 602, durationMinutes: 60 },
             ],
         });
 

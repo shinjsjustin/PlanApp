@@ -154,6 +154,7 @@ describe('PhoneCalendarView', () => {
 
         expect(screen.queryByRole('button', { name: /add|delete|drag|note/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /open/i })).not.toBeInTheDocument();
         expect(container.querySelector('[draggable="true"]')).not.toBeInTheDocument();
         expect(container.querySelector('.resize-handle, [class*="resize"]')).not.toBeInTheDocument();
     });
@@ -181,16 +182,11 @@ describe('PhoneCalendarView', () => {
             expect(screen.queryByLabelText('Google event: Dentist')).not.toBeInTheDocument();
         });
 
-        test('import button posts the shown day and disables while importing', () => {
-            const importDay = jest.fn();
-            const { unmount } = renderView(baseDays, { ...events, importDay });
+        test('never shows an Import this day button, even for a dated day with events', () => {
+            renderView(baseDays, events);
 
-            fireEvent.click(screen.getByRole('button', { name: 'Import this day' }));
-            expect(importDay).toHaveBeenCalledWith(4);
-            unmount();
-
-            renderView(baseDays, { ...events, isImporting: true });
-            expect(screen.getByRole('button', { name: 'Import this day' })).toBeDisabled();
+            expect(screen.getByLabelText('Google event: Dentist')).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Import this day' })).not.toBeInTheDocument();
         });
     });
 });

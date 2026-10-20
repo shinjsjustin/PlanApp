@@ -1,6 +1,15 @@
-// Says which drives a day needs: one leg into each stop that has a known place.
+// Says which drives a day needs: one leg into each placed booking.
 
+export const DAY_START_MINUTES = 480;
 const FIRST_STOP_LEAD_MINUTES = 60;
+const STEP_MINUTES = 5;
+const UNAVAILABLE_DRIVE_MINUTES = 15;
+const SECONDS_PER_MINUTE = 60;
+
+export const driveMinutesOf = (answer) => {
+    if (answer.status !== 'ok') return UNAVAILABLE_DRIVE_MINUTES;
+    return Math.ceil(answer.durationSeconds / SECONDS_PER_MINUTE / STEP_MINUTES) * STEP_MINUTES;
+};
 
 export const normalize = (text) =>
     String(text ?? '')
@@ -26,43 +35,36 @@ const departAtFor = (date, minutes) => {
     return new Date(year, month - 1, day, 0, minutes).toISOString();
 };
 
-const stopsFor = (items, events, places) => {
-    const itemStops = items.flatMap((item) => {
-        const place = places.find((candidate) => candidate.id === item.placeId);
-
-        return place ? [{ key: `item-${item.id}`, placeId: place.id, ...timing(item) }] : [];
-    });
-    const eventStops = events
-        .filter((event) => !event.allDay)
-        .flatMap((event) => {
-            const place = matchPlace(event.location, places);
-
-            return place ? [{ key: `event-${event.id}`, placeId: place.id, ...timing(event) }] : [];
-        });
-
-    return [...itemStops, ...eventStops].sort((a, b) => a.startMinutes - b.startMinutes);
-};
-
 const timing = ({ startMinutes, durationMinutes }) => ({
     startMinutes,
     endMinutes: startMinutes + durationMinutes,
 });
 
-export const legsForDay = ({ date, items, events, places, startPlaceId }) =>
-    stopsFor(items, events, places).flatMap((stop, index, stops) => {
+const stopsFor = (items, places) =>
+    items
+        .flatMap((item) => {
+            const place = places.find((candidate) => candidate.id === item.placeId);
+
+            return place ? [{ key: `item-${item.id}`, place, ...timing(item) }] : [];
+        })
+        .sort((a, b) => a.startMinutes - b.startMinutes);
+
+export const legsForDay = ({ date, items, places, startPlaceId }) =>
+    stopsFor(items, places).flatMap((stop, index, stops) => {
         const previous = stops[index - 1];
-        const fromPlaceId = previous ? previous.placeId : startPlaceId;
-        if (fromPlaceId == null || fromPlaceId === stop.placeId) return [];
+        const fromPlaceId = previous ? previous.place.id : startPlaceId;
+        if (fromPlaceId == null || fromPlaceId === stop.place.id) return [];
+        if (!previous && stop.place.kind === 'work') return [];
 
         const departMinutes = previous
             ? previous.endMinutes
-            : Math.max(0, stop.startMinutes - FIRST_STOP_LEAD_MINUTES);
+            : Math.max(DAY_START_MINUTES, stop.startMinutes - FIRST_STOP_LEAD_MINUTES);
 
         return [
             {
                 key: stop.key,
                 fromPlaceId,
-                toPlaceId: stop.placeId,
+                toPlaceId: stop.place.id,
                 startMinutes: stop.startMinutes,
                 departAt: departAtFor(date, departMinutes),
             },

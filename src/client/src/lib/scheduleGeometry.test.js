@@ -7,7 +7,7 @@ import {
     createDayGeometry,
     formatTime,
     hourLabels,
-    snapToSlot,
+    snapToStep,
 } from './scheduleGeometry';
 import { DAY_MINUTES, SLOT_MINUTES } from './schedule';
 
@@ -96,20 +96,23 @@ describe('createDayGeometry: minutesToPx / pxToMinutes', () => {
     });
 });
 
-describe('snapToSlot', () => {
-    test('snaps to the nearest half hour', () => {
-        expect(snapToSlot(0)).toBe(0);
-        expect(snapToSlot(14)).toBe(0);
-        expect(snapToSlot(15)).toBe(30);
-        expect(snapToSlot(44)).toBe(30);
-        expect(snapToSlot(545)).toBe(540);
-        expect(snapToSlot(555)).toBe(570);
+describe('snapToStep', () => {
+    test('snaps to the nearest five minutes', () => {
+        expect(snapToStep(0)).toBe(0);
+        expect(snapToStep(2)).toBe(0);
+        expect(snapToStep(3)).toBe(5);
+        expect(snapToStep(607)).toBe(605);
+        expect(snapToStep(608)).toBe(610);
+    });
+
+    test('the drawn grid is still 48 half-hour slots', () => {
+        expect(SLOTS_PER_DAY).toBe(48);
     });
 
     test.each(NON_NUMBERS)(
-        'passes %s through rather than snapping it to a slot',
+        'passes %s through rather than snapping it to a step',
         (unusedName, value) => {
-            expectPassedThrough(snapToSlot(value), value);
+            expectPassedThrough(snapToStep(value), value);
         }
     );
 });
@@ -117,8 +120,8 @@ describe('snapToSlot', () => {
 describe('clampStart', () => {
     test('keeps a start on the grid and inside the day', () => {
         expect(clampStart(-90)).toBe(0);
-        expect(clampStart(545)).toBe(540);
-        expect(clampStart(99999)).toBe(1410);
+        expect(clampStart(547)).toBe(545);
+        expect(clampStart(99999)).toBe(1425);
     });
 
     test.each(NON_NUMBERS)(
@@ -134,9 +137,10 @@ describe('clampStart', () => {
 });
 
 describe('clampDuration', () => {
-    test('never goes below one slot', () => {
-        expect(clampDuration(0)).toBe(30);
-        expect(clampDuration(-60)).toBe(30);
+    test('never goes below fifteen minutes', () => {
+        expect(clampDuration(10)).toBe(15);
+        expect(clampDuration(0)).toBe(15);
+        expect(clampDuration(-60)).toBe(15);
     });
 
     test('never exceeds a whole day', () => {
@@ -151,10 +155,10 @@ describe('clampDuration', () => {
 
     test('lands a duration on the grid', () => {
         // The bounds are only half of the clamp. A duration the pointer produced
-        // between two slots has to snap like a start does, or a resize ghost
+        // between two steps has to snap like a start does, or a resize ghost
         // would size itself off the grid it is drawn on.
-        expect(clampDuration(44)).toBe(30);
-        expect(clampDuration(545)).toBe(540);
+        expect(clampDuration(47)).toBe(45);
+        expect(clampDuration(548)).toBe(550);
     });
 
     test.each(NON_NUMBERS)(

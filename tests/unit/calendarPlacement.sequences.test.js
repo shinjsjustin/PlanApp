@@ -44,8 +44,8 @@ describe('findPlacementProblem with sequences', () => {
     });
 
     test('names the sequence when its arithmetic is wrong', () => {
-        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 541 })])).toBe(
-            'startMinutes must be a multiple of 30 (sequence 7)'
+        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 542 })])).toBe(
+            'startMinutes must be a multiple of 5 (sequence 7)'
         );
     });
 
@@ -65,5 +65,26 @@ describe('findPlacementProblem with sequences', () => {
                 sequence({ sequenceId: 9, startMinutes: 570 }),
             ])
         ).toBe('sequence 8 and sequence 9 overlap in day 4');
+    });
+
+    test('names the sequence when it starts before 08:00', () => {
+        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 475 })])).toBe(
+            'a booking must sit between 08:00 and 23:00 (sequence 7)'
+        );
+    });
+
+    test('names the sequence when it ends after 23:00', () => {
+        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 1325 })])).toBe(
+            'a booking must sit between 08:00 and 23:00 (sequence 7)'
+        );
+    });
+
+    test('accepts a sequence from 08:00 and one ending at 23:00', () => {
+        expect(
+            findPlacementProblem([
+                sequence({ sequenceId: 1, startMinutes: 480 }),
+                sequence({ sequenceId: 2, startMinutes: 1320 }),
+            ])
+        ).toBeNull();
     });
 });

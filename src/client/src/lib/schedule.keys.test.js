@@ -31,7 +31,7 @@ const days = [
     { id: 2, position: 1, createdAt: '2026-09-09T08:00:00.000Z' },
 ];
 
-const mixed = () => ({ days, items: [todo(5, 1, 0), sequence(5, 1, 60)] });
+const mixed = () => ({ days, items: [todo(5, 1, 480), sequence(5, 1, 540)] });
 
 const startsOf = (state) =>
     Object.fromEntries(state.items.map((entry) => [itemKeyOf(entry), entry.startMinutes]));
@@ -48,9 +48,9 @@ describe('itemKeyOf', () => {
 
 describe('sequence bookings', () => {
     test('moveItem moves only the sequence booking when ids are equal', () => {
-        const next = moveItem(mixed(), { kind: 'sequence', sequenceId: 5, dayId: 2, startMinutes: 120 });
+        const next = moveItem(mixed(), { kind: 'sequence', sequenceId: 5, dayId: 2, startMinutes: 600 });
 
-        expect(startsOf(next)).toEqual({ 'todo:5': 0, 'sequence:5': 120 });
+        expect(startsOf(next)).toEqual({ 'todo:5': 480, 'sequence:5': 600 });
         expect(next.items.find((i) => i.kind === 'sequence').dayId).toBe(2);
         expect(next.items.find((i) => i.todoId === 5).dayId).toBe(1);
     });
@@ -66,7 +66,7 @@ describe('sequence bookings', () => {
         const next = resizeItem(mixed(), {
             kind: 'sequence',
             sequenceId: 5,
-            startMinutes: 60,
+            startMinutes: 540,
             durationMinutes: 180,
         });
 
@@ -89,18 +89,18 @@ describe('sequence bookings', () => {
     });
 
     test('placeFromPool books a sequence beside a to-do of the same id', () => {
-        const state = { days, items: [todo(5, 1, 0)] };
+        const state = { days, items: [todo(5, 1, 480)] };
 
         const next = placeFromPool(state, {
             kind: 'sequence',
             sequenceId: 5,
             dayId: 1,
-            startMinutes: 0,
+            startMinutes: 480,
         });
 
         const booked = next.items.find((i) => i.kind === 'sequence');
         expect(booked).toMatchObject({ kind: 'sequence', sequenceId: 5, durationMinutes: 60 });
-        expect(startsOf(next)).toEqual({ 'todo:5': 60, 'sequence:5': 0 });
+        expect(startsOf(next)).toEqual({ 'todo:5': 540, 'sequence:5': 480 });
     });
 
     test('placeFromPool refuses a second booking of the same sequence', () => {
@@ -116,9 +116,9 @@ describe('sequence bookings', () => {
     });
 
     test('topEdgeFloor finds a sequence booking by key', () => {
-        expect(topEdgeFloor(mixed(), 'sequence:5')).toBe(60);
-        expect(topEdgeFloor(mixed(), 'todo:5')).toBe(0);
-        expect(topEdgeFloor(mixed(), 5)).toBe(0);
+        expect(topEdgeFloor(mixed(), 'sequence:5')).toBe(540);
+        expect(topEdgeFloor(mixed(), 'todo:5')).toBe(480);
+        expect(topEdgeFloor(mixed(), 5)).toBe(480);
     });
 
     test('settleDay anchors a sequence by key and wins the tie over the to-do', () => {
@@ -133,14 +133,14 @@ describe('sequence bookings', () => {
     test('spillFrom anchors a sequence and carries it to the next day', () => {
         const state = {
             days,
-            items: [todo(5, 1, 0, 1380), sequence(5, 1, 1380, 120)],
+            items: [todo(5, 1, 480, 840), sequence(5, 1, 1320, 120)],
         };
 
         const next = spillFrom(state, 1, ['sequence:5']);
 
         expect(next.items.find((i) => i.kind === 'sequence')).toMatchObject({
             dayId: 2,
-            startMinutes: 0,
+            startMinutes: 480,
         });
         expect(next.items.find((i) => i.todoId === 5).dayId).toBe(1);
     });
@@ -148,12 +148,12 @@ describe('sequence bookings', () => {
     test('spillFrom keeps the to-do anchored by a bare numeric id', () => {
         const state = {
             days,
-            items: [sequence(5, 1, 0, 60), todo(5, 1, 0, 60)],
+            items: [sequence(5, 1, 480, 60), todo(5, 1, 480, 60)],
         };
 
         const next = spillFrom(state, 1, [5]);
 
         expect(next.items.map(itemKeyOf).sort()).toEqual(['sequence:5', 'todo:5']);
-        expect(startsOf(next)).toEqual({ 'todo:5': 0, 'sequence:5': 60 });
+        expect(startsOf(next)).toEqual({ 'todo:5': 480, 'sequence:5': 540 });
     });
 });

@@ -83,8 +83,8 @@ describe('appending days', () => {
         const response = await call('put', '/api/calendar/items', ownerId).send({
             appendDays: 2,
             placements: [
-                { todoId: todo.id, dayIndex: 1, startMinutes: 60, durationMinutes: 30 },
-                { todoId: other.id, dayIndex: 2, startMinutes: 60, durationMinutes: 30 },
+                { todoId: todo.id, dayIndex: 1, startMinutes: 540, durationMinutes: 30 },
+                { todoId: other.id, dayIndex: 2, startMinutes: 540, durationMinutes: 30 },
             ],
         });
 

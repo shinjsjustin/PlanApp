@@ -2,16 +2,17 @@ import React, { useEffect, useState } from 'react';
 
 export const PLACE_KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
 
-const VISIT_STEP_MINUTES = 30;
+const VISIT_STEP_MINUTES = 5;
+const MIN_VISIT_MINUTES = 15;
 const MAX_VISIT_MINUTES = 720;
 const MINUTES_PER_HOUR = 60;
 
 export const VISIT_OPTIONS = Array.from(
-    { length: MAX_VISIT_MINUTES / VISIT_STEP_MINUTES },
-    (_, index) => (index + 1) * VISIT_STEP_MINUTES
+    { length: (MAX_VISIT_MINUTES - MIN_VISIT_MINUTES) / VISIT_STEP_MINUTES + 1 },
+    (_, index) => MIN_VISIT_MINUTES + index * VISIT_STEP_MINUTES
 );
 
-// 30 -> "30 min", 60 -> "1 h", 90 -> "1 h 30 min".
+// 45 -> "45 min", 60 -> "1 h", 65 -> "1 h 5 min".
 export const formatVisit = (minutes) => {
     const hours = Math.floor(minutes / MINUTES_PER_HOUR);
     const rest = minutes % MINUTES_PER_HOUR;

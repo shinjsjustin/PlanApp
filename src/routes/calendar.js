@@ -11,8 +11,6 @@ const calendarDaysRepo = require('../db/repositories/calendarDaysRepo');
 const calendarItemsRepo = require('../db/repositories/calendarItemsRepo');
 const { badRequest, notFound } = require('../lib/httpError');
 const {
-    DAY_MINUTES,
-    SLOT_MINUTES,
     findOverlap,
     findPlacementProblem,
 } = require('../lib/calendarPlacement');
@@ -20,6 +18,9 @@ const { toCalendarDay, toCalendarItem } = require('../lib/serializers');
 const { idSchema, parseId } = require('../lib/validation');
 const { localToday, timeZoneOf } = require('../lib/localDate');
 const { withTransaction } = require('../db/unitOfWork');
+const { relayDay, driveMinutesOf, departAtFor } = require('../lib/driveRelay');
+const { placesPayload } = require('../lib/startPlace');
+const { travelBetween } = require('../lib/travelTime');
 
 /**
  * The calendar (design section 5). Mounted at `/api/calendar` behind `isAuth`,
@@ -83,7 +84,7 @@ const placementSchema = z
  * amount of sorting and an unbounded `IN (...)`; without it the only bound is
  * the body parser's byte limit, which is a limit on a different thing.
  */
-const MAX_BULK_ITEMS = (DAY_MINUTES / SLOT_MINUTES) * 7;
+const MAX_BULK_ITEMS = 336; // 48 half-hours a day times 7 days; does not grow with the finer step
 
 /**
  * `appendDays` is capped at the number of placements because a day is only ever
@@ -260,6 +261,55 @@ const resolveDay = ({ dayId, dayIndex, ...rest }, days) => {
     return { ...rest, dayId: day.id };
 };
 
+const LAST_END_MINUTES = 1380; // 23:00
+
+/**
+ * Re-lays one day with the drive before each booking at a new place, and
+ * upserts only the bookings whose start moved. A booking pushed past 23:00
+ * throws, which rolls the whole request back.
+ */
+const relayStoredDay = async (conn, { day, rows, payload, timeZone }) => {
+    const addressOf = new Map(payload.places.map((place) => [place.id, place.address]));
+    const driveMinutes = async ({ fromPlaceId, toPlaceId, departMinutes }) =>
+        driveMinutesOf(
+            await travelBetween({
+                originAddress: addressOf.get(fromPlaceId),
+                destinationAddress: addressOf.get(toPlaceId),
+                departAt: departAtFor(day.date, departMinutes, timeZone),
+                timeZone,
+                now: new Date(),
+            })
+        );
+
+    const bookings = rows.map((row) => ({
+        ...toPlacement(row),
+        placeId: row.place_id,
+    }));
+    const laid = await relayDay({
+        bookings,
+        places: payload.places,
+        startPlaceId: payload.startPlaceId,
+        driveMinutes,
+    });
+
+    const unmoved = new Set(bookings);
+    const moved = laid.filter((booking) => !unmoved.has(booking));
+    for (const booking of moved) {
+        if (booking.startMinutes + booking.durationMinutes > LAST_END_MINUTES) {
+            throw badRequest('the drive pushes a booking past 23:00');
+        }
+        // upsert tells a to-do from a sequence by `undefined`, not null.
+        const target = booking.todoId === null ? { sequenceId: booking.sequenceId } : { todoId: booking.todoId };
+        // eslint-disable-next-line no-await-in-loop
+        await calendarItemsRepo.upsert(conn, {
+            ...target,
+            dayId: booking.dayId,
+            startMinutes: booking.startMinutes,
+            durationMinutes: booking.durationMinutes,
+        });
+    }
+};
+
 // PUT /api/calendar/items — the settled result of one gesture, applied at once.
 //
 // A single drag can move a dozen bookings across three days and create a day
@@ -339,6 +389,15 @@ router.put(
 
             const overlap = findOverlap(stored.map(toPlacement));
             if (overlap) throw badRequest(overlap);
+
+            const payload = await placesPayload(ownerId);
+            const timeZone = timeZoneOf(req);
+            for (const dayId of affectedDayIds) {
+                const day = days.find((candidate) => candidate.id === dayId);
+                const rows = stored.filter((row) => row.day_id === dayId);
+                // eslint-disable-next-line no-await-in-loop
+                await relayStoredDay(conn, { day: { ...day, date: day.date ?? today }, rows, payload, timeZone });
+            }
 
             return readCalendar(conn, ownerId, days);
         });

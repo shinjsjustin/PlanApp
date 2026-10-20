@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 
 import PhoneCalendarView from './PhoneCalendarView';
 import useDateEvents from '../../hooks/useDateEvents';
@@ -44,9 +44,13 @@ beforeEach(() => {
 });
 
 describe('PhoneCalendarView drive blocks', () => {
-    test('draws a Drive to block before a matched Google event on a date with no day record', async () => {
+    test('draws no drive block for a matched Google event', async () => {
         renderView();
 
-        expect(await screen.findByLabelText('Drive to Office')).toHaveTextContent('Drive 11 min');
+        await screen.findByText('Standup');
+        await waitFor(() => expect(api.get).toHaveBeenCalledWith('/places'));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(api.get).toHaveBeenCalledTimes(1);
+        expect(screen.queryByLabelText(/^Drive to/)).not.toBeInTheDocument();
     });
 });

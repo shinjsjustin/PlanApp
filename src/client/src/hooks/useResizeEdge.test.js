@@ -15,10 +15,10 @@ describe('rectFor', () => {
         });
     });
 
-    test('the bottom edge stops at one slot', () => {
+    test('the bottom edge stops at fifteen minutes', () => {
         expect(rectFor(item, { edge: 'bottom', deltaMinutes: -600, floor: 0 })).toEqual({
             startMinutes: 540,
-            durationMinutes: 30,
+            durationMinutes: 15,
         });
     });
 
@@ -42,14 +42,21 @@ describe('rectFor', () => {
         // Arrange — the item above ends at 10:00
         expect(rectFor(item, { edge: 'top', deltaMinutes: -600, floor: 600 })).toEqual({
             startMinutes: 600,
-            durationMinutes: 30,
+            durationMinutes: 15,
         });
     });
 
     test('the top edge cannot swallow its own end', () => {
         expect(rectFor(item, { edge: 'top', deltaMinutes: 600, floor: 0 })).toEqual({
-            startMinutes: 570,
-            durationMinutes: 30,
+            startMinutes: 585,
+            durationMinutes: 15,
+        });
+    });
+
+    test('the bottom edge moves in five-minute steps', () => {
+        expect(rectFor(item, { edge: 'bottom', deltaMinutes: 5, floor: 0 })).toEqual({
+            startMinutes: 540,
+            durationMinutes: 65,
         });
     });
 });

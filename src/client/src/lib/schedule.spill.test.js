@@ -40,35 +40,35 @@ describe('spillFrom', () => {
         expect(next.days).toHaveLength(2);
     });
 
-    test('does not spill an item ending exactly at midnight', () => {
+    test('does not spill an item ending exactly at 23:00', () => {
         // Arrange
-        const state = { days: days(2), items: [item(1, 1, 1380, 60)] };
+        const state = { days: days(2), items: [item(1, 1, 1320, 60)] };
 
         // Act
         const next = spillFrom(state, 1, [1]);
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[1, 1380, 60]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 1320, 60]]);
         expect(dayLayout(next, 2)).toEqual([]);
     });
 
-    test('spills an item one slot past midnight whole, not split', () => {
+    test('spills an item one slot past 23:00 whole, not split', () => {
         // Arrange
-        const state = { days: days(2), items: [item(1, 1, 1410, 60)] };
+        const state = { days: days(2), items: [item(1, 1, 1350, 60)] };
 
         // Act
         const next = spillFrom(state, 1, [1]);
 
-        // Assert — the item leaves day 1 entirely and starts day 2 at 00:00
+        // Assert — the item leaves day 1 entirely and starts day 2 at 08:00
         expect(dayLayout(next, 1)).toEqual([]);
-        expect(dayLayout(next, 2)).toEqual([[1, 0, 60]]);
+        expect(dayLayout(next, 2)).toEqual([[1, 480, 60]]);
     });
 
     test('spills only the tail that does not fit', () => {
         // Arrange
         const state = {
             days: days(2),
-            items: [item(1, 1, 1260), item(2, 1, 1320), item(3, 1, 1380, 120)],
+            items: [item(1, 1, 1140), item(2, 1, 1200), item(3, 1, 1260, 180)],
         };
 
         // Act
@@ -76,10 +76,10 @@ describe('spillFrom', () => {
 
         // Assert
         expect(dayLayout(next, 1)).toEqual([
-            [1, 1260, 60],
-            [2, 1320, 60],
+            [1, 1140, 60],
+            [2, 1200, 60],
         ]);
-        expect(dayLayout(next, 2)).toEqual([[3, 0, 120]]);
+        expect(dayLayout(next, 2)).toEqual([[3, 480, 180]]);
     });
 
     test('spills a whole group to the top of the next day', () => {
@@ -91,17 +91,17 @@ describe('spillFrom', () => {
         // so a spilled tail is always contiguous below its first member.
         const state = {
             days: days(2),
-            items: [item(1, 1, 1320, 120), item(2, 1, 1380), item(3, 1, 1410)],
+            items: [item(1, 1, 1200, 150), item(2, 1, 1320), item(3, 1, 1380)],
         };
 
         // Act
         const next = spillFrom(state, 1, [1]);
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[1, 1320, 120]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 1200, 150]]);
         expect(dayLayout(next, 2)).toEqual([
-            [2, 0, 60],
-            [3, 60, 60],
+            [2, 480, 60],
+            [3, 540, 60],
         ]);
     });
 
@@ -109,23 +109,23 @@ describe('spillFrom', () => {
         // Arrange
         const state = {
             days: days(2),
-            items: [item(1, 1, 1410, 60), item(2, 2, 0), item(3, 2, 60)],
+            items: [item(1, 1, 1350, 60), item(2, 2, 480), item(3, 2, 540)],
         };
 
         // Act
         const next = spillFrom(state, 1, [1]);
 
-        // Assert — the arrival takes 00:00 and everything already there moves
+        // Assert — the arrival takes 08:00 and everything already there moves
         expect(dayLayout(next, 2)).toEqual([
-            [1, 0, 60],
-            [2, 60, 60],
-            [3, 120, 60],
+            [1, 480, 60],
+            [2, 540, 60],
+            [3, 600, 60],
         ]);
     });
 
     test('appends a day when there is nowhere left to spill', () => {
         // Arrange
-        const state = { days: days(1), items: [item(1, 1, 1410, 60)] };
+        const state = { days: days(1), items: [item(1, 1, 1350, 60)] };
 
         // Act
         const next = spillFrom(state, 1, [1]);
@@ -134,7 +134,7 @@ describe('spillFrom', () => {
         expect(next.days).toHaveLength(2);
         expect(isTempId(next.days[1].id)).toBe(true);
         expect(next.days[1].position).toBe(1);
-        expect(dayLayout(next, next.days[1].id)).toEqual([[1, 0, 60]]);
+        expect(dayLayout(next, next.days[1].id)).toEqual([[1, 480, 60]]);
     });
 
     test('cascades across three days, creating what it needs', () => {
@@ -144,7 +144,7 @@ describe('spillFrom', () => {
         // both fit in day 2 and only two days would be created.
         const state = {
             days: days(1),
-            items: [item(1, 1, 0, 1440), item(2, 1, 60, 1440), item(3, 1, 120, 60)],
+            items: [item(1, 1, 480, 1440), item(2, 1, 540, 1440), item(3, 1, 600, 60)],
         };
 
         // Act
@@ -152,9 +152,9 @@ describe('spillFrom', () => {
 
         // Assert
         expect(next.days).toHaveLength(3);
-        expect(dayLayout(next, next.days[0].id)).toEqual([[1, 0, 1440]]);
-        expect(dayLayout(next, next.days[1].id)).toEqual([[2, 0, 1440]]);
-        expect(dayLayout(next, next.days[2].id)).toEqual([[3, 0, 60]]);
+        expect(dayLayout(next, next.days[0].id)).toEqual([[1, 480, 1440]]);
+        expect(dayLayout(next, next.days[1].id)).toEqual([[2, 480, 1440]]);
+        expect(dayLayout(next, next.days[2].id)).toEqual([[3, 480, 60]]);
     });
 
     test('makes the receiving day’s own items the next pass’s anchor group', () => {
@@ -170,10 +170,10 @@ describe('spillFrom', () => {
         const state = {
             days: days(3),
             items: [
-                item(1, 1, 1410, 60),
-                item(2, 2, 60, 1380),
-                item(3, 2, 120, 60),
-                item(8, 3, 0, 60),
+                item(1, 1, 1350, 60),
+                item(2, 2, 500, 840),
+                item(3, 2, 560, 60),
+                item(8, 3, 480, 60),
                 item(9, 3, 600, 60),
             ],
         };
@@ -184,12 +184,12 @@ describe('spillFrom', () => {
         // Assert
         expect(dayLayout(next, 1)).toEqual([]);
         expect(dayLayout(next, 2)).toEqual([
-            [1, 0, 60],
-            [2, 60, 1380],
+            [1, 480, 60],
+            [2, 540, 840],
         ]);
         expect(dayLayout(next, 3)).toEqual([
-            [3, 0, 60],
-            [8, 60, 60],
+            [3, 480, 60],
+            [8, 540, 60],
             [9, 600, 60],
         ]);
         expect(next.days).toHaveLength(3);
@@ -243,7 +243,7 @@ describe('spillFrom', () => {
         // rest of the row across the two spreads that move it.
         const state = {
             days: days(2),
-            items: [{ ...item(1, 1, 1410, 60), text: 'Write it up', projectId: 7 }],
+            items: [{ ...item(1, 1, 1350, 60), text: 'Write it up', projectId: 7 }],
         };
 
         // Act
@@ -254,7 +254,7 @@ describe('spillFrom', () => {
             {
                 todoId: 1,
                 dayId: 2,
-                startMinutes: 0,
+                startMinutes: 480,
                 durationMinutes: 60,
                 text: 'Write it up',
                 projectId: 7,
@@ -266,16 +266,16 @@ describe('spillFrom', () => {
         // Arrange
         const state = {
             days: days(3),
-            items: [item(1, 1, 1410, 60), item(2, 2, 1410, 60)],
+            items: [item(1, 1, 1320, 60), item(2, 2, 1350, 60)],
         };
 
         // Act
         const next = spillFrom(state, 2, [2]);
 
         // Assert — day 1 is above the gesture and is never even settled
-        expect(dayLayout(next, 1)).toEqual([[1, 1410, 60]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 1320, 60]]);
         expect(dayLayout(next, 2)).toEqual([]);
-        expect(dayLayout(next, 3)).toEqual([[2, 0, 60]]);
+        expect(dayLayout(next, 3)).toEqual([[2, 480, 60]]);
         expect(next.days).toHaveLength(3);
     });
 
@@ -300,6 +300,45 @@ describe('spillFrom', () => {
         // Assert
         expect(dayLayout(next, 1)).toEqual([[1, 0, DAY_MINUTES]]);
         expect(next.days).toHaveLength(1);
+    });
+
+    test('rebases a spill to 08:00, not midnight', () => {
+        const state = { days: days(2), items: [item(1, 1, 1350, 60)] };
+
+        const next = spillFrom(state, 1, [1]);
+
+        expect(dayLayout(next, 1)).toEqual([]);
+        expect(dayLayout(next, 2)).toEqual([[1, 480, 60]]);
+    });
+
+    test('never spills an item starting at or before 08:00, so a long one stays', () => {
+        const state = { days: days(1), items: [item(1, 1, 480, 1440), item(2, 1, 0, 60)] };
+
+        const next = spillFrom(state, 1, [2]);
+
+        expect(dayLayout(next, 1)).toEqual([
+            [2, 0, 60],
+            [1, 480, 1440],
+        ]);
+        expect(next.days).toHaveLength(1);
+    });
+
+    test('keeps a loaded booking at 08:00 lasting 1000 minutes on its day without throwing', () => {
+        const state = { days: days(1), items: [item(1, 1, 480, 1000)] };
+
+        const next = spillFrom(state, 1, [1]);
+
+        expect(dayLayout(next, 1)).toEqual([[1, 480, 1000]]);
+        expect(next.days).toHaveLength(1);
+    });
+
+    test('a full-day booking spilled to 08:00 stays there and the spill ends', () => {
+        const state = { days: days(1), items: [item(1, 1, 600, 1440)] };
+
+        const next = spillFrom(state, 1, [1]);
+
+        expect(dayLayout(next, next.days[1].id)).toEqual([[1, 480, 1440]]);
+        expect(next.days).toHaveLength(2);
     });
 
     test('throws for a day that is not in the calendar', () => {
