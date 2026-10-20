@@ -323,6 +323,15 @@ describe('spillFrom', () => {
         expect(next.days).toHaveLength(1);
     });
 
+    test('keeps a loaded booking at 08:00 lasting 1000 minutes on its day without throwing', () => {
+        const state = { days: days(1), items: [item(1, 1, 480, 1000)] };
+
+        const next = spillFrom(state, 1, [1]);
+
+        expect(dayLayout(next, 1)).toEqual([[1, 480, 1000]]);
+        expect(next.days).toHaveLength(1);
+    });
+
     test('a full-day booking spilled to 08:00 stays there and the spill ends', () => {
         const state = { days: days(1), items: [item(1, 1, 600, 1440)] };
 

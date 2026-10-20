@@ -20,10 +20,13 @@ describe('departAtFor', () => {
         expect(departAtFor('2026-03-08', 540, 'UTC').toISOString()).toBe('2026-03-08T09:00:00.000Z');
     });
 
-    it('uses the standard offset before a New York spring-forward', () => {
-        // 2026-03-08 09:00 EDT is after the 02:00 change: UTC-4.
-        expect(departAtFor('2026-03-08', 540, 'America/New_York').toISOString()).toBe('2026-03-08T13:00:00.000Z');
+    it('uses the standard offset (UTC-5) the day before a New York spring-forward', () => {
         expect(departAtFor('2026-03-07', 540, 'America/New_York').toISOString()).toBe('2026-03-07T14:00:00.000Z');
+    });
+
+    it('uses the daylight offset (UTC-4) on the morning of a New York spring-forward', () => {
+        // 09:00 is after the 02:00 change.
+        expect(departAtFor('2026-03-08', 540, 'America/New_York').toISOString()).toBe('2026-03-08T13:00:00.000Z');
     });
 
     it('handles fall-back day', () => {
