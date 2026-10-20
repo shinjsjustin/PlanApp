@@ -11,7 +11,8 @@ jest.mock('../../lib/api');
 let mockIsPhone = true;
 jest.mock('../../hooks/useIsPhone', () => ({ __esModule: true, default: () => mockIsPhone }));
 
-const MORE_CONTROLS = ['Clear past days', 'Import Google events', 'Export to Google'];
+const MORE_CONTROLS = ['Export to Google'];
+const DESKTOP_ONLY = ['Clear past days', 'Import Google events'];
 
 const renderPage = () => render(<CalendarPage />, { wrapper: MemoryRouter });
 const moreButton = () => screen.findByRole('button', { name: 'More' });
@@ -45,7 +46,7 @@ describe('CalendarPage header on a phone', () => {
         expect(queryConnect()).not.toBeInTheDocument();
     });
 
-    test('tapping More reveals the four controls and tapping again hides them', async () => {
+    test('tapping More reveals Export and Connect Google only and tapping again hides them', async () => {
         renderPage();
         const more = await moreButton();
         await waitForElementToBeRemoved(() => screen.queryByLabelText('Loading calendar…'));
@@ -57,6 +58,9 @@ describe('CalendarPage header on a phone', () => {
             expect(screen.getByRole('button', { name })).toBeInTheDocument();
         });
         expect(await screen.findByText(/connect google/i)).toBeInTheDocument();
+        DESKTOP_ONLY.forEach((name) => {
+            expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+        });
 
         await userEvent.click(more);
 
@@ -105,6 +109,9 @@ describe('CalendarPage header on a phone', () => {
         renderPage();
 
         expect(await screen.findByRole('button', { name: 'Clear past days' })).toBeInTheDocument();
+        [...DESKTOP_ONLY, ...MORE_CONTROLS].forEach((name) => {
+            expect(screen.getByRole('button', { name })).toBeInTheDocument();
+        });
         expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
     });
 });

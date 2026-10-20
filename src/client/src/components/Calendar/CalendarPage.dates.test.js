@@ -37,21 +37,26 @@ beforeEach(() => {
 });
 
 describe('Clear past days button', () => {
-    test.each([['desktop', false], ['phone', true]])(
-        'is a neon button on %s that posts clear-past when clicked',
-        async (_, isPhone) => {
-            mockIsPhone = isPhone;
-            renderPage();
+    test('is a neon button on desktop that posts clear-past when clicked', async () => {
+        renderPage();
 
-            if (isPhone) await userEvent.click(await screen.findByRole('button', { name: 'More' }));
-            const button = await clearButton();
-            expect(button).toHaveClass('neon-button');
-            expect(button).toBeEnabled();
-            await userEvent.click(button);
+        const button = await clearButton();
+        expect(button).toHaveClass('neon-button');
+        expect(button).toBeEnabled();
+        await userEvent.click(button);
 
-            expect(api.post).toHaveBeenCalledWith('/calendar/days/clear-past', {});
-        }
-    );
+        expect(api.post).toHaveBeenCalledWith('/calendar/days/clear-past', {});
+    });
+
+    test('is not in the phone More menu', async () => {
+        mockIsPhone = true;
+        renderPage();
+
+        await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+
+        expect(await screen.findByRole('button', { name: 'Export to Google' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Clear past days' })).not.toBeInTheDocument();
+    });
 
     test('is absent until the calendar is ready', () => {
         api.get.mockReturnValue(new Promise(() => {}));

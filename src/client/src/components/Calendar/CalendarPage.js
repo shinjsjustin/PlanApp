@@ -100,7 +100,7 @@ const CalendarPage = () => {
 
     const headerControls = (
         <>
-                {isReady && (
+                {isReady && !isPhone && (
                     <button
                         type="button"
                         className="neon-button"
@@ -110,7 +110,7 @@ const CalendarPage = () => {
                         Clear past days
                     </button>
                 )}
-                {isReady && (
+                {isReady && !isPhone && (
                     <button
                         type="button"
                         className="neon-button"
