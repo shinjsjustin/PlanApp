@@ -2,6 +2,7 @@ import {
     DEFAULT_DURATION,
     MAX_DURATION,
     SLEEP_START_MINUTES,
+    MAX_BOOKING_MINUTES,
     SLOT_MINUTES,
     WAKE_MINUTES,
     moveItem,
@@ -86,7 +87,7 @@ describe('placeFromPool', () => {
         expect(dayLayout(next, next.days[1].id)).toEqual([[7, 480, 60]]);
     });
 
-    test('bounds a caller-supplied duration down to one day', () => {
+    test('caps a caller-supplied duration at the longest booking', () => {
         // Arrange — `spillFrom` refuses a booking longer than a day, and this
         // runs on a pointer move, where a throw is a frozen drag rather than a
         // visible failure. The refusal has to be unreachable from here.
@@ -101,7 +102,7 @@ describe('placeFromPool', () => {
         });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[7, 480, MAX_DURATION]]);
+        expect(dayLayout(next, 1)).toEqual([[7, 480, MAX_BOOKING_MINUTES]]);
     });
 
     test('bounds a caller-supplied duration up to fifteen minutes', () => {
@@ -157,6 +158,7 @@ describe('the sleep window', () => {
         // Assert
         expect(WAKE_MINUTES).toBe(480);
         expect(SLEEP_START_MINUTES).toBe(1380);
+        expect(MAX_BOOKING_MINUTES).toBe(900);
     });
 
     test('a pool drop at 07:00 lands at 08:00', () => {
@@ -219,16 +221,44 @@ describe('the sleep window', () => {
         expect(next.days).toHaveLength(1);
     });
 
-    test('an item starting at 08:00 that runs past 23:00 stays put', () => {
+    test('resizing a booking at 08:00 to 1000 minutes caps it at 900', () => {
         // Arrange
-        const state = { days: days(1), items: [item(1, 1, 480, 1000)] };
+        const state = { days: days(1), items: [item(1, 1, 480, 60)] };
 
         // Act
         const next = resizeItem(state, { todoId: 1, startMinutes: 480, durationMinutes: 1000 });
 
         // Assert
-        expect(dayLayout(next, 1)).toEqual([[1, 480, 1000]]);
+        expect(dayLayout(next, 1)).toEqual([[1, 480, 900]]);
         expect(next.days).toHaveLength(1);
+    });
+
+    test('a pool drop asking for 1000 minutes books 900', () => {
+        // Arrange
+        const state = { days: days(1), items: [] };
+
+        // Act
+        const next = placeFromPool(state, {
+            todoId: 7,
+            dayId: 1,
+            startMinutes: 480,
+            durationMinutes: 1000,
+        });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([[7, 480, 900]]);
+    });
+
+    test('a booking at 10:00 resized to 900 minutes spills whole to 08:00 next day', () => {
+        // Arrange
+        const state = { days: days(1), items: [item(1, 1, 600, 60)] };
+
+        // Act
+        const next = resizeItem(state, { todoId: 1, startMinutes: 600, durationMinutes: 900 });
+
+        // Assert
+        expect(dayLayout(next, 1)).toEqual([]);
+        expect(dayLayout(next, next.days[1].id)).toEqual([[1, 480, 900]]);
     });
 });
 
@@ -317,7 +347,7 @@ describe('resizeItem', () => {
         expect(dayLayout(next, 2)).toEqual([[2, 480, 60]]);
     });
 
-    test('bounds a grow past midnight to one day', () => {
+    test('caps a grow past midnight at the longest booking', () => {
         // Arrange
         const state = { days: days(1), items: [item(1, 1, 480)] };
 
@@ -328,8 +358,8 @@ describe('resizeItem', () => {
             durationMinutes: MAX_DURATION + SLOT_MINUTES,
         });
 
-        // Assert — one day is the longest booking there is, so nothing spills
-        expect(dayLayout(next, 1)).toEqual([[1, 480, MAX_DURATION]]);
+        // Assert — the cap keeps it ending by 23:00, so nothing spills
+        expect(dayLayout(next, 1)).toEqual([[1, 480, MAX_BOOKING_MINUTES]]);
         expect(next.days).toHaveLength(1);
     });
 
@@ -380,10 +410,10 @@ describe('topEdgeFloor', () => {
 });
 
 describe('topEdgeFloor and the wake time', () => {
-    test('lets a booking already before 08:00 keep its own start as the floor', () => {
+    test('floors a booking already before 08:00 at 08:00', () => {
         const state = { days: days(1), items: [item(1, 1, 300)] };
 
-        expect(topEdgeFloor(state, 1)).toBe(0);
+        expect(topEdgeFloor(state, 1)).toBe(480);
     });
 });
 

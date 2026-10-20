@@ -32,6 +32,9 @@ export const WAKE_MINUTES = 480;
 /** Bookings end no later than 23:00; what runs past it spills to the next morning. */
 export const SLEEP_START_MINUTES = 1380;
 
+/** The longest a gesture may book: 08:00 to 23:00, so a booking at 08:00 never ends past bedtime. */
+export const MAX_BOOKING_MINUTES = SLEEP_START_MINUTES - WAKE_MINUTES;
+
 /** The drawn grid: one labelled row. */
 export const SLOT_MINUTES = 30;
 
@@ -263,7 +266,8 @@ export const settleDay = (items, anchorTodoIds = []) => {
  *
  * An item starting at or before 08:00 never spills, however long it is: moving
  * it to the next morning would land it at the same start and spill it again. That
- * is what lets a loaded long or early booking stay put and the spill end.
+ * is what lets a loaded long or early booking stay put and the spill end. Gestures
+ * cap a booking at `MAX_BOOKING_MINUTES`, so only a loaded one can run past 23:00 from 08:00.
  */
 const partitionOverflow = (settled) => {
     const index = settled.findIndex(
@@ -449,6 +453,13 @@ const requireBooking = (state, ref) => {
     return booking;
 };
 
+/** A bounded duration held to `MAX_BOOKING_MINUTES`; a non-number passes through. */
+const capBooking = (durationMinutes) => {
+    const bounded = boundDuration(durationMinutes);
+
+    return Number.isFinite(bounded) ? Math.min(bounded, MAX_BOOKING_MINUTES) : bounded;
+};
+
 /**
  * A start raised to 08:00 when earlier. A non-number passes through for
  * `assertSchedulable` to refuse, as `boundDuration` does.
@@ -494,7 +505,7 @@ export const placeFromPool = (
         todoId,
         dayId,
         startMinutes: wakeFloor(startMinutes),
-        durationMinutes: boundDuration(durationMinutes),
+        durationMinutes: capBooking(durationMinutes),
     };
 
     return spillFrom({ ...state, items: [...state.items, booking] }, dayId, [key]);
@@ -531,7 +542,7 @@ export const moveItem = (state, { dayId, startMinutes, ...ref }) => {
 export const resizeItem = (state, { startMinutes, durationMinutes, ...ref }) => {
     const key = itemKeyOf(ref);
     const existing = requireBooking(state, key);
-    const bounded = boundDuration(durationMinutes);
+    const bounded = capBooking(durationMinutes);
 
     const items = state.items.map((item) =>
         itemKeyOf(item) === key
@@ -555,9 +566,9 @@ export const unscheduleItem = (state, ref) => {
 
 /**
  * The earliest a top-edge drag may pull a booking's start: the end of the item
- * above it, or 08:00 when it is the first of its day. A booking that already
- * starts earlier keeps midnight as its floor, so a loaded early booking can
- * still be resized.
+ * above it, or 08:00 when it is the first of its day. The floor is 08:00 even
+ * for a loaded booking that starts earlier, because `resizeItem` raises its start
+ * to 08:00 anyway and the server refuses starts before it.
  *
  * The top edge clamps rather than pushes, because the cascade only ever runs
  * downward. Letting it push upward would be a second, opposite rule for one
@@ -577,9 +588,7 @@ export const topEdgeFloor = (state, ref) => {
         )
         .sort((a, b) => a.startMinutes - b.startMinutes);
 
-    const floor = booking.startMinutes < WAKE_MINUTES ? 0 : WAKE_MINUTES;
-
-    return above.length === 0 ? floor : Math.max(floor, endOf(above[above.length - 1]));
+    return above.length === 0 ? WAKE_MINUTES : Math.max(WAKE_MINUTES, endOf(above[above.length - 1]));
 };
 
 /**
