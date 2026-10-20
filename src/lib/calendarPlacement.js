@@ -26,6 +26,8 @@
 const DAY_MINUTES = 1440;
 const STEP_MINUTES = 5;
 const MIN_DURATION = 15;
+const WAKE_MINUTES = 480;
+const SLEEP_START_MINUTES = 1380;
 
 const isStepAligned = (value) => Number.isInteger(value) && value % STEP_MINUTES === 0;
 
@@ -61,6 +63,9 @@ const validatePlacement = (placement) => {
     }
     if (endOf({ startMinutes, durationMinutes }) > DAY_MINUTES) {
         return `a booking may not run past the end of its day ${at}`;
+    }
+    if (startMinutes < WAKE_MINUTES || endOf({ startMinutes, durationMinutes }) > SLEEP_START_MINUTES) {
+        return `a booking must sit between 08:00 and 23:00 ${at}`;
     }
 
     return null;
@@ -158,7 +163,9 @@ const findPlacementProblem = (placements) => {
 module.exports = {
     DAY_MINUTES,
     MIN_DURATION,
+    SLEEP_START_MINUTES,
     STEP_MINUTES,
+    WAKE_MINUTES,
     findOverlap,
     findPlacementProblem,
     validatePlacement,

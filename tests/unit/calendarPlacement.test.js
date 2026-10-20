@@ -34,16 +34,40 @@ describe('findPlacementProblem', () => {
         }
     );
 
-    test('accepts a booking that ends exactly at midnight', () => {
+    test('exports the sleep window edges', () => {
+        const exported = require('../../src/lib/calendarPlacement');
+        expect(exported.WAKE_MINUTES).toBe(480);
+        expect(exported.SLEEP_START_MINUTES).toBe(1380);
+    });
+
+    test('accepts a booking that fills 08:00 to 23:00 exactly', () => {
         expect(
-            findPlacementProblem([placement({ startMinutes: 1380, durationMinutes: 60 })])
+            findPlacementProblem([placement({ startMinutes: 480, durationMinutes: 900 })])
         ).toBeNull();
     });
 
-    test('accepts a booking that fills the whole day', () => {
+    test('accepts a booking ending exactly at 23:00', () => {
+        expect(
+            findPlacementProblem([placement({ startMinutes: 1320, durationMinutes: 60 })])
+        ).toBeNull();
+    });
+
+    test('rejects a booking starting at 07:55', () => {
+        expect(
+            findPlacementProblem([placement({ startMinutes: 475, durationMinutes: 60 })])
+        ).toBe('a booking must sit between 08:00 and 23:00 (to-do 1)');
+    });
+
+    test('rejects a booking ending at 23:05', () => {
+        expect(
+            findPlacementProblem([placement({ startMinutes: 1325, durationMinutes: 60 })])
+        ).toBe('a booking must sit between 08:00 and 23:00 (to-do 1)');
+    });
+
+    test('rejects a booking that fills the whole day', () => {
         expect(
             findPlacementProblem([placement({ startMinutes: 0, durationMinutes: 1440 })])
-        ).toBeNull();
+        ).toMatch(/between 08:00 and 23:00/);
     });
 
     test('accepts a 15-minute booking starting on a 5-minute step', () => {
@@ -104,8 +128,8 @@ describe('findPlacementProblem', () => {
     test('rejects the same to-do appearing twice', () => {
         expect(
             findPlacementProblem([
-                placement({ todoId: 1, dayId: 4, startMinutes: 0 }),
-                placement({ todoId: 1, dayId: 5, startMinutes: 0 }),
+                placement({ todoId: 1, dayId: 4 }),
+                placement({ todoId: 1, dayId: 5 }),
             ])
         ).toMatch(/appears in more than one placement/);
     });

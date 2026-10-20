@@ -66,4 +66,25 @@ describe('findPlacementProblem with sequences', () => {
             ])
         ).toBe('sequence 8 and sequence 9 overlap in day 4');
     });
+
+    test('names the sequence when it starts before 08:00', () => {
+        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 475 })])).toBe(
+            'a booking must sit between 08:00 and 23:00 (sequence 7)'
+        );
+    });
+
+    test('names the sequence when it ends after 23:00', () => {
+        expect(findPlacementProblem([sequence({ sequenceId: 7, startMinutes: 1325 })])).toBe(
+            'a booking must sit between 08:00 and 23:00 (sequence 7)'
+        );
+    });
+
+    test('accepts a sequence from 08:00 and one ending at 23:00', () => {
+        expect(
+            findPlacementProblem([
+                sequence({ sequenceId: 1, startMinutes: 480 }),
+                sequence({ sequenceId: 2, startMinutes: 1320 }),
+            ])
+        ).toBeNull();
+    });
 });
