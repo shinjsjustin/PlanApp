@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import PlaceForm from './PlaceForm';
+import PlaceForm, { VISIT_OPTIONS, formatVisit } from './PlaceForm';
 
 const KINDS = ['home', 'work', 'client', 'church', 'supplier', 'other'];
 
@@ -31,15 +31,44 @@ describe('PlaceForm', () => {
         expect(values).toEqual(KINDS);
     });
 
-    test('Usual visit offers None then 30 min to 12 h in 30-minute steps', () => {
+    test('Usual visit offers None then 15 min to 12 h in 5-minute steps', () => {
         renderForm();
         const texts = optionTexts('Usual visit');
-        expect(texts).toHaveLength(25);
-        expect(texts.slice(0, 5)).toEqual(['None', '30 min', '1 h', '1 h 30 min', '2 h']);
-        expect(texts[24]).toBe('12 h');
+        expect(texts).toHaveLength(143);
+        expect(texts.slice(0, 4)).toEqual(['None', '15 min', '20 min', '25 min']);
+        expect(texts[142]).toBe('12 h');
         const values = within(screen.getByLabelText('Usual visit')).getAllByRole('option').map((o) => o.value);
-        expect(values.slice(0, 3)).toEqual(['', '30', '60']);
-        expect(values[24]).toBe('720');
+        expect(values.slice(0, 3)).toEqual(['', '15', '20']);
+        expect(values[142]).toBe('720');
+    });
+
+    test('VISIT_OPTIONS runs 15 to 720 in steps of 5', () => {
+        expect(VISIT_OPTIONS[0]).toBe(15);
+        expect(VISIT_OPTIONS[1]).toBe(20);
+        expect(VISIT_OPTIONS[VISIT_OPTIONS.length - 1]).toBe(720);
+        expect(VISIT_OPTIONS.every((m, i) => i === 0 || m - VISIT_OPTIONS[i - 1] === 5)).toBe(true);
+    });
+
+    test.each([
+        [45, '45 min'],
+        [60, '1 h'],
+        [65, '1 h 5 min'],
+    ])('formatVisit(%i) reads %s', (minutes, text) => {
+        expect(formatVisit(minutes)).toBe(text);
+    });
+
+    test('an existing 90-minute place opens with 90 selected', () => {
+        renderForm({
+            initial: { name: 'Shop', address: '2 Side St', kind: 'supplier', notes: null, visitMinutes: 90 },
+        });
+        expect(screen.getByLabelText('Usual visit')).toHaveValue('90');
+    });
+
+    test('an existing 30-minute place opens with 30 selected', () => {
+        renderForm({
+            initial: { name: 'Shop', address: '2 Side St', kind: 'supplier', notes: null, visitMinutes: 30 },
+        });
+        expect(screen.getByLabelText('Usual visit')).toHaveValue('30');
     });
 
     test('submits trimmed fields with visitMinutes as a number', async () => {
