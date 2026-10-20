@@ -87,7 +87,7 @@ Answers `{ "id": 12 }`.
 | `address` | string | required on POST, 1 to 500 characters |
 | `kind` | string | `home`, `work`, `client`, `church`, `supplier` or `other` |
 | `notes` | string or null | no limit set |
-| `visitMinutes` | integer or null | 30 to 720, a multiple of 30 |
+| `visitMinutes` | integer or null | 15 to 720, a multiple of 5 |
 
 ## GET /api/places
 
