@@ -2,6 +2,7 @@
 
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const app = require('../../src/server');
 const pool = require('../../src/db/db');
@@ -10,16 +11,13 @@ const { assertTestDatabase } = require('../helpers/db');
 /**
  * The registration and login endpoints — the door into everything else.
  *
- * These are the template's routes, kept rather than rewritten, with one
- * correction the spec calls for: a new account is granted `access_level = 1`,
- * because `ProtectedRoute` requires 1 and the scaffold granted 0, which locked
- * every new signup out of the app it had just joined (spec section 4.1). That
- * correction has no other test; the E2E flow only notices it by managing to
- * reach the projects page at all.
+ * ShinPlan is invitation only: registration is closed and answers 403, and
+ * accounts are created by hand in the database. Login is the template's route,
+ * kept as it was; its accounts are seeded straight into `users` here.
  *
  * Unlike every other suite here, these tests cannot run inside a rolled-back
- * transaction: `auth.js` writes through the pool rather than the unit of work,
- * so its rows land on a connection of their own and commit. Every account is
+ * transaction: `auth.js` reads through the pool rather than the unit of work,
+ * and the seeded rows commit on their own connection. Every account is
  * created under a prefix unique to the run and deleted afterwards instead.
  */
 
@@ -51,61 +49,37 @@ afterAll(async () => {
     await pool.end();
 });
 
+const SIGNUP_CLOSED = { error: 'Signup is closed. ShinPlan is invitation only.' };
+
+const seedUser = async (email) => {
+    const hash = await bcrypt.hash(PASSWORD, 10);
+    await pool.execute(
+        'INSERT INTO users (name, email, password, access_level) VALUES (?, ?, ?, ?)',
+        ['Drone Builder', email, hash, 1]
+    );
+};
+
 describe('POST /api/auth/register', () => {
-    test('creates an account that is approved to use the app straight away', async () => {
+    test('answers 403 and creates no account for a full valid body', async () => {
         // Arrange
-        const email = emailFor('approved');
+        const email = emailFor('closed');
 
         // Act
         const response = await register({ name: 'Drone Builder', email, password: PASSWORD });
 
-        // Assert — access_level 1, the correction from spec section 4.1. At 0
-        // the account would exist and still be turned away at every page.
-        expect(response.status).toBe(201);
-        expect(response.body).toMatchObject({ name: 'Drone Builder', email });
-
-        const stored = await userRow(email);
-        expect(stored.access_level).toBe(1);
-    });
-
-    test('stores the password hashed rather than as it was typed', async () => {
-        // Arrange
-        const email = emailFor('hashed');
-
-        // Act
-        await register({ name: 'Drone Builder', email, password: PASSWORD });
-
         // Assert
-        const stored = await userRow(email);
-        expect(stored.password).not.toBe(PASSWORD);
-        expect(stored.password).toMatch(/^\$2[aby]\$/);
-    });
-
-    test('answers 400 when a field is missing', async () => {
-        // Arrange
-        const email = emailFor('partial');
-
-        // Act
-        const response = await register({ email, password: PASSWORD });
-
-        // Assert
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual(SIGNUP_CLOSED);
         expect(await userRow(email)).toBeNull();
     });
 
-    test('answers 409 rather than creating a second account on one email', async () => {
-        // Arrange
-        const email = emailFor('duplicate');
-        await register({ name: 'First', email, password: PASSWORD });
-
+    test('answers the same 403 for an empty body', async () => {
         // Act
-        const response = await register({ name: 'Second', email, password: PASSWORD });
+        const response = await register({});
 
         // Assert
-        expect(response.status).toBe(409);
-
-        const stored = await userRow(email);
-        expect(stored.name).toBe('First');
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual(SIGNUP_CLOSED);
     });
 });
 
@@ -113,7 +87,7 @@ describe('POST /api/auth/login', () => {
     test('returns a token carrying the id and access level isAuth reads', async () => {
         // Arrange
         const email = emailFor('login');
-        await register({ name: 'Drone Builder', email, password: PASSWORD });
+        await seedUser(email);
         const stored = await userRow(email);
 
         // Act
@@ -146,7 +120,7 @@ describe('POST /api/auth/login', () => {
     test('answers 400 and issues no token for the wrong password', async () => {
         // Arrange
         const email = emailFor('wrong-password');
-        await register({ name: 'Drone Builder', email, password: PASSWORD });
+        await seedUser(email);
 
         // Act
         const response = await login({ email, password: 'not-the-password' });

@@ -6,38 +6,9 @@ const db = require('../db/db');
 const router = express.Router();
 
 // POST /api/auth/register
-// Creates a new user account.
-// Body: { name, email, password }
-// Returns 201 on success, 409 if email already exists.
-router.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-        return res.status(400).json({ error: 'name, email, and password are required' });
-    }
-
-    try {
-        // Check for existing account
-        const [rows] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
-
-        if (rows.length > 0) {
-            return res.status(409).json({ error: 'An account with that email already exists' });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // TODO: Adjust columns to match your schema.
-        //   access_level: new registrations default to 1 (approved).
-        const [result] = await db.execute(
-            `INSERT INTO users (name, email, password, access_level) VALUES (?, ?, ?, ?)`,
-            [name, email, hashedPassword, 1]
-        );
-
-        res.status(201).json({ id: result.insertId, name, email });
-    } catch (err) {
-        console.error('Register error:', err);
-        res.status(500).json({ error: 'An error occurred during registration' });
-    }
+// Signup is closed: accounts are created by hand in the database.
+router.post('/register', (req, res) => {
+    res.status(403).json({ error: 'Signup is closed. ShinPlan is invitation only.' });
 });
 
 // POST /api/auth/login
