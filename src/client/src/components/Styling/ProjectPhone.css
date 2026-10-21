@@ -149,7 +149,8 @@
   background: transparent;
   border: none;
   color: inherit;
-  font: inherit;
+  font-family: inherit;
+  font-size: var(--font-md);
   text-align: left;
 }
 

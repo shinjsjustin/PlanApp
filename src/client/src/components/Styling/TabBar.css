@@ -17,13 +17,14 @@
 .tab-bar-link,
 .tab-bar-back {
     flex: 1;
-    padding: var(--space-sm);
+    padding: var(--space-sm) var(--space-xs);
+    white-space: nowrap;
     background: none;
     border: none;
     text-align: center;
     text-decoration: none;
     font-family: var(--font-family);
-    font-size: var(--font-md);
+    font-size: var(--font-base);
     color: var(--text-glow);
     cursor: pointer;
 }

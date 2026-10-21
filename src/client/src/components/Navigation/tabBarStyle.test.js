@@ -22,3 +22,17 @@ it('sets .tab-bar z-index from --z-tab-bar, not --z-modal', () => {
     expect(rule).toMatch(/z-index:\s*var\(--z-tab-bar\)/);
     expect(css).not.toMatch(/--z-modal/);
 });
+
+const tabRule = (selector) => {
+    const css = read('components', 'Styling', 'TabBar.css');
+    const escaped = selector.replace(/\./g, '\\.');
+    return new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css)[1];
+};
+
+it('keeps tab labels on one line at a size and padding that fit a quarter of 393px', () => {
+    const body = tabRule('.tab-bar-link,\n.tab-bar-back');
+
+    expect(body).toMatch(/white-space:\s*nowrap/);
+    expect(body).toMatch(/font-size:\s*var\(--font-base\)/);
+    expect(body).toMatch(/padding:\s*var\(--space-sm\)\s+var\(--space-xs\)/);
+});
