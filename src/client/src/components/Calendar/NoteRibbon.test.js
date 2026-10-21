@@ -7,7 +7,6 @@ import NoteRibbon from './NoteRibbon';
 import { MAX_NOTE_LANES } from '../../lib/noteLanes';
 import { PX_PER_SLOT_MIN, createDayGeometry } from '../../lib/scheduleGeometry';
 import { DayScaleProvider } from '../../state/DayScaleContext';
-import { loadStylesheets } from '../../testUtils/stylesheet';
 
 const note = (overrides = {}) => ({
     id: 1,
@@ -235,26 +234,26 @@ describe('NoteRibbon', () => {
         expect(screen.getByText('train to Leeds')).toHaveClass('note-ribbon-text');
     });
 
-    test('the stylesheet really does turn that element on its side', () => {
-        // Arrange — the two tests above assert the class the sheet hangs the
-        // rotation on, which is worth nothing if the sheet stops rotating it.
-        // A ribbon is a quarter of half a column wide — around 20px — and a
-        // label printed across it would be one clipped character (decision 3),
-        // so the rotation is the feature rather than a flourish.
-        const unload = loadStylesheets('Calendar.css');
+    test('puts the full note text in a title on the ribbon body', () => {
+        // Act
+        renderRibbon({ note: note({ text: 'a very long note that clips' }), onOpen: jest.fn() });
 
-        try {
-            // Act
-            renderRibbon({ onOpen: jest.fn() });
+        // Assert
+        expect(screen.getByRole('button', { name: /a very long note/ })).toHaveAttribute(
+            'title',
+            'a very long note that clips'
+        );
+    });
 
-            // Assert — `vertical-rl` turned a half turn, rather than
-            // `sideways-lr`, which only Firefox implements.
-            const style = getComputedStyle(screen.getByText('train to Leeds'));
-            expect(style.getPropertyValue('writing-mode')).toBe('vertical-rl');
-            expect(style.transform).toBe('rotate(180deg)');
-        } finally {
-            unload();
-        }
+    test('titles a ribbon with nowhere to open too', () => {
+        // Act
+        renderRibbon({ onOpen: null });
+
+        // Assert
+        expect(screen.getByLabelText('train to Leeds, 09:00–11:00')).toHaveAttribute(
+            'title',
+            'train to Leeds'
+        );
     });
 
     test('draws an unplaceable note in lane 0, where it is at least visible', () => {

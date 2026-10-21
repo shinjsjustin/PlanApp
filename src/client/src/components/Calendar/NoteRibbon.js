@@ -105,6 +105,7 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
                     // no room for a second line, but a screen reader has no
                     // reason to go without it.
                     aria-label={`${note.text}, ${range}`}
+                    title={note.text}
                     onClick={() => onOpen(note.id)}
                     {...(isDraggable ? drag.handleProps : {})}
                 >
@@ -114,7 +115,11 @@ const NoteRibbon = ({ note, lane, onOpen = null, isDraggable = false, resize = n
                 // Labelled like the button above it, because the reason the
                 // time is not printed does not change when the ribbon stops
                 // being a control: there is still no room for a second line.
-                <span className="note-ribbon-body" aria-label={`${note.text}, ${range}`}>
+                <span
+                    className="note-ribbon-body"
+                    aria-label={`${note.text}, ${range}`}
+                    title={note.text}
+                >
                     <span className="note-ribbon-text">{note.text}</span>
                 </span>
             )}

@@ -108,8 +108,14 @@
 .calendar-header {
     display: flex;
     align-items: baseline;
+    flex-wrap: wrap;
     gap: var(--space-md);
     margin-bottom: var(--space-md);
+}
+
+.calendar-header button,
+.calendar-header a {
+    white-space: nowrap;
 }
 
 .calendar-header h1 {
@@ -415,6 +421,11 @@
     line-height: 1;
 }
 
+/* Nothing sits above the first line, so lifting its label would clip it. */
+.day-grid-hour:first-child {
+    transform: none;
+}
+
 /* The rules divide the day into equal slots by flexing, so the count comes from
  * `SLOTS_PER_DAY` and this file never has to know it. */
 .day-grid-rules {
@@ -626,19 +637,12 @@ button.day-item-name:hover {
     cursor: grab;
 }
 
-/* Rotated to read bottom-to-top, which is what lets a ribbon be ~20px wide and
- * still carry a legible label (decision 3).
- *
- * `vertical-rl` plus a half turn rather than `sideways-lr`, which only Firefox
- * implements. Clipped rather than wrapped: the ribbon's height is the note's
- * duration and a long name must not be able to argue with it. */
+/* Read horizontally and wrapped within the lane; the ribbon's height is the
+ * note's duration, so overflow is clipped and the title shows the full text. */
 .note-ribbon-text {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
     max-height: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
     font-size: var(--font-sm);
 }
 
