@@ -27,8 +27,8 @@ const HEADINGS = {
 };
 
 describe('renderPage', () => {
-  test('LAST_UPDATED is 22 October 2026', () => {
-    expect(LAST_UPDATED).toBe('22 October 2026');
+  test('LAST_UPDATED is 20 October 2026', () => {
+    expect(LAST_UPDATED).toBe('20 October 2026');
   });
 
   test.each(Object.keys(HEADINGS))('%s is a full document with styles and nav', (name) => {
