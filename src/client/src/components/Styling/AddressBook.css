@@ -76,6 +76,7 @@
 
 .address-book-page {
     padding: var(--space-lg);
+    color: var(--text-glow);
 }
 
 .address-book-filters {
@@ -108,6 +109,7 @@
     max-height: 100%;
     overflow-y: auto;
     padding: var(--space-lg);
+    color: var(--text-glow);
     background-color: var(--bg-page);
     border: 1px solid var(--neon-blue);
     border-radius: var(--radius-md);

@@ -40,3 +40,23 @@ it('keeps person cards free of a bottom margin and drops .person-new', () => {
 it('uses no hex or rgb colour literals in AddressBook.css', () => {
     expect(addressBookCss()).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
 });
+
+const placesCss = () => read('components', 'Styling', 'Places.css');
+
+it.each(['.address-book-page', '.form-dialog'])('sets %s text to the light --text-glow', (selector) => {
+    expect(rule(addressBookCss(), selector)).toMatch(/(?:^|[;\s])color:\s*var\(--text-glow\)/);
+});
+
+it.each([
+    '.places-header h1',
+    '.place-name',
+    '.place-address',
+])('gives %s a light colour token instead of inheriting', (selector) => {
+    expect(rule(placesCss(), selector)).toMatch(/(?:^|[;\s])color:\s*var\(--text-glow\)/);
+});
+
+it('keeps .place-kind on a light muted token, not a dark one', () => {
+    const body = rule(placesCss(), '.place-kind,\n.place-visit');
+
+    expect(body).toMatch(/(?:^|[;\s])color:\s*var\(--(?:text-glow|text-muted)\)/);
+});
