@@ -77,8 +77,12 @@ async function underFixedBars(page) {
             }
         }
 
+        // A fixed element covering nearly the whole viewport is a modal backdrop, not a bar.
+        const COVERS = 0.9;
+        const coversViewport = (r) => r.width >= innerWidth * COVERS && r.height >= innerHeight * COVERS;
         const bars = all.filter((el) => isBar(el) && el.checkVisibility()
-            && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
+            && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0
+            && !coversViewport(el.getBoundingClientRect()));
         if (!bars.length) return [];
 
         const CONTROLS = new Set(['IMG', 'INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'SVG', 'CANVAS', 'VIDEO']);

@@ -74,6 +74,16 @@ test.describe('detail', () => {
         expect(await checks.underFixedBars(p)).toEqual([]);
     });
 
+    test('a full-viewport fixed backdrop is a modal, not a bar', async ({ page: p }) => {
+        await p.setContent(
+            page(
+                '<div style="height:3000px">Tall content</div><p>Last line of content</p>' +
+                    '<div style="position:fixed;inset:0;background:rgba(0,0,0,.5)"><div style="margin:100px;background:#fff">Dialog</div></div>'
+            )
+        );
+        expect(await checks.underFixedBars(p)).toEqual([]);
+    });
+
     test('content in an inner scroller that ends under a bar is reported', async ({ page: p }) => {
         await p.setContent(
             page(
