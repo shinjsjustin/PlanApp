@@ -13,11 +13,20 @@ const { defineConfig, devices } = require('@playwright/test');
 //    started on the test database at port 3102.
 //
 // The `iphone` project uses WebKit, which needs `npx playwright install webkit`
-// (needs network, once per machine).
+// (needs network, once per machine). Where WebKit is not installed, set
+// VISUAL_PHONE_BROWSER=chromium to run the same phone size in Chromium instead.
 
 const PORT = 3102;
 const LOCAL_URL = `http://localhost:${PORT}`;
 const LIVE_URL = process.env.VISUAL_BASE_URL;
+
+const PHONE_BROWSERS = ['webkit', 'chromium'];
+const PHONE_BROWSER = process.env.VISUAL_PHONE_BROWSER || 'webkit';
+if (!PHONE_BROWSERS.includes(PHONE_BROWSER)) {
+    throw new Error(
+        `VISUAL_PHONE_BROWSER must be one of: ${PHONE_BROWSERS.join(', ')} (got "${PHONE_BROWSER}")`
+    );
+}
 
 const WEB_SERVER_TIMEOUT_MS = 300 * 1000;
 
@@ -45,7 +54,7 @@ module.exports = defineConfig({
         {
             name: 'iphone',
             use: {
-                browserName: 'webkit',
+                browserName: PHONE_BROWSER,
                 viewport: { width: 393, height: 852 },
                 deviceScaleFactor: 3,
                 isMobile: true,

@@ -106,6 +106,10 @@ npx playwright install webkit      # the iphone size uses WebKit
 npm install --prefix src/client    # axe-core comes from the client install
 ```
 
+WebKit is the real iPhone check. Where it is not installed, run
+`VISUAL_PHONE_BROWSER=chromium npm run test:visual` as a fallback: it catches
+layout and contrast problems at phone size, but not WebKit-specific behaviour.
+
 Local run: `npm run test:visual` builds the client, serves it on port 3102 and
 seeds `visual@example.test` into `planapp_test`.
 
