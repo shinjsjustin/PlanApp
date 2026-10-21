@@ -122,4 +122,36 @@ describe('PeopleSection', () => {
         expect(onRemove).toHaveBeenCalledWith(1);
         confirm.mockRestore();
     });
+
+    describe('phones and company', () => {
+        const person = (overrides) => ({ ...BOB, id: 9, name: 'Cy Dunn', ...overrides });
+
+        it('formats phones as label: (AAA) BBB-CCCC and keeps the raw number in the tel link', () => {
+            renderSection({ people: [person({ phones: [{ label: 'work', number: '+1 555 010 0199' }] })] });
+            expect(within(itemFor('Cy Dunn')).getByRole('link', { name: 'work: (555) 010-0199' }))
+                .toHaveAttribute('href', 'tel:+1 555 010 0199');
+        });
+
+        it('shows just the formatted number when the label is blank', () => {
+            renderSection({ people: [person({ phones: [{ label: '', number: '5550100199' }] })] });
+            expect(within(itemFor('Cy Dunn')).getByRole('link', { name: '(555) 010-0199' })).toBeInTheDocument();
+        });
+
+        it('hides the client name when it equals the company, ignoring case and spaces', () => {
+            renderSection({ people: [person({ company: 'Acme Co', leemacClientName: ' ACME co ' })] });
+            expect(within(itemFor('Cy Dunn')).getAllByText(/acme co/i)).toHaveLength(1);
+        });
+
+        it('hides the role when it equals the company, ignoring case', () => {
+            renderSection({ people: [person({ company: 'Acme Co', role: 'acme CO' })] });
+            expect(within(itemFor('Cy Dunn')).getAllByText(/acme co/i)).toHaveLength(1);
+        });
+
+        it('keeps a client name and role that differ from the company', () => {
+            renderSection({ people: [person({ company: 'Acme Co', role: 'Buyer', leemacClientName: 'Acme Holdings' })] });
+            const item = within(itemFor('Cy Dunn'));
+            expect(item.getByText('Buyer')).toBeInTheDocument();
+            expect(item.getByText('Acme Holdings')).toBeInTheDocument();
+        });
+    });
 });

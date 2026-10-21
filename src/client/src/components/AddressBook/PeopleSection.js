@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { PERSON_GROUPS } from './PersonForm';
+import { formatPhone } from '../../lib/phoneNumber';
 import '../Styling/AddressBook.css';
 
 const GROUP_LABELS = Object.fromEntries(PERSON_GROUPS.map(({ value, label }) => [value, label]));
@@ -12,6 +13,11 @@ const matchesQuery = (person, query) => {
     return [person.name, person.company ?? ''].some((text) => text.toLowerCase().includes(needle));
 };
 
+const isCompany = (person, text) => text.trim().toLowerCase() === (person.company ?? '').trim().toLowerCase();
+
+const phoneText = ({ label, number }) =>
+    label ? `${label}: ${formatPhone(number)}` : formatPhone(number);
+
 const PersonItem = ({ person, onOpenEdit, onRemove }) => {
     const confirmRemove = () => {
         if (window.confirm(deleteConfirmation(person))) onRemove(person.id);
@@ -21,7 +27,7 @@ const PersonItem = ({ person, onOpenEdit, onRemove }) => {
         <li className="person-item">
             <h3 className="person-name">{person.name}</h3>
             {person.company && <p className="person-company">{person.company}</p>}
-            {person.role && <p className="person-role">{person.role}</p>}
+            {person.role && !isCompany(person, person.role) && <p className="person-role">{person.role}</p>}
             {person.groups.length > 0 && (
                 <ul className="person-groups">
                     {person.groups.map((group) => (
@@ -34,11 +40,11 @@ const PersonItem = ({ person, onOpenEdit, onRemove }) => {
             ))}
             {person.phones.map((phone, index) => (
                 <a key={index} className="person-link" href={`tel:${phone.number}`}>
-                    {`${phone.label}: ${phone.number}`}
+                    {phoneText(phone)}
                 </a>
             ))}
             {person.place && <p className="person-place">{person.place.name}</p>}
-            {person.leemacClientName && <p className="person-client">{person.leemacClientName}</p>}
+            {person.leemacClientName && !isCompany(person, person.leemacClientName) && <p className="person-client">{person.leemacClientName}</p>}
             <div className="place-actions">
                 <button type="button" className="neon-button" onClick={() => onOpenEdit(person)}>Edit</button>
                 <button type="button" className="neon-button" onClick={confirmRemove}>Delete</button>
