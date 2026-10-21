@@ -96,6 +96,23 @@ describe('canPlace', () => {
         expect(canPlace(existing, note(1, 540, 120))).toBe(true);
     });
 
+    test('refuses an earlier-starting note that would bump a sibling out of its lane', () => {
+        // Arrange — the candidate sorts first, takes lane 0 and pushes the
+        // last saved note to null even though the candidate itself is placed.
+        const existing = [1, 2, 3, 4].map((id) => note(id, 540, 60));
+
+        // Act & Assert
+        expect(canPlace(existing, note(5, 480, 120))).toBe(false);
+    });
+
+    test('allows an earlier-starting note that overlaps only three', () => {
+        // Arrange
+        const existing = [1, 2, 3].map((id) => note(id, 540, 60));
+
+        // Act & Assert
+        expect(canPlace(existing, note(5, 480, 120))).toBe(true);
+    });
+
     test('refuses a note that would run past midnight', () => {
         // Act & Assert
         expect(canPlace([], note(1, 1410, 60))).toBe(false);
@@ -125,6 +142,15 @@ describe('canPlace with an id-less candidate', () => {
         // looks like before it is saved.
         const existing = [1, 2, 3, 4].map((id) => note(id, 540, 60));
         const draft = { startMinutes: 540, durationMinutes: 60 };
+
+        // Act & Assert
+        expect(canPlace(existing, draft)).toBe(false);
+    });
+
+    test('refuses an earlier draft that would bump a saved note out of its lane', () => {
+        // Arrange
+        const existing = [1, 2, 3, 4].map((id) => note(id, 540, 60));
+        const draft = { startMinutes: 480, durationMinutes: 120 };
 
         // Act & Assert
         expect(canPlace(existing, draft)).toBe(false);

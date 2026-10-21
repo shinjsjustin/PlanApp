@@ -105,6 +105,12 @@ export const assignLanes = (notes) => {
  * Whether a note could be placed as described — the live refusal behind every
  * gesture.
  *
+ * It guards siblings too: placement is refused when any note in the day is left
+ * without a lane, not only the candidate. A candidate starting earlier than four
+ * overlapping notes takes lane 0 and pushes the last of them to null, so asking
+ * only about the candidate would wrongly allow it. This is the server's
+ * `maxOverlap` rule.
+ *
  * `candidate`'s own id is excluded from `notes` first, which is the whole point
  * of the function: a note being moved or resized is tested against its siblings,
  * never against the row it is about to replace. Counted twice, resizing one of
@@ -125,5 +131,5 @@ export const canPlace = (notes, candidate) => {
     const siblings = notes.filter((note) => note.id !== candidate.id);
     const lanes = assignLanes([...siblings, candidate]);
 
-    return lanes.get(candidate.id) !== null;
+    return ![...lanes.values()].includes(null);
 };
