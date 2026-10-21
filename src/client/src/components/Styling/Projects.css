@@ -212,7 +212,7 @@
 }
 
 .today-todo--complete {
-    color: var(--text-muted);
+    color: var(--text-secondary);
     text-decoration: line-through;
 }
 
@@ -324,6 +324,11 @@
 .project-card--light-text .project-card-today-empty,
 .project-card--light-text .project-card-rename label {
     color: var(--text-white);
+}
+
+.project-card:not(.project-card--light-text) .project-card-actions .neon-button {
+    color: var(--text-primary);
+    text-shadow: none;
 }
 
 .project-card--light-text .today-todo--complete {

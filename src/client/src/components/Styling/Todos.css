@@ -175,7 +175,7 @@ button.todo-check--done:hover {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 15.5px;
-    color: #a6a6ae;
+    color: var(--seq-text-subtle);
 }
 
 /* No visible box: the field is the row, at the row's own size and position. */

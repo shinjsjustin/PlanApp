@@ -27,6 +27,7 @@
     --seq-text: #1a1a1c;
     --seq-text-secondary: #33333a;
     --seq-text-muted: #8a8a90;
+    --seq-text-subtle: #6e6e76;
     --seq-text-faint: #9a9aa2;
     --seq-text-fainter: #a6a6ae;
     --seq-text-ghost: #b0b0b8;
@@ -307,7 +308,7 @@
      * characters has to wrap rather than push out of the card. */
     overflow-wrap: anywhere;
     font-size: 13px;
-    color: var(--seq-text-faint);
+    color: var(--seq-text-subtle);
 }
 
 /* Upright, not italic: an empty description is a blank to fill in, and italics
@@ -324,7 +325,7 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.09em;
-    color: var(--seq-text-muted);
+    color: var(--seq-text-subtle);
 }
 
 .sequence-card-badge--blocked {
@@ -479,7 +480,7 @@
 .sequence-card-status {
     flex: 1 1 auto;
     font-size: 12.5px;
-    color: var(--seq-text-fainter);
+    color: var(--seq-text-subtle);
     text-align: right;
 }
 
