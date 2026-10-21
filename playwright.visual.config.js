@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const { defineConfig, devices } = require('@playwright/test');
 
 // The visual suite: screenshots and layout checks at three viewports. It has its
@@ -25,9 +26,11 @@ module.exports = defineConfig({
     fullyParallel: false,
     workers: 1,
     reporter: [['list']],
+    globalSetup: require.resolve('./tests/visual/globalSetup'),
 
     use: {
         baseURL: LIVE_URL || LOCAL_URL,
+        storageState: path.join(__dirname, 'tests', 'visual', '.auth', 'state.json'),
     },
 
     projects: [
