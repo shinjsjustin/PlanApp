@@ -148,6 +148,7 @@ const ProjectsHome = () => {
                             onRename={handleRename}
                             onDelete={handleDelete}
                             onRecolor={handleRecolor}
+                            canDelete={!isPhone}
                         />
                     ))}
                 </ul>

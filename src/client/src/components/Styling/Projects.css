@@ -173,7 +173,7 @@
 
 .project-card-progress {
     margin: 0;
-    color: #777;
+    color: inherit;
     font-size: 0.8rem;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -183,7 +183,7 @@
  * warning border and complete rows stay crossed out. */
 .project-card-today-heading {
     margin: 0 0 var(--space-xs);
-    color: var(--text-muted);
+    color: inherit;
     font-size: var(--font-sm);
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -218,7 +218,7 @@
 
 .project-card-today-empty {
     margin: 0;
-    color: var(--text-muted);
+    color: inherit;
     font-size: var(--font-sm);
 }
 

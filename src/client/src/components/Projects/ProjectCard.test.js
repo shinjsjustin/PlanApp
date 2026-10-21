@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -55,6 +57,7 @@ const renderCard = (props = {}) => {
                     onRecolor={onRecolor}
                     placement={props.placement}
                     measureRef={props.measureRef}
+                    canDelete={props.canDelete}
                 />
             </ul>
             <LocationProbe />
@@ -561,5 +564,51 @@ describe('ProjectCard', () => {
             expect(measureRef).toHaveBeenCalledWith(cardEl());
             expect(cardEl().tagName).toBe('LI');
         });
+    });
+});
+
+describe('ProjectCard delete and rename controls', () => {
+    test('offers the delete bubble by default, as on desktop', () => {
+        renderCard();
+
+        expect(deleteBubble()).toBeInTheDocument();
+    });
+
+    test('renders no delete bubble when canDelete is false', () => {
+        renderCard({ canDelete: false });
+
+        expect(screen.queryByRole('button', { name: /^Delete/ })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
+    });
+
+    test('gives Rename the neon-button class inside the hover control', () => {
+        renderCard();
+
+        const rename = screen.getByRole('button', { name: 'Rename' });
+        expect(rename).toHaveClass('neon-button');
+        expect(rename.closest('.project-card-hover-control')).not.toBeNull();
+    });
+});
+
+describe('Projects.css card text tone', () => {
+    const css = fs.readFileSync(
+        path.join(__dirname, '..', 'Styling', 'Projects.css'),
+        'utf8'
+    );
+    const rule = (selector) => {
+        const escaped = selector.replace(/[.\\]/g, '\\$&');
+        const match = new RegExp(`(?:^|[}/])\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+        return match ? match[1] : null;
+    };
+
+    test.each([
+        '.project-card-today-empty',
+        '.project-card-progress',
+        '.project-card-today-heading',
+    ])('%s inherits the card text colour', (selector) => {
+        const body = rule(selector);
+
+        expect(body).toMatch(/(?:^|[;\s])color:\s*inherit/);
+        expect(body).not.toMatch(/--text-muted|#777|#999/);
     });
 });

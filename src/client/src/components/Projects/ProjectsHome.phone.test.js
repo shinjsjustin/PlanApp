@@ -33,4 +33,25 @@ describe('ProjectsHome on a phone', () => {
         expect(screen.queryByRole('link', { name: /calendar/i })).not.toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'New project' })).toBeInTheDocument();
     });
+
+    test('renders no delete bubble on project cards', async () => {
+        api.get.mockResolvedValue([
+            {
+                id: 1,
+                title: 'Build a drone',
+                description: 'Layered plan',
+                todoCount: 0,
+                completedTodoCount: 0,
+                datedSequences: [],
+                createdAt: '2026-08-27T10:00:00.000Z',
+                updatedAt: '2026-08-27T10:00:00.000Z',
+            },
+        ]);
+
+        render(<ProjectsHome />, { wrapper: MemoryRouter });
+        await waitForElementToBeRemoved(() => screen.queryByRole('status', { name: /loading/i }));
+
+        expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^Delete/ })).not.toBeInTheDocument();
+    });
 });

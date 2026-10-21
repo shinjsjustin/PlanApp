@@ -89,7 +89,7 @@ const TodayBlock = ({ sequences, today }) => {
     );
 };
 
-const ProjectCard = ({ project, today, placement, measureRef, onRename, onDelete, onRecolor }) => {
+const ProjectCard = ({ project, today, placement, measureRef, onRename, onDelete, onRecolor, canDelete = true }) => {
     const [mode, setMode] = useState(MODES.idle);
     const [draftTitle, setDraftTitle] = useState(project.title);
     const [error, setError] = useState('');
@@ -248,16 +248,18 @@ const ProjectCard = ({ project, today, placement, measureRef, onRename, onDelete
             {mode === MODES.idle && (
                 <>
                     <div className={`project-card-actions project-card-hover-control ${RAISED}`}>
-                        <button type="button" onClick={startRenaming}>
+                        <button type="button" className="neon-button" onClick={startRenaming}>
                             Rename
                         </button>
                     </div>
 
                     {/* The same inline confirmation the Delete button opened. */}
-                    <DeleteBubble
-                        label={`Delete “${project.title}”`}
-                        onDelete={() => setMode(MODES.confirmingDelete)}
-                    />
+                    {canDelete && (
+                        <DeleteBubble
+                            label={`Delete “${project.title}”`}
+                            onDelete={() => setMode(MODES.confirmingDelete)}
+                        />
+                    )}
                 </>
             )}
 
