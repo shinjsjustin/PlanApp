@@ -87,11 +87,55 @@ npm run client   # client only
 npm test           # server unit + integration (Jest)
 npm run test:client # React component tests
 npm run test:e2e   # Playwright end-to-end (uses DB planapp_test)
+npm run test:visual # screenshots and layout checks (see Visual suite)
 npm run test:all   # everything
 ```
 
 E2E tests run against a separate `planapp_test` database — create it and load
 `src/db/schema.sql` into it the same way as above.
+
+## Visual suite
+
+Screenshots and layout checks of every page. It is not part of `npm run test:all`
+or CI.
+
+One-time setup:
+
+```bash
+npx playwright install webkit      # the iphone size uses WebKit
+npm install --prefix src/client    # axe-core comes from the client install
+```
+
+Local run: `npm run test:visual` builds the client, serves it on port 3102 and
+seeds `visual@example.test` into `planapp_test`.
+
+Live run: set `VISUAL_BASE_URL` and `VISUAL_TOKEN` (a JWT, taken from the
+environment and never committed). `VISUAL_API_URL` is optional and defaults to
+`$VISUAL_BASE_URL/api`.
+
+```bash
+VISUAL_BASE_URL=https://shinplan.com VISUAL_TOKEN=<jwt> npm run test:visual
+```
+
+Live runs only read: non-GET API calls are blocked. They visit every project and
+its thoughts page.
+
+Sizes:
+
+- `desktop-1440`: 1440 x 900
+- `laptop-1036`: 1036 x 800
+- `iphone`: 393 x 852, WebKit
+
+Checks on each page:
+
+- no horizontal overflow
+- axe-core: contrast, labels, button, link and select names
+- no clipped text
+- nothing hidden under fixed bars
+- no starter-template text
+
+Screenshots land in `visual-screenshots/<size>/`. Run one size with
+`npx playwright test -c playwright.visual.config.js --project iphone`.
 
 ## Project Structure
 
