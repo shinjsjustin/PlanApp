@@ -30,16 +30,17 @@ afterEach(() => {
     jest.clearAllMocks();
 });
 
-it.each(['/', '/post-register'])('renders no Projects tab link at %s', (path) => {
+it.each(['/', '/post-register'])('mounts no tab bar at %s', (path) => {
     window.history.pushState({}, '', path);
     render(<App />);
-    expect(screen.queryByRole('link', { name: 'Projects' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Tabs' })).toBeNull();
 });
 
 it('mounts the tab bar at /projects with a token', async () => {
     window.history.pushState({}, '', '/projects');
     render(<App />);
-    expect(await screen.findByRole('link', { name: 'Projects' })).not.toBeNull();
+    expect(await screen.findByRole('navigation', { name: 'Tabs' })).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Projects' })).not.toBeNull();
     // Let ProjectsHome's mocked load settle inside act.
     await act(async () => {});
 });
