@@ -24,14 +24,14 @@ describe('layoutMasonry', () => {
     expect(result.height).toBe(70);
   });
 
-  test('fills equal-height cards center-out in 3 columns', () => {
-    const result = layoutMasonry({ heights: [10, 10, 10], columns: 3, containerWidth: 300, gapPx: 0 });
-    expect(columnsOf(result)).toEqual([1, 0, 2]);
+  test('fills equal-height cards left to right in 3 columns', () => {
+    const result = layoutMasonry({ heights: [10, 10, 10, 10], columns: 3, containerWidth: 300, gapPx: 0 });
+    expect(columnsOf(result)).toEqual([0, 1, 2, 0]);
   });
 
-  test('fills equal-height cards center-out in 4 columns, left first on ties', () => {
-    const result = layoutMasonry({ heights: [10, 10, 10, 10], columns: 4, containerWidth: 400, gapPx: 0 });
-    expect(columnsOf(result)).toEqual([1, 2, 0, 3]);
+  test('fills equal-height cards left to right in 4 columns, leftmost first on ties', () => {
+    const result = layoutMasonry({ heights: [10, 10, 10, 10, 10], columns: 4, containerWidth: 400, gapPx: 0 });
+    expect(columnsOf(result)).toEqual([0, 1, 2, 3, 0]);
   });
 
   test('sends the next card away from a tall card column', () => {
@@ -44,17 +44,17 @@ describe('layoutMasonry', () => {
     expect(result.height).toBe(100);
   });
 
-  test('centers the used columns when there are fewer cards than columns', () => {
+  test('starts at the left when there are fewer cards than columns', () => {
     const result = layoutMasonry({ heights: [10, 10], columns: 4, containerWidth: 430, gapPx: 10 });
     expect(result.placements).toEqual([
-      { column: 0, top: 0, left: 110, width: 100 },
-      { column: 1, top: 0, left: 220, width: 100 },
+      { column: 0, top: 0, left: 0, width: 100 },
+      { column: 1, top: 0, left: 110, width: 100 },
     ]);
   });
 
-  test('centers a single card among several columns', () => {
+  test('puts a single card in the leftmost of several columns', () => {
     const result = layoutMasonry({ heights: [10], columns: 3, containerWidth: 320, gapPx: 10 });
-    expect(result.placements).toEqual([{ column: 0, top: 0, left: 110, width: 100 }]);
+    expect(result.placements).toEqual([{ column: 0, top: 0, left: 0, width: 100 }]);
   });
 
   test('never produces a negative width', () => {

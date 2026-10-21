@@ -339,7 +339,7 @@ describe('ProjectsHome', () => {
                 .getAllByRole('heading', { level: 3 })
                 .map((h) => h.closest('.project-card'));
 
-        test('places cards shortest-column first, center-out, with 16px gaps', async () => {
+        test('places cards shortest-column first, left to right, with 16px gaps', async () => {
             heightByTitle = { A: 100, B: 300, C: 100, D: 100, E: 100 };
             api.get.mockResolvedValue(
                 [5, 3, 1, 4, 2].map((id) => aProject({ id, title: 'ABCDE'[id - 1] }))
@@ -352,7 +352,7 @@ describe('ProjectsHome', () => {
             // Measuring lands in state after the first paint, so wait for it.
             // Column width is (1100 - 3 * 16) / 4 = 263, so the column pitch is 279.
             await waitFor(() =>
-                expect(cards.map((c) => c.style.left)).toEqual(['279px', '558px', '0px', '837px', '279px'])
+                expect(cards.map((c) => c.style.left)).toEqual(['0px', '279px', '558px', '837px', '0px'])
             );
             expect(cards.map((c) => c.style.top)).toEqual(['0px', '0px', '0px', '0px', '116px']);
             expect(document.querySelector('.projects-grid').style.height).toBe('300px');
