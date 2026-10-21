@@ -5,17 +5,12 @@ const path = require('path');
 const { test, expect } = require('@playwright/test');
 const { checkPage } = require('./checks');
 const { ROUTES } = require('./routes');
-const { STATE_PATH, guardReadOnly, listProjects } = require('./session');
+const { guardReadOnly, listProjects, savedToken } = require('./session');
 
 const SCREENSHOT_DIR = 'visual-screenshots';
 const SIGNED_OUT = { cookies: [], origins: [] };
 
 const slugOf = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-const savedToken = () => {
-    const state = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8'));
-    return state.origins.flatMap((origin) => origin.localStorage).find((item) => item.name === 'token').value;
-};
 
 // Visits one page, saves and attaches a full-page screenshot, and returns its problems.
 async function visit(page, testInfo, { slug, path: url, open }) {
