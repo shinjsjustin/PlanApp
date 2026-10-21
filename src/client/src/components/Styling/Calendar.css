@@ -417,7 +417,7 @@
      * rather than hanging below. */
     transform: translateY(-50%);
     font-size: var(--font-sm);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     line-height: 1;
 }
 
@@ -844,7 +844,7 @@ button.note-ribbon-body:hover .note-ribbon-text {
  * go" — but it is no longer a drag source, and has to look it. */
 .panel-todo-row--scheduled {
     background: var(--bg-alt);
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 
 .panel-todo-row--blocked {
@@ -886,7 +886,7 @@ button.note-ribbon-body:hover .note-ribbon-text {
 .panel-todo-badge {
     flex: 0 0 auto;
     font-size: var(--font-sm);
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 
 .panel-todo-badge {

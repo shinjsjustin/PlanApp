@@ -41,3 +41,14 @@ it('lays note ribbon text out horizontally and wrapping', () => {
     expect(body).toMatch(/overflow-wrap:\s*anywhere\s*;/);
     expect(body).toMatch(/font-size:\s*var\(--font-sm\)/);
 });
+
+it.each(['.day-grid-hour', '.panel-todo-badge', '.panel-todo-row--scheduled'])(
+    'colours %s with --text-secondary so it passes AA contrast',
+    (selector) => {
+        const body = rule(selector);
+
+        expect(body).not.toBeNull();
+        expect(body).toMatch(/(?:^|[\s;])color:\s*var\(--text-secondary\)\s*;/);
+        expect(body).not.toMatch(/--text-muted/);
+    }
+);
