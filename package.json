@@ -18,7 +18,8 @@
     "test": "jest",
     "test:client": "CI=true npm test --prefix src/client",
     "test:all": "npm test && npm run test:client && npm run test:e2e",
-    "test:e2e": "DB_NAME=planapp_test playwright test"
+    "test:e2e": "DB_NAME=planapp_test playwright test",
+    "test:visual": "DB_NAME=planapp_test playwright test -c playwright.visual.config.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -33,7 +34,8 @@
     ],
     "testTimeout": 15000,
     "testPathIgnorePatterns": [
-      "<rootDir>/tests/e2e/"
+      "<rootDir>/tests/e2e/",
+      "<rootDir>/tests/visual/"
     ],
     "maxWorkers": 1
   }
