@@ -3,7 +3,6 @@ import Home from './components/Home';
 import Login from './components/Authentication/Login';
 import AccessDenied from './components/Authentication/AccessDenied';
 import PostRegisterPage from './components/Authentication/PostRegisterPage';
-import Dashboard from './components/Dashboard/Dashboard';
 import ProjectsHome from './components/Projects/ProjectsHome';
 import ProjectPage from './components/Project/ProjectPage';
 import CalendarPage from './components/Calendar/CalendarPage';
@@ -42,9 +41,8 @@ const routes = [
     { path: '/address-book', element: <ProtectedRoute><AddressBookPage /></ProtectedRoute> },
     { path: '/places',       element: <Navigate to="/address-book" replace /> },
 
-    // The template's dashboard is left mounted but unused; login now lands on
-    // /projects instead.
-    { path: '/dashboard', element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
+    // The template's dashboard is gone; old links land on /projects.
+    { path: '/dashboard', element: <Navigate to="/projects" replace /> },
 
     // TODO: Add more protected routes here, e.g.:
     // { path: '/jobs',          element: <ProtectedRoute><JobList /></ProtectedRoute> },

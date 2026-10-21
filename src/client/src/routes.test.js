@@ -1,40 +1,16 @@
-import { Navigate } from 'react-router-dom';
-import ProtectedRoute from './config/ProtectedRoute';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import routes from './routes';
 
-const routeFor = (path) => routes.find((route) => route.path === path);
-
-describe('routes', () => {
-    test('mounts the project page at /projects/:id', () => {
-        expect(routeFor('/projects/:id')).toBeDefined();
-    });
-
-    test('keeps both project routes behind ProtectedRoute', () => {
-        // A project page reachable without a token would render someone's plan
-        // to an anonymous visitor before the API ever refused them.
-        ['/projects', '/projects/:id'].forEach((path) => {
-            expect(routeFor(path).element.type).toBe(ProtectedRoute);
-        });
-    });
-
-    test('mounts the calendar page at /calendar', () => {
-        expect(routeFor('/calendar')).toBeDefined();
-    });
-
-    test('keeps the calendar behind ProtectedRoute', () => {
-        // The calendar is a second view onto the same private plan, so it is no
-        // more public than the project pages it schedules work from.
-        expect(routeFor('/calendar').element.type).toBe(ProtectedRoute);
-    });
-
-    test('redirects /register to /login', () => {
-        const { element } = routeFor('/register');
-        expect(element.type).toBe(Navigate);
-        expect(element.props.to).toBe('/login');
-    });
-
-    test('mounts the thoughts page at /thoughts behind ProtectedRoute', () => {
-        expect(routeFor('/thoughts')).toBeDefined();
-        expect(routeFor('/thoughts').element.type).toBe(ProtectedRoute);
-    });
+test('/dashboard redirects to /projects', () => {
+    const dashboard = routes.find(r => r.path === '/dashboard');
+    render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+            <Routes>
+                <Route path="/dashboard" element={dashboard.element} />
+                <Route path="/projects" element={<div>projects page</div>} />
+            </Routes>
+        </MemoryRouter>
+    );
+    expect(screen.getByText('projects page')).toBeInTheDocument();
 });

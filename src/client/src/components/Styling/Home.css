@@ -28,6 +28,25 @@
   font-size: calc(10px + 2vmin);
 }
 
+.Home-title {
+  margin: 0 0 var(--space-xl);
+  font-size: var(--font-xl);
+  font-weight: bold;
+  color: var(--text-white);
+}
+
+.Home-tagline {
+  margin: 0 0 var(--space-xl);
+  font-size: var(--font-lg);
+  color: var(--text-muted);
+}
+
+.Home-link {
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+}
+
 .center {
   width: 60vh;
   max-width: 100%;

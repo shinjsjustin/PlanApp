@@ -48,9 +48,9 @@ const Navbar = () => {
                         </button>
                         <button
                             className="industrial-button"
-                            onClick={() => { navigate('/dashboard'); setShowPanel(false); }}
+                            onClick={() => { navigate('/projects'); setShowPanel(false); }}
                         >
-                            Dashboard
+                            Projects
                         </button>
                         <button className="industrial-button" onClick={handleLogout}>
                             Logout
