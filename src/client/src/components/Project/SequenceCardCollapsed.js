@@ -93,7 +93,7 @@ const SequenceCardCollapsed = ({ model, description, ...summaryProps }) => {
             </div>
             <div className="sequence-card-collapsed-details">
                 <p className={`sequence-card-description${hasDescription ? '' : ' sequence-card-description--empty'}`}>
-                    {hasDescription ? description : 'What problem are you trying to solve?'}
+                    {hasDescription ? description : 'Add a description'}
                 </p>
             </div>
         </>

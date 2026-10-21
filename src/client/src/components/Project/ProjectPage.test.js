@@ -82,6 +82,17 @@ beforeEach(() => {
 });
 
 describe('ProjectPage', () => {
+    test('groups the header links in a Project nav', async () => {
+        api.get.mockResolvedValue(GRAPH);
+
+        renderPage();
+
+        const nav = await screen.findByRole('navigation', { name: 'Project' });
+        expect(nav).toHaveClass('project-nav');
+        expect(nav).toContainElement(screen.getByRole('link', { name: /all projects/i }));
+        expect(nav).toContainElement(screen.getByRole('link', { name: /address book/i }));
+    });
+
     test('shows a loading state while the graph is on its way', () => {
         // Arrange
         api.get.mockReturnValue(new Promise(() => {}));

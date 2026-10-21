@@ -47,10 +47,19 @@ const ProjectPage = () => {
     return (
         <main className={isPhone ? 'project-page project-page--phone' : 'project-page'}>
             <header className="project-header">
-                {!isPhone && <Link className="neon-button" to="/projects">← All projects</Link>}
-                <ThoughtsLink />
-                <PlacesLink />
-                {!isPhone && <ProjectThoughtsLink projectId={id} />}
+                {isPhone ? (
+                    <>
+                        <ThoughtsLink />
+                        <PlacesLink />
+                    </>
+                ) : (
+                    <nav className="project-nav" aria-label="Project">
+                        <Link className="neon-button" to="/projects">← All projects</Link>
+                        <ThoughtsLink />
+                        <PlacesLink />
+                        <ProjectThoughtsLink projectId={id} />
+                    </nav>
+                )}
                 {state.project && <h1>{state.project.title}</h1>}
                 {isPhone && <ProjectThoughtsLink projectId={id} />}
                 {!isPhone && state.status === PROJECT_STATUS.ready && (

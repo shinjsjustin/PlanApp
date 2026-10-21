@@ -278,7 +278,7 @@ const SequenceCard = ({
                             >
                                 {sequence.description?.trim()
                                     ? sequence.description
-                                    : 'What problem are you trying to solve?'}
+                                    : 'Add a description'}
                             </p>
                         </div>
 

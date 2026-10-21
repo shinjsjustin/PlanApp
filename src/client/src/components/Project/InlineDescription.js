@@ -50,9 +50,9 @@ const InlineDescription = ({ value }) => {
         <textarea
             className="inline-description"
             aria-label="Project description"
-            placeholder="What problem are you trying to solve?"
+            placeholder="Add a description"
             maxLength={DESCRIPTION_MAX_LENGTH}
-            rows={3}
+            rows={value ? 3 : 1}
             value={draft ?? value ?? ''}
             onChange={(event) => {
                 cancel();

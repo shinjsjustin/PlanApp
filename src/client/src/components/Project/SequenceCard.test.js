@@ -198,7 +198,7 @@ describe('SequenceCard', () => {
         renderCard({ sequence: { ...baseSequence, description: null } });
 
         // Assert
-        expect(screen.getByText('What problem are you trying to solve?')).toBeInTheDocument();
+        expect(screen.getByText('Add a description')).toBeInTheDocument();
     });
 
     test('shows a derived status of incomplete for an empty sequence', () => {

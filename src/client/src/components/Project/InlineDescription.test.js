@@ -26,7 +26,7 @@ test('renders the stored multiline description with the server length limit', ()
 
 test('shows the exact prompt without saving placeholder content', () => {
     render(<InlineDescription value={null} />);
-    expect(field()).toHaveAttribute('placeholder', 'What problem are you trying to solve?');
+    expect(field()).toHaveAttribute('placeholder', 'Add a description');
     expect(field()).toHaveValue('');
     fireEvent.blur(field());
     advance();
@@ -152,4 +152,9 @@ test('flushes a committed draft on unmount so navigation cannot discard it', () 
     expect(save).toHaveBeenCalledWith('Draft');
     advance();
     expect(save).toHaveBeenCalledTimes(1);
+});
+
+test.each([[null, '1'], ['', '1'], ['Stored', '3']])('renders value %p with rows %s', (value, rows) => {
+    render(<InlineDescription value={value} />);
+    expect(field()).toHaveAttribute('rows', rows);
 });

@@ -25,6 +25,6 @@ describe('collapsed sequence presentation', () => {
 
     test.each([null, '', '   '])('shows the exact prompt for an empty description (%s)', (description) => {
         renderCard({ sequence: { ...foldedSequence, description } });
-        expect(screen.getByText('What problem are you trying to solve?')).toBeInTheDocument();
+        expect(screen.getByText('Add a description')).toBeInTheDocument();
     });
 });
