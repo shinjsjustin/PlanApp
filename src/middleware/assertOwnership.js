@@ -93,6 +93,19 @@ const OWNER_QUERIES = {
         label: 'Subcategory',
         sql: 'SELECT id, owner_id FROM reminder_subcategories WHERE id = ?',
     },
+    // Owned directly by a user; the row returned is the deck itself.
+    combinationDeck: {
+        label: 'Deck',
+        sql: 'SELECT id, owner_id FROM combo_decks WHERE id = ?',
+    },
+    // Reached through its deck, which is owned directly. The row returned is the
+    // deck, not the card: `owned.id` is the deck's id.
+    combinationCard: {
+        label: 'Card',
+        sql: `SELECT d.id, d.owner_id FROM combo_cards c
+              JOIN combo_decks d ON d.id = c.deck_id
+              WHERE c.id = ?`,
+    },
 };
 
 const assertOwnership = async (conn, resourceType, id, userId) => {
