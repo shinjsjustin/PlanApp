@@ -9,7 +9,11 @@ const { firstRow, buildAssignments } = require('./sql');
  * `repeat_weekdays` is a SET, so the weekday list is joined on the way in.
  */
 
-const SELECT_SQL = `SELECT r.*, pl.name AS place_name, rs.name AS subcategory_name,
+// Instants are stored as UTC wall time. Formatting in SQL and converting in JS keeps the pool's
+// local time zone out of both directions.
+const utcInstant = (column) => `DATE_FORMAT(r.${column}, '%Y-%m-%dT%H:%i:%sZ') AS ${column}`;
+
+const SELECT_SQL = `SELECT r.*, ${utcInstant('alert_at')}, ${utcInstant('snoozed_until')}, pl.name AS place_name, rs.name AS subcategory_name,
         pe.name AS person_name, pr.title AS project_title, t.text AS todo_text
      FROM reminders r
      LEFT JOIN places pl ON pl.id = r.place_id
@@ -38,6 +42,9 @@ const UPDATABLE_COLUMNS = {
     repeatEvery: 'repeat_every',
     repeatWeekdays: 'repeat_weekdays',
 };
+
+const toUtcWallTime = (value) =>
+    value instanceof Date ? value.toISOString().slice(0, 19).replace('T', ' ') : value;
 
 const encodeWeekdays = (value) => (Array.isArray(value) ? value.join(',') : value);
 
@@ -85,7 +92,7 @@ const create = async (
             dueDate,
             dueTime,
             timeZone,
-            alertAt,
+            toUtcWallTime(alertAt),
             trigger,
             priority,
             repeatRule,
@@ -100,7 +107,12 @@ const create = async (
 /** Changes the given fields and returns the row, or null when there was no such reminder. */
 const update = async (conn, id, patch) => {
     const { clause, values } = buildAssignments(
-        { ...patch, repeatWeekdays: encodeWeekdays(patch.repeatWeekdays) },
+        {
+            ...patch,
+            alertAt: toUtcWallTime(patch.alertAt),
+            snoozedUntil: toUtcWallTime(patch.snoozedUntil),
+            repeatWeekdays: encodeWeekdays(patch.repeatWeekdays),
+        },
         UPDATABLE_COLUMNS
     );
     const [result] = await conn.execute(`UPDATE reminders SET ${clause} WHERE id = ?`, [...values, id]);

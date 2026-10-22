@@ -40,7 +40,7 @@ describe('remindersRepo', () => {
         const created = await repo.create(conn, {
             ownerId, title: 'Tile', placeId: place.id, subcategoryId: sub.id, personId: person.id,
             projectId, todoId, dueDate: '2026-10-05', dueTime: '09:05', timeZone: 'America/Chicago',
-            alertAt: new Date(2026, 9, 5, 8, 0, 0), trigger: 'arrive', priority: 'high',
+            alertAt: new Date('2026-10-05T08:00:00Z'), trigger: 'arrive', priority: 'high',
             repeatRule: 'weekly', repeatEvery: 2, repeatWeekdays: ['mon', 'wed'],
         });
 
@@ -51,7 +51,48 @@ describe('remindersRepo', () => {
             location_trigger: 'arrive', priority: 'high',
             repeat_rule: 'weekly', repeat_every: 2, repeat_weekdays: 'mon,wed',
         });
-        expect(created.alert_at).toEqual(new Date(2026, 9, 5, 8, 0, 0));
+        expect(created.alert_at).toBe('2026-10-05T08:00:00Z');
+    });
+
+    const rawInstants = async (conn, id) => {
+        const [rows] = await conn.execute(
+            `SELECT DATE_FORMAT(alert_at, '%Y-%m-%d %H:%i:%s') AS alert_at,
+                    DATE_FORMAT(snoozed_until, '%Y-%m-%d %H:%i:%s') AS snoozed_until
+             FROM reminders WHERE id = ?`,
+            [id]
+        );
+
+        return rows[0];
+    };
+
+    it('create stores alertAt as UTC wall time whatever the process time zone', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+
+        const created = await repo.create(conn, {
+            ownerId, title: 'Call', timeZone: 'UTC', alertAt: new Date('2026-07-04T15:30:45Z'),
+        });
+
+        expect(await rawInstants(conn, created.id)).toEqual({ alert_at: '2026-07-04 15:30:45', snoozed_until: null });
+        expect(created.alert_at).toBe('2026-07-04T15:30:45Z');
+        expect(created.snoozed_until).toBeNull();
+    });
+
+    it('update stores alertAt and snoozedUntil as UTC and rows read back as Z strings', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const created = await repo.create(conn, { ownerId, title: 'Call', timeZone: 'UTC' });
+
+        const updated = await repo.update(conn, created.id, {
+            alertAt: new Date('2026-12-31T23:59:59Z'), snoozedUntil: new Date('2027-01-01T06:05:00Z'),
+        });
+
+        expect(await rawInstants(conn, created.id)).toEqual({
+            alert_at: '2026-12-31 23:59:59', snoozed_until: '2027-01-01 06:05:00',
+        });
+        expect(updated).toMatchObject({ alert_at: '2026-12-31T23:59:59Z', snoozed_until: '2027-01-01T06:05:00Z' });
+        const [listed] = await repo.listByOwner(conn, ownerId);
+        expect(listed).toMatchObject({ alert_at: '2026-12-31T23:59:59Z', snoozed_until: '2027-01-01T06:05:00Z' });
     });
 
     it('update changes only the named fields, returns the row, and null for a missing id', async () => {
