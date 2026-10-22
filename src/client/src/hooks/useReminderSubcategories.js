@@ -13,6 +13,7 @@ const useReminderSubcategories = (placeId) => {
     const [subcategories, setSubcategories] = useState([]);
     const [error, setError] = useState(null);
     const isMounted = useRef(true);
+    const latestRequest = useRef(0);
 
     useEffect(() => {
         isMounted.current = true;
@@ -21,8 +22,12 @@ const useReminderSubcategories = (placeId) => {
         };
     }, []);
 
-    // Resolves true when the list was fetched, false on failure or after unmount.
+    // Resolves true when the list was fetched, false on failure, after unmount
+    // or when a newer request superseded this one.
     const fetchList = useCallback(async () => {
+        latestRequest.current += 1;
+        const requestId = latestRequest.current;
+        const isStale = () => !isMounted.current || requestId !== latestRequest.current;
         if (placeId === null || placeId === undefined) {
             setSubcategories([]);
             setError(null);
@@ -30,12 +35,12 @@ const useReminderSubcategories = (placeId) => {
         }
         try {
             const data = await api.get(`/reminder-subcategories?placeId=${placeId}`);
-            if (!isMounted.current) return false;
+            if (isStale()) return false;
             setSubcategories(data.subcategories);
             setError(null);
             return true;
         } catch (err) {
-            if (!isMounted.current) return false;
+            if (isStale()) return false;
             setError(err?.message || GENERIC_FAILURE);
             return false;
         }
@@ -43,6 +48,7 @@ const useReminderSubcategories = (placeId) => {
 
     useEffect(() => {
         setStatus('loading');
+        setSubcategories([]);
         fetchList().then((isLoaded) => {
             if (isMounted.current) setStatus(isLoaded ? 'ready' : 'error');
         });

@@ -49,6 +49,30 @@ describe('useReminderSubcategories', () => {
         await waitFor(() => expect(result.current.status).toBe('ready'));
     });
 
+    it('empties at once on a place change and ignores a late answer for the old place', async () => {
+        let resolveOld;
+        api.get.mockImplementation((path) => (path.endsWith('placeId=3')
+            ? new Promise((resolve) => { resolveOld = resolve; })
+            : Promise.resolve({ subcategories: [{ id: 9, placeId: 4, name: 'Bay' }] })));
+        const { result, rerender } = renderHook((id) => useReminderSubcategories(id), { initialProps: 3 });
+        rerender(4);
+        expect(result.current.subcategories).toEqual([]);
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        await act(async () => {
+            resolveOld({ subcategories: [DESK] });
+        });
+        expect(result.current.subcategories).toEqual([{ id: 9, placeId: 4, name: 'Bay' }]);
+    });
+
+    it('empties the previous list at once when the place changes', async () => {
+        api.get.mockResolvedValue({ subcategories: [DESK, DOCK] });
+        const { result, rerender } = renderHook((id) => useReminderSubcategories(id), { initialProps: 3 });
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        api.get.mockReturnValue(new Promise(() => {}));
+        rerender(4);
+        expect(result.current.subcategories).toEqual([]);
+    });
+
     it.each([
         ['add', 'post', '/reminder-subcategories', { placeId: 3, name: 'N' }, (r) => r.add({ name: 'N' })],
         ['rename', 'patch', '/reminder-subcategories/7', { name: 'N' }, (r) => r.rename(7, 'N')],

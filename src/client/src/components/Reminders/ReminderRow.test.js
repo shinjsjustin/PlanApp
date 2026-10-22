@@ -75,3 +75,11 @@ it.each(['done', 'dismissed'])('offers only Reopen and Delete on a %s row', (sta
     fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
     expect(h.onReopen).toHaveBeenCalledWith(reminder);
 });
+
+it('raises no duplicate-key warning when place and subcategory share a label', () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const reminder = { ...bare, place: { id: 3, label: 'Office' }, subcategory: { id: 7, label: 'Office' } };
+    render(<ul><ReminderRow reminder={reminder} {...handlers()} /></ul>);
+    expect(screen.getAllByText('Office')).toHaveLength(2);
+    expect(errorSpy).not.toHaveBeenCalled();
+});

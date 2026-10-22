@@ -8,18 +8,18 @@ const TRIGGER_LABELS = { arrive: 'Arrive', leave: 'Leave' };
 export default function ReminderRow({ reminder, onDone, onDismiss, onSnooze, onReopen, onEdit, onDelete }) {
     const { title, place, subcategory, person, project, todo, dueDate, dueTime, alertAt, trigger, priority,
         snoozedUntil, repeat, overdue, status } = reminder;
-    const details = [
-        place && place.label,
-        subcategory && subcategory.label,
-        formatDue(dueDate, dueTime),
-        formatAlert(alertAt),
-        TRIGGER_LABELS[trigger],
-        person && person.label,
-        project && project.label,
-        todo && todo.label,
-        formatRepeat(repeat),
-        snoozedUntil && `Snoozed until ${formatAlert(snoozedUntil)}`,
-    ].filter(Boolean);
+    const details = Object.entries({
+        place: place && place.label,
+        subcategory: subcategory && subcategory.label,
+        due: formatDue(dueDate, dueTime),
+        alert: formatAlert(alertAt),
+        trigger: TRIGGER_LABELS[trigger],
+        person: person && person.label,
+        project: project && project.label,
+        todo: todo && todo.label,
+        repeat: formatRepeat(repeat),
+        snoozed: snoozedUntil && `Snoozed until ${formatAlert(snoozedUntil)}`,
+    }).filter(([, text]) => text);
     const act = (handler) => () => handler(reminder);
 
     return (
@@ -31,7 +31,7 @@ export default function ReminderRow({ reminder, onDone, onDismiss, onSnooze, onR
             </div>
             {details.length > 0 && (
                 <ul className="reminder-details">
-                    {details.map((detail) => <li key={detail}>{detail}</li>)}
+                    {details.map(([field, text]) => <li key={field}>{text}</li>)}
                 </ul>
             )}
             <div className="reminder-actions">
