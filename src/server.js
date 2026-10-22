@@ -21,7 +21,8 @@ const thoughtsRoutes = require('./routes/thoughts');
 const placesRoutes = require('./routes/places');
 const peopleRoutes = require('./routes/people');
 const reminderSubcategoriesRoutes = require('./routes/reminderSubcategories');
-const legalRoutes = require('./routes/legal');
+const remindersRoutes = require('./routes/reminders');
+const legalRoutes =require('./routes/legal');
 
 const isAuth = require('./middleware/isAuth');
 const { respond, errorHandler } = require('./middleware/respond');
@@ -85,6 +86,7 @@ app.use('/api/thoughts', isAuth, respond, thoughtsRoutes);
 app.use('/api/places', isAuth, respond, placesRoutes);
 app.use('/api/people', isAuth, respond, peopleRoutes);
 app.use('/api/reminder-subcategories', isAuth, respond, reminderSubcategoriesRoutes);
+app.use('/api/reminders', isAuth, respond, remindersRoutes);
 
 // Terminal error handler for the resource routes above.
 app.use(errorHandler);
