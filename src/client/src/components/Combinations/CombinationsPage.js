@@ -81,7 +81,7 @@ const CombinationsPage = () => {
                     onDelete={handleDelete}
                 />
             </header>
-            {status === 'error' && <p className="deck-error" role="alert">{error}</p>}
+            {error && <p className="deck-error" role="alert">{error}</p>}
             {deck && <CountsBar cardCount={cards.length} counts={countStates(cards, pairs)} />}
             <div className="layout">
                 <section className="panel view-panel">

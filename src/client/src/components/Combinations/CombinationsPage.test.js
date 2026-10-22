@@ -143,6 +143,13 @@ describe('CombinationsPage', () => {
         expect(screen.getByRole('alert')).toHaveTextContent('Could not load');
     });
 
+    it('shows the hook error when status is ready', () => {
+        mockHook({ error: 'Could not refresh decks' });
+        const { container } = open('/combinations?deck=1');
+        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh decks');
+        expect(container.querySelector('.deck-error')).toBe(screen.getByRole('alert'));
+    });
+
     it('renders the empty slots with the prototype class names', () => {
         mockHook();
         const { container } = open('/combinations?deck=1');

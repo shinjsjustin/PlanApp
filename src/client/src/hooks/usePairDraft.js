@@ -17,6 +17,8 @@ const usePairDraft = ({ pair, save }) => {
     const draftRef = useRef(draft);
     const isMountedRef = useRef(true);
     const requestRef = useRef(0);
+    // Set by an edit, cleared when a save starts: true means a newer edit still waits.
+    const isDirtyRef = useRef(false);
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -28,10 +30,11 @@ const usePairDraft = ({ pair, save }) => {
         requestRef.current = requestId;
         const isCurrent = () => isMountedRef.current && requestRef.current === requestId;
 
+        isDirtyRef.current = false;
         if (isMountedRef.current) setStatus('saving');
         try {
             await save(draftRef.current);
-            if (isCurrent()) setStatus('saved');
+            if (isCurrent()) setStatus(isDirtyRef.current ? 'pending' : 'saved');
         } catch (err) {
             if (isCurrent()) setStatus('error');
         }
@@ -48,6 +51,7 @@ const usePairDraft = ({ pair, save }) => {
 
     const setField = useCallback((field, value) => {
         update({ [field]: value });
+        isDirtyRef.current = true;
         setStatus('pending');
         run();
     }, [update, run]);

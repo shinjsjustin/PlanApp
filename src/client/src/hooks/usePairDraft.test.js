@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import usePairDraft from './usePairDraft';
 
-const pair = { name: 'A', effect: 'e', notes: 'n', state: 'idea' };
+const pair = { name: 'A', effect: 'e', notes: 'n', state: 'empty' };
 
 const setup = (save) => renderHook(() => usePairDraft({ pair, save }));
 
@@ -29,7 +29,7 @@ describe('usePairDraft', () => {
 
         await act(async () => jest.advanceTimersByTime(1));
         expect(save).toHaveBeenCalledTimes(1);
-        expect(save).toHaveBeenCalledWith({ name: 'AB', effect: 'e', notes: 'later', state: 'idea' });
+        expect(save).toHaveBeenCalledWith({ name: 'AB', effect: 'e', notes: 'later', state: 'empty' });
         expect(result.current.status).toBe('saved');
     });
 
@@ -46,16 +46,36 @@ describe('usePairDraft', () => {
         expect(result.current.status).toBe('saved');
     });
 
+    it('stays pending when a save finishes while a newer edit waits for its timer', async () => {
+        const resolvers = [];
+        const save = jest.fn(() => new Promise((r) => { resolvers.push(r); }));
+        const { result } = setup(save);
+
+        act(() => result.current.setField('name', 'one'));
+        act(() => jest.advanceTimersByTime(800));
+        act(() => result.current.setField('name', 'two'));
+
+        await act(async () => resolvers[0]());
+        expect(result.current.status).toBe('pending');
+        expect(save).toHaveBeenCalledTimes(1);
+
+        await act(async () => jest.advanceTimersByTime(800));
+        expect(save).toHaveBeenCalledTimes(2);
+        expect(save).toHaveBeenLastCalledWith({ name: 'two', effect: 'e', notes: 'n', state: 'empty' });
+        await act(async () => resolvers[1]());
+        expect(result.current.status).toBe('saved');
+    });
+
     it('setState saves at once with pending text', async () => {
         const save = jest.fn().mockResolvedValue();
         const { result } = setup(save);
 
         act(() => result.current.setField('effect', 'typed'));
-        await act(async () => result.current.setState('tested'));
+        await act(async () => result.current.setState('done'));
 
         expect(save).toHaveBeenCalledTimes(1);
-        expect(save).toHaveBeenCalledWith({ name: 'A', effect: 'typed', notes: 'n', state: 'tested' });
-        expect(result.current.draft.state).toBe('tested');
+        expect(save).toHaveBeenCalledWith({ name: 'A', effect: 'typed', notes: 'n', state: 'done' });
+        expect(result.current.draft.state).toBe('done');
 
         await act(async () => jest.advanceTimersByTime(2000));
         expect(save).toHaveBeenCalledTimes(1);
@@ -69,7 +89,7 @@ describe('usePairDraft', () => {
         unmount();
 
         expect(save).toHaveBeenCalledTimes(1);
-        expect(save).toHaveBeenCalledWith({ name: 'bye', effect: 'e', notes: 'n', state: 'idea' });
+        expect(save).toHaveBeenCalledWith({ name: 'bye', effect: 'e', notes: 'n', state: 'empty' });
     });
 
     it('does not save on unmount when nothing changed', () => {
@@ -89,7 +109,7 @@ describe('usePairDraft', () => {
 
         await act(async () => result.current.retry());
         expect(save).toHaveBeenCalledTimes(2);
-        expect(save).toHaveBeenLastCalledWith({ name: 'keep me', effect: 'e', notes: 'n', state: 'idea' });
+        expect(save).toHaveBeenLastCalledWith({ name: 'keep me', effect: 'e', notes: 'n', state: 'empty' });
         expect(result.current.status).toBe('saved');
     });
 
