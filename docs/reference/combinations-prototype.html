@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Combinatorics explorer</title>
+<style>
+  :root {
+    --bg: #04080b;
+    --grid: rgba(0, 210, 235, 0.07);
+    --surface: #0d171b;
+    --surface-2: #142228;
+    --line: #24414a;
+    --text: #e8f3f6;
+    --muted: #a6bcc3;
+    --accent: #3fd8ee;
+    --card: #e9f0f2;
+    --card-text: #0b1418;
+    --empty: #7d8c92;
+    --drafted: #f2a92f;
+    --done: #3fd06f;
+    --struck: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+  }
+  button, input, select, textarea { font: inherit; }
+  button {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 11px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .cell:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button.primary { background: var(--accent); color: #031014; border-color: var(--accent); font-weight: 600; }
+  button.danger { color: #ffb3b3; border-color: #6b2b2b; }
+  input, select, textarea {
+    background: #f4f8f9;
+    color: #0b1418;
+    border: 1px solid #9fb4bb;
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  textarea { resize: vertical; width: 100%; }
+  label { display: block; color: var(--muted); font-size: 13px; }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    padding: 12px 16px;
+    background: rgba(4, 8, 11, 0.88);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0 8px 0 0; letter-spacing: 0.02em; }
+  header h1 span { color: var(--accent); }
+  .deck-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .deck-controls select { min-width: 180px; max-width: 260px; }
+
+  .counts {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .counts b { color: #fff; }
+  .counts .sep { color: var(--muted); }
+
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 4px; flex: none; }
+  .dot.st-empty { background: transparent; border: 2px solid var(--empty); }
+  .dot.st-drafted { background: var(--drafted); }
+  .dot.st-done { background: var(--done); }
+  .dot.st-struck { background: transparent; border: 2px dashed var(--struck); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 16px;
+    padding: 16px;
+    align-items: start;
+  }
+  .panel {
+    background: rgba(13, 23, 27, 0.94);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .view-panel { grid-column: 1; grid-row: 1; min-width: 0; }
+  .cards { grid-column: 1; grid-row: 2; }
+  .side { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: #031014; border-color: var(--accent); font-weight: 600; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-left: auto; }
+  .legend span { display: inline-flex; align-items: center; }
+
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+
+  /* Ring */
+  .ring-wrap { position: relative; display: flex; justify-content: center; }
+  .ring { width: 100%; max-width: 680px; max-height: calc(100vh - 230px); min-height: 300px; display: block; }
+  .ring .guide { fill: none; stroke: rgba(63, 216, 238, 0.18); stroke-width: 1; }
+  .chord { stroke-width: 2.2; stroke-linecap: round; transition: opacity 0.12s, stroke-width 0.12s; pointer-events: none; }
+  .chord.st-empty { stroke: var(--empty); opacity: 0.45; }
+  .chord.st-drafted { stroke: var(--drafted); }
+  .chord.st-done { stroke: var(--done); }
+  .chord.st-struck { stroke: var(--struck); stroke-dasharray: 7 6; }
+  .chord.sel { stroke-width: 5; opacity: 1; }
+  .chord.hot { stroke-width: 5; opacity: 1; }
+  .ring.focusing .chord { opacity: 0.08; }
+  .ring.focusing .chord.lit { opacity: 1; stroke-width: 3.4; }
+  .ring.focusing .chord.hot { opacity: 1; stroke-width: 5.5; }
+  .hit { stroke: transparent; stroke-width: 12; cursor: pointer; }
+  .ring .card rect { fill: var(--card); stroke: #7fa3ad; stroke-width: 1.2; }
+  .ring .card text { fill: var(--card-text); font-size: 14px; font-weight: 600; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .ring .card { cursor: pointer; }
+  .ring .card:hover rect, .ring .card.pinned rect { stroke: var(--accent); stroke-width: 3; }
+  .ring.focusing .card.faded { opacity: 0.45; }
+
+  .tip {
+    position: fixed; z-index: 30; pointer-events: none;
+    max-width: 280px;
+    background: #f4f8f9; color: #0b1418;
+    border-radius: 8px; padding: 8px 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+    font-size: 13px;
+  }
+  .tip strong { display: block; font-size: 14px; }
+  .tip .st { font-size: 12px; color: #34484f; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* Grid */
+  .grid-wrap { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--line); border-radius: 8px; }
+  table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  .grid th {
+    position: sticky; background: var(--surface-2); color: var(--text); font-weight: 600;
+    padding: 6px 8px; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+  .grid thead th { top: 0; z-index: 2; }
+  .grid tbody th { left: 0; z-index: 1; text-align: left; }
+  .grid thead th:first-child { left: 0; z-index: 3; }
+  .grid td {
+    min-width: 64px; max-width: 110px; height: 40px; padding: 4px 6px;
+    text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-bottom: 1px solid #0a1215; border-right: 1px solid #0a1215;
+  }
+  .grid td.diag { background: #0a1114; }
+  .grid td.lower { background: #070d10; }
+  .cell { cursor: pointer; font-weight: 600; }
+  .cell.st-empty { background: #26343a; color: #dce8ec; }
+  .cell.st-drafted { background: var(--drafted); color: #1d1300; }
+  .cell.st-done { background: var(--done); color: #03200d; }
+  .cell.st-struck { background: #3a1416; color: #ffd0d0; outline: 2px dashed var(--struck); outline-offset: -4px; text-decoration: line-through; }
+  .cell:hover { filter: brightness(1.15); }
+  .cell.sel { box-shadow: inset 0 0 0 3px #ffffff; }
+
+  /* Walkthrough */
+  .walk-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .walk-head label { display: flex; gap: 8px; align-items: center; color: var(--text); font-size: 14px; }
+  .walk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .walk-list button {
+    width: 100%; text-align: left; display: flex; align-items: center; gap: 8px;
+    background: var(--card); color: var(--card-text); border: 2px solid transparent;
+  }
+  .walk-list button .num { color: #4a5f66; font-variant-numeric: tabular-nums; width: 1.8em; }
+  .walk-list button .partner { font-weight: 600; }
+  .walk-list button .pname { color: #3a4f56; margin-left: auto; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+  .walk-list button.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(63, 216, 238, 0.35); }
+  .walk-list .dot.st-empty { border-color: #5d6e74; }
+
+  .walk-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+
+  /* Editor */
+  .editor h2 { margin: 0 0 2px; font-size: 18px; }
+  .editor .details { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .editor .details div { margin-top: 2px; }
+  .editor label { margin-top: 10px; }
+  .editor input { width: 100%; margin-top: 3px; }
+  .editor textarea { margin-top: 3px; }
+  .state-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 4px; }
+  .state-btns button { padding: 7px 4px; font-size: 13px; }
+  .state-btns button[aria-pressed="true"].st-empty { background: #cfd8db; color: #0b1418; border-color: #cfd8db; }
+  .state-btns button[aria-pressed="true"].st-drafted { background: var(--drafted); color: #1d1300; border-color: var(--drafted); }
+  .state-btns button[aria-pressed="true"].st-done { background: var(--done); color: #03200d; border-color: var(--done); }
+  .state-btns button[aria-pressed="true"].st-struck { background: #3a1416; color: #ffd0d0; border: 2px dashed var(--struck); }
+  .editor-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: var(--muted); font-size: 12px; }
+  .placeholder { color: var(--muted); }
+
+  /* Cards */
+  .cards h2 { font-size: 16px; margin: 0 0 8px; }
+  .card-rows { display: grid; gap: 6px; }
+  .card-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 6px; align-items: center; }
+  .card-row input { width: 100%; }
+  .card-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 6px; margin-top: 10px; }
+  .card-add input { width: 100%; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40;
+    background: #f4f8f9; color: #0b1418; padding: 10px 14px; border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); max-width: calc(100vw - 32px);
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    .view-panel, .side, .cards { grid-column: 1; grid-row: auto; }
+    .side { position: static; max-height: none; }
+    .ring { max-height: none; min-height: 0; }
+    .grid-wrap { max-height: 70vh; }
+    .legend { margin-left: 0; }
+  }
+  @media (max-width: 480px) {
+    header { padding: 10px; }
+    .deck-controls select { min-width: 0; flex: 1 1 100%; max-width: none; }
+    .counts { padding: 8px 10px; font-size: 13px; }
+    .card-row, .card-add { grid-template-columns: 1fr auto; }
+    .card-row input.detail, .card-add input.detail { grid-column: 1 / -1; grid-row: 2; }
+    .panel { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Combinatorics <span>explorer</span></h1>
+  <div class="deck-controls">
+    <select id="deckSelect" aria-label="Deck"></select>
+    <button id="deckNew">New deck</button>
+    <button id="deckRename">Rename</button>
+    <button id="deckDelete" class="danger">Delete deck</button>
+    <button id="deckPromote">New deck from done pairs</button>
+    <button id="deckExport">Export JSON</button>
+    <button id="deckImport">Import JSON</button>
+    <input id="importFile" type="file" accept="application/json,.json" hidden>
+  </div>
+</header>
+<div class="counts" id="counts" aria-live="polite"></div>
+
+<div class="layout">
+  <section class="panel view-panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-view="ring">Ring</button>
+        <button role="tab" data-view="grid">Grid</button>
+        <button role="tab" data-view="walk">Walkthrough</button>
+        <div class="legend">
+          <span><i class="dot st-empty"></i>empty</span>
+          <span><i class="dot st-drafted"></i>drafted</span>
+          <span><i class="dot st-done"></i>done</span>
+          <span><i class="dot st-struck"></i>struck</span>
+        </div>
+      </div>
+      <div id="view"></div>
+  </section>
+
+  <aside class="panel side" id="side"></aside>
+
+  <section class="panel cards">
+      <h2>Cards</h2>
+      <div class="card-rows" id="cardRows"></div>
+      <form class="card-add" id="cardAdd">
+        <input id="newCardName" placeholder="New card name" aria-label="New card name">
+        <input id="newCardDetail" class="detail" placeholder="One-line description" aria-label="New card description">
+        <button class="primary" type="submit">Add card</button>
+      </form>
+  </section>
+</div>
+
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+
+const STORE_KEY = 'combinatorics-explorer-v1';
+const STATES = ['empty', 'drafted', 'done', 'struck'];
+const STATE_SYMBOL = { empty: '·', drafted: '~', done: '✓', struck: '✕' };
+const RING_SIZE = 600;
+const RING_RADIUS = 225;
+const CARD_HEIGHT = 32;
+const CARD_MIN_WIDTH = 64;
+const CARD_MAX_WIDTH = 150;
+const CARD_LABEL_MAX = 17;
+const NARROW_WIDTH = 860;
+// The ring's viewBox shrinks to fit a phone, so its labels are drawn bigger there to stay readable.
+const PHONE_WIDTH = 480;
+const PHONE_LABEL_SCALE = 1.6;
+const RESIZE_DEBOUNCE_MS = 150;
+const TOAST_MS = 3200;
+
+const $ = (id) => document.getElementById(id);
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function uid(prefix) {
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function pairKey(a, b) {
+  return a < b ? a + '|' + b : b + '|' + a;
+}
+
+function emptyPair() {
+  return { name: '', effect: '', notes: '', state: 'empty' };
+}
+
+// ---------- data ----------
+
+function seedDeck() {
+  const cards = [
+    ['fire', 'Fire', 'Bullets ignite enemies, dealing damage over time.'],
+    ['pierce', 'Pierce', 'Bullets pass through the first enemy they hit.'],
+    ['ricochet', 'Ricochet', 'Bullets bounce off walls once.'],
+    ['chain', 'Chain', 'Hits arc lightning to a nearby enemy.'],
+    ['slow', 'Slow', 'Hits slow enemies by 30% for 2s.'],
+    ['lifesteal', 'Lifesteal', 'Heal for 3% of damage dealt.'],
+    ['explosive', 'Explosive', 'Bullets explode on impact for small area damage.'],
+    ['rapid', 'Rapid', 'Fire rate up 40%, damage down 15%.'],
+  ].map(([id, name, detail]) => ({ id, name, detail }));
+  const pairs = {};
+  const put = (a, b, state, name, effect, notes = '') => { pairs[pairKey(a, b)] = { name, effect, notes, state }; };
+  put('fire', 'explosive', 'done', 'Napalm', 'Explosions leave burning ground for 3s.', 'Cap stacks at 3 patches.');
+  put('pierce', 'explosive', 'done', 'Breach Round', 'Each enemy pierced triggers a smaller explosion.');
+  put('chain', 'ricochet', 'drafted', 'Arc Bounce', 'Each ricochet also chains lightning to one target.', 'Might be too strong in corridors.');
+  put('fire', 'lifesteal', 'drafted', 'Cauterize', 'Burn damage heals you at half rate.');
+  put('slow', 'chain', 'drafted', 'Static Field', 'Chained enemies are slowed too.');
+  put('slow', 'rapid', 'struck', '', 'They cancel out; no interesting choice.', 'Revisit if Slow becomes a freeze.');
+  put('lifesteal', 'rapid', 'struck', '', 'Just a bigger number, no new play.');
+  return { id: uid('d'), name: 'HordeGame augments', cards, pairs };
+}
+
+function load() {
+  const raw = localStorage.getItem(STORE_KEY);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data.decks) || data.decks.length === 0) throw new Error('no decks');
+    data.decks = data.decks.map(normaliseDeck);
+    return data;
+  } catch (err) {
+    console.error('Saved data unreadable, starting from the seed. Old data kept under', STORE_KEY + '-broken', err);
+    localStorage.setItem(STORE_KEY + '-broken', raw);
+    return null;
+  }
+}
+
+function freshApp() {
+  const deck = seedDeck();
+  return { decks: [deck], currentId: deck.id, view: 'ring', walkCard: deck.cards[0].id };
+}
+
+let app = load() || freshApp();
+const ui = { selKey: null, hoverCard: null, pinCard: null };
+
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(app));
+  } catch (err) {
+    toast('Could not save to this browser: ' + err.message);
+  }
+}
+
+function deck() {
+  return app.decks.find((d) => d.id === app.currentId) || app.decks[0];
+}
+
+function cardById(id) {
+  return deck().cards.find((c) => c.id === id);
+}
+
+function getPair(key) {
+  return deck().pairs[key] || emptyPair();
+}
+
+function setPair(key, patch) {
+  const d = deck();
+  d.pairs = { ...d.pairs, [key]: { ...getPair(key), ...patch } };
+  save();
+}
+
+// The pair's two cards in deck order, so labels read the way the cards are listed.
+function pairCards(key) {
+  const cards = deck().cards;
+  return key.split('|').map(cardById).sort((x, y) => cards.indexOf(x) - cards.indexOf(y));
+}
+
+function pairLabel(key) {
+  const [a, b] = pairCards(key);
+  return a.name + ' + ' + b.name;
+}
+
+function allPairKeys() {
+  const cards = deck().cards;
+  const keys = [];
+  for (let i = 0; i < cards.length; i++) {
+    for (let j = i + 1; j < cards.length; j++) keys.push(pairKey(cards[i].id, cards[j].id));
+  }
+  return keys;
+}
+
+function isValidKey(key) {
+  if (!key) return false;
+  const [a, b] = key.split('|');
+  return Boolean(cardById(a) && cardById(b));
+}
+
+// Validates a deck from storage or an import file; throws on anything unusable.
+function normaliseDeck(d) {
+  if (!d || typeof d.name !== 'string' || !Array.isArray(d.cards)) throw new Error('a deck needs a name and a cards list');
+  const ids = new Set();
+  const cards = d.cards.map((c) => {
+    if (!c || typeof c.id !== 'string' || typeof c.name !== 'string') throw new Error('every card needs an id and a name');
+    if (c.id.includes('|') || ids.has(c.id)) throw new Error('card id "' + c.id + '" is duplicated or contains |');
+    ids.add(c.id);
+    return { id: c.id, name: c.name, detail: typeof c.detail === 'string' ? c.detail : '' };
+  });
+  const pairs = {};
+  Object.entries(d.pairs || {}).forEach(([k, p]) => {
+    const [a, b] = k.split('|');
+    if (!ids.has(a) || !ids.has(b) || a === b || !p) return;
+    pairs[pairKey(a, b)] = {
+      name: String(p.name || ''),
+      effect: String(p.effect || ''),
+      notes: String(p.notes || ''),
+      state: STATES.includes(p.state) ? p.state : 'empty',
+    };
+  });
+  return { id: typeof d.id === 'string' ? d.id : uid('d'), name: d.name, cards, pairs };
+}
+
+// ---------- rendering ----------
+
+function renderAll() {
+  if (!cardById(app.walkCard)) app.walkCard = deck().cards[0] ? deck().cards[0].id : null;
+  if (!isValidKey(ui.selKey)) ui.selKey = null;
+  if (ui.pinCard && !cardById(ui.pinCard)) ui.pinCard = null;
+  renderDeckSelect();
+  renderCards();
+  renderData();
+  renderSide();
+}
+
+// Everything that shows pair data, but not the inputs being typed into.
+function renderData() {
+  renderCounts();
+  renderView();
+  if (app.view === 'walk') renderWalkNav();
+}
+
+function renderDeckSelect() {
+  $('deckSelect').innerHTML = app.decks
+    .map((d) => `<option value="${esc(d.id)}"${d.id === app.currentId ? ' selected' : ''}>${esc(d.name)}</option>`)
+    .join('');
+}
+
+function countStates() {
+  const keys = allPairKeys();
+  const counts = { empty: 0, drafted: 0, done: 0, struck: 0 };
+  keys.forEach((k) => { counts[getPair(k).state]++; });
+  return { total: keys.length, ...counts };
+}
+
+function renderCounts() {
+  const c = countStates();
+  const sep = '<span class="sep">·</span>';
+  $('counts').innerHTML = [
+    `<span>Cards <b>${deck().cards.length}</b></span>`,
+    `<span>Pairs <b>${c.total}</b></span>`,
+    `<span><i class="dot st-done"></i>done <b>${c.done}</b></span>`,
+    `<span><i class="dot st-drafted"></i>drafted <b>${c.drafted}</b></span>`,
+    `<span><i class="dot st-struck"></i>struck <b>${c.struck}</b></span>`,
+    `<span><i class="dot st-empty"></i>empty <b>${c.empty}</b></span>`,
+  ].join(sep);
+}
+
+function renderView() {
+  document.querySelectorAll('.tabs [data-view]').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.view === app.view));
+  });
+  hideTip();
+  if (app.view === 'grid') renderGrid();
+  else if (app.view === 'walk') renderWalk();
+  else renderRing();
+}
+
+function truncate(s, max) {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+function ringPositions(cards) {
+  const c = RING_SIZE / 2;
+  return cards.map((card, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / cards.length;
+    return { card, x: c + RING_RADIUS * Math.cos(angle), y: c + RING_RADIUS * Math.sin(angle) };
+  });
+}
+
+function renderRing() {
+  const cards = deck().cards;
+  if (cards.length < 2) {
+    $('view').innerHTML = '<p class="placeholder">Add at least two cards below to see their pairs.</p>';
+    return;
+  }
+  const pos = ringPositions(cards);
+  const scale = window.innerWidth <= PHONE_WIDTH ? PHONE_LABEL_SCALE : 1;
+  const cardHeight = CARD_HEIGHT * scale;
+  let chords = '';
+  let hits = '';
+  for (let i = 0; i < pos.length; i++) {
+    for (let j = i + 1; j < pos.length; j++) {
+      const p = pos[i];
+      const q = pos[j];
+      const key = pairKey(p.card.id, q.card.id);
+      const coords = `x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}"`;
+      const data = `data-k="${esc(key)}" data-a="${esc(p.card.id)}" data-b="${esc(q.card.id)}"`;
+      const sel = key === ui.selKey ? ' sel' : '';
+      chords += `<line class="chord st-${getPair(key).state}${sel}" ${data} ${coords}/>`;
+      hits += `<line class="hit" ${data} ${coords}/>`;
+    }
+  }
+  const nodes = pos.map(({ card, x, y }) => {
+    const label = truncate(card.name, CARD_LABEL_MAX);
+    const w = scale * Math.min(CARD_MAX_WIDTH, Math.max(CARD_MIN_WIDTH, label.length * 8.6 + 22));
+    return `<g class="card" data-id="${esc(card.id)}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" tabindex="0">
+      <title>${esc(card.name)}${card.detail ? ': ' + esc(card.detail) : ''}</title>
+      <rect x="${-w / 2}" y="${-cardHeight / 2}" width="${w}" height="${cardHeight}" rx="7"/>
+      <text style="font-size:${14 * scale}px">${esc(label)}</text></g>`;
+  }).join('');
+  const pad = Math.max(8, (scale * CARD_MAX_WIDTH) / 2 - (RING_SIZE / 2 - RING_RADIUS) + 8);
+  const vb = `${-pad} ${-pad / 4} ${RING_SIZE + 2 * pad} ${RING_SIZE + pad / 2}`;
+  $('view').innerHTML = `<div class="ring-wrap"><svg class="ring" id="ring" viewBox="${vb}" role="img" aria-label="Ring of cards with a chord for every pair">
+      <circle class="guide" cx="${RING_SIZE / 2}" cy="${RING_SIZE / 2}" r="${RING_RADIUS}"/>
+      <g>${chords}</g><g>${hits}</g><g>${nodes}</g></svg></div>
+    <p class="hint">Hover a card to light its pairs (tap or click to pin). Hover a line for its pair; click it to edit.</p>`;
+  wireRing();
+  applyFocus();
+}
+
+function wireRing() {
+  const svg = $('ring');
+  svg.querySelectorAll('.card').forEach((g) => {
+    g.addEventListener('pointerenter', () => { ui.hoverCard = g.dataset.id; applyFocus(); });
+    g.addEventListener('pointerleave', () => { ui.hoverCard = null; applyFocus(); });
+    g.addEventListener('click', () => togglePin(g.dataset.id));
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePin(g.dataset.id); } });
+  });
+  svg.querySelectorAll('.hit').forEach((line) => {
+    const key = line.dataset.k;
+    const chord = svg.querySelector(`.chord[data-k="${CSS.escape(key)}"]`);
+    line.addEventListener('pointerenter', (e) => { chord.classList.add('hot'); showTip(key, e); });
+    line.addEventListener('pointermove', (e) => moveTip(e));
+    line.addEventListener('pointerleave', () => { chord.classList.remove('hot'); hideTip(); });
+    line.addEventListener('click', () => openPair(key));
+  });
+}
+
+function togglePin(id) {
+  ui.pinCard = ui.pinCard === id ? null : id;
+  applyFocus();
+}
+
+function applyFocus() {
+  const svg = $('ring');
+  if (!svg) return;
+  const focus = ui.hoverCard || ui.pinCard;
+  svg.classList.toggle('focusing', Boolean(focus));
+  const linked = new Set([focus]);
+  svg.querySelectorAll('.chord').forEach((c) => {
+    const isLit = c.dataset.a === focus || c.dataset.b === focus;
+    c.classList.toggle('lit', isLit);
+    if (isLit) { linked.add(c.dataset.a); linked.add(c.dataset.b); }
+  });
+  svg.querySelectorAll('.card').forEach((g) => {
+    g.classList.toggle('faded', !linked.has(g.dataset.id));
+    g.classList.toggle('pinned', g.dataset.id === ui.pinCard);
+  });
+}
+
+function showTip(key, e) {
+  const p = getPair(key);
+  const tip = $('tip');
+  tip.innerHTML = `<span class="st">${esc(p.state)}</span>
+    <strong>${esc(p.name || pairLabel(key))}</strong>
+    ${p.name ? `<div>${esc(pairLabel(key))}</div>` : ''}
+    <div>${p.effect ? esc(p.effect) : '<em>No effect yet</em>'}</div>`;
+  tip.hidden = false;
+  moveTip(e);
+}
+
+function moveTip(e) {
+  const tip = $('tip');
+  const gap = 14;
+  const x = Math.min(e.clientX + gap, window.innerWidth - tip.offsetWidth - 8);
+  const y = e.clientY + gap + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - gap : e.clientY + gap;
+  tip.style.left = Math.max(8, x) + 'px';
+  tip.style.top = Math.max(8, y) + 'px';
+}
+
+function hideTip() {
+  $('tip').hidden = true;
+}
+
+function renderGrid() {
+  const cards = deck().cards;
+  if (cards.length < 2) {
+    $('view').innerHTML = '<p class="placeholder">Add at least two cards below to see their pairs.</p>';
+    return;
+  }
+  const head = cards.map((c) => `<th scope="col" title="${esc(c.name)}">${esc(c.name)}</th>`).join('');
+  const rows = cards.map((row, i) => {
+    const cells = cards.map((col, j) => {
+      if (i === j) return '<td class="diag"></td>';
+      if (i > j) return '<td class="lower"></td>';
+      const key = pairKey(row.id, col.id);
+      const p = getPair(key);
+      const sel = key === ui.selKey ? ' sel' : '';
+      const title = `${row.name} + ${col.name}: ${p.state}${p.name ? ' · ' + p.name : ''}`;
+      const text = p.name ? truncate(p.name, 12) : STATE_SYMBOL[p.state];
+      return `<td class="cell st-${p.state}${sel}" data-k="${esc(key)}" tabindex="0" role="button" title="${esc(title)}" aria-label="${esc(title)}">${esc(text)}</td>`;
+    }).join('');
+    return `<tr><th scope="row" title="${esc(row.name)}">${esc(row.name)}</th>${cells}</tr>`;
+  }).join('');
+  $('view').innerHTML = `<div class="grid-wrap"><table class="grid"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="hint">Each cell above the diagonal is one pair. Click a cell to edit it.</p>`;
+  $('view').querySelectorAll('.cell').forEach((td) => {
+    td.addEventListener('click', () => openPair(td.dataset.k));
+    td.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPair(td.dataset.k); } });
+  });
+}
+
+function walkKeys() {
+  const id = app.walkCard;
+  return deck().cards.filter((c) => c.id !== id).map((c) => pairKey(id, c.id));
+}
+
+function renderWalk() {
+  const cards = deck().cards;
+  if (cards.length < 2) {
+    $('view').innerHTML = '<p class="placeholder">Add at least two cards below to walk through their pairs.</p>';
+    return;
+  }
+  const options = cards
+    .map((c) => `<option value="${esc(c.id)}"${c.id === app.walkCard ? ' selected' : ''}>${esc(c.name)}</option>`)
+    .join('');
+  const items = walkKeys().map((key, i) => {
+    const p = getPair(key);
+    const partner = cardById(key.split('|').find((id) => id !== app.walkCard));
+    const sel = key === ui.selKey ? ' sel' : '';
+    return `<li><button class="${sel}" data-k="${esc(key)}">
+      <span class="num">${i + 1}.</span><i class="dot st-${p.state}" title="${p.state}"></i>
+      <span class="partner">+ ${esc(partner.name)}</span>
+      <span class="pname">${p.name ? esc(p.name) : esc(p.state)}</span></button></li>`;
+  }).join('');
+  const card = cardById(app.walkCard);
+  $('view').innerHTML = `<div class="walk-head"><label>Card <select id="walkCard">${options}</select></label></div>
+    ${card.detail ? `<p class="hint">${esc(card.detail)}</p>` : ''}
+    <ol class="walk-list">${items}</ol>
+    <p class="hint">Pick a pair to edit it beside the list; use Previous / Next to step through.</p>`;
+  $('walkCard').addEventListener('change', (e) => {
+    app.walkCard = e.target.value;
+    save();
+    const keys = walkKeys();
+    if (!keys.includes(ui.selKey)) ui.selKey = null;
+    renderData();
+    renderSide();
+  });
+  $('view').querySelectorAll('.walk-list button').forEach((b) => {
+    b.addEventListener('click', () => openPair(b.dataset.k));
+  });
+}
+
+function renderWalkNav() {
+  const nav = $('walkNav');
+  if (!nav) return;
+  const keys = walkKeys();
+  const idx = keys.indexOf(ui.selKey);
+  const card = cardById(app.walkCard);
+  nav.querySelector('.pos').textContent = card
+    ? `${card.name}: ${idx >= 0 ? idx + 1 : '–'} of ${keys.length}`
+    : '';
+}
+
+function renderSide() {
+  const side = $('side');
+  const nav = app.view === 'walk' && deck().cards.length >= 2
+    ? `<div class="walk-nav" id="walkNav">
+        <button id="navPrev">Previous</button><button id="navNext">Next</button><button id="navUnfilled" class="primary">Next unfilled</button>
+        <span class="pos hint" style="margin:0;align-self:center"></span></div>`
+    : '';
+  if (!ui.selKey) {
+    side.innerHTML = nav + '<p class="placeholder">Click a line in the ring, a cell in the grid or a row in the walkthrough to open that pair here.</p>';
+  } else {
+    side.innerHTML = nav + editorHtml(ui.selKey);
+    wireEditor(ui.selKey);
+  }
+  if (nav) {
+    $('navPrev').addEventListener('click', () => step(-1));
+    $('navNext').addEventListener('click', () => step(1));
+    $('navUnfilled').addEventListener('click', nextUnfilled);
+    renderWalkNav();
+  }
+}
+
+function editorHtml(key) {
+  const p = getPair(key);
+  const [a, b] = pairCards(key);
+  const btns = STATES.map((s) => `<button type="button" class="st-${s}" data-state="${s}" aria-pressed="${p.state === s}"><i class="dot st-${s}"></i>${s}</button>`).join('');
+  return `<div class="editor">
+    <h2>${esc(a.name)} + ${esc(b.name)}</h2>
+    <div class="details">
+      ${a.detail ? `<div><b>${esc(a.name)}:</b> ${esc(a.detail)}</div>` : ''}
+      ${b.detail ? `<div><b>${esc(b.name)}:</b> ${esc(b.detail)}</div>` : ''}
+    </div>
+    <label>State</label>
+    <div class="state-btns" id="edStates">${btns}</div>
+    <label for="edName">Name</label>
+    <input id="edName" value="${esc(p.name)}" placeholder="${esc(a.name + ' + ' + b.name)}">
+    <label for="edEffect">Effect</label>
+    <textarea id="edEffect" rows="3" placeholder="What the pair does">${esc(p.effect)}</textarea>
+    <label for="edNotes">Notes</label>
+    <textarea id="edNotes" rows="4" placeholder="Anything else">${esc(p.notes)}</textarea>
+    <div class="editor-foot"><span>Saved as you type.</span><button type="button" id="edClose">Close</button></div>
+  </div>`;
+}
+
+function wireEditor(key) {
+  [['edName', 'name'], ['edEffect', 'effect'], ['edNotes', 'notes']].forEach(([id, field]) => {
+    $(id).addEventListener('input', (e) => {
+      setPair(key, { [field]: e.target.value });
+      renderData();
+    });
+  });
+  $('edStates').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      setPair(key, { state: b.dataset.state });
+      $('edStates').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      renderData();
+    });
+  });
+  $('edClose').addEventListener('click', closePair);
+}
+
+function openPair(key) {
+  ui.selKey = key;
+  renderData();
+  renderSide();
+  if (window.innerWidth <= NARROW_WIDTH) $('side').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closePair() {
+  ui.selKey = null;
+  renderData();
+  renderSide();
+}
+
+function step(dir) {
+  const keys = walkKeys();
+  if (keys.length === 0) return;
+  const idx = keys.indexOf(ui.selKey);
+  const next = idx < 0 ? (dir > 0 ? 0 : keys.length - 1) : (idx + dir + keys.length) % keys.length;
+  openPair(keys[next]);
+}
+
+function nextUnfilled() {
+  const keys = walkKeys();
+  const idx = keys.indexOf(ui.selKey);
+  for (let n = 1; n <= keys.length; n++) {
+    const key = keys[(idx + n + keys.length) % keys.length];
+    if (getPair(key).state === 'empty') { openPair(key); return; }
+  }
+  toast(`Every pair of ${cardById(app.walkCard).name} is filled.`);
+}
+
+// ---------- cards ----------
+
+function renderCards() {
+  $('cardRows').innerHTML = deck().cards.map((c) => `<div class="card-row" data-id="${esc(c.id)}">
+      <input class="name" value="${esc(c.name)}" aria-label="Card name">
+      <input class="detail" value="${esc(c.detail)}" placeholder="One-line description" aria-label="Description of ${esc(c.name)}">
+      <button class="danger" type="button">Delete</button></div>`).join('')
+    || '<p class="placeholder">No cards yet.</p>';
+  $('cardRows').querySelectorAll('.card-row').forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector('.name').addEventListener('change', (e) => renameCard(id, e.target));
+    row.querySelector('.detail').addEventListener('change', (e) => updateCard(id, { detail: e.target.value.trim() }));
+    row.querySelector('button').addEventListener('click', () => deleteCard(id));
+  });
+}
+
+function updateCard(id, patch) {
+  const d = deck();
+  d.cards = d.cards.map((c) => (c.id === id ? { ...c, ...patch } : c));
+  save();
+  renderAll();
+}
+
+function renameCard(id, input) {
+  const name = input.value.trim();
+  if (!name) {
+    input.value = cardById(id).name;
+    toast('A card needs a name.');
+    return;
+  }
+  updateCard(id, { name });
+}
+
+function deleteCard(id) {
+  const d = deck();
+  const card = cardById(id);
+  const keys = Object.keys(d.pairs).filter((k) => k.split('|').includes(id));
+  const filled = keys.filter((k) => d.pairs[k].state !== 'empty').length;
+  const msg = `Delete "${card.name}"? Its ${d.cards.length - 1} pairs go with it` + (filled ? `, including ${filled} not empty.` : '.');
+  if (!confirm(msg)) return;
+  const pairs = { ...d.pairs };
+  keys.forEach((k) => { delete pairs[k]; });
+  d.pairs = pairs;
+  d.cards = d.cards.filter((c) => c.id !== id);
+  save();
+  renderAll();
+}
+
+$('cardAdd').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('newCardName').value.trim();
+  if (!name) { toast('Give the new card a name.'); return; }
+  const d = deck();
+  d.cards = [...d.cards, { id: uid('c'), name, detail: $('newCardDetail').value.trim() }];
+  save();
+  $('newCardName').value = '';
+  $('newCardDetail').value = '';
+  renderAll();
+  $('newCardName').focus();
+});
+
+// ---------- decks ----------
+
+function switchDeck(id) {
+  app.currentId = id;
+  ui.selKey = null;
+  ui.pinCard = null;
+  app.walkCard = null;
+  save();
+  renderAll();
+}
+
+function addDeck(d) {
+  app.decks = [...app.decks, d];
+  switchDeck(d.id);
+}
+
+$('deckSelect').addEventListener('change', (e) => switchDeck(e.target.value));
+
+$('deckNew').addEventListener('click', () => {
+  const name = prompt('Name for the new deck', 'New deck');
+  if (name === null) return;
+  addDeck({ id: uid('d'), name: name.trim() || 'New deck', cards: [], pairs: {} });
+});
+
+$('deckRename').addEventListener('click', () => {
+  const d = deck();
+  const name = prompt('Rename deck', d.name);
+  if (name === null || !name.trim()) return;
+  d.name = name.trim();
+  save();
+  renderDeckSelect();
+});
+
+$('deckDelete').addEventListener('click', () => {
+  if (app.decks.length === 1) { toast('Keep at least one deck; make a new one first.'); return; }
+  const d = deck();
+  if (!confirm(`Delete the deck "${d.name}" and all its pairs? Export it first if you may want it back.`)) return;
+  app.decks = app.decks.filter((x) => x.id !== d.id);
+  switchDeck(app.decks[0].id);
+});
+
+$('deckPromote').addEventListener('click', () => {
+  const d = deck();
+  const done = allPairKeys().filter((k) => getPair(k).state === 'done');
+  if (done.length === 0) { toast('No done pairs in this deck yet.'); return; }
+  const cards = done.map((k) => ({ id: uid('c'), name: getPair(k).name || pairLabel(k), detail: getPair(k).effect }));
+  addDeck({ id: uid('d'), name: d.name + ' · done pairs', cards, pairs: {} });
+  toast(`New deck with ${cards.length} cards from done pairs.`);
+});
+
+$('deckExport').addEventListener('click', () => {
+  const d = deck();
+  const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (d.name.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '') || 'deck') + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$('deckImport').addEventListener('click', () => $('importFile').click());
+
+$('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const list = Array.isArray(data) ? data : Array.isArray(data.decks) ? data.decks : [data];
+    const taken = new Set(app.decks.map((d) => d.id));
+    const decks = list.map(normaliseDeck).map((d) => (taken.has(d.id) ? { ...d, id: uid('d') } : d));
+    if (decks.length === 0) throw new Error('the file has no decks');
+    app.decks = [...app.decks, ...decks];
+    switchDeck(decks[0].id);
+    toast(`Imported ${decks.length === 1 ? '"' + decks[0].name + '"' : decks.length + ' decks'}.`);
+  } catch (err) {
+    toast('Could not import ' + file.name + ': ' + err.message);
+  }
+});
+
+// ---------- misc ----------
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, TOAST_MS);
+}
+
+document.querySelectorAll('.tabs [data-view]').forEach((b) => {
+  b.addEventListener('click', () => {
+    app.view = b.dataset.view;
+    save();
+    renderData();
+    renderSide();
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ui.selKey && !e.target.closest('input, textarea, select')) closePair();
+});
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (app.view === 'ring') renderView(); }, RESIZE_DEBOUNCE_MS);
+});
+
+renderAll();
+</script>
+</body>
+</html>
