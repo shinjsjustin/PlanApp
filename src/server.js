@@ -23,6 +23,7 @@ const peopleRoutes = require('./routes/people');
 const reminderSubcategoriesRoutes = require('./routes/reminderSubcategories');
 const remindersRoutes = require('./routes/reminders');
 const pushRoutes = require('./routes/push');
+const deviceTokensRoutes = require('./routes/deviceTokens');
 const legalRoutes = require('./routes/legal');
 
 const isAuth = require('./middleware/isAuth');
@@ -91,6 +92,7 @@ app.use('/api/people', isAuth, respond, peopleRoutes);
 app.use('/api/reminder-subcategories', isAuth, respond, reminderSubcategoriesRoutes);
 app.use('/api/reminders', isAuth, respond, remindersRoutes);
 app.use('/api/push', isAuth, respond, pushRoutes);
+app.use('/api/device-tokens', isAuth, respond, deviceTokensRoutes);
 
 // Terminal error handler for the resource routes above.
 app.use(errorHandler);
