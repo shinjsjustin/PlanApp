@@ -8,6 +8,7 @@ import usePlaces from '../../hooks/usePlaces';
 
 jest.mock('../../hooks/useReminders');
 jest.mock('../../hooks/usePlaces');
+jest.mock('./PushButton', () => () => <p>push button</p>);
 jest.mock('./SubcategoryManager', () => ({ placeId, onChanged }) => (
     <div>
         <p>{`subcategories of ${placeId}`}</p>
@@ -45,6 +46,8 @@ beforeEach(() => {
     useReminders.mockImplementation(() => hook);
     usePlaces.mockReturnValue({ status: 'ready', places: [HOME, SHOP], error: null });
 });
+
+afterEach(() => window.history.replaceState(null, '', '/'));
 
 const lastQuery = () => useReminders.mock.calls[useReminders.mock.calls.length - 1][0];
 
@@ -228,6 +231,47 @@ describe('RemindersPage', () => {
         expect(hook.reload).not.toHaveBeenCalled();
         await userEvent.click(screen.getByRole('button', { name: 'Changed' }));
         expect(hook.reload).toHaveBeenCalledTimes(1);
+    });
+
+    test('renders the notifications button in the header', () => {
+        render(<RemindersPage />);
+        expect(within(screen.getByRole('banner')).getByText('push button')).toBeInTheDocument();
+    });
+
+    describe('?open=<id>', () => {
+        test('opens that reminder edit dialog and clears the param', async () => {
+            hook.reminders = [reminder(1, 'Buy milk'), reminder(7, 'Call mum')];
+            window.history.pushState(null, '', '/reminders?open=7&x=1');
+            render(<RemindersPage />);
+            expect(await screen.findByText('form for Call mum')).toBeInTheDocument();
+            expect(window.location.search).toBe('?x=1');
+        });
+
+        test('waits for the list to load before opening', () => {
+            hook.status = 'loading';
+            hook.reminders = [];
+            window.history.pushState(null, '', '/reminders?open=1');
+            const { rerender } = render(<RemindersPage />);
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+            expect(window.location.search).toBe('?open=1');
+            hook.status = 'ready';
+            hook.reminders = [reminder(1, 'Buy milk')];
+            rerender(<RemindersPage />);
+            expect(screen.getByText('form for Buy milk')).toBeInTheDocument();
+        });
+
+        test('does nothing for an id that is not in the list', () => {
+            window.history.pushState(null, '', '/reminders?open=99');
+            render(<RemindersPage />);
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        });
+
+        test('opens only once, so a closed dialog stays closed', async () => {
+            window.history.pushState(null, '', '/reminders?open=1');
+            render(<RemindersPage />);
+            await userEvent.click(await screen.findByRole('button', { name: 'Cancel form' }));
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        });
     });
 
     describe('date groups', () => {

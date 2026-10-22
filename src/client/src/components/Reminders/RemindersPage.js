@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import useReminders from '../../hooks/useReminders';
 import usePlaces from '../../hooks/usePlaces';
 import { groupByDue } from '../../lib/reminderGroups';
 import { todayKey } from '../../lib/dates';
 import FormDialog, { confirmDiscard } from '../AddressBook/FormDialog';
+import PushButton from './PushButton';
 import ReminderForm from './ReminderForm';
 import ReminderRow from './ReminderRow';
 import SnoozeDialog from './SnoozeDialog';
@@ -26,6 +27,8 @@ const SORTS = [
     { value: 'created', label: 'Created' },
 ];
 const DELETE_MESSAGE = 'Delete this reminder?';
+
+const OPEN_PARAM = 'open';
 
 const toPlaceId = (value) => {
     if (value === ALL_PLACES) return undefined;
@@ -55,6 +58,18 @@ const RemindersPage = () => {
         setIsDirty(false);
         setSaveFailed(false);
     };
+
+    // A tapped push lands here with ?open=<id>; open it once the list has loaded.
+    useEffect(() => {
+        if (reminders.status !== 'ready') return;
+        const url = new URL(window.location.href);
+        const target = reminders.reminders.find((item) => String(item.id) === url.searchParams.get(OPEN_PARAM));
+        if (!target) return;
+        url.searchParams.delete(OPEN_PARAM);
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+        openDialog({ kind: 'form', reminder: target });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reminders.status, reminders.reminders]);
 
     const finish = async (call) => {
         const didSucceed = await call();
@@ -106,6 +121,7 @@ const RemindersPage = () => {
                 <button type="button" className="neon-button" onClick={() => openDialog({ kind: 'form', reminder: null })}>
                     New reminder
                 </button>
+                <PushButton />
             </header>
 
             {reminders.error && <p role="alert" className="places-error">{reminders.error}</p>}
