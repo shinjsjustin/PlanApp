@@ -49,3 +49,36 @@
     flex-wrap: wrap;
     gap: var(--space-sm);
 }
+
+.reminders-page {
+    padding: var(--space-md);
+    color: var(--text-primary);
+}
+
+.reminders-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.reminders-views,
+.snooze-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.reminders-views [aria-pressed="true"] {
+    background: var(--color-primary);
+    color: var(--text-white);
+}
+
+.reminder-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+}

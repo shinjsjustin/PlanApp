@@ -1,0 +1,179 @@
+import React from 'react';
+import { render, screen, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+import RemindersPage from './RemindersPage';
+import useReminders from '../../hooks/useReminders';
+import usePlaces from '../../hooks/usePlaces';
+
+jest.mock('../../hooks/useReminders');
+jest.mock('../../hooks/usePlaces');
+jest.mock('./ReminderForm', () => ({ reminder, onSubmit, onCancel, saveFailed }) => (
+    <div>
+        <p>{reminder ? `form for ${reminder.title}` : 'blank form'}</p>
+        {saveFailed && <p>save failed</p>}
+        <button type="button" onClick={() => onSubmit({ title: 'Saved' })}>Save</button>
+        <button type="button" onClick={onCancel}>Cancel form</button>
+    </div>
+));
+
+const HOME = { id: 1, name: 'Home' };
+const SHOP = { id: 2, name: 'Shop' };
+const reminder = (id, title, status = 'open') => ({
+    id, title, status, place: null, subcategory: null, person: null, project: null, todo: null,
+    dueDate: null, dueTime: null, alertAt: null, trigger: 'none', priority: 'normal',
+    snoozedUntil: null, repeat: { rule: 'none', every: null, weekdays: [] }, overdue: false,
+});
+
+let hook;
+
+beforeEach(() => {
+    hook = {
+        status: 'ready', reminders: [reminder(1, 'Buy milk')], error: null,
+        add: jest.fn().mockResolvedValue(true), edit: jest.fn().mockResolvedValue(true),
+        remove: jest.fn().mockResolvedValue(true), done: jest.fn().mockResolvedValue(true),
+        dismiss: jest.fn().mockResolvedValue(true), reopen: jest.fn().mockResolvedValue(true),
+        snooze: jest.fn().mockResolvedValue(true), reload: jest.fn(),
+    };
+    useReminders.mockImplementation(() => hook);
+    usePlaces.mockReturnValue({ status: 'ready', places: [HOME, SHOP], error: null });
+});
+
+const lastQuery = () => useReminders.mock.calls[useReminders.mock.calls.length - 1][0];
+
+describe('RemindersPage', () => {
+    test('shows the heading, default query and the reminders', () => {
+        render(<RemindersPage />);
+        expect(screen.getByRole('heading', { name: 'Reminders' })).toBeInTheDocument();
+        expect(screen.getByText('Buy milk')).toBeInTheDocument();
+        expect(lastQuery()).toEqual({ placeId: undefined, status: 'open', sort: 'due' });
+    });
+
+    test('place filter offers All, each place and No place and queries by place', async () => {
+        render(<RemindersPage />);
+        const select = screen.getByLabelText('Place');
+        expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Home', 'Shop', 'No place']);
+        await userEvent.selectOptions(select, 'Shop');
+        expect(lastQuery().placeId).toBe(2);
+        await userEvent.selectOptions(select, 'No place');
+        expect(lastQuery().placeId).toBe('none');
+        await userEvent.selectOptions(select, 'All');
+        expect(lastQuery().placeId).toBeUndefined();
+    });
+
+    test('view buttons map to open, snoozed and history', async () => {
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Snoozed' }));
+        expect(lastQuery().status).toBe('snoozed');
+        await userEvent.click(screen.getByRole('button', { name: 'History' }));
+        expect(lastQuery().status).toBe('history');
+        await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+        expect(lastQuery().status).toBe('open');
+    });
+
+    test('sort select offers the four sorts with due first', async () => {
+        render(<RemindersPage />);
+        const select = screen.getByLabelText('Sort');
+        expect(within(select).getAllByRole('option').map((o) => o.value)).toEqual(['due', 'place', 'subcategory', 'created']);
+        await userEvent.selectOptions(select, 'subcategory');
+        expect(lastQuery().sort).toBe('subcategory');
+    });
+
+    test('New reminder saves through add and closes on success', async () => {
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'New reminder' }));
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+        expect(hook.add).toHaveBeenCalledWith({ title: 'Saved' });
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    test('a failed save keeps the dialog open and shows the hook error', async () => {
+        hook.add.mockResolvedValue(false);
+        hook.error = 'Title is too long';
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'New reminder' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(await within(screen.getByRole('dialog')).findByText('Title is too long')).toBeInTheDocument();
+        expect(await screen.findByText('save failed')).toBeInTheDocument();
+    });
+
+    test('Edit opens the form with the reminder and saves through edit', async () => {
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+        expect(screen.getByText('form for Buy milk')).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+        expect(hook.edit).toHaveBeenCalledWith(1, { title: 'Saved' });
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    test('Delete removes only after confirming', async () => {
+        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        expect(hook.remove).not.toHaveBeenCalled();
+        confirm.mockReturnValue(true);
+        await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        expect(hook.remove).toHaveBeenCalledWith(1);
+        confirm.mockRestore();
+    });
+
+    test('Done and Dismiss call their actions', async () => {
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+        expect(hook.done).toHaveBeenCalledWith(1);
+        await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+        expect(hook.dismiss).toHaveBeenCalledWith(1);
+    });
+
+    test('Reopen calls reopen for a closed reminder', async () => {
+        hook.reminders = [reminder(5, 'Old', 'done')];
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+        expect(hook.reopen).toHaveBeenCalledWith(5);
+    });
+
+    test('Snooze opens the dialog and sends a future ISO instant, then closes', async () => {
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Snooze' }));
+        await userEvent.click(screen.getByRole('button', { name: '1 hour' }));
+        expect(hook.snooze).toHaveBeenCalledTimes(1);
+        const [id, until] = hook.snooze.mock.calls[0];
+        expect(id).toBe(1);
+        expect(until).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+        expect(new Date(until).getTime()).toBeGreaterThan(Date.now());
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    test('a failed snooze keeps the dialog open', async () => {
+        hook.snooze.mockResolvedValue(false);
+        hook.error = 'Already snoozed';
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Snooze' }));
+        await userEvent.click(screen.getByRole('button', { name: '1 hour' }));
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(await within(screen.getByRole('dialog')).findByText('Already snoozed')).toBeInTheDocument();
+    });
+
+    test('a failed action shows the hook error on the page', async () => {
+        hook.error = 'Reminder is not open';
+        render(<RemindersPage />);
+        expect(screen.getByRole('alert')).toHaveTextContent('Reminder is not open');
+    });
+
+    test('loading, empty and load error states show text', () => {
+        hook.status = 'loading';
+        const { rerender } = render(<RemindersPage />);
+        expect(screen.getByText('Loading reminders...')).toBeInTheDocument();
+        hook.status = 'ready';
+        hook.reminders = [];
+        rerender(<RemindersPage />);
+        expect(screen.getByText('No reminders here.')).toBeInTheDocument();
+        hook.status = 'error';
+        hook.error = 'Could not load';
+        rerender(<RemindersPage />);
+        expect(screen.getByRole('alert')).toHaveTextContent('Could not load');
+        expect(screen.queryByText('No reminders here.')).not.toBeInTheDocument();
+    });
+});
