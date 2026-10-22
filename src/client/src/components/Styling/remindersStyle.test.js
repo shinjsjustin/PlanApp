@@ -44,3 +44,10 @@ it('paints the reminder Delete button with the danger colour and white text', ()
     expect(body).toMatch(/border-color:\s*var\(--color-danger\)/);
     expect(body).toMatch(/margin-top:\s*var\(--space-lg\)/);
 });
+
+it('styles the reminder group heading with a glow colour, medium font and spacing', () => {
+    const body = rule('.reminder-group-heading');
+    expect(body).toMatch(/color:\s*var\(--text-glow\)/);
+    expect(body).toMatch(/font-size:\s*var\(--font-md\)/);
+    expect(body).toMatch(/margin:\s*var\(--space-md\) 0 var\(--space-sm\)/);
+});

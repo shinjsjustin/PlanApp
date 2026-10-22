@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 
 import useReminders from '../../hooks/useReminders';
 import usePlaces from '../../hooks/usePlaces';
+import { groupByDue } from '../../lib/reminderGroups';
+import { todayKey } from '../../lib/dates';
 import FormDialog, { confirmDiscard } from '../AddressBook/FormDialog';
 import ReminderForm from './ReminderForm';
 import ReminderRow from './ReminderRow';
@@ -76,6 +78,25 @@ const RemindersPage = () => {
     };
 
     const idAction = (action) => (reminder) => action(reminder.id);
+    const isGrouped = view === 'open' && sort === 'due';
+
+    const renderList = (items) => (
+        <ul className="reminder-list">
+            {items.map((reminder) => (
+                <ReminderRow
+                    key={reminder.id}
+                    reminder={reminder}
+                    onDone={idAction(reminders.done)}
+                    onDismiss={idAction(reminders.dismiss)}
+                    onReopen={idAction(reminders.reopen)}
+                    onSnooze={(target) => openDialog({ kind: 'snooze', reminder: target, now: new Date() })}
+                    onEdit={(target) => openDialog({ kind: 'form', reminder: target })}
+                    onDelete={(target) => confirmDelete(() => reminders.remove(target.id))}
+                />
+            ))}
+        </ul>
+    );
+
     const dialogError = saveFailed ? reminders.error : null;
 
     return (
@@ -128,20 +149,12 @@ const RemindersPage = () => {
             {reminders.status === 'loading' && <p>Loading reminders...</p>}
             {reminders.status === 'ready' && reminders.reminders.length === 0 && <p>No reminders here.</p>}
             {reminders.status === 'ready' && reminders.reminders.length > 0 && (
-                <ul className="reminder-list">
-                    {reminders.reminders.map((reminder) => (
-                        <ReminderRow
-                            key={reminder.id}
-                            reminder={reminder}
-                            onDone={idAction(reminders.done)}
-                            onDismiss={idAction(reminders.dismiss)}
-                            onReopen={idAction(reminders.reopen)}
-                            onSnooze={(target) => openDialog({ kind: 'snooze', reminder: target, now: new Date() })}
-                            onEdit={(target) => openDialog({ kind: 'form', reminder: target })}
-                            onDelete={(target) => confirmDelete(() => reminders.remove(target.id))}
-                        />
-                    ))}
-                </ul>
+                isGrouped ? groupByDue(reminders.reminders, todayKey()).map((group) => (
+                    <section key={group.label}>
+                        <h2 className="reminder-group-heading">{group.label}</h2>
+                        {renderList(group.reminders)}
+                    </section>
+                )) : renderList(reminders.reminders)
             )}
 
             {dialog?.kind === 'form' && (

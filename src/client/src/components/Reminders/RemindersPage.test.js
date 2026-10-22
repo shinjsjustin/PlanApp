@@ -229,4 +229,34 @@ describe('RemindersPage', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Changed' }));
         expect(hook.reload).toHaveBeenCalledTimes(1);
     });
+
+    describe('date groups', () => {
+        const dated = (id, title, dueDate) => ({ ...reminder(id, title), dueDate });
+        const headings = () => screen.queryAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+
+        beforeEach(() => {
+            hook.reminders = [dated(1, 'Late', '2000-01-01'), dated(2, 'Far', '2999-01-01'), reminder(3, 'Someday')];
+        });
+
+        test('Open sorted by Due groups under headings for the groups present', () => {
+            render(<RemindersPage />);
+            expect(headings()).toEqual(['Overdue', 'Upcoming', 'No date']);
+            expect(document.querySelectorAll('ul.reminder-list')).toHaveLength(3);
+        });
+
+        test('Place sort shows a flat list with no headings', async () => {
+            render(<RemindersPage />);
+            await userEvent.selectOptions(screen.getByLabelText('Sort'), 'place');
+            expect(headings()).toEqual([]);
+            expect(document.querySelectorAll('ul.reminder-list')).toHaveLength(1);
+        });
+
+        test('Snoozed and History views show no headings', async () => {
+            render(<RemindersPage />);
+            await userEvent.click(screen.getByRole('button', { name: 'History' }));
+            expect(headings()).toEqual([]);
+            await userEvent.click(screen.getByRole('button', { name: 'Snoozed' }));
+            expect(headings()).toEqual([]);
+        });
+    });
 });
