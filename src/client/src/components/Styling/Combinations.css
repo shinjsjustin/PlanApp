@@ -144,3 +144,133 @@
     .combinations-page .card-row input.detail,
     .combinations-page .card-add input.detail { grid-column: 1 / -1; grid-row: 2; }
 }
+
+.combinations-page .placeholder,
+.combinations-page .hint { color: var(--text-muted); font-size: var(--font-sm); }
+
+.combinations-page .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.combinations-page .tabs button[aria-selected="true"] {
+    background: var(--neon-blue);
+    color: var(--bg-page);
+    border-color: var(--neon-blue);
+    font-weight: 600;
+}
+
+.combinations-page .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-left: auto;
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+}
+
+.combinations-page .legend span { display: inline-flex; align-items: center; }
+
+.combinations-page .grid-wrap {
+    overflow: auto;
+    max-height: calc(100vh - 230px);
+    border: 1px solid var(--combo-line);
+    border-radius: var(--radius-md);
+}
+
+.combinations-page table.grid { border-collapse: separate; border-spacing: 0; font-size: var(--font-sm); }
+
+.combinations-page .grid th {
+    position: sticky;
+    background: var(--combo-surface-raised);
+    color: var(--text-glow);
+    font-weight: 600;
+    padding: var(--space-xs) var(--space-sm);
+    max-width: 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--combo-line);
+    border-right: 1px solid var(--combo-line);
+}
+
+.combinations-page .grid thead th { top: 0; z-index: 2; }
+.combinations-page .grid tbody th { left: 0; z-index: 1; text-align: left; }
+.combinations-page .grid thead th:first-child { left: 0; z-index: 3; }
+
+.combinations-page .grid td {
+    min-width: 64px;
+    max-width: 110px;
+    height: 40px;
+    padding: var(--space-xs);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--combo-surface);
+    border-right: 1px solid var(--combo-surface);
+}
+
+.combinations-page .grid td.diag,
+.combinations-page .grid td.lower { background: var(--combo-surface); }
+
+.combinations-page .cell { cursor: pointer; font-weight: 600; }
+.combinations-page .cell.st-empty { background: var(--combo-surface-raised); color: var(--combo-card); }
+.combinations-page .cell.st-drafted { background: var(--combo-drafted); color: var(--bg-page); }
+.combinations-page .cell.st-done { background: var(--combo-done); color: var(--bg-page); }
+.combinations-page .cell.st-struck {
+    background: var(--combo-surface-raised);
+    color: var(--combo-struck);
+    outline: 2px dashed var(--combo-struck);
+    outline-offset: -4px;
+    text-decoration: line-through;
+}
+.combinations-page .cell:hover { filter: brightness(1.15); }
+.combinations-page .cell.sel { box-shadow: inset 0 0 0 3px var(--text-white); }
+
+.combinations-page .editor h2 { margin: 0 0 var(--space-xs); font-size: var(--font-md); }
+.combinations-page .editor .details { color: var(--text-muted); font-size: var(--font-sm); margin: 0 0 var(--space-md); }
+.combinations-page .editor .details div { margin-top: var(--space-xs); }
+.combinations-page .editor label,
+.combinations-page .editor .field-label { display: block; margin-top: var(--space-sm); }
+.combinations-page .editor input,
+.combinations-page .editor textarea { display: block; width: 100%; margin-top: var(--space-xs); }
+
+.combinations-page .editor textarea {
+    background: var(--combo-card);
+    color: var(--bg-page);
+    border: 1px solid var(--combo-line);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm);
+    resize: vertical;
+}
+
+.combinations-page .state-btns {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-xs);
+    margin-top: var(--space-xs);
+}
+
+.combinations-page .state-btns button { font-size: var(--font-sm); }
+.combinations-page .state-btns button[aria-pressed="true"].st-empty { background: var(--combo-empty); color: var(--bg-page); border-color: var(--combo-empty); }
+.combinations-page .state-btns button[aria-pressed="true"].st-drafted { background: var(--combo-drafted); color: var(--bg-page); border-color: var(--combo-drafted); }
+.combinations-page .state-btns button[aria-pressed="true"].st-done { background: var(--combo-done); color: var(--bg-page); border-color: var(--combo-done); }
+.combinations-page .state-btns button[aria-pressed="true"].st-struck { background: var(--combo-surface-raised); color: var(--combo-struck); border: 2px dashed var(--combo-struck); }
+
+.combinations-page .editor-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-md);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+}
+
+@media (max-width: 860px) {
+    .combinations-page .grid-wrap { max-height: 70vh; }
+    .combinations-page .legend { margin-left: 0; }
+}

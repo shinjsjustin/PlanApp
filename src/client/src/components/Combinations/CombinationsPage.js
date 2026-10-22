@@ -1,15 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import useCombinations from '../../hooks/useCombinations';
-import { countStates } from '../../lib/combinations';
+import { countStates, getPair } from '../../lib/combinations';
 import CardList from './CardList';
 import CountsBar from './CountsBar';
 import DeckBar from './DeckBar';
+import GridView from './GridView';
+import PairPanel from './PairPanel';
 import '../Styling/Combinations.css';
 
 const PROJECT_PARAM = 'project';
 const DECK_PARAM = 'deck';
+
+const NARROW_WIDTH = 860;
+const STATE_LEGEND = ['empty', 'drafted', 'done', 'struck'];
 
 const toId = (value) => (value === null ? undefined : Number(value));
 
@@ -18,8 +23,11 @@ const CombinationsPage = () => {
     const projectId = toId(params.get(PROJECT_PARAM));
     const deckId = toId(params.get(DECK_PARAM));
     const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck,
-        addCard, updateCard, moveCard, deleteCard } =
+        addCard, updateCard, moveCard, deleteCard, savePair } =
         useCombinations({ projectId, deckId });
+
+    const [selectedKey, setSelectedKey] = useState(null);
+    const sideRef = useRef(null);
 
     const chooseDeck = (id) => {
         const next = new URLSearchParams(params);
@@ -45,6 +53,18 @@ const CombinationsPage = () => {
         if (next) chooseDeck(next.id);
     };
 
+    const openPair = (key) => {
+        setSelectedKey(key);
+        if (window.innerWidth <= NARROW_WIDTH && typeof sideRef.current?.scrollIntoView === 'function') {
+            sideRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    // A key left over from another deck or a deleted card opens nothing.
+    const [selA, selB] = selectedKey ? selectedKey.split('|').map(Number) : [];
+    const cardA = cards.find((c) => c.id === selA);
+    const cardB = cards.find((c) => c.id === selB);
+
     const backTo = projectId === undefined ? '/projects' : `/projects/${projectId}`;
 
     return (
@@ -64,8 +84,35 @@ const CombinationsPage = () => {
             {status === 'error' && <p className="deck-error" role="alert">{error}</p>}
             {deck && <CountsBar cardCount={cards.length} counts={countStates(cards, pairs)} />}
             <div className="layout">
-                <section className="panel view-panel" />
-                <aside className="panel side" />
+                <section className="panel view-panel">
+                    <div className="tabs" role="tablist">
+                        <button type="button" role="tab" aria-selected="true">Grid</button>
+                        <div className="legend">
+                            {STATE_LEGEND.map((state) => (
+                                <span key={state}><i className={`dot st-${state}`} />{state}</span>
+                            ))}
+                        </div>
+                    </div>
+                    {deck && (
+                        <GridView cards={cards} pairs={pairs} selectedKey={selectedKey} onOpen={openPair} />
+                    )}
+                </section>
+                <aside className="panel side" ref={sideRef}>
+                    {cardA && cardB ? (
+                        <PairPanel
+                            key={selectedKey}
+                            cardA={cardA}
+                            cardB={cardB}
+                            pair={getPair(pairs, cardA.id, cardB.id)}
+                            savePair={savePair}
+                            onClose={() => setSelectedKey(null)}
+                        />
+                    ) : (
+                        <p className="placeholder">
+                            Click a line in the ring, a cell in the grid or a row in the walkthrough to open that pair here.
+                        </p>
+                    )}
+                </aside>
                 <section className="panel cards">
                     {deck && (
                         <CardList
