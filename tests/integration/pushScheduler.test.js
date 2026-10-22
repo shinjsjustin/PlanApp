@@ -1,8 +1,13 @@
 'use strict';
 
 jest.mock('../../src/lib/push/webPush');
+jest.mock('../../src/lib/push/sendPush', () => {
+    const actual = jest.requireActual('../../src/lib/push/sendPush');
+    return { ...actual, sendToOwner: jest.fn(actual.sendToOwner) };
+});
 
 const webPush = require('../../src/lib/push/webPush');
+const sendPush = require('../../src/lib/push/sendPush');
 const remindersRepo = require('../../src/db/repositories/remindersRepo');
 const subsRepo = require('../../src/db/repositories/pushSubscriptionsRepo');
 const sendsRepo = require('../../src/db/repositories/pushSendsRepo');
@@ -42,7 +47,7 @@ describe('runOnce', () => {
 
         const result = await runOnce({ now: NOW });
 
-        expect(result).toEqual({ claimed: 1, sent: 1 });
+        expect(result).toEqual({ claimed: 1, sent: 1, failed: 0 });
         expect(webPush.sendNotification).toHaveBeenCalledTimes(1);
         expect(webPush.sendNotification.mock.calls[0][1]).toEqual({
             title: 'Call mom',
@@ -59,7 +64,7 @@ describe('runOnce', () => {
         await runOnce({ now: NOW });
         const second = await runOnce({ now: NOW });
 
-        expect(second).toEqual({ claimed: 0, sent: 0 });
+        expect(second).toEqual({ claimed: 0, sent: 0, failed: 0 });
         expect(webPush.sendNotification).toHaveBeenCalledTimes(1);
     });
 
@@ -92,7 +97,7 @@ describe('runOnce', () => {
 
         const result = await runOnce({ now: NOW });
 
-        expect(result).toEqual({ claimed: 0, sent: 0 });
+        expect(result).toEqual({ claimed: 0, sent: 0, failed: 0 });
         expect(webPush.sendNotification).not.toHaveBeenCalled();
     });
 
@@ -121,7 +126,7 @@ describe('runOnce', () => {
 
         const result = await runOnce({ now: NOW });
 
-        expect(result).toEqual({ claimed: 1, sent: 1 });
+        expect(result).toEqual({ claimed: 1, sent: 1, failed: 0 });
     });
 
     test('uses the due date and time in the reminder zone', async () => {
@@ -138,7 +143,34 @@ describe('runOnce', () => {
 
         const result = await runOnce({ now: NOW });
 
-        expect(result).toEqual({ claimed: 1, sent: 0 });
+        expect(result).toEqual({ claimed: 1, sent: 0, failed: 0 });
+    });
+
+    describe('when a send throws', () => {
+        let error;
+        beforeEach(() => {
+            error = jest.spyOn(console, 'error').mockImplementation(() => {});
+        });
+        afterEach(() => error.mockRestore());
+
+        test('logs it, sends the later push, counts it failed, and never retries it', async () => {
+            const a = await setup({ alertAt: ago(HOUR) });
+            const b = await setup({ alertAt: ago(HOUR) });
+            sendPush.sendToOwner.mockRejectedValueOnce(new Error('boom'));
+
+            const result = await runOnce({ now: NOW });
+
+            expect(result).toEqual({ claimed: 2, sent: 1, failed: 1 });
+            expect(webPush.sendNotification).toHaveBeenCalledTimes(1);
+            expect(error).toHaveBeenCalledTimes(1);
+            expect(error.mock.calls[0].some((arg) => String(arg).includes('boom'))).toBe(true);
+            const logged = error.mock.calls[0].join(' ');
+            expect([a.reminder.id, b.reminder.id].some((id) => logged.includes(`reminder ${id}`))).toBe(true);
+
+            const second = await runOnce({ now: NOW });
+            expect(second).toEqual({ claimed: 0, sent: 0, failed: 0 });
+            expect(webPush.sendNotification).toHaveBeenCalledTimes(1);
+        });
     });
 });
 
