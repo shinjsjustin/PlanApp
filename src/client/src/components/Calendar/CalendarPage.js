@@ -9,6 +9,7 @@ import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
 import useCalendar from '../../hooks/useCalendar';
 import useCalendarEvents from '../../hooks/useCalendarEvents';
+import useCalendarReminders from '../../hooks/useCalendarReminders';
 import useCalendarExport from '../../hooks/useCalendarExport';
 import useCalendarNotes from '../../hooks/useCalendarNotes';
 import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
@@ -45,6 +46,7 @@ const CalendarPage = () => {
     const pool = usePool();
     const notes = useCalendarNotes();
     const events = useCalendarEvents();
+    const reminders = useCalendarReminders();
     const exporter = useCalendarExport();
     const calendar = useCalendar({
         onTodoCompleted: pool.refresh,
@@ -201,12 +203,13 @@ const CalendarPage = () => {
                 <CalendarProvider value={calendar}>
                     <PlaceOptionsProvider>
                         {isPhone ? (
-                            <PhoneCalendarView notes={notes} events={events} onOpenSource={openSource} />
+                            <PhoneCalendarView notes={notes} events={events} reminders={reminders} onOpenSource={openSource} />
                         ) : (
                             <CalendarDragArea
                                 pool={pool}
                                 notes={notes}
                                 events={events}
+                                reminders={reminders}
                                 onOpenSource={openSource}
                             />
                         )}

@@ -5,6 +5,7 @@ import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DriveLayer from './DriveLayer';
 import EventLayer from './EventLayer';
+import ReminderLayer from './ReminderLayer';
 import NotePlane from './NotePlane';
 import NowLine from './NowLine';
 import useDateEvents from '../../hooks/useDateEvents';
@@ -18,13 +19,14 @@ import '../Styling/CalendarPhone.css';
 
 // Shared, so a view given no events hands the layers the same array each render.
 const NO_EVENTS = [];
+const NO_REMINDERS = [];
 const NO_ITEMS = [];
 
 const STEP_BY_DIRECTION = { left: nextDateKey, right: previousDateKey };
 
 // One read-only date at a time, opening on today. Arrows and left/right swipes
 // walk real dates without end; a date with no day record shows its Google events.
-const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
+const PhoneCalendarView = ({ notes, onOpenSource, events = null, reminders = null }) => {
     const { state, completeTodo } = useCalendarContext();
     const geometry = useDayGeometry();
     const scrollRef = useRef(null);
@@ -79,6 +81,7 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null }) => {
                 <DayGrid>
                     {day && <NotePlane dayId={day.id} notes={notes.notesForDay(day.id)} label={`Notes for ${label}`} />}
                     <EventLayer events={shownEvents} />
+                    <ReminderLayer reminders={reminders?.remindersForDate(selectedDate) ?? NO_REMINDERS} />
                     <DriveLayer date={selectedDate} items={dayItems} />
                     {dayItems.map((item) => (
                         <DayItemCard

@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AllDayEvents from './AllDayEvents';
 import ConfirmDialog from '../Project/ConfirmDialog';
 import EventLayer from './EventLayer';
+import ReminderLayer from './ReminderLayer';
 import DayGrid from './DayGrid';
 import DayItemCard from './DayItemCard';
 import DriveLayer from './DriveLayer';
@@ -65,6 +66,9 @@ const NO_NOTES = [];
 // Same reason, for the Google events of a column that was given none.
 const NO_EVENTS = [];
 
+// And for the reminders of a column that was given none.
+const NO_REMINDERS = [];
+
 const DayColumn = ({
     day,
     index,
@@ -76,6 +80,7 @@ const DayColumn = ({
     notes = NO_NOTES,
     notePlane = null,
     events = NO_EVENTS,
+    reminders = NO_REMINDERS,
     onImportDay = null,
     isImporting = false,
     children,
@@ -192,6 +197,7 @@ const DayColumn = ({
                         )}
 
                         <EventLayer events={events} />
+                        <ReminderLayer reminders={reminders} />
                         <DriveLayer date={day.date} items={items} />
 
                         {items.map((item) =>
