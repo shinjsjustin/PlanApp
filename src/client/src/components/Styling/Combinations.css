@@ -325,3 +325,53 @@
 @media (max-width: 860px) {
     .combinations-page .ring { max-height: none; min-height: 0; }
 }
+
+.combinations-page .walk-head { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-bottom: var(--space-sm); }
+.combinations-page .walk-head label { display: flex; gap: var(--space-sm); align-items: center; font-size: var(--font-base); }
+.combinations-page .walk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-xs); }
+.combinations-page .walk-list button {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--combo-card);
+    color: var(--bg-page);
+    border: 2px solid transparent;
+}
+.combinations-page .walk-list button .num { color: var(--combo-empty); font-variant-numeric: tabular-nums; width: 1.8em; }
+.combinations-page .walk-list button .partner { font-weight: 600; }
+.combinations-page .walk-list button .pname {
+    margin-left: auto;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 50%;
+}
+.combinations-page .walk-list button.sel { border-color: var(--neon-blue); box-shadow: var(--shadow-md); }
+
+.combinations-page .walk-nav {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--combo-line);
+}
+.combinations-page .walk-nav .primary { background: var(--neon-blue); color: var(--bg-page); border-color: var(--neon-blue); }
+
+.combinations-page .toast {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-lg);
+    transform: translateX(-50%);
+    z-index: 40;
+    background: var(--combo-card);
+    color: var(--bg-page);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-width: calc(100vw - 32px);
+}

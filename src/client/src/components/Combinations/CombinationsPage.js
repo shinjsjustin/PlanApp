@@ -1,14 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import useCombinations from '../../hooks/useCombinations';
-import { countStates, getPair } from '../../lib/combinations';
+import { countStates, getPair, nextUnfilledKey, stepKey, walkKeys } from '../../lib/combinations';
 import CardList from './CardList';
 import CountsBar from './CountsBar';
 import DeckBar from './DeckBar';
 import GridView from './GridView';
 import PairPanel from './PairPanel';
 import RingView from './RingView';
+import Toast from './Toast';
+import WalkNav from './WalkNav';
+import WalkView from './WalkView';
 import '../Styling/Combinations.css';
 
 const PROJECT_PARAM = 'project';
@@ -39,12 +42,33 @@ const CombinationsPage = () => {
     const view = VIEWS.some((v) => v.id === requestedView) ? requestedView : DEFAULT_VIEW;
 
     const [selectedKey, setSelectedKey] = useState(null);
+    const [walkCardChoice, setWalkCardChoice] = useState(null);
+    const [toast, setToast] = useState('');
+    const clearToast = useCallback(() => setToast(''), []);
     const sideRef = useRef(null);
+
+    // Falls back to the first card when the choice is unset or no longer in the deck.
+    const walkCard = cards.find((c) => c.id === walkCardChoice) || cards[0];
+    const keys = walkCard ? walkKeys(cards, walkCard.id) : [];
+    const isWalkNavShown = view === 'walk' && cards.length >= 2;
+
+    const chooseWalkCard = (id) => {
+        setWalkCardChoice(id);
+        if (selectedKey && !walkKeys(cards, id).includes(selectedKey)) setSelectedKey(null);
+    };
+
+    const openStep = (key) => key && openPair(key);
+    const handleNextUnfilled = () => {
+        const key = nextUnfilledKey(keys, selectedKey, pairs);
+        if (key) openPair(key);
+        else setToast(`Every pair of ${walkCard.name} is filled.`);
+    };
 
     const chooseDeck = (id) => {
         const next = new URLSearchParams(params);
         next.set(DECK_PARAM, id);
         setParams(next, { replace: true });
+        setWalkCardChoice(null);
     };
 
     // Covers a missing ?deck and a deck that was just deleted.
@@ -133,8 +157,28 @@ const CombinationsPage = () => {
                     {deck && view === 'grid' && (
                         <GridView cards={cards} pairs={pairs} selectedKey={selectedKey} onOpen={openPair} />
                     )}
+                    {deck && view === 'walk' && (
+                        <WalkView
+                            cards={cards}
+                            pairs={pairs}
+                            walkCardId={walkCard?.id}
+                            selectedKey={selectedKey}
+                            onOpen={openPair}
+                            onSelectCard={chooseWalkCard}
+                        />
+                    )}
                 </section>
                 <aside className="panel side" ref={sideRef}>
+                    {isWalkNavShown && (
+                        <WalkNav
+                            cardName={walkCard.name}
+                            keys={keys}
+                            selectedKey={selectedKey}
+                            onPrevious={() => openStep(stepKey(keys, selectedKey, -1))}
+                            onNext={() => openStep(stepKey(keys, selectedKey, 1))}
+                            onNextUnfilled={handleNextUnfilled}
+                        />
+                    )}
                     {cardA && cardB ? (
                         <PairPanel
                             key={selectedKey}
@@ -164,6 +208,7 @@ const CombinationsPage = () => {
                     )}
                 </section>
             </div>
+            <Toast message={toast} onClear={clearToast} />
         </div>
     );
 };

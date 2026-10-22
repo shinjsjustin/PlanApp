@@ -23,3 +23,26 @@ export const countStates = (cards, pairs) => {
     });
     return counts;
 };
+
+// Walkthrough: the keys of one card's pairs, in deck order.
+export const walkKeys = (cards, cardId) =>
+    cards.filter((c) => c.id !== cardId).map((c) => pairKey(cardId, c.id));
+
+// Moves one key forward or back, wrapping; with nothing open it starts at an end.
+export const stepKey = (keys, selectedKey, dir) => {
+    if (keys.length === 0) return null;
+    const idx = keys.indexOf(selectedKey);
+    if (idx < 0) return dir > 0 ? keys[0] : keys[keys.length - 1];
+    return keys[(idx + dir + keys.length) % keys.length];
+};
+
+// The next empty pair after the open one (wrapping), or null when all are filled.
+export const nextUnfilledKey = (keys, selectedKey, pairs) => {
+    const idx = keys.indexOf(selectedKey);
+    for (let n = 1; n <= keys.length; n += 1) {
+        const key = keys[(idx + n + keys.length) % keys.length];
+        const [a, b] = key.split('|').map(Number);
+        if (getPair(pairs, a, b).state === 'empty') return key;
+    }
+    return null;
+};
