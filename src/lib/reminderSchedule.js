@@ -95,4 +95,4 @@ const isOverdue = ({ status, dueDate, dueTime, timeZone }, now) => {
     return dueDate < local.date || (dueDate === local.date && due <= local.time);
 };
 
-module.exports = { nextDueDate, shiftAlert, isOverdue };
+module.exports = { nextDueDate, shiftAlert, isOverdue, zonedInstant };
