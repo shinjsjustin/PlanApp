@@ -29,3 +29,17 @@ No body. Lists the caller's tokens, oldest first. The token and its hash are nev
 No body. Revokes the caller's token. Answers `{ "id": 3 }`.
 
 Errors: 404 `Device token not found` when the id is missing or belongs to another user.
+
+## POST /api/place-events/:placeId/:event
+
+For a Shortcut's arrive and leave automations. Unlike the endpoints above, this takes a device token, not the app's JWT: `Authorization: Bearer <device token>`. A missing, unknown or revoked token, or a JWT, is a 401. A valid token has its `lastUsedAt` set. No body. `event` is `arrive` or `leave`.
+
+Pushes one message to all of the owner's devices for the open, unsnoozed reminders at that place whose location trigger equals `event`. The body is `Arrived at <place>` or `Leaving <place>`, then one reminder title per line, soonest due first. The push url is `/reminders?place=<placeId>`. Answers:
+
+```json
+{ "matched": 2, "sent": 1, "failed": 0, "removed": 0 }
+```
+
+`matched` is the number of reminders; with 0, nothing is sent. The location and event are not stored anywhere.
+
+Errors: 400 for an event other than `arrive` or `leave` or a non-numeric `placeId`, 401 for a bad token, 404 `Place not found` when the place is missing or another user's, 503 `Push is not configured`.

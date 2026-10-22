@@ -72,3 +72,7 @@ The server checks every 60 seconds, only when it is run directly and the VAPID s
 Reminders that are done, dismissed or still snoozed past their alert send nothing. A push missed in the last 24 hours is sent once; older ones are skipped, as is an alert earlier than the reminder's creation.
 
 Each send is claimed in `push_sends` by reminder, kind and time before it goes out, so a restart or a second run never repeats it. Changing the alert time, or creating the next repeat row, pushes again.
+
+## Place pushes
+
+`POST /api/place-events/:placeId/:event` (device token, see `shortcuts-api.md`) pushes the open, unsnoozed reminders at a place whose trigger matches an arrive or leave event, as `Arrived at <place>` or `Leaving <place>` followed by the titles, with url `/reminders?place=<id>`.

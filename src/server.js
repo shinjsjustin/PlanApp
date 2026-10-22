@@ -24,9 +24,11 @@ const reminderSubcategoriesRoutes = require('./routes/reminderSubcategories');
 const remindersRoutes = require('./routes/reminders');
 const pushRoutes = require('./routes/push');
 const deviceTokensRoutes = require('./routes/deviceTokens');
+const placeEventsRoutes = require('./routes/placeEvents');
 const legalRoutes = require('./routes/legal');
 
 const isAuth = require('./middleware/isAuth');
+const isDeviceToken = require('./middleware/isDeviceToken');
 const { respond, errorHandler } = require('./middleware/respond');
 const requiredEnv = require('./lib/requiredEnv');
 const { isPushConfigured } = require('./lib/push/sendPush');
@@ -93,6 +95,8 @@ app.use('/api/reminder-subcategories', isAuth, respond, reminderSubcategoriesRou
 app.use('/api/reminders', isAuth, respond, remindersRoutes);
 app.use('/api/push', isAuth, respond, pushRoutes);
 app.use('/api/device-tokens', isAuth, respond, deviceTokensRoutes);
+// Outside isAuth by design: Shortcuts call this with a revocable device token, never a JWT.
+app.use('/api/place-events', respond, isDeviceToken, placeEventsRoutes);
 
 // Terminal error handler for the resource routes above.
 app.use(errorHandler);
