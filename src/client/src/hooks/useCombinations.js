@@ -75,14 +75,15 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     }, []);
 
     // Runs a call and hands its answer to `apply` only while the deck that was
-    // open when the call started is still open.
-    const run = useCallback(async (call, apply) => {
+    // open when the call started is still open. Transfer callers show their own
+    // failures, so they pass `reportsFailure: false` to keep `error` unchanged.
+    const run = useCallback(async (call, apply, { reportsFailure = true } = {}) => {
         const openDeckId = deckIdRef.current;
         let data;
         try {
             data = await call();
         } catch (err) {
-            if (isMounted.current) setError(err?.message || GENERIC_FAILURE);
+            if (reportsFailure && isMounted.current) setError(err?.message || GENERIC_FAILURE);
             throw err;
         }
         if (!isMounted.current) return data;
@@ -99,16 +100,19 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     const importDecks = useCallback((data) => run(
         () => api.post('/combinations/import', data),
         ({ decks: imported }) => setDecks((current) => [...current, ...imported].sort(byName)),
+        { reportsFailure: false },
     ), [run]);
 
     const exportDeck = useCallback((id) => run(
         () => api.get(`${DECKS_PATH}/${id}/export`),
         () => {},
+        { reportsFailure: false },
     ), [run]);
 
     const promoteDeck = useCallback((id) => run(
         () => api.post(`${DECKS_PATH}/${id}/promote`),
         (created) => setDecks((current) => [...current, created].sort(byName)),
+        { reportsFailure: false },
     ), [run]);
 
     const renameDeck = useCallback((id, name) => run(

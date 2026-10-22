@@ -228,7 +228,7 @@ describe('useCombinations transfer', () => {
         let caught;
         await act(async () => { caught = await result.current.importDecks([]).catch((e) => e); });
         expect(caught).toBe(failure);
-        expect(result.current.error).toBe('Deck name is blank');
+        expect(result.current.error).toBeNull();
         expect(result.current.decks).toEqual([D1, D2]);
     });
 
@@ -249,7 +249,7 @@ describe('useCombinations transfer', () => {
         let caught;
         await act(async () => { caught = await result.current.exportDeck(1).catch((e) => e); });
         expect(caught.status).toBe(404);
-        expect(result.current.error).toBe('Not found');
+        expect(result.current.error).toBeNull();
     });
 
     it('promoteDeck posts to the promote route and adds the new deck sorted', async () => {
@@ -268,6 +268,17 @@ describe('useCombinations transfer', () => {
         let caught;
         await act(async () => { caught = await result.current.promoteDeck(1).catch((e) => e); });
         expect(caught.message).toBe('Nope');
+        expect(result.current.error).toBeNull();
         expect(result.current.decks).toEqual([D1, D2]);
+    });
+
+    it('a successful transfer call clears an earlier error', async () => {
+        const { result } = await mountReady();
+        api.delete.mockRejectedValue(new ApiError('Earlier', 500));
+        await act(async () => { await result.current.deleteCard(11).catch(() => {}); });
+        expect(result.current.error).toBe('Earlier');
+        api.get.mockResolvedValue({ id: 'd_1' });
+        await act(async () => { await result.current.exportDeck(1); });
+        expect(result.current.error).toBeNull();
     });
 });

@@ -79,6 +79,7 @@ describe('CombinationsPage import', () => {
         open();
         await chooseFile('{}', 'x.json');
         expect(await screen.findByText('Could not import x.json: Deck name is blank')).toBeInTheDocument();
+        expect(screen.queryByRole('alert')).toBeNull();
     });
 });
 
@@ -101,6 +102,16 @@ describe('CombinationsPage export', () => {
         const text = await new Promise((resolve) => { reader.onload = () => resolve(reader.result); reader.readAsText(blobs[0]); });
         expect(text).toBe(JSON.stringify(exported, null, 2));
         click.mockRestore();
+    });
+});
+
+describe('CombinationsPage export failure', () => {
+    it('shows a failed export in exactly one alert', async () => {
+        hook.exportDeck.mockRejectedValue(new Error('Export broke'));
+        open();
+        fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Export broke');
+        expect(screen.getAllByRole('alert')).toHaveLength(1);
     });
 });
 
@@ -127,5 +138,6 @@ describe('CombinationsPage promote', () => {
         open();
         fireEvent.click(screen.getByRole('button', { name: 'New deck from done pairs' }));
         expect(await screen.findByRole('alert')).toHaveTextContent('Promote broke');
+        expect(screen.getAllByRole('alert')).toHaveLength(1);
     });
 });
