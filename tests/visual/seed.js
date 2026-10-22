@@ -16,6 +16,15 @@ const AT_TEN = 600;
 const ONE_HOUR = 60;
 const AT_TWO_PM = 840;
 const AT_HALF_PAST_TWO = 870;
+const DUE_AT_THREE_PM = '15:00';
+const LONG_REMINDER_TITLE =
+    'Collect the signed customs paperwork and confirm the rotor assembly shipment with the front desk';
+
+const pad = (value) => String(value).padStart(2, '0');
+
+/** Today as YYYY-MM-DD in local time, like the seed's other "today" values. */
+const localToday = (now = new Date()) =>
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
 /**
  * Recreates the visual user in the test database and fills it, through the API,
@@ -80,9 +89,23 @@ const seedLocal = async () => {
             placements: [{ todoId: filed.id, dayId: day.id, startMinutes: AT_TEN, durationMinutes: ONE_HOUR }],
         });
 
-        await send('post', 'places', {
+        const headOffice = await send('post', 'places', {
             name: 'Head office', address: '1 Main St, Springfield', kind: 'client',
         });
+        const subcategory = await send('post', 'reminder-subcategories', {
+            placeId: headOffice.id, name: 'Front desk',
+        });
+        const today = localToday();
+        await send('post', 'reminders', {
+            title: LONG_REMINDER_TITLE,
+            placeId: headOffice.id,
+            subcategoryId: subcategory.id,
+            dueDate: today,
+            dueTime: DUE_AT_THREE_PM,
+            priority: 'high',
+        });
+        await send('post', 'reminders', { title: `Date only: ${LONG_REMINDER_TITLE}`, dueDate: today });
+        await send('post', 'reminders', { title: `No place: ${LONG_REMINDER_TITLE}` });
         await send('post', 'people', {
             name: 'Ada Lovelace',
             company: 'Analytical Engines Ltd',
