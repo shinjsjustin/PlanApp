@@ -10,6 +10,7 @@ import ProjectThoughtsPage from './components/ProjectThoughts/ProjectThoughtsPag
 import ThoughtsPage from './components/Thoughts/ThoughtsPage';
 import AddressBookPage from './components/AddressBook/AddressBookPage';
 import RemindersPage from './components/Reminders/RemindersPage';
+import CombinationsPage from './components/Combinations/CombinationsPage';
 import ShortcutsPage from './components/Shortcuts/ShortcutsPage';
 
 import ProtectedRoute from './config/ProtectedRoute';
@@ -42,6 +43,7 @@ const routes = [
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
     { path: '/thoughts',     element: <ProtectedRoute><ThoughtsPage /></ProtectedRoute> },
     { path: '/address-book', element: <ProtectedRoute><AddressBookPage /></ProtectedRoute> },
+    { path: '/combinations', element: <ProtectedRoute><CombinationsPage /></ProtectedRoute> },
     { path: '/shortcuts',    element: <ProtectedRoute><ShortcutsPage /></ProtectedRoute> },
     { path: '/places',       element: <Navigate to="/address-book" replace /> },
 

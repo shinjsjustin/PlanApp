@@ -1,0 +1,124 @@
+.combinations-page {
+    min-height: 100vh;
+    color: var(--text-glow);
+}
+
+.combinations-page button {
+    background: var(--combo-surface-raised);
+    color: var(--text-glow);
+    border: 1px solid var(--combo-line);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+}
+
+.combinations-page button:hover:not(:disabled) { border-color: var(--neon-blue); }
+.combinations-page button:disabled { opacity: 0.5; cursor: default; }
+.combinations-page button.danger { color: var(--combo-struck); border-color: var(--combo-struck); }
+
+.combinations-page input,
+.combinations-page select {
+    background: var(--combo-card);
+    color: var(--bg-page);
+    border: 1px solid var(--combo-line);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm);
+}
+
+.combinations-page header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm) var(--space-md);
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--combo-line);
+}
+
+.combinations-page header a { color: var(--neon-blue); }
+.combinations-page header h1 { font-size: var(--font-lg); margin: 0 var(--space-sm) 0 0; }
+.combinations-page header h1 span { color: var(--neon-blue); }
+
+.combinations-page .deck-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    align-items: center;
+}
+
+.combinations-page .deck-controls select { min-width: 180px; max-width: 260px; }
+
+.combinations-page .deck-error {
+    color: var(--combo-struck);
+    margin: 0 var(--space-md);
+    overflow-wrap: anywhere;
+}
+
+.combinations-page .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-md);
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--combo-surface);
+    border-bottom: 1px solid var(--combo-line);
+    font-size: var(--font-sm);
+}
+
+.combinations-page .counts b { color: var(--text-white); }
+.combinations-page .counts .sep { color: var(--text-muted); }
+
+.combinations-page .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: var(--space-xs);
+    flex: none;
+}
+
+.combinations-page .dot.st-empty { background: transparent; border: 2px solid var(--combo-empty); }
+.combinations-page .dot.st-drafted { background: var(--combo-drafted); }
+.combinations-page .dot.st-done { background: var(--combo-done); }
+.combinations-page .dot.st-struck { background: transparent; border: 2px dashed var(--combo-struck); }
+
+.combinations-page .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    align-items: start;
+}
+
+.combinations-page .panel {
+    background: var(--combo-surface);
+    border: 1px solid var(--combo-line);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+}
+
+.combinations-page .view-panel { grid-column: 1; grid-row: 1; min-width: 0; }
+.combinations-page .cards { grid-column: 1; grid-row: 2; }
+.combinations-page .side {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: var(--space-md);
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+}
+
+@media (max-width: 860px) {
+    .combinations-page .layout { grid-template-columns: 1fr; padding: var(--space-sm); gap: var(--space-sm); }
+    .combinations-page .view-panel,
+    .combinations-page .side,
+    .combinations-page .cards { grid-column: 1; grid-row: auto; }
+    .combinations-page .side { position: static; max-height: none; }
+}
+
+@media (max-width: 480px) {
+    .combinations-page header { padding: var(--space-sm); }
+    .combinations-page .deck-controls select { min-width: 0; flex: 1 1 100%; max-width: none; }
+    .combinations-page .counts { padding: var(--space-sm); }
+    .combinations-page .panel { padding: var(--space-sm); }
+}

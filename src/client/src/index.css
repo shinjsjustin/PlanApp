@@ -46,6 +46,16 @@
   --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.15);
 
+  /* Combinations page palette */
+  --combo-surface: #0d171b;
+  --combo-surface-raised: #142228;
+  --combo-line:    #24414a;
+  --combo-card:    #e9f0f2;
+  --combo-empty:   #7d8c92;
+  --combo-drafted: #f2a92f;
+  --combo-done:    #3fd06f;
+  --combo-struck:  #ff5d5d;
+
   /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
