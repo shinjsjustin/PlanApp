@@ -10,6 +10,8 @@ const cardsRepo = require('../db/repositories/combinationCardsRepo');
 const pairsRepo = require('../db/repositories/combinationPairsRepo');
 const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { toComboCard, toComboDeck, toComboPair } = require('../lib/combinationSerializers');
+const { importDecks, promoteDeck } = require('../lib/combinationImport');
+const { parseImport, toExportDeck } = require('../lib/combinationTransfer');
 const { idSchema, parseId, requireSomeField } = require('../lib/validation');
 const { withConnection, withTransaction } = require('../db/unitOfWork');
 
@@ -283,6 +285,82 @@ router.delete(
         });
 
         res.sendData({ removedPairs });
+    })
+);
+
+const exportDeck = async (conn, deck) =>
+    toExportDeck(deck, await cardsRepo.listByDeck(conn, deck.id), await pairsRepo.listByDeck(conn, deck.id));
+
+/** The new decks, in the wire shape with their counts. */
+const decksWire = async (conn, decks) => {
+    const wire = [];
+    for (const deck of decks) wire.push(await deckWire(conn, deck));
+
+    return wire;
+};
+
+// POST /api/combinations/import — any prototype JSON: one deck, a list, or { decks }.
+router.post(
+    '/import',
+    asyncRoute(async (req, res) => {
+        const parsed = parseImport(req.body);
+
+        const decks = await withTransaction(async (conn) =>
+            decksWire(conn, await importDecks(conn, req.user.id, parsed))
+        );
+
+        res.sendData({ decks }, 201);
+    })
+);
+
+// GET /api/combinations/export[?projectId=]
+router.get(
+    '/export',
+    asyncRoute(async (req, res) => {
+        const { projectId } = listQuerySchema.parse(req.query);
+
+        const decks = await withConnection(async (conn) => {
+            if (projectId) await assertOwnership(conn, 'project', projectId, req.user.id);
+            const rows = await decksRepo.listByOwner(conn, req.user.id, { projectId });
+            const exported = [];
+            for (const row of rows) exported.push(await exportDeck(conn, row));
+
+            return exported;
+        });
+
+        res.sendData({ decks });
+    })
+);
+
+// GET /api/combinations/decks/:id/export
+router.get(
+    '/decks/:id/export',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const exported = await withConnection(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', id, req.user.id);
+
+            return exportDeck(conn, await decksRepo.findById(conn, id));
+        });
+
+        res.sendData(exported);
+    })
+);
+
+// POST /api/combinations/decks/:id/promote
+router.post(
+    '/decks/:id/promote',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const wire = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', id, req.user.id);
+
+            return deckWire(conn, await promoteDeck(conn, req.user.id, id));
+        });
+
+        res.sendData(wire, 201);
     })
 );
 

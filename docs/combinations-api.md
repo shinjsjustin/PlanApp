@@ -79,11 +79,47 @@ Deletes the card and every pair it was in, and closes the gap in positions. Retu
 
 Body `{ cardAId, cardBId, name?, effect?, notes?, state? }`. Creates the pair, or updates it when it exists, whichever order the cards are given in. Fields left out keep their stored value (new pairs start empty, state `empty`). Returns the pair.
 
+## POST /import
+
+Brings in decks from the prototype's JSON. The body is one deck object, a list of decks, or `{ "decks": [deck] }`; other fields are ignored. Every deck becomes a new deck of yours, all in one transaction: if any deck is invalid nothing is saved. A deck name that is already taken (by one of your decks, or by an earlier deck in the same import) gets ` (2)`, ` (3)` and so on. Bodies up to 5 MB are accepted. Returns `{ "decks": [deck] }` in the order given, status 201.
+
+The prototype deck format:
+
+```json
+{
+  "id": "d1",
+  "name": "HordeGame augments",
+  "cards": [
+    { "id": "fire", "name": "Fire", "detail": "Bullets ignite enemies." },
+    { "id": "explosive", "name": "Explosive", "detail": "Bullets explode on impact." }
+  ],
+  "pairs": {
+    "explosive|fire": { "name": "Napalm", "effect": "Burning ground.", "notes": "Cap stacks.", "state": "done" }
+  }
+}
+```
+
+- A deck needs a string `name` and a `cards` list. Every card needs a string `id` and `name`; ids are unique within the deck and contain no `|`. `detail` is optional.
+- A pair key is the two card ids joined by `|`, in either order. A pair whose key names an unknown card, the same card twice, or is not an object is skipped. Missing `name`, `effect` and `notes` become empty text and an unknown `state` becomes `empty`.
+- The deck `id` is ignored: new ids are assigned. Deck, card and pair names are at most 200 characters.
+
+## GET /export
+
+All your decks as `{ "decks": [deck] }` in the prototype format above, by name. `?projectId=` limits it to one of your projects. Ids are `d_<id>` for decks and `c_<id>` for cards, and pairs still in the `empty` state are left out. The result can be sent back to `POST /import`.
+
+## GET /decks/:id/export
+
+One deck in the prototype format.
+
+## POST /decks/:id/promote
+
+Makes a new deck named `<source name> · done pairs` (with ` (2)` and so on if taken), linked to the same project and with `sourceDeckId` set to the source deck. It has one card for each `done` pair, in grid order (by the position of the earlier card, then of the later one). A card is named after the pair, or `A + B` (card names, earlier first) when the pair has no name, and its detail is the pair's effect. A deck with no done pairs gives a deck with no cards. Returns the deck, status 201.
+
 ## Errors
 
 | Status | When |
 | ------ | ---- |
-| 400 | a field is missing, the wrong type or over its limit; a blank name; a bad `state` or `direction`; a PATCH with no fields; a bad `:id` or `projectId`; the same card twice, or a card that is not in the deck; a 201st card |
+| 400 | an import that is not valid deck JSON, has no decks or has a name over 200 characters; a field is missing, the wrong type or over its limit; a blank name; a bad `state` or `direction`; a PATCH with no fields; a bad `:id` or `projectId`; the same card twice, or a card that is not in the deck; a 201st card |
 | 401 | no or invalid token |
 | 403 | the deck, card or linked project belongs to another user |
 | 404 | no such deck, card or project |

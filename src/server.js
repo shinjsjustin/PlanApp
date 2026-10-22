@@ -53,6 +53,9 @@ app.use(cors({
     credentials: true,
 }));
 
+// Imports can be large; the wider limit must be mounted before the global parser,
+// which would otherwise reject the body at its default size first.
+app.use('/api/combinations/import', bodyParser.json({ limit: '5mb' }));
 app.use(bodyParser.json());
 
 // ── Public routes (no auth required) ────────────────────────────────────────
