@@ -63,6 +63,11 @@
     margin-bottom: var(--space-md);
 }
 
+.reminders-controls label {
+    color: var(--text-glow);
+    font-size: var(--font-sm);
+}
+
 .reminders-views,
 .snooze-presets {
     display: flex;

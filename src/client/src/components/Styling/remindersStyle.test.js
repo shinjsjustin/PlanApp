@@ -30,3 +30,9 @@ it('does not paint the pressed view button with the primary green', () => {
 it('sets a light label colour on the place-select inside the form dialog', () => {
     expect(rule('.form-dialog .place-select')).toMatch(/color:\s*var\(--text-glow\)/);
 });
+
+it('sets a light small colour on the labels inside the reminders controls', () => {
+    const body = rule('.reminders-controls label');
+    expect(body).toMatch(/color:\s*var\(--text-glow\)/);
+    expect(body).toMatch(/font-size:\s*var\(--font-sm\)/);
+});
