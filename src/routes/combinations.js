@@ -1,0 +1,289 @@
+'use strict';
+
+const express = require('express');
+const { z } = require('zod');
+
+const asyncRoute = require('../lib/asyncRoute');
+const assertOwnership = require('../middleware/assertOwnership');
+const decksRepo = require('../db/repositories/combinationDecksRepo');
+const cardsRepo = require('../db/repositories/combinationCardsRepo');
+const pairsRepo = require('../db/repositories/combinationPairsRepo');
+const { badRequest, conflict, notFound } = require('../lib/httpError');
+const { toComboCard, toComboDeck, toComboPair } = require('../lib/combinationSerializers');
+const { idSchema, parseId, requireSomeField } = require('../lib/validation');
+const { withConnection, withTransaction } = require('../db/unitOfWork');
+
+/**
+ * Combinations: decks of cards whose unordered pairs are worked through. Mounted
+ * at `/api/combinations` behind `isAuth`. A deck belongs to a user; cards and
+ * pairs are reached through their deck.
+ */
+
+const router = express.Router();
+
+const NAME_MAX_LENGTH = 200;
+const TEXT_MAX_LENGTH = 5000;
+const MAX_CARDS_PER_DECK = 200;
+const PAIR_STATES = ['empty', 'drafted', 'done', 'struck'];
+
+const nameSchema = z
+    .string({ error: 'name must be a string' })
+    .trim()
+    .min(1, 'name must not be empty')
+    .max(NAME_MAX_LENGTH, `name must be at most ${NAME_MAX_LENGTH} characters`);
+
+const textSchema = (field) =>
+    z
+        .string({ error: `${field} must be a string` })
+        .max(TEXT_MAX_LENGTH, `${field} must be at most ${TEXT_MAX_LENGTH} characters`);
+
+const projectIdSchema = idSchema.nullable();
+
+const createDeckSchema = z.object({ name: nameSchema, projectId: projectIdSchema.optional() });
+const patchDeckSchema = requireSomeField(
+    z.object({ name: nameSchema.optional(), projectId: projectIdSchema.optional() }),
+    ['name', 'projectId']
+);
+const createCardSchema = z.object({ name: nameSchema, detail: textSchema('detail').optional() });
+const patchCardSchema = requireSomeField(
+    z.object({ name: nameSchema.optional(), detail: textSchema('detail').optional() }),
+    ['name', 'detail']
+);
+const moveSchema = z.object({
+    direction: z.enum(['up', 'down'], { error: 'direction must be up or down' }),
+});
+const pairSchema = z.object({
+    cardAId: idSchema,
+    cardBId: idSchema,
+    name: nameSchema.or(z.literal('')).optional(),
+    effect: textSchema('effect').optional(),
+    notes: textSchema('notes').optional(),
+    state: z.enum(PAIR_STATES, { error: `state must be one of: ${PAIR_STATES.join(', ')}` }).optional(),
+});
+const listQuerySchema = z.object({ projectId: idSchema.optional() });
+
+const countPairs = (pairs, state) => pairs.filter((pair) => pair.state === state).length;
+
+/** The deck row with the counts the repo's list query would add. */
+const withCounts = (deck, cards, pairs) => ({
+    ...deck,
+    card_count: cards.length,
+    drafted_count: countPairs(pairs, 'drafted'),
+    done_count: countPairs(pairs, 'done'),
+    struck_count: countPairs(pairs, 'struck'),
+});
+
+const deckWire = async (conn, deck) =>
+    toComboDeck(
+        withCounts(
+            deck,
+            await cardsRepo.listByDeck(conn, deck.id),
+            await pairsRepo.listByDeck(conn, deck.id)
+        )
+    );
+
+/** A linked project must be the caller's own; null is always fine. */
+const assertProjectUsable = async (conn, projectId, userId) => {
+    if (projectId) await assertOwnership(conn, 'project', projectId, userId);
+};
+
+const assertNameFree = async (conn, userId, name, exceptId) => {
+    if (await decksRepo.nameTaken(conn, userId, name, exceptId)) {
+        throw conflict('You already have a deck with that name');
+    }
+};
+
+// GET /api/combinations/decks[?projectId=]
+router.get(
+    '/decks',
+    asyncRoute(async (req, res) => {
+        const { projectId } = listQuerySchema.parse(req.query);
+
+        const rows = await withConnection(async (conn) => {
+            if (projectId) await assertOwnership(conn, 'project', projectId, req.user.id);
+
+            return decksRepo.listByOwner(conn, req.user.id, { projectId });
+        });
+
+        res.sendData({ decks: rows.map(toComboDeck) });
+    })
+);
+
+// POST /api/combinations/decks
+router.post(
+    '/decks',
+    asyncRoute(async (req, res) => {
+        const { name, projectId = null } = createDeckSchema.parse(req.body ?? {});
+
+        const deck = await withTransaction(async (conn) => {
+            await assertProjectUsable(conn, projectId, req.user.id);
+            await assertNameFree(conn, req.user.id, name, null);
+
+            return decksRepo.create(conn, { ownerId: req.user.id, name, projectId });
+        });
+
+        res.sendData(toComboDeck(withCounts(deck, [], [])), 201);
+    })
+);
+
+// GET /api/combinations/decks/:id
+router.get(
+    '/decks/:id',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const data = await withConnection(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', id, req.user.id);
+            const deck = await decksRepo.findById(conn, id);
+            const cards = await cardsRepo.listByDeck(conn, id);
+            const pairs = await pairsRepo.listByDeck(conn, id);
+
+            return {
+                deck: toComboDeck(withCounts(deck, cards, pairs)),
+                cards: cards.map(toComboCard),
+                pairs: pairs.map(toComboPair),
+            };
+        });
+
+        res.sendData(data);
+    })
+);
+
+// PATCH /api/combinations/decks/:id
+router.patch(
+    '/decks/:id',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+        const fields = patchDeckSchema.parse(req.body ?? {});
+
+        const wire = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', id, req.user.id);
+            await assertProjectUsable(conn, fields.projectId, req.user.id);
+            if (fields.name) await assertNameFree(conn, req.user.id, fields.name, id);
+
+            const deck = await decksRepo.update(conn, id, fields);
+            if (!deck) throw notFound('Deck');
+
+            return deckWire(conn, deck);
+        });
+
+        res.sendData(wire);
+    })
+);
+
+// DELETE /api/combinations/decks/:id
+router.delete(
+    '/decks/:id',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const deleted = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', id, req.user.id);
+
+            return decksRepo.remove(conn, id);
+        });
+        if (!deleted) throw notFound('Deck');
+
+        res.sendData({ id });
+    })
+);
+
+// POST /api/combinations/decks/:id/cards
+router.post(
+    '/decks/:id/cards',
+    asyncRoute(async (req, res) => {
+        const deckId = parseId(req.params.id);
+        const fields = createCardSchema.parse(req.body ?? {});
+
+        const card = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', deckId, req.user.id);
+            const existing = await cardsRepo.listByDeck(conn, deckId);
+            if (existing.length >= MAX_CARDS_PER_DECK) {
+                throw badRequest(`A deck holds at most ${MAX_CARDS_PER_DECK} cards`);
+            }
+
+            return cardsRepo.create(conn, { deckId, ...fields });
+        });
+
+        res.sendData(toComboCard(card), 201);
+    })
+);
+
+// PUT /api/combinations/decks/:id/pairs — creates or updates, cards in either order.
+router.put(
+    '/decks/:id/pairs',
+    asyncRoute(async (req, res) => {
+        const deckId = parseId(req.params.id);
+        const { cardAId, cardBId, ...fields } = pairSchema.parse(req.body ?? {});
+        if (cardAId === cardBId) throw badRequest('A pair needs two different cards');
+
+        const pair = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationDeck', deckId, req.user.id);
+            const cardIds = (await cardsRepo.listByDeck(conn, deckId)).map((card) => card.id);
+            if (!cardIds.includes(cardAId) || !cardIds.includes(cardBId)) {
+                throw badRequest('Both cards must belong to this deck');
+            }
+
+            return pairsRepo.upsert(conn, deckId, cardAId, cardBId, fields);
+        });
+
+        res.sendData(toComboPair(pair));
+    })
+);
+
+// PATCH /api/combinations/cards/:id
+router.patch(
+    '/cards/:id',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+        const fields = patchCardSchema.parse(req.body ?? {});
+
+        const card = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationCard', id, req.user.id);
+
+            return cardsRepo.update(conn, id, fields);
+        });
+        if (!card) throw notFound('Card');
+
+        res.sendData(toComboCard(card));
+    })
+);
+
+// PUT /api/combinations/cards/:id/move — answers with the deck's cards in their new order.
+router.put(
+    '/cards/:id/move',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+        const { direction } = moveSchema.parse(req.body ?? {});
+
+        const cards = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationCard', id, req.user.id);
+            const moved = await cardsRepo.move(conn, id, direction);
+            if (!moved) throw notFound('Card');
+
+            return cardsRepo.listByDeck(conn, moved.deck_id);
+        });
+
+        res.sendData({ cards: cards.map(toComboCard) });
+    })
+);
+
+// DELETE /api/combinations/cards/:id — answers with how many filled pairs went with it.
+router.delete(
+    '/cards/:id',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const removedPairs = await withTransaction(async (conn) => {
+            await assertOwnership(conn, 'combinationCard', id, req.user.id);
+            const filled = await pairsRepo.countFilledForCard(conn, id);
+            if (!(await cardsRepo.remove(conn, id))) throw notFound('Card');
+
+            return filled;
+        });
+
+        res.sendData({ removedPairs });
+    })
+);
+
+module.exports = router;
