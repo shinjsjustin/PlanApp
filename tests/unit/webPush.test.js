@@ -138,3 +138,18 @@ describe('sendNotification', () => {
         )).rejects.toMatchObject({ statusCode: 410, body: 'gone' });
     });
 });
+
+describe('encryptPayload size guard', () => {
+    it('throws RangeError at 4080 bytes and round-trips 4079', () => {
+        const sub = newSubscriber();
+        expect(() => encryptPayload('a'.repeat(4080), sub.keys)).toThrow(RangeError);
+        const { padded } = decrypt(encryptPayload('a'.repeat(4079), sub.keys), sub.ecdh, sub.auth);
+        expect(padded.length - 1).toBe(4079);
+    });
+
+    it('counts UTF-8 bytes, not characters', () => {
+        const sub = newSubscriber();
+        expect(() => encryptPayload('é'.repeat(2040), sub.keys)).toThrow(RangeError);
+        expect(() => encryptPayload('é'.repeat(2039), sub.keys)).not.toThrow();
+    });
+});

@@ -4,6 +4,9 @@ const crypto = require('node:crypto');
 
 const RECORD_SIZE = 4096;
 const SALT_BYTES = 16;
+const TAG_BYTES = 16;
+// One record: minus the GCM tag and the padding delimiter.
+const MAX_PLAINTEXT_BYTES = RECORD_SIZE - TAG_BYTES - 1;
 const VAPID_LIFETIME_SEC = 12 * 60 * 60;
 const PADDING_DELIMITER = 0x02;
 const DEFAULT_TTL_SEC = 86400;
@@ -21,6 +24,10 @@ const generateVapidKeys = () => {
 
 // RFC 8291 aes128gcm body for a single record.
 const encryptPayload = (plaintext, { p256dh, auth }) => {
+    const data = Buffer.from(plaintext);
+    if (data.length > MAX_PLAINTEXT_BYTES) {
+        throw new RangeError(`Payload is ${data.length} bytes; the limit is ${MAX_PLAINTEXT_BYTES}`);
+    }
     const uaPublic = fromB64u(p256dh);
     const sender = crypto.createECDH('prime256v1');
     const asPublic = sender.generateKeys();
@@ -32,7 +39,7 @@ const encryptPayload = (plaintext, { p256dh, auth }) => {
     const nonce = hkdf(salt, prk, Buffer.from('Content-Encoding: nonce\0'), 12);
     const cipher = crypto.createCipheriv('aes-128-gcm', cek, nonce);
     const record = Buffer.concat([
-        cipher.update(Buffer.concat([Buffer.from(plaintext), Buffer.from([PADDING_DELIMITER])])),
+        cipher.update(Buffer.concat([data, Buffer.from([PADDING_DELIMITER])])),
         cipher.final(),
         cipher.getAuthTag(),
     ]);

@@ -2,6 +2,7 @@
 
 const repo = require('../../db/repositories/pushSubscriptionsRepo');
 const webPush = require('./webPush');
+const { fitPayload } = require('./payload');
 const { HttpError } = require('../httpError');
 
 const GONE_STATUSES = [404, 410];
@@ -21,12 +22,13 @@ const sendToOwner = async (conn, ownerId, payload) => {
     if (!isPushConfigured()) throw new HttpError(503, 'Push is not configured');
 
     const vapid = vapidFromEnv();
+    const body = fitPayload(payload);
     const result = { sent: 0, failed: 0, removed: 0 };
 
     for (const row of await repo.listByOwner(conn, ownerId)) {
         const subscription = { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } };
         try {
-            await webPush.sendNotification(subscription, payload, { vapid });
+            await webPush.sendNotification(subscription, body, { vapid });
             await repo.markSuccess(conn, row.id);
             result.sent += 1;
         } catch (err) {
