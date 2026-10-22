@@ -4,6 +4,7 @@ const { request: playwrightRequest } = require('@playwright/test');
 const { createUser, deleteUserByEmail } = require('../e2e/database');
 const { dataOf, todayTitle } = require('../e2e/helpers');
 const { apiUrl } = require('./session');
+const combinationsDeck = require('./fixtures/combinationsDeck.json');
 
 const VISUAL_USER = {
     name: 'Visual Tester',
@@ -121,6 +122,7 @@ const seedLocal = async () => {
             name: 'Grace Hopper',
             phones: [{ label: 'office', number: '(555) 010-0199' }, { label: '', number: '5550100' }],
         });
+        await send('post', 'combinations/import', combinationsDeck);
 
         return login.token;
     } finally {

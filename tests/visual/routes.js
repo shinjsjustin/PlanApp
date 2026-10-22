@@ -16,6 +16,9 @@ const ROUTES = [
     { name: 'address book', path: '/address-book', signedIn: true },
     { name: 'address book add person form', path: '/address-book', signedIn: true, open: 'Add person' },
     { name: 'address book add place form', path: '/address-book', signedIn: true, open: 'Add place' },
+    { name: 'combinations ring', path: '/combinations', signedIn: true },
+    { name: 'combinations grid', path: '/combinations?view=grid', signedIn: true },
+    { name: 'combinations walkthrough', path: '/combinations?view=walk', signedIn: true },
 ];
 
 module.exports = { ROUTES };

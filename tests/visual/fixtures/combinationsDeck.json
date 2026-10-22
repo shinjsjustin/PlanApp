@@ -1,0 +1,90 @@
+{
+    "id": "d1",
+    "name": "HordeGame augments",
+    "cards": [
+        {
+            "id": "fire",
+            "name": "Fire",
+            "detail": "Bullets ignite enemies, dealing damage over time."
+        },
+        {
+            "id": "pierce",
+            "name": "Pierce",
+            "detail": "Bullets pass through the first enemy they hit."
+        },
+        {
+            "id": "ricochet",
+            "name": "Ricochet",
+            "detail": "Bullets bounce off walls once."
+        },
+        {
+            "id": "chain",
+            "name": "Chain",
+            "detail": "Hits arc lightning to a nearby enemy."
+        },
+        {
+            "id": "slow",
+            "name": "Slow",
+            "detail": "Hits slow enemies by 30% for 2s."
+        },
+        {
+            "id": "lifesteal",
+            "name": "Lifesteal",
+            "detail": "Heal for 3% of damage dealt."
+        },
+        {
+            "id": "explosive",
+            "name": "Explosive",
+            "detail": "Bullets explode on impact for small area damage."
+        },
+        {
+            "id": "rapid",
+            "name": "Rapid",
+            "detail": "Fire rate up 40%, damage down 15%."
+        }
+    ],
+    "pairs": {
+        "explosive|fire": {
+            "name": "Napalm",
+            "effect": "Explosions leave burning ground for 3s.",
+            "notes": "Cap stacks at 3 patches.",
+            "state": "done"
+        },
+        "explosive|pierce": {
+            "name": "Breach Round",
+            "effect": "Each enemy pierced triggers a smaller explosion.",
+            "notes": "",
+            "state": "done"
+        },
+        "chain|ricochet": {
+            "name": "Arc Bounce",
+            "effect": "Each ricochet also chains lightning to one target.",
+            "notes": "Might be too strong in corridors.",
+            "state": "drafted"
+        },
+        "fire|lifesteal": {
+            "name": "Cauterize",
+            "effect": "Burn damage heals you at half rate.",
+            "notes": "",
+            "state": "drafted"
+        },
+        "chain|slow": {
+            "name": "Static Field",
+            "effect": "Chained enemies are slowed too.",
+            "notes": "",
+            "state": "drafted"
+        },
+        "rapid|slow": {
+            "name": "",
+            "effect": "They cancel out; no interesting choice.",
+            "notes": "Revisit if Slow becomes a freeze.",
+            "state": "struck"
+        },
+        "lifesteal|rapid": {
+            "name": "",
+            "effect": "Just a bigger number, no new play.",
+            "notes": "",
+            "state": "struck"
+        }
+    }
+}

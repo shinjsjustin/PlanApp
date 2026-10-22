@@ -270,6 +270,11 @@
     font-size: var(--font-sm);
 }
 
+@media (max-width: 480px) {
+    .combinations-page .grid tbody th { position: static; }
+    .combinations-page .grid thead th:first-child { left: auto; }
+}
+
 @media (max-width: 860px) {
     .combinations-page .grid-wrap { max-height: 70vh; }
     .combinations-page .legend { margin-left: 0; }
@@ -339,7 +344,7 @@
     color: var(--bg-page);
     border: 2px solid transparent;
 }
-.combinations-page .walk-list button .num { color: var(--combo-empty); font-variant-numeric: tabular-nums; width: 1.8em; }
+.combinations-page .walk-list button .num { color: var(--text-secondary); font-variant-numeric: tabular-nums; width: 1.8em; }
 .combinations-page .walk-list button .partner { font-weight: 600; }
 .combinations-page .walk-list button .pname {
     margin-left: auto;
