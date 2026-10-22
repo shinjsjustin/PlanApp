@@ -82,3 +82,25 @@
     margin: 0;
     padding: 0;
 }
+
+.subcategory-manager {
+    margin: var(--space-md) 0;
+    color: var(--text-primary);
+}
+
+.subcategory-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin: var(--space-sm) 0;
+    padding: 0;
+}
+
+.subcategory-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    list-style: none;
+    overflow-wrap: anywhere;
+}

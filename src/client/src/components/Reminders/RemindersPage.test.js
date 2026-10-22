@@ -8,6 +8,12 @@ import usePlaces from '../../hooks/usePlaces';
 
 jest.mock('../../hooks/useReminders');
 jest.mock('../../hooks/usePlaces');
+jest.mock('./SubcategoryManager', () => ({ placeId, onChanged }) => (
+    <div>
+        <p>{`subcategories of ${placeId}`}</p>
+        <button type="button" onClick={onChanged}>Changed</button>
+    </div>
+));
 jest.mock('./ReminderForm', () => ({ reminder, onSubmit, onCancel, saveFailed }) => (
     <div>
         <p>{reminder ? `form for ${reminder.title}` : 'blank form'}</p>
@@ -175,5 +181,27 @@ describe('RemindersPage', () => {
         rerender(<RemindersPage />);
         expect(screen.getByRole('alert')).toHaveTextContent('Could not load');
         expect(screen.queryByText('No reminders here.')).not.toBeInTheDocument();
+    });
+
+    test('shows the subcategory manager only when one place is filtered', async () => {
+        render(<RemindersPage />);
+        const select = screen.getByLabelText('Place');
+        expect(screen.queryByText(/subcategories of/)).not.toBeInTheDocument();
+        await userEvent.selectOptions(select, 'Shop');
+        expect(screen.getByText('subcategories of 2')).toBeInTheDocument();
+        await userEvent.selectOptions(select, 'No place');
+        expect(screen.queryByText(/subcategories of/)).not.toBeInTheDocument();
+        await userEvent.selectOptions(select, 'Home');
+        expect(screen.getByText('subcategories of 1')).toBeInTheDocument();
+        await userEvent.selectOptions(select, 'All');
+        expect(screen.queryByText(/subcategories of/)).not.toBeInTheDocument();
+    });
+
+    test('reloads reminders when the manager reports a change', async () => {
+        render(<RemindersPage />);
+        await userEvent.selectOptions(screen.getByLabelText('Place'), 'Shop');
+        expect(hook.reload).not.toHaveBeenCalled();
+        await userEvent.click(screen.getByRole('button', { name: 'Changed' }));
+        expect(hook.reload).toHaveBeenCalledTimes(1);
     });
 });

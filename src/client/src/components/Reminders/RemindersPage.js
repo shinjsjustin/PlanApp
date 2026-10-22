@@ -6,6 +6,7 @@ import FormDialog, { confirmDiscard } from '../AddressBook/FormDialog';
 import ReminderForm from './ReminderForm';
 import ReminderRow from './ReminderRow';
 import SnoozeDialog from './SnoozeDialog';
+import SubcategoryManager from './SubcategoryManager';
 import '../Styling/Places.css';
 import '../Styling/Reminders.css';
 
@@ -36,8 +37,10 @@ const RemindersPage = () => {
     const [dialog, setDialog] = useState(null);
     const [isDirty, setIsDirty] = useState(false);
     const [saveFailed, setSaveFailed] = useState(false);
+    const placeId = toPlaceId(placeValue);
+    const isSinglePlace = typeof placeId === 'number';
     const places = usePlaces();
-    const reminders = useReminders({ placeId: toPlaceId(placeValue), status: view, sort });
+    const reminders = useReminders({ placeId, status: view, sort });
 
     const closeDialog = () => {
         setDialog(null);
@@ -119,6 +122,8 @@ const RemindersPage = () => {
                     </select>
                 </label>
             </div>
+
+            {isSinglePlace && <SubcategoryManager placeId={placeId} onChanged={reminders.reload} />}
 
             {reminders.status === 'loading' && <p>Loading reminders...</p>}
             {reminders.status === 'ready' && reminders.reminders.length === 0 && <p>No reminders here.</p>}
