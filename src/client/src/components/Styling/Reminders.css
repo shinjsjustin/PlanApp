@@ -1,0 +1,51 @@
+.reminder-row {
+    list-style: none;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.reminder-title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    font-weight: bold;
+    overflow-wrap: anywhere;
+}
+
+.reminder-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-sm);
+    margin: var(--space-sm) 0;
+    padding: 0;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.reminder-details li {
+    list-style: none;
+    min-width: 0;
+}
+
+.reminder-badge {
+    padding: 0 var(--space-xs);
+    border: 1px solid var(--text-secondary);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+}
+
+.reminder-badge--overdue {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+.reminder-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
