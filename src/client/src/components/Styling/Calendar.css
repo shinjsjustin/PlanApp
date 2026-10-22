@@ -1047,6 +1047,33 @@ button.note-ribbon-body:hover .note-ribbon-text {
     font-weight: 600;
 }
 
+/* Same lane as a Google event; same z-index, so painting after EventLayer puts it
+ * above, and below the booking cards (z-index 1). */
+.calendar-reminder {
+    position: absolute;
+    left: calc(
+        var(--cal-gutter-width) + (100% - var(--cal-gutter-width)) *
+            var(--cal-note-plane-split)
+    );
+    right: var(--space-xs);
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    border-left: var(--cal-item-edge-width) solid var(--color-primary);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: var(--font-sm);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.calendar-reminder-title {
+    font-weight: 600;
+}
+
 /* Travel time into a stop: same lane as a Google event, behind the cards. */
 .calendar-drive {
     position: absolute;
