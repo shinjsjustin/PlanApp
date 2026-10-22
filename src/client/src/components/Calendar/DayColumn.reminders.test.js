@@ -29,7 +29,7 @@ describe('DayColumn reminders', () => {
     test('draws each reminder as a link to the reminders page', () => {
         renderColumn({ reminders });
 
-        expect(screen.getByRole('link', { name: 'Reminder: Call the dentist' })).toHaveAttribute(
+        expect(screen.getByRole('link', { name: 'Reminder: Call the dentist, 09:00' })).toHaveAttribute(
             'href',
             '/reminders'
         );

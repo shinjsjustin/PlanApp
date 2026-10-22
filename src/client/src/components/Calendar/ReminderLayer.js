@@ -10,12 +10,14 @@ const REMINDER_BLOCK_MINUTES = 30;
 // Reminders page, where they are edited.
 const ReminderBlock = ({ reminder }) => {
     const geometry = useDayGeometry();
+    const time = formatTime(reminder.startMinutes);
+    const isHigh = reminder.priority === 'high';
 
     return (
         <Link
             to="/reminders"
             className="calendar-reminder"
-            aria-label={`Reminder: ${reminder.title}`}
+            aria-label={`Reminder: ${reminder.title}, ${time}${isHigh ? ', High priority' : ''}`}
             style={{
                 top: `${geometry.minutesToPx(reminder.startMinutes)}px`,
                 height: `${geometry.minutesToPx(REMINDER_BLOCK_MINUTES)}px`,
@@ -23,8 +25,8 @@ const ReminderBlock = ({ reminder }) => {
         >
             <span className="calendar-reminder-title">{reminder.title}</span>
             <span className="calendar-reminder-time">
-                {formatTime(reminder.startMinutes)}
-                {reminder.priority === 'high' && ' · High priority'}
+                {time}
+                {isHigh && ' · High priority'}
             </span>
         </Link>
     );

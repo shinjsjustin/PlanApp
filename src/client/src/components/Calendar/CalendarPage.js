@@ -170,6 +170,14 @@ const CalendarPage = () => {
                         </button>
                     </div>
                 )}
+                {reminders.loadError && (
+                    <div className="calendar-events-notice" role="status">
+                        <span>{reminders.loadError}</span>
+                        <button type="button" onClick={reminders.reload}>
+                            Retry reminders
+                        </button>
+                    </div>
+                )}
                 {exporter.summary && (
                     <p className="calendar-export-summary" role="status">
                         {`Exported: ${exporter.summary.created} new, ${exporter.summary.updated} moved, ${exporter.summary.deleted} removed`}

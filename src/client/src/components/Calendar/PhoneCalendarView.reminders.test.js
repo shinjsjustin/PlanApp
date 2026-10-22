@@ -36,7 +36,7 @@ describe('PhoneCalendarView reminders', () => {
         const remindersForDate = jest.fn((date) => (date === today ? [block] : []));
         renderView([{ id: 4, position: 0, date: today }], { remindersForDate });
 
-        expect(screen.getByRole('link', { name: 'Reminder: Call the dentist' })).toHaveAttribute(
+        expect(screen.getByRole('link', { name: 'Reminder: Call the dentist, 09:00' })).toHaveAttribute(
             'href',
             '/reminders'
         );
@@ -45,7 +45,7 @@ describe('PhoneCalendarView reminders', () => {
     test('shows them on a date with no day record', () => {
         renderView([], { remindersForDate: () => [block] });
 
-        expect(screen.getByRole('link', { name: 'Reminder: Call the dentist' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Reminder: Call the dentist, 09:00' })).toBeInTheDocument();
     });
 
     test('shows none when no reminders are given', () => {

@@ -31,9 +31,9 @@ describe('ReminderLayer', () => {
         renderLayer([block(), block({ id: 2, title: 'Pay rent', startMinutes: 780 })]);
 
         expect(screen.getAllByRole('link')).toHaveLength(2);
-        const link = screen.getByRole('link', { name: 'Reminder: Call the vet' });
+        const link = screen.getByRole('link', { name: 'Reminder: Call the vet, 09:00' });
         expect(link).toHaveAttribute('href', '/reminders');
-        expect(screen.getByRole('link', { name: 'Reminder: Pay rent' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Reminder: Pay rent, 13:00' })).toBeInTheDocument();
     });
 
     test('shows the title and time and sits at its start minute with a 30 minute height', () => {
@@ -50,7 +50,10 @@ describe('ReminderLayer', () => {
         renderLayer([block({ priority: 'high' }), block({ id: 2, title: 'Other' })]);
 
         expect(screen.getAllByText(/high priority/i)).toHaveLength(1);
-        expect(screen.getByRole('link', { name: 'Reminder: Call the vet' })).toHaveTextContent(/high priority/i);
+        expect(screen.getByRole('link', { name: 'Reminder: Call the vet, 09:00, High priority' })).toHaveTextContent(
+            /high priority/i
+        );
+        expect(screen.getByRole('link', { name: 'Reminder: Other, 09:00' })).toBeInTheDocument();
     });
 
     test('has no drag, resize or edit controls', () => {

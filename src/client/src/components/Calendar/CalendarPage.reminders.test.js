@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 import CalendarPage from './CalendarPage';
@@ -41,7 +42,7 @@ describe('CalendarPage reminders', () => {
         renderPage();
 
         const dayOne = await screen.findByRole('region', { name: 'Day 1' });
-        const link = await within(dayOne).findByRole('link', { name: 'Reminder: Call the dentist' });
+        const link = await within(dayOne).findByRole('link', { name: 'Reminder: Call the dentist, 09:00' });
         expect(link).toHaveAttribute('href', '/reminders');
         const dayTwo = screen.getByRole('region', { name: 'Day 2' });
         expect(within(dayTwo).queryByRole('link', { name: /^Reminder:/ })).not.toBeInTheDocument();
@@ -55,5 +56,21 @@ describe('CalendarPage reminders', () => {
 
         expect(await screen.findByRole('region', { name: 'Day 1' })).toBeInTheDocument();
         expect(screen.queryByRole('link', { name: /^Reminder:/ })).not.toBeInTheDocument();
+    });
+
+    test('shows a retry notice when the reminders load fails and reloads on click', async () => {
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        remindersAnswer = new Error('Boom');
+        renderPage();
+
+        const notice = await screen.findByText('Boom');
+        expect(notice.closest('[role="status"]')).toHaveClass('calendar-events-notice');
+
+        remindersAnswer = { reminders: [] };
+        const callsBefore = api.get.mock.calls.filter(([p]) => p === '/reminders?status=open').length;
+        await userEvent.click(screen.getByRole('button', { name: 'Retry reminders' }));
+
+        await waitFor(() => expect(screen.queryByText('Boom')).not.toBeInTheDocument());
+        expect(api.get.mock.calls.filter(([p]) => p === '/reminders?status=open')).toHaveLength(callsBefore + 1);
     });
 });
