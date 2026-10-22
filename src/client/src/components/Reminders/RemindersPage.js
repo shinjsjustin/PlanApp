@@ -29,6 +29,14 @@ const SORTS = [
 const DELETE_MESSAGE = 'Delete this reminder?';
 
 const OPEN_PARAM = 'open';
+const PLACE_PARAM = 'place';
+const NUMERIC = /^\d+$/;
+
+// A tapped place push lands here with ?place=<id>; anything else keeps all places.
+const placeFromUrl = () => {
+    const value = new URL(window.location.href).searchParams.get(PLACE_PARAM);
+    return NUMERIC.test(value) ? value : ALL_PLACES;
+};
 
 const toPlaceId = (value) => {
     if (value === ALL_PLACES) return undefined;
@@ -36,7 +44,7 @@ const toPlaceId = (value) => {
 };
 
 const RemindersPage = () => {
-    const [placeValue, setPlaceValue] = useState(ALL_PLACES);
+    const [placeValue, setPlaceValue] = useState(placeFromUrl);
     const [view, setView] = useState('open');
     const [sort, setSort] = useState('due');
     const [dialog, setDialog] = useState(null);
@@ -58,6 +66,13 @@ const RemindersPage = () => {
         setIsDirty(false);
         setSaveFailed(false);
     };
+
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        if (!NUMERIC.test(url.searchParams.get(PLACE_PARAM))) return;
+        url.searchParams.delete(PLACE_PARAM);
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }, []);
 
     // A tapped push lands here with ?open=<id>; open it once the list has loaded.
     useEffect(() => {
@@ -122,6 +137,7 @@ const RemindersPage = () => {
                     New reminder
                 </button>
                 <PushButton />
+                <a href="/shortcuts" className="neon-button">Shortcuts setup</a>
             </header>
 
             {reminders.error && <p role="alert" className="places-error">{reminders.error}</p>}

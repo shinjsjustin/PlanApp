@@ -274,6 +274,29 @@ describe('RemindersPage', () => {
         });
     });
 
+    test('header links to the Shortcuts setup page', () => {
+        render(<RemindersPage />);
+        const link = within(screen.getByRole('banner')).getByRole('link', { name: 'Shortcuts setup' });
+        expect(link).toHaveAttribute('href', '/shortcuts');
+    });
+
+    describe('?place=<id>', () => {
+        test('starts with that place selected and clears the param', () => {
+            window.history.pushState(null, '', '/reminders?place=2&x=1');
+            render(<RemindersPage />);
+            expect(screen.getByLabelText('Place')).toHaveValue('2');
+            expect(lastQuery().placeId).toBe(2);
+            expect(window.location.search).toBe('?x=1');
+        });
+
+        test('ignores a non-numeric value and stays on all places', () => {
+            window.history.pushState(null, '', '/reminders?place=abc');
+            render(<RemindersPage />);
+            expect(screen.getByLabelText('Place')).toHaveValue('');
+            expect(lastQuery().placeId).toBeUndefined();
+        });
+    });
+
     describe('date groups', () => {
         const dated = (id, title, dueDate) => ({ ...reminder(id, title), dueDate });
         const headings = () => screen.queryAllByRole('heading', { level: 2 }).map((h) => h.textContent);
