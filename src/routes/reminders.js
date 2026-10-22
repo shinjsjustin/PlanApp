@@ -7,8 +7,9 @@ const asyncRoute = require('../lib/asyncRoute');
 const assertOwnership = require('../middleware/assertOwnership');
 const remindersRepo = require('../db/repositories/remindersRepo');
 const subcategoriesRepo = require('../db/repositories/reminderSubcategoriesRepo');
-const { badRequest, notFound } = require('../lib/httpError');
+const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { isDateKey, timeZoneOf } = require('../lib/localDate');
+const { nextDueDate, shiftAlert } = require('../lib/reminderSchedule');
 const { toReminder } = require('../lib/serializers');
 const { parseId } = require('../lib/validation');
 const { withTransaction } = require('../db/unitOfWork');
@@ -235,6 +236,108 @@ router.delete(
         if (!deleted) throw notFound('Reminder');
 
         res.sendData({ id });
+    })
+);
+
+// Loads an owned reminder and requires it to be in one of the given statuses.
+const loadInStatus = async (conn, id, userId, allowed) => {
+    await assertOwnership(conn, 'reminder', id, userId);
+
+    const reminder = await remindersRepo.findById(conn, id);
+    if (!reminder) throw notFound('Reminder');
+    if (!allowed.includes(reminder.status)) throw conflict(`Reminder is ${reminder.status}`);
+
+    return reminder;
+};
+
+// The copy a done repeating reminder leaves behind, or null when the rule has no next date.
+const createNext = async (conn, closed) => {
+    const { dueDate, dueTime, repeat } = toReminder(closed);
+    if (repeat.rule === 'none') return null;
+
+    const nextDate = nextDueDate({ dueDate, rule: repeat.rule, every: repeat.every, weekdays: repeat.weekdays });
+    if (!nextDate) return null;
+
+    const alertAt = closed.alert_at
+        ? shiftAlert(new Date(closed.alert_at), dueDate, nextDate, closed.time_zone)
+        : null;
+
+    return remindersRepo.create(conn, {
+        ownerId: closed.owner_id,
+        title: closed.title,
+        placeId: closed.place_id,
+        subcategoryId: closed.subcategory_id,
+        personId: closed.person_id,
+        projectId: closed.project_id,
+        todoId: closed.todo_id,
+        dueDate: nextDate,
+        dueTime,
+        timeZone: closed.time_zone,
+        alertAt,
+        trigger: closed.location_trigger,
+        priority: closed.priority,
+        repeatRule: repeat.rule,
+        repeatEvery: repeat.every,
+        repeatWeekdays: repeat.weekdays,
+        repeatedFromId: closed.id,
+    });
+};
+
+const closeRoute = (status) =>
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const { closed, next } = await withTransaction(async (conn) => {
+            await loadInStatus(conn, id, req.user.id, ['open']);
+            const closedRow = await remindersRepo.close(conn, id, status);
+
+            return { closed: closedRow, next: status === 'done' ? await createNext(conn, closedRow) : null };
+        });
+
+        res.sendData({ reminder: toReminder(closed), next: next && toReminder(next) });
+    });
+
+// POST /api/reminders/:id/done and /:id/dismiss
+router.post('/:id/done', closeRoute('done'));
+router.post('/:id/dismiss', closeRoute('dismissed'));
+
+const snoozeSchema = z.object({
+    until: z.iso
+        .datetime({ offset: true, error: 'until must be ISO 8601 with an offset' })
+        .transform((value) => new Date(value)),
+});
+
+// POST /api/reminders/:id/snooze
+router.post(
+    '/:id/snooze',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+        const { until } = snoozeSchema.parse(req.body ?? {});
+        if (until <= new Date()) throw badRequest('until must be in the future');
+
+        const reminder = await withTransaction(async (conn) => {
+            await loadInStatus(conn, id, req.user.id, ['open']);
+
+            return remindersRepo.update(conn, id, { snoozedUntil: until });
+        });
+
+        res.sendData(toReminder(reminder));
+    })
+);
+
+// POST /api/reminders/:id/reopen
+router.post(
+    '/:id/reopen',
+    asyncRoute(async (req, res) => {
+        const id = parseId(req.params.id);
+
+        const reminder = await withTransaction(async (conn) => {
+            await loadInStatus(conn, id, req.user.id, ['done', 'dismissed']);
+
+            return remindersRepo.update(conn, id, { status: 'open', closedAt: null });
+        });
+
+        res.sendData(toReminder(reminder));
     })
 );
 

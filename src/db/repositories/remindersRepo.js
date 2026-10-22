@@ -13,7 +13,10 @@ const { firstRow, buildAssignments } = require('./sql');
 // local time zone out of both directions.
 const utcInstant = (column) => `DATE_FORMAT(r.${column}, '%Y-%m-%dT%H:%i:%sZ') AS ${column}`;
 
-const SELECT_SQL = `SELECT r.*, ${utcInstant('alert_at')}, ${utcInstant('snoozed_until')}, pl.name AS place_name, rs.name AS subcategory_name,
+// closed_at is a TIMESTAMP, stored from the session clock, so it is converted to UTC first.
+const CLOSED_AT_UTC = `DATE_FORMAT(CONVERT_TZ(r.closed_at, @@session.time_zone, '+00:00'), '%Y-%m-%dT%H:%i:%sZ') AS closed_at`;
+
+const SELECT_SQL = `SELECT r.*, ${utcInstant('alert_at')}, ${utcInstant('snoozed_until')}, ${CLOSED_AT_UTC}, pl.name AS place_name, rs.name AS subcategory_name,
         pe.name AS person_name, pr.title AS project_title, t.text AS todo_text
      FROM reminders r
      LEFT JOIN places pl ON pl.id = r.place_id
@@ -73,14 +76,15 @@ const create = async (
         repeatRule = 'none',
         repeatEvery = null,
         repeatWeekdays = [],
+        repeatedFromId = null,
     }
 ) => {
     const [result] = await conn.execute(
         `INSERT INTO reminders
             (owner_id, title, place_id, subcategory_id, person_id, project_id, todo_id, due_date,
              due_time, time_zone, alert_at, location_trigger, priority, repeat_rule, repeat_every,
-             repeat_weekdays)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             repeat_weekdays, repeated_from_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             ownerId,
             title,
@@ -98,6 +102,7 @@ const create = async (
             repeatRule,
             repeatEvery,
             encodeWeekdays(repeatWeekdays),
+            repeatedFromId,
         ]
     );
 
@@ -117,6 +122,16 @@ const update = async (conn, id, patch) => {
     );
     const [result] = await conn.execute(`UPDATE reminders SET ${clause} WHERE id = ?`, [...values, id]);
     if (result.affectedRows === 0) return null;
+
+    return findById(conn, id);
+};
+
+/** Marks the reminder done or dismissed now, using the database clock, and ends any snooze. */
+const close = async (conn, id, status) => {
+    await conn.execute(
+        'UPDATE reminders SET status = ?, closed_at = CURRENT_TIMESTAMP, snoozed_until = NULL WHERE id = ?',
+        [status, id]
+    );
 
     return findById(conn, id);
 };
@@ -162,4 +177,4 @@ const remove = async (conn, id) => {
     return result.affectedRows > 0;
 };
 
-module.exports = { create, findById, listByOwner, remove, update };
+module.exports = { close, create, findById, listByOwner, remove, update };
