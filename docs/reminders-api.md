@@ -1,6 +1,6 @@
 # Reminders API
 
-Reminders, their subcategories, and the one-off script that fills them from a project. Every endpoint needs `Authorization: Bearer <token>` and answers `{ data: ... }`. Everything is scoped to the token's user. Nothing is ever sent: no push, email or message goes out, a reminder only stores what is due and when.
+Reminders, their subcategories, and the one-off script that fills them from a project. Every endpoint needs `Authorization: Bearer <token>` and answers `{ data: ... }`. Everything is scoped to the token's user. A reminder only stores what is due and when; the only thing ever sent is a push notification, see [push-api.md](push-api.md).
 
 Send `X-Time-Zone: <IANA zone>` (for example `America/Los_Angeles`) on every request that creates a reminder. A missing or invalid header falls back to the server's own zone.
 
