@@ -36,3 +36,11 @@ it('sets a light small colour on the labels inside the reminders controls', () =
     expect(body).toMatch(/color:\s*var\(--text-glow\)/);
     expect(body).toMatch(/font-size:\s*var\(--font-sm\)/);
 });
+
+it('paints the reminder Delete button with the danger colour and white text', () => {
+    const body = rule('.reminder-delete');
+    expect(body).toMatch(/background:\s*var\(--color-danger\)/);
+    expect(body).toMatch(/color:\s*var\(--text-white\)/);
+    expect(body).toMatch(/border-color:\s*var\(--color-danger\)/);
+    expect(body).toMatch(/margin-top:\s*var\(--space-lg\)/);
+});

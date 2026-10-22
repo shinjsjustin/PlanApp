@@ -14,12 +14,13 @@ jest.mock('./SubcategoryManager', () => ({ placeId, onChanged }) => (
         <button type="button" onClick={onChanged}>Changed</button>
     </div>
 ));
-jest.mock('./ReminderForm', () => ({ reminder, onSubmit, onCancel, saveFailed }) => (
+jest.mock('./ReminderForm', () => ({ reminder, onSubmit, onCancel, onDelete, saveFailed }) => (
     <div>
         <p>{reminder ? `form for ${reminder.title}` : 'blank form'}</p>
         {saveFailed && <p>save failed</p>}
         <button type="button" onClick={() => onSubmit({ title: 'Saved' })}>Save</button>
         <button type="button" onClick={onCancel}>Cancel form</button>
+        {onDelete && <button type="button" onClick={onDelete}>Delete</button>}
     </div>
 ));
 
@@ -114,15 +115,39 @@ describe('RemindersPage', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
 
-    test('Delete removes only after confirming', async () => {
+    test('Delete in the edit dialog removes only after confirming and closes the dialog', async () => {
         const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
         render(<RemindersPage />);
+        expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
         await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        expect(confirm).toHaveBeenCalledWith('Delete this reminder?');
         expect(hook.remove).not.toHaveBeenCalled();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
         confirm.mockReturnValue(true);
         await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
         expect(hook.remove).toHaveBeenCalledWith(1);
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
         confirm.mockRestore();
+    });
+
+    test('Delete on a done row removes only after confirming', async () => {
+        hook.reminders = [reminder(5, 'Old task', 'done')];
+        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        expect(confirm).toHaveBeenCalledWith('Delete this reminder?');
+        expect(hook.remove).not.toHaveBeenCalled();
+        confirm.mockReturnValue(true);
+        await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        expect(hook.remove).toHaveBeenCalledWith(5);
+        confirm.mockRestore();
+    });
+
+    test('the new reminder form offers no Delete', async () => {
+        render(<RemindersPage />);
+        await userEvent.click(screen.getByRole('button', { name: 'New reminder' }));
+        expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
     });
 
     test('Done and Dismiss call their actions', async () => {

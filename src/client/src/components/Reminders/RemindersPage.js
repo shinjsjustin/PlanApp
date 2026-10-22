@@ -71,8 +71,8 @@ const RemindersPage = () => {
         if (confirmDiscard(isDirty)) closeDialog();
     };
 
-    const confirmDelete = (reminder) => {
-        if (window.confirm(DELETE_MESSAGE)) reminders.remove(reminder.id);
+    const confirmDelete = (call) => {
+        if (window.confirm(DELETE_MESSAGE)) call();
     };
 
     const idAction = (action) => (reminder) => action(reminder.id);
@@ -138,7 +138,7 @@ const RemindersPage = () => {
                             onReopen={idAction(reminders.reopen)}
                             onSnooze={(target) => openDialog({ kind: 'snooze', reminder: target, now: new Date() })}
                             onEdit={(target) => openDialog({ kind: 'form', reminder: target })}
-                            onDelete={confirmDelete}
+                            onDelete={(target) => confirmDelete(() => reminders.remove(target.id))}
                         />
                     ))}
                 </ul>
@@ -156,6 +156,7 @@ const RemindersPage = () => {
                         saveFailed={saveFailed}
                         onSubmit={submitForm}
                         onCancel={requestCancel}
+                        onDelete={dialog.reminder ? () => confirmDelete(() => finish(() => reminders.remove(dialog.reminder.id))) : undefined}
                         onDirtyChange={setIsDirty}
                     />
                 </FormDialog>

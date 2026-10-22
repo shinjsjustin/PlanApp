@@ -78,7 +78,7 @@ const Options = ({ items }) =>
         </option>
     ));
 
-const ReminderFormBody = ({ reminder, onSubmit, onCancel, onDirtyChange, saveFailed }) => {
+const ReminderFormBody = ({ reminder, onSubmit, onCancel, onDelete, onDirtyChange, saveFailed }) => {
     const [startDraft] = useState(reminder ? fromReminder(reminder) : emptyDraft());
     const [draft, setDraft] = useState(startDraft);
     const [errors, setErrors] = useState([]);
@@ -223,6 +223,11 @@ const ReminderFormBody = ({ reminder, onSubmit, onCancel, onDirtyChange, saveFai
                     <button type="button" className="neon-button" onClick={onCancel}>Cancel</button>
                 )}
             </div>
+            {onDelete && (
+                <div className="place-actions">
+                    <button type="button" className="neon-button reminder-delete" onClick={onDelete}>Delete</button>
+                </div>
+            )}
         </form>
     );
 };

@@ -43,9 +43,11 @@ export default function ReminderRow({ reminder, onDone, onDismiss, onSnooze, onR
                         <button type="button" onClick={act(onEdit)}>Edit</button>
                     </>
                 ) : (
-                    <button type="button" onClick={act(onReopen)}>Reopen</button>
+                    <>
+                        <button type="button" onClick={act(onReopen)}>Reopen</button>
+                        <button type="button" onClick={act(onDelete)}>Delete</button>
+                    </>
                 )}
-                <button type="button" onClick={act(onDelete)}>Delete</button>
             </div>
         </li>
     );

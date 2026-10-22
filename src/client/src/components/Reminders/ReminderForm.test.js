@@ -173,4 +173,16 @@ describe('ReminderForm', () => {
         render(<ReminderForm onSubmit={jest.fn()} />);
         expect(await screen.findByText('boom')).toBeInTheDocument();
     });
+
+    test('shows a Delete button that calls onDelete only when given one', async () => {
+        const onDelete = jest.fn();
+        await renderForm({ reminder: REMINDER, onDelete });
+        await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    test('has no Delete button without onDelete', async () => {
+        await renderForm({ reminder: REMINDER });
+        expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    });
 });

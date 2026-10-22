@@ -51,19 +51,25 @@ it('shows every field of a fully set reminder', () => {
 it('renders unset fields as nothing and no badges', () => {
     const { container } = render(<ReminderRow reminder={bare} {...handlers()} />);
 
-    expect(container.textContent).toBe('PlainDoneDismissSnoozeEditDelete');
+    expect(container.textContent).toBe('PlainDoneDismissSnoozeEdit');
 });
 
 it('calls the matching prop with the reminder from each open button', () => {
     const h = handlers();
     render(<ReminderRow reminder={full} {...h} />);
 
-    [['Done', 'onDone'], ['Dismiss', 'onDismiss'], ['Snooze', 'onSnooze'], ['Edit', 'onEdit'], ['Delete', 'onDelete']]
+    [['Done', 'onDone'], ['Dismiss', 'onDismiss'], ['Snooze', 'onSnooze'], ['Edit', 'onEdit']]
         .forEach(([name, prop]) => {
             fireEvent.click(screen.getByRole('button', { name }));
             expect(h[prop]).toHaveBeenCalledWith(full);
         });
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+});
+
+it('offers only Done, Dismiss, Snooze and Edit on an open row', () => {
+    render(<ReminderRow reminder={full} {...handlers()} />);
+
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Done', 'Dismiss', 'Snooze', 'Edit']);
 });
 
 it.each(['done', 'dismissed'])('offers only Reopen and Delete on a %s row', (status) => {
@@ -74,6 +80,8 @@ it.each(['done', 'dismissed'])('offers only Reopen and Delete on a %s row', (sta
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Reopen', 'Delete']);
     fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
     expect(h.onReopen).toHaveBeenCalledWith(reminder);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(h.onDelete).toHaveBeenCalledWith(reminder);
 });
 
 it('raises no duplicate-key warning when place and subcategory share a label', () => {
