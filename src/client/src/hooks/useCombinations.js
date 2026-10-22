@@ -96,6 +96,21 @@ const useCombinations = ({ projectId, deckId } = {}) => {
         (created) => setDecks((current) => [...current, created].sort(byName)),
     ), [run]);
 
+    const importDecks = useCallback((data) => run(
+        () => api.post('/combinations/import', data),
+        ({ decks: imported }) => setDecks((current) => [...current, ...imported].sort(byName)),
+    ), [run]);
+
+    const exportDeck = useCallback((id) => run(
+        () => api.get(`${DECKS_PATH}/${id}/export`),
+        () => {},
+    ), [run]);
+
+    const promoteDeck = useCallback((id) => run(
+        () => api.post(`${DECKS_PATH}/${id}/promote`),
+        (created) => setDecks((current) => [...current, created].sort(byName)),
+    ), [run]);
+
     const renameDeck = useCallback((id, name) => run(
         () => api.patch(`${DECKS_PATH}/${id}`, { name }),
         (renamed) => {
@@ -159,7 +174,7 @@ const useCombinations = ({ projectId, deckId } = {}) => {
 
     return {
         status, decks, deck, cards, pairs, error,
-        createDeck, renameDeck, deleteDeck, addCard, updateCard, moveCard, deleteCard, savePair,
+        createDeck, renameDeck, deleteDeck, importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair,
     };
 };
 

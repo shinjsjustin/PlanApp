@@ -10,6 +10,9 @@ const setup = (props = {}) => {
         onCreate: jest.fn().mockResolvedValue({}),
         onRename: jest.fn().mockResolvedValue({}),
         onDelete: jest.fn().mockResolvedValue({}),
+        onPromote: jest.fn().mockResolvedValue({}),
+        onExport: jest.fn().mockResolvedValue({}),
+        onImport: jest.fn(),
     };
     render(<DeckBar decks={DECKS} deckId={1} {...handlers} {...props} />);
     return handlers;
@@ -91,5 +94,47 @@ describe('DeckBar', () => {
         setup({ decks: [], deckId: undefined });
         expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled();
         expect(screen.getByRole('button', { name: 'Delete deck' })).toBeDisabled();
+    });
+
+    it('puts the transfer buttons after Delete deck in the prototype order', () => {
+        setup();
+        const names = screen.getAllByRole('button').map((b) => b.textContent);
+        expect(names.slice(names.indexOf('Delete deck') + 1)).toEqual([
+            'New deck from done pairs', 'Export JSON', 'Import JSON',
+        ]);
+    });
+
+    it('calls onPromote and onExport from their buttons', () => {
+        const h = setup();
+        fireEvent.click(screen.getByRole('button', { name: 'New deck from done pairs' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+        expect(h.onPromote).toHaveBeenCalledTimes(1);
+        expect(h.onExport).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a failed promote or export', async () => {
+        setup({ onPromote: jest.fn().mockRejectedValue(new Error('Promote broke')) });
+        fireEvent.click(screen.getByRole('button', { name: 'New deck from done pairs' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Promote broke');
+    });
+
+    it('Import JSON opens a hidden .json file input and passes the chosen file on', () => {
+        const h = setup();
+        const input = document.querySelector('input[type="file"]');
+        expect(input).toHaveAttribute('hidden');
+        expect(input.getAttribute('accept')).toContain('.json');
+        const clicked = jest.spyOn(input, 'click');
+        fireEvent.click(screen.getByRole('button', { name: 'Import JSON' }));
+        expect(clicked).toHaveBeenCalled();
+        const file = new File(['{}'], 'a.json', { type: 'application/json' });
+        fireEvent.change(input, { target: { files: [file] } });
+        expect(h.onImport).toHaveBeenCalledWith(file);
+    });
+
+    it('Export and promote are disabled without an open deck but Import is not', () => {
+        setup({ decks: [], deckId: undefined });
+        expect(screen.getByRole('button', { name: 'Export JSON' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'New deck from done pairs' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Import JSON' })).toBeEnabled();
     });
 });

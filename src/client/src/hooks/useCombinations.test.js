@@ -206,3 +206,68 @@ describe('useCombinations actions', () => {
         expect(result.current.pairs).toEqual({});
     });
 });
+
+describe('useCombinations transfer', () => {
+    const NEW1 = { id: 5, name: 'Zed', cardCount: 1, counts: { drafted: 0, done: 0, struck: 0 } };
+    const NEW2 = { id: 6, name: 'Aaa', cardCount: 0, counts: { drafted: 0, done: 0, struck: 0 } };
+
+    it('importDecks posts the data, adds the new decks sorted and returns them', async () => {
+        const { result } = await mountReady();
+        api.post.mockResolvedValue({ decks: [NEW1, NEW2] });
+        let answer;
+        await act(async () => { answer = await result.current.importDecks({ decks: [{ name: 'x' }] }); });
+        expect(api.post).toHaveBeenCalledWith('/combinations/import', { decks: [{ name: 'x' }] });
+        expect(answer).toEqual({ decks: [NEW1, NEW2] });
+        expect(result.current.decks.map((d) => d.name)).toEqual(['A deck', 'Aaa', 'B deck', 'Zed']);
+    });
+
+    it('importDecks re-throws a failure and leaves the list alone', async () => {
+        const { result } = await mountReady();
+        const failure = new ApiError('Deck name is blank', 400);
+        api.post.mockRejectedValue(failure);
+        let caught;
+        await act(async () => { caught = await result.current.importDecks([]).catch((e) => e); });
+        expect(caught).toBe(failure);
+        expect(result.current.error).toBe('Deck name is blank');
+        expect(result.current.decks).toEqual([D1, D2]);
+    });
+
+    it('exportDeck gets the deck export and returns it without changing state', async () => {
+        const { result } = await mountReady();
+        const exported = { id: 'd_1', name: 'A deck', cards: [], pairs: {} };
+        api.get.mockResolvedValue(exported);
+        let answer;
+        await act(async () => { answer = await result.current.exportDeck(1); });
+        expect(api.get).toHaveBeenLastCalledWith('/combinations/decks/1/export');
+        expect(answer).toEqual(exported);
+        expect(result.current.decks).toEqual([D1, D2]);
+    });
+
+    it('exportDeck re-throws a failure', async () => {
+        const { result } = await mountReady();
+        api.get.mockRejectedValue(new ApiError('Not found', 404));
+        let caught;
+        await act(async () => { caught = await result.current.exportDeck(1).catch((e) => e); });
+        expect(caught.status).toBe(404);
+        expect(result.current.error).toBe('Not found');
+    });
+
+    it('promoteDeck posts to the promote route and adds the new deck sorted', async () => {
+        const { result } = await mountReady();
+        api.post.mockResolvedValue(NEW1);
+        let answer;
+        await act(async () => { answer = await result.current.promoteDeck(1); });
+        expect(api.post).toHaveBeenCalledWith('/combinations/decks/1/promote');
+        expect(answer).toEqual(NEW1);
+        expect(result.current.decks.map((d) => d.id)).toEqual([1, 2, 5]);
+    });
+
+    it('promoteDeck re-throws a failure', async () => {
+        const { result } = await mountReady();
+        api.post.mockRejectedValue(new ApiError('Nope', 500));
+        let caught;
+        await act(async () => { caught = await result.current.promoteDeck(1).catch((e) => e); });
+        expect(caught.message).toBe('Nope');
+        expect(result.current.decks).toEqual([D1, D2]);
+    });
+});

@@ -1,4 +1,4 @@
-import { PAIR_STATES, pairKey, toPairMap, getPair, countStates, walkKeys, stepKey, nextUnfilledKey } from './combinations';
+import { PAIR_STATES, pairKey, toPairMap, getPair, countStates, walkKeys, stepKey, nextUnfilledKey, exportFileName } from './combinations';
 
 const P = (a, b, state, name = '') => ({ id: a * 100 + b, cardAId: a, cardBId: b, name, effect: '', notes: '', state });
 
@@ -78,5 +78,17 @@ describe('walkthrough helpers', () => {
         const keys = ['1|2', '1|3'];
         expect(nextUnfilledKey(keys, '1|3', { '1|3': { state: 'done' } })).toBe('1|2');
         expect(nextUnfilledKey(keys, '1|2', { '1|3': { state: 'done' } })).toBe('1|2');
+    });
+});
+
+describe('exportFileName', () => {
+    it.each([
+        ['Fire and Ice', 'Fire-and-Ice.json'],
+        ['  Hot / Cold!  ', 'Hot-Cold.json'],
+        ['a_b-c', 'a_b-c.json'],
+        ['', 'deck.json'],
+        ['***', 'deck.json'],
+    ])('names %j as %s', (name, expected) => {
+        expect(exportFileName(name)).toBe(expected);
     });
 });

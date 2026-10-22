@@ -46,3 +46,9 @@ export const nextUnfilledKey = (keys, selectedKey, pairs) => {
     }
     return null;
 };
+
+const DEFAULT_EXPORT_NAME = 'deck';
+
+// The download name for an exported deck: the deck name as a slug plus .json.
+export const exportFileName = (name) =>
+    `${name.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '') || DEFAULT_EXPORT_NAME}.json`;

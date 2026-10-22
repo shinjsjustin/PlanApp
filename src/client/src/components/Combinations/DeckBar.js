@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 import ConfirmDialog from '../Project/ConfirmDialog';
 
@@ -7,7 +7,8 @@ const MODE_RENAME = 'rename';
 
 // Deck select plus New, Rename and Delete. Name entry is inline: Enter saves,
 // Escape cancels. A failed call keeps the input open and shows its message.
-const DeckBar = ({ decks, deckId, onSelect, onCreate, onRename, onDelete }) => {
+const DeckBar = ({ decks, deckId, onSelect, onCreate, onRename, onDelete, onPromote, onExport, onImport }) => {
+    const fileInput = useRef(null);
     const [mode, setMode] = useState(null);
     const [name, setName] = useState('');
     const [isConfirming, setIsConfirming] = useState(false);
@@ -86,6 +87,23 @@ const DeckBar = ({ decks, deckId, onSelect, onCreate, onRename, onDelete }) => {
             >
                 Delete deck
             </button>
+            <button type="button" disabled={!openDeck} onClick={() => attempt(onPromote)}>
+                New deck from done pairs
+            </button>
+            <button type="button" disabled={!openDeck} onClick={() => attempt(onExport)}>Export JSON</button>
+            <button type="button" onClick={() => fileInput.current.click()}>Import JSON</button>
+            <input
+                ref={fileInput}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                aria-label="Import file"
+                onChange={(event) => {
+                    const [file] = event.target.files;
+                    event.target.value = '';
+                    if (file) onImport(file);
+                }}
+            />
             {message && <p className="deck-error" role="alert">{message}</p>}
             {isConfirming && (
                 <ConfirmDialog

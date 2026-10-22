@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import useCombinations from '../../hooks/useCombinations';
-import { countStates, getPair, nextUnfilledKey, stepKey, walkKeys } from '../../lib/combinations';
+import { countStates, exportFileName, getPair, nextUnfilledKey, stepKey, walkKeys } from '../../lib/combinations';
 import CardList from './CardList';
 import CountsBar from './CountsBar';
 import DeckBar from './DeckBar';
@@ -35,7 +35,7 @@ const CombinationsPage = () => {
     const projectId = toId(params.get(PROJECT_PARAM));
     const deckId = toId(params.get(DECK_PARAM));
     const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck,
-        addCard, updateCard, moveCard, deleteCard, savePair } =
+        importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair } =
         useCombinations({ projectId, deckId });
 
     const requestedView = params.get(VIEW_PARAM);
@@ -95,6 +95,38 @@ const CombinationsPage = () => {
         if (next) chooseDeck(next.id);
     };
 
+    const handlePromote = async () => {
+        if (countStates(cards, pairs).done === 0) {
+            setToast('No done pairs in this deck yet.');
+            return;
+        }
+        const created = await promoteDeck(deckId);
+        chooseDeck(created.id);
+        setToast(`New deck with ${created.cardCount} cards from done pairs.`);
+    };
+
+    const handleExport = async () => {
+        const exported = await exportDeck(deckId);
+        const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = exportFileName(deck.name);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
+    };
+
+    const handleImport = async (file) => {
+        try {
+            const { decks: imported } = await importDecks(JSON.parse(await file.text()));
+            chooseDeck(imported[0].id);
+            setToast(imported.length === 1 ? `Imported "${imported[0].name}".` : `Imported ${imported.length} decks.`);
+        } catch (err) {
+            setToast(`Could not import ${file.name}: ${err.message}`);
+        }
+    };
+
     const openPair = (key) => {
         setSelectedKey(key);
         if (window.innerWidth <= NARROW_WIDTH && typeof sideRef.current?.scrollIntoView === 'function') {
@@ -121,6 +153,9 @@ const CombinationsPage = () => {
                     onCreate={handleCreate}
                     onRename={(name) => renameDeck(deckId, name)}
                     onDelete={handleDelete}
+                    onPromote={handlePromote}
+                    onExport={handleExport}
+                    onImport={handleImport}
                 />
             </header>
             {error && <p className="deck-error" role="alert">{error}</p>}
