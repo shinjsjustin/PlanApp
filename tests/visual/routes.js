@@ -10,6 +10,8 @@ const ROUTES = [
     { name: 'projects', path: '/projects', signedIn: true },
     { name: 'calendar', path: '/calendar', signedIn: true },
     { name: 'thoughts', path: '/thoughts', signedIn: true },
+    { name: 'reminders', path: '/reminders', signedIn: true },
+    { name: 'reminders new form', path: '/reminders', signedIn: true, open: 'New reminder' },
     { name: 'address book', path: '/address-book', signedIn: true },
     { name: 'address book add person form', path: '/address-book', signedIn: true, open: 'Add person' },
     { name: 'address book add place form', path: '/address-book', signedIn: true, open: 'Add place' },

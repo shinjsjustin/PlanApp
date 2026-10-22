@@ -27,6 +27,6 @@ it('does not paint the pressed view button with the primary green', () => {
     expect(body).toMatch(/border[^;]*var\(--/);
 });
 
-it('sets a light label colour on the reminders place-select', () => {
-    expect(rule('.reminders-page .place-select')).toMatch(/color:\s*var\(--text-glow\)/);
+it('sets a light label colour on the place-select inside the form dialog', () => {
+    expect(rule('.form-dialog .place-select')).toMatch(/color:\s*var\(--text-glow\)/);
 });

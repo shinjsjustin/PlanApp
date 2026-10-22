@@ -76,7 +76,8 @@
     text-decoration: underline;
 }
 
-.reminders-page .place-select {
+.reminders-page .place-select,
+.form-dialog .place-select {
     color: var(--text-glow);
 }
 

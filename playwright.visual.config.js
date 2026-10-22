@@ -12,6 +12,9 @@ const { defineConfig, devices } = require('@playwright/test');
 //  - Local: with VISUAL_BASE_URL unset, the client is built and src/server.js is
 //    started on the test database at port 3102.
 //
+// A server already listening on port 3102 is never reused by default, since it
+// may serve a stale build. Set VISUAL_REUSE_SERVER=1 to reuse it on purpose.
+//
 // The `iphone` project uses WebKit, which needs `npx playwright install webkit`
 // (needs network, once per machine). Where WebKit is not installed, set
 // VISUAL_PHONE_BROWSER=chromium to run the same phone size in Chromium instead.
@@ -19,6 +22,8 @@ const { defineConfig, devices } = require('@playwright/test');
 const PORT = 3102;
 const LOCAL_URL = `http://localhost:${PORT}`;
 const LIVE_URL = process.env.VISUAL_BASE_URL;
+
+const REUSE_SERVER = process.env.VISUAL_REUSE_SERVER === '1';
 
 const PHONE_BROWSERS = ['webkit', 'chromium'];
 const PHONE_BROWSER = process.env.VISUAL_PHONE_BROWSER || 'webkit';
@@ -73,7 +78,7 @@ module.exports = defineConfig({
                       `DB_NAME=planapp_test PORT=${PORT} node src/server.js`,
                   url: LOCAL_URL,
                   timeout: WEB_SERVER_TIMEOUT_MS,
-                  reuseExistingServer: true,
+                  reuseExistingServer: REUSE_SERVER,
                   stdout: 'pipe',
                   stderr: 'pipe',
               },
