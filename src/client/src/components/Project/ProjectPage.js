@@ -7,6 +7,7 @@ import InlineDescription from './InlineDescription';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
 import ProjectThoughtsLink from '../Navigation/ProjectThoughtsLink';
+import CombinationsLink from '../Navigation/CombinationsLink';
 import PhoneProjectView from './PhoneProjectView';
 import UnorganizedPanel from './UnorganizedPanel';
 import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
@@ -58,10 +59,16 @@ const ProjectPage = () => {
                         <ThoughtsLink />
                         <PlacesLink />
                         <ProjectThoughtsLink projectId={id} />
+                        <CombinationsLink projectId={id} />
                     </nav>
                 )}
                 {state.project && <h1>{state.project.title}</h1>}
-                {isPhone && <ProjectThoughtsLink projectId={id} />}
+                {isPhone && (
+                    <>
+                        <ProjectThoughtsLink projectId={id} />
+                        <CombinationsLink projectId={id} />
+                    </>
+                )}
                 {!isPhone && state.status === PROJECT_STATUS.ready && (
                     <ProjectProvider value={graph}>
                         <InlineDescription key={id} value={state.project.description} />

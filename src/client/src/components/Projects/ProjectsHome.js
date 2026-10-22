@@ -6,6 +6,7 @@ import ProjectCard from './ProjectCard';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
 import RemindersLink from '../Navigation/RemindersLink';
+import CombinationsLink from '../Navigation/CombinationsLink';
 import useCardHeights from '../../hooks/useCardHeights';
 import useIsPhone from '../../hooks/useIsPhone';
 import useMasonryColumns from '../../hooks/useMasonryColumns';
@@ -100,6 +101,7 @@ const ProjectsHome = () => {
                     <ThoughtsLink />
                     <PlacesLink />
                     <RemindersLink />
+                    <CombinationsLink />
                     {!isPhone && (
                         <Link className="projects-calendar-link neon-button" to="/calendar">
                             Calendar →
