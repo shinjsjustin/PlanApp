@@ -71,8 +71,13 @@
 }
 
 .reminders-views [aria-pressed="true"] {
-    background: var(--color-primary);
-    color: var(--text-white);
+    border: 2px solid var(--neon-blue);
+    color: var(--text-glow);
+    text-decoration: underline;
+}
+
+.reminders-page .place-select {
+    color: var(--text-glow);
 }
 
 .reminder-list {
