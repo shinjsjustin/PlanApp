@@ -243,6 +243,53 @@ const toPerson = (row) => ({
     leemacClientName: row.leemac_client_name ?? null,
 });
 
+const link = (id, label) => (id == null ? null : { id, label });
+
+const pad = (n) => String(n).padStart(2, '0');
+
+// DATE columns arrive as local-midnight Dates by default, or strings on some drivers.
+const toDateKey = (value) => {
+    if (value == null) return null;
+    if (typeof value === 'string') return value.slice(0, 10);
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+};
+
+// TIME columns arrive as 'HH:MM:SS'.
+const toClock = (value) => (value == null ? null : value.slice(0, 5));
+
+const toIso = (value) => (value == null ? null : new Date(value).toISOString());
+
+/**
+ * `owner_id` and `repeated_from_id` stay server-side. `repeat_weekdays` is a
+ * SET, so it arrives comma-joined ('' for none). Dates and times are formatted
+ * here so the shape does not depend on driver date settings.
+ */
+const toReminder = (row) => ({
+    id: row.id,
+    title: row.title,
+    place: link(row.place_id, row.place_name),
+    subcategory: link(row.subcategory_id, row.subcategory_name),
+    person: link(row.person_id, row.person_name),
+    project: link(row.project_id, row.project_title),
+    todo: link(row.todo_id, row.todo_text),
+    dueDate: toDateKey(row.due_date),
+    dueTime: toClock(row.due_time),
+    timeZone: row.time_zone,
+    alertAt: toIso(row.alert_at),
+    trigger: row.location_trigger,
+    priority: row.priority,
+    status: row.status,
+    snoozedUntil: toIso(row.snoozed_until),
+    closedAt: toIso(row.closed_at),
+    repeat: {
+        rule: row.repeat_rule,
+        every: row.repeat_every ?? null,
+        weekdays: row.repeat_weekdays ? row.repeat_weekdays.split(',') : [],
+    },
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+});
+
 module.exports = {
     toCalendarDay,
     toCalendarEvent,
@@ -253,6 +300,7 @@ module.exports = {
     toPerson,
     toPlace,
     toProject,
+    toReminder,
     toReminderSubcategory,
     toProjectThoughts,
     toSequence,
