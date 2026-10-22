@@ -61,3 +61,14 @@ No body. Sends the payload `{ "title": "ShinPlan", "body": "Push is working", "u
 ```
 
 Errors: 409 `No devices are registered for push` when the caller has no devices, 503 `Push is not configured`.
+
+## When reminders push
+
+The server checks every 60 seconds, only when it is run directly and the VAPID settings are present; otherwise it logs a warning that push is off. For each open reminder with a due date, alert or snooze, it sends to all of the owner's devices:
+
+- At the alert time, or the due time, or 08:00 on the due date in the reminder's time zone when it has no time. The body is the place name or `Reminder due`.
+- When a snooze ends, with the body `Snooze ended`.
+
+Reminders that are done, dismissed or still snoozed past their alert send nothing. A push missed in the last 24 hours is sent once; older ones are skipped, as is an alert earlier than the reminder's creation.
+
+Each send is claimed in `push_sends` by reminder, kind and time before it goes out, so a restart or a second run never repeats it. Changing the alert time, or creating the next repeat row, pushes again.

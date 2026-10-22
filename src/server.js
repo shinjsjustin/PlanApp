@@ -28,6 +28,8 @@ const legalRoutes = require('./routes/legal');
 const isAuth = require('./middleware/isAuth');
 const { respond, errorHandler } = require('./middleware/respond');
 const requiredEnv = require('./lib/requiredEnv');
+const { isPushConfigured } = require('./lib/push/sendPush');
+const { startScheduler } = require('./lib/push/scheduler');
 
 dotenv.config();
 
@@ -120,6 +122,9 @@ if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
+
+    if (isPushConfigured()) startScheduler();
+    else console.warn('Push is off: VAPID settings are not configured');
 }
 
 module.exports = app;
