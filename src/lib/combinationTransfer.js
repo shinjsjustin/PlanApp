@@ -20,7 +20,7 @@ const text = (value) => (value ? String(value) : '');
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const normaliseDeck = (deck, index) => {
-    const label = isObject(deck) && typeof deck.name === 'string' ? `"${deck.name}"` : `#${index + 1}`;
+    const label = isObject(deck) && typeof deck.name === 'string' && deck.name.trim() ? `"${deck.name}"` : `#${index + 1}`;
     const fail = (reason) => badRequest(`Deck ${label}: ${reason}`);
     if (label.startsWith('#') || !Array.isArray(deck.cards)) {
         throw fail('a deck needs a name and a cards list');
@@ -47,6 +47,7 @@ const normaliseDeck = (deck, index) => {
         if (card.id.includes(KEY_SEPARATOR) || ids.has(card.id)) {
             throw fail(`card id "${card.id}" is duplicated or contains "${KEY_SEPARATOR}"`);
         }
+        if (!card.name.trim()) throw fail('a card name must not be blank');
         ids.add(card.id);
         return { key: card.id, name: limitName(card.name, 'a card'), detail: limitText(card.detail, 'a card detail') };
     });

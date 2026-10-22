@@ -140,6 +140,18 @@ describe('POST /import', () => {
         expect(await decksRepo.listByOwner(conn, ownerId)).toHaveLength(0);
     });
 
+    test('a blank card name is 400 naming the deck and saves nothing', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const blank = { name: 'Blanky', cards: [{ id: 'a', name: '   ' }], pairs: {} };
+
+        const res = await as(ownerId, 'post', '/import').send({ decks: [deckB, blank] });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error.message ?? res.body.error).toContain('Blanky');
+        expect(await decksRepo.listByOwner(conn, ownerId)).toHaveLength(0);
+    });
+
     test('an over-limit deck is 400 naming it and saves nothing', async () => {
         const conn = getConn();
         const ownerId = await createTestUser(conn);

@@ -78,6 +78,28 @@ describe('parseImport', () => {
         throwsFor(body, text);
     });
 
+    describe('blank names', () => {
+        it.each([
+            ['an empty deck name', [{ name: '', cards: [] }], 'Deck #1'],
+            ['a spaces-only deck name', [{ name: 'Ok', cards: [] }, { name: '   ', cards: [] }], 'Deck #2'],
+            ['an empty card name', [{ name: 'Named', cards: [{ id: 'a', name: '' }] }], 'Deck "Named"'],
+            ['a spaces-only card name', [{ name: 'Named', cards: [{ id: 'a', name: '  ' }] }], 'Deck "Named"'],
+        ])('throws 400 for %s', (_label, body, text) => {
+            throwsFor(body, text);
+        });
+
+        it('still imports a pair with a blank name as an empty name', () => {
+            const body = {
+                name: 'D',
+                cards: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
+                pairs: { 'a|b': { name: '   ', state: 'done' } },
+            };
+            expect(parseImport(body)[0].pairs).toEqual([
+                { aKey: 'a', bKey: 'b', name: '', effect: '', notes: '', state: 'done' },
+            ]);
+        });
+    });
+
     describe('limits', () => {
         const card = (extra = {}) => ({ id: 'a', name: 'A', ...extra });
         const pairs = (pair) => ({ 'a|b': pair });

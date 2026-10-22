@@ -101,7 +101,7 @@ The prototype deck format:
 
 - A deck needs a string `name` and a `cards` list. Every card needs a string `id` and `name`; ids are unique within the deck and contain no `|`. `detail` is optional.
 - A pair key is the two card ids joined by `|`, in either order. A pair whose key names an unknown card, the same card twice, or is not an object is skipped. Missing `name`, `effect` and `notes` become empty text and an unknown `state` becomes `empty`.
-- The deck `id` is ignored: new ids are assigned. Limits match the routes and are checked after trimming names: a deck has at most 200 cards, deck, card and pair names are at most 200 characters, and `detail`, `effect` and `notes` at most 5000. A deck over a limit makes the whole import a 400 that names the deck.
+- The deck `id` is ignored: new ids are assigned. Limits match the routes and are checked after trimming names: a deck has at most 200 cards, deck, card and pair names are at most 200 characters, and `detail`, `effect` and `notes` at most 5000. Deck and card names must not be blank (empty or only spaces); a pair name may be. A deck over a limit makes the whole import a 400 that names the deck.
 
 ## GET /api/combinations/export
 
