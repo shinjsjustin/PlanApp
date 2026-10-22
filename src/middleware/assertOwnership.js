@@ -83,6 +83,16 @@ const OWNER_QUERIES = {
         label: 'Person',
         sql: 'SELECT id, owner_id FROM people WHERE id = ?',
     },
+    // Owned directly by a user; the row returned is the reminder itself.
+    reminder: {
+        label: 'Reminder',
+        sql: 'SELECT id, owner_id FROM reminders WHERE id = ?',
+    },
+    // Owned directly by a user; the row returned is the subcategory itself.
+    reminderSubcategory: {
+        label: 'Subcategory',
+        sql: 'SELECT id, owner_id FROM reminder_subcategories WHERE id = ?',
+    },
 };
 
 const assertOwnership = async (conn, resourceType, id, userId) => {

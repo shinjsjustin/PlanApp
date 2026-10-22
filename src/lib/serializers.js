@@ -213,6 +213,12 @@ const toPlace = (row) => ({
     isDefaultStart: Boolean(row.is_default_start),
 });
 
+const toReminderSubcategory = (row) => ({
+    id: row.id,
+    placeId: row.place_id,
+    name: row.name,
+});
+
 // A JSON column arrives parsed or, on some drivers, as a string.
 const parseJsonColumn = (value) => (typeof value === 'string' ? JSON.parse(value) : value);
 
@@ -247,6 +253,7 @@ module.exports = {
     toPerson,
     toPlace,
     toProject,
+    toReminderSubcategory,
     toProjectThoughts,
     toSequence,
     toThought,
