@@ -22,7 +22,7 @@ const placesRoutes = require('./routes/places');
 const peopleRoutes = require('./routes/people');
 const reminderSubcategoriesRoutes = require('./routes/reminderSubcategories');
 const remindersRoutes = require('./routes/reminders');
-const legalRoutes =require('./routes/legal');
+const legalRoutes = require('./routes/legal');
 
 const isAuth = require('./middleware/isAuth');
 const { respond, errorHandler } = require('./middleware/respond');
