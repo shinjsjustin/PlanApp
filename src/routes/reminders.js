@@ -130,6 +130,26 @@ const assertSubcategoryFits = async (conn, subcategoryId, placeId) => {
     if (subcategory.place_id !== placeId) throw badRequest('subcategory does not belong to this place');
 };
 
+const listQuerySchema = z.object({
+    placeId: z
+        .union([z.literal('none'), z.string().regex(/^[1-9]\d*$/, 'placeId must be a positive integer or none').transform(Number)])
+        .optional(),
+    status: z.enum(['open', 'history', 'all']).default('open'),
+    sort: z.enum(['due', 'place', 'subcategory', 'created']).default('due'),
+});
+
+// GET /api/reminders?placeId=&status=&sort=
+router.get(
+    '/',
+    asyncRoute(async (req, res) => {
+        const filters = listQuerySchema.parse(req.query);
+
+        const rows = await withTransaction((conn) => remindersRepo.listByOwner(conn, req.user.id, filters));
+
+        res.sendData({ reminders: rows.map(toReminder) });
+    })
+);
+
 // POST /api/reminders
 router.post(
     '/',

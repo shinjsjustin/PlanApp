@@ -109,10 +109,45 @@ const update = async (conn, id, patch) => {
     return findById(conn, id);
 };
 
+const DUE_ORDER = 'r.due_date IS NULL, r.due_date, r.due_time';
+const PLACE_ORDER = 'pl.name IS NULL, pl.name';
+
+// Fixed ORDER BY strings keyed by sort name; input never reaches the SQL text.
+const ORDERS = {
+    due: `${DUE_ORDER}, r.id`,
+    place: `${PLACE_ORDER}, ${DUE_ORDER}, r.id`,
+    subcategory: `${PLACE_ORDER}, rs.name IS NULL, rs.name, ${DUE_ORDER}, r.id`,
+    created: 'r.created_at DESC, r.id DESC',
+};
+
+const STATUS_FILTERS = {
+    open: "r.status = 'open'",
+    history: "r.status IN ('done', 'dismissed')",
+    all: '1 = 1',
+};
+
+/** placeId is an id, 'none' for reminders without a place, or undefined for any. */
+const listByOwner = async (conn, ownerId, { placeId, status = 'open', sort = 'due' } = {}) => {
+    const conditions = ['r.owner_id = ?', STATUS_FILTERS[status]];
+    const params = [ownerId];
+    if (placeId === 'none') conditions.push('r.place_id IS NULL');
+    else if (placeId !== undefined) {
+        conditions.push('r.place_id = ?');
+        params.push(placeId);
+    }
+
+    const [rows] = await conn.execute(
+        `${SELECT_SQL} WHERE ${conditions.join(' AND ')} ORDER BY ${ORDERS[sort]}`,
+        params
+    );
+
+    return rows;
+};
+
 const remove = async (conn, id) => {
     const [result] = await conn.execute('DELETE FROM reminders WHERE id = ?', [id]);
 
     return result.affectedRows > 0;
 };
 
-module.exports = { create, findById, remove, update };
+module.exports = { create, findById, listByOwner, remove, update };
