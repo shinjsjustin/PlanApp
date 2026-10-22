@@ -1,6 +1,13 @@
 'use strict';
 
-const { parseImport, toExportDeck, PAIR_STATES } = require('../../src/lib/combinationTransfer');
+const {
+    parseImport,
+    toExportDeck,
+    PAIR_STATES,
+    NAME_MAX_LENGTH,
+    TEXT_MAX_LENGTH,
+    MAX_CARDS_PER_DECK,
+} = require('../../src/lib/combinationTransfer');
 
 const sample = () => ({
     id: 'd_horde',
@@ -69,6 +76,39 @@ describe('parseImport', () => {
         ['body not an object', 'nope', 'deck'],
     ])('throws 400 for %s', (_label, body, text) => {
         throwsFor(body, text);
+    });
+
+    describe('limits', () => {
+        const card = (extra = {}) => ({ id: 'a', name: 'A', ...extra });
+        const pairs = (pair) => ({ 'a|b': pair });
+        const twoCards = [card(), { id: 'b', name: 'B' }];
+        const deck = (extra) => ({ name: 'Big', cards: [card()], ...extra });
+
+        it('exports the limits', () => {
+            expect([NAME_MAX_LENGTH, TEXT_MAX_LENGTH, MAX_CARDS_PER_DECK]).toEqual([200, 5000, 200]);
+        });
+
+        it('accepts a deck at every limit', () => {
+            const cards = Array.from({ length: 200 }, (_, i) => card({ id: `c${i}`, name: 'n'.repeat(200), detail: 'd'.repeat(5000) }));
+            expect(parseImport({ name: 'n'.repeat(200), cards, pairs: {} })).toHaveLength(1);
+        });
+
+        it.each([
+            ['201 cards', deck({ cards: Array.from({ length: 201 }, (_, i) => card({ id: `c${i}` })) })],
+            ['a 201-character deck name', { name: 'D'.repeat(201), cards: [] }],
+            ['a 201-character card name', deck({ cards: [card({ name: 'x'.repeat(201) })] })],
+            ['a 5001-character detail', deck({ cards: [card({ detail: 'x'.repeat(5001) })] })],
+            ['a 201-character pair name', deck({ cards: twoCards, pairs: pairs({ name: 'x'.repeat(201) }) })],
+            ['a 5001-character effect', deck({ cards: twoCards, pairs: pairs({ effect: 'x'.repeat(5001) }) })],
+            ['a 5001-character note', deck({ cards: twoCards, pairs: pairs({ notes: 'x'.repeat(5001) }) })],
+        ])('throws 400 for %s', (_label, body) => {
+            throwsFor(body, body.name.length > 200 ? 'D' : '"Big"');
+        });
+
+        it('measures names after trimming', () => {
+            const padded = deck({ cards: [card({ name: `  ${'x'.repeat(200)}  ` })] });
+            expect(parseImport(padded)[0].cards[0].name).toBe('x'.repeat(200));
+        });
     });
 
     it('throws 400 naming the bad deck inside a list', () => {

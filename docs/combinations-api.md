@@ -39,47 +39,47 @@ A pair is in one of four states:
 
 Text is trimmed before it is checked for `name`. Names are 1 to 200 characters (a pair `name` may also be empty). `detail`, `effect` and `notes` are at most 5000 characters. A deck name is unique per user.
 
-## GET /decks
+## GET /api/combinations/decks
 
 Your decks by name. `?projectId=` limits the list to one of your projects. Returns `{ "decks": [deck] }`.
 
-## POST /decks
+## POST /api/combinations/decks
 
 Body `{ name, projectId? }`. `projectId` must be one of your projects or `null`. Returns the deck, status 201.
 
-## GET /decks/:id
+## GET /api/combinations/decks/:id
 
 Returns `{ "deck": deck, "cards": [card], "pairs": [pair] }`. Cards are in order; pairs are only those saved, ordered by card ids.
 
-## PATCH /decks/:id
+## PATCH /api/combinations/decks/:id
 
 Body `{ name?, projectId? }`, at least one. `projectId: null` unlinks. Returns the deck.
 
-## DELETE /decks/:id
+## DELETE /api/combinations/decks/:id
 
 Deletes the deck with its cards and pairs. Returns `{ "id": 4 }`.
 
-## POST /decks/:id/cards
+## POST /api/combinations/decks/:id/cards
 
 Body `{ name, detail? }`. Appends the card. Returns the card, status 201.
 
-## PATCH /cards/:id
+## PATCH /api/combinations/cards/:id
 
 Body `{ name?, detail? }`, at least one. Returns the card.
 
-## PUT /cards/:id/move
+## PUT /api/combinations/cards/:id/move
 
 Body `{ "direction": "up" | "down" }`. Swaps the card with its neighbour; at either end nothing changes. Returns `{ "cards": [card] }`, the whole deck in its new order.
 
-## DELETE /cards/:id
+## DELETE /api/combinations/cards/:id
 
 Deletes the card and every pair it was in, and closes the gap in positions. Returns `{ "removedPairs": 2 }`, the number of those pairs whose state was not `empty`.
 
-## PUT /decks/:id/pairs
+## PUT /api/combinations/decks/:id/pairs
 
 Body `{ cardAId, cardBId, name?, effect?, notes?, state? }`. Creates the pair, or updates it when it exists, whichever order the cards are given in. Fields left out keep their stored value (new pairs start empty, state `empty`). Returns the pair.
 
-## POST /import
+## POST /api/combinations/import
 
 Brings in decks from the prototype's JSON. The body is one deck object, a list of decks, or `{ "decks": [deck] }`; other fields are ignored. Every deck becomes a new deck of yours, all in one transaction: if any deck is invalid nothing is saved. A deck name that is already taken (by one of your decks, or by an earlier deck in the same import) gets ` (2)`, ` (3)` and so on. Bodies up to 5 MB are accepted. Returns `{ "decks": [deck] }` in the order given, status 201.
 
@@ -101,17 +101,17 @@ The prototype deck format:
 
 - A deck needs a string `name` and a `cards` list. Every card needs a string `id` and `name`; ids are unique within the deck and contain no `|`. `detail` is optional.
 - A pair key is the two card ids joined by `|`, in either order. A pair whose key names an unknown card, the same card twice, or is not an object is skipped. Missing `name`, `effect` and `notes` become empty text and an unknown `state` becomes `empty`.
-- The deck `id` is ignored: new ids are assigned. Deck, card and pair names are at most 200 characters.
+- The deck `id` is ignored: new ids are assigned. Limits match the routes and are checked after trimming names: a deck has at most 200 cards, deck, card and pair names are at most 200 characters, and `detail`, `effect` and `notes` at most 5000. A deck over a limit makes the whole import a 400 that names the deck.
 
-## GET /export
+## GET /api/combinations/export
 
 All your decks as `{ "decks": [deck] }` in the prototype format above, by name. `?projectId=` limits it to one of your projects. Ids are `d_<id>` for decks and `c_<id>` for cards, and pairs still in the `empty` state are left out. The result can be sent back to `POST /import`.
 
-## GET /decks/:id/export
+## GET /api/combinations/decks/:id/export
 
 One deck in the prototype format.
 
-## POST /decks/:id/promote
+## POST /api/combinations/decks/:id/promote
 
 Makes a new deck named `<source name> · done pairs` (with ` (2)` and so on if taken), linked to the same project and with `sourceDeckId` set to the source deck. It has one card for each `done` pair, in grid order (by the position of the earlier card, then of the later one). A card is named after the pair, or `A + B` (card names, earlier first) when the pair has no name, and its detail is the pair's effect. A deck with no done pairs gives a deck with no cards. Returns the deck, status 201.
 

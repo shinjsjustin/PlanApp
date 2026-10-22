@@ -11,7 +11,14 @@ const pairsRepo = require('../db/repositories/combinationPairsRepo');
 const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { toComboCard, toComboDeck, toComboPair } = require('../lib/combinationSerializers');
 const { importDecks, promoteDeck } = require('../lib/combinationImport');
-const { parseImport, toExportDeck } = require('../lib/combinationTransfer');
+const {
+    MAX_CARDS_PER_DECK,
+    NAME_MAX_LENGTH,
+    PAIR_STATES,
+    TEXT_MAX_LENGTH,
+    parseImport,
+    toExportDeck,
+} = require('../lib/combinationTransfer');
 const { idSchema, parseId, requireSomeField } = require('../lib/validation');
 const { withConnection, withTransaction } = require('../db/unitOfWork');
 
@@ -22,11 +29,6 @@ const { withConnection, withTransaction } = require('../db/unitOfWork');
  */
 
 const router = express.Router();
-
-const NAME_MAX_LENGTH = 200;
-const TEXT_MAX_LENGTH = 5000;
-const MAX_CARDS_PER_DECK = 200;
-const PAIR_STATES = ['empty', 'drafted', 'done', 'struck'];
 
 const nameSchema = z
     .string({ error: 'name must be a string' })

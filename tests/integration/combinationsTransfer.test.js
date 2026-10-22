@@ -140,6 +140,18 @@ describe('POST /import', () => {
         expect(await decksRepo.listByOwner(conn, ownerId)).toHaveLength(0);
     });
 
+    test('an over-limit deck is 400 naming it and saves nothing', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const cards = Array.from({ length: 201 }, (_, i) => ({ id: `c${i}`, name: `C${i}` }));
+
+        const res = await as(ownerId, 'post', '/import').send({ decks: [deckB, { name: 'Huge', cards }] });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error.message ?? res.body.error).toContain('Huge');
+        expect(await decksRepo.listByOwner(conn, ownerId)).toHaveLength(0);
+    });
+
     test('names that clash with an existing or earlier deck get (2), (3)', async () => {
         const conn = getConn();
         const ownerId = await createTestUser(conn);
