@@ -1,5 +1,7 @@
 'use strict';
 
+const { isOverdue } = require('./reminderSchedule');
+
 /**
  * Database rows out, API payloads in — one place that decides what the client
  * sees. Columns like `owner_id` stay server-side, and snake_case becomes
@@ -264,31 +266,35 @@ const toIso = (value) => (value == null ? null : new Date(value).toISOString());
  * SET, so it arrives comma-joined ('' for none). Dates and times are formatted
  * here so the shape does not depend on driver date settings.
  */
-const toReminder = (row) => ({
-    id: row.id,
-    title: row.title,
-    place: link(row.place_id, row.place_name),
-    subcategory: link(row.subcategory_id, row.subcategory_name),
-    person: link(row.person_id, row.person_name),
-    project: link(row.project_id, row.project_title),
-    todo: link(row.todo_id, row.todo_text),
-    dueDate: toDateKey(row.due_date),
-    dueTime: toClock(row.due_time),
-    timeZone: row.time_zone,
-    alertAt: toIso(row.alert_at),
-    trigger: row.location_trigger,
-    priority: row.priority,
-    status: row.status,
-    snoozedUntil: toIso(row.snoozed_until),
-    closedAt: toIso(row.closed_at),
-    repeat: {
-        rule: row.repeat_rule,
-        every: row.repeat_every ?? null,
-        weekdays: row.repeat_weekdays ? row.repeat_weekdays.split(',') : [],
-    },
-    createdAt: toIso(row.created_at),
-    updatedAt: toIso(row.updated_at),
-});
+const toReminder = (row, now = new Date()) => {
+    const reminder = {
+        id: row.id,
+        title: row.title,
+        place: link(row.place_id, row.place_name),
+        subcategory: link(row.subcategory_id, row.subcategory_name),
+        person: link(row.person_id, row.person_name),
+        project: link(row.project_id, row.project_title),
+        todo: link(row.todo_id, row.todo_text),
+        dueDate: toDateKey(row.due_date),
+        dueTime: toClock(row.due_time),
+        timeZone: row.time_zone,
+        alertAt: toIso(row.alert_at),
+        trigger: row.location_trigger,
+        priority: row.priority,
+        status: row.status,
+        snoozedUntil: toIso(row.snoozed_until),
+        closedAt: toIso(row.closed_at),
+        repeat: {
+            rule: row.repeat_rule,
+            every: row.repeat_every ?? null,
+            weekdays: row.repeat_weekdays ? row.repeat_weekdays.split(',') : [],
+        },
+        createdAt: toIso(row.created_at),
+        updatedAt: toIso(row.updated_at),
+    };
+
+    return { ...reminder, overdue: isOverdue(reminder, now) };
+};
 
 module.exports = {
     toCalendarDay,

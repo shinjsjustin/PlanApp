@@ -147,20 +147,31 @@ const ORDERS = {
     created: 'r.created_at DESC, r.id DESC',
 };
 
+// snoozed_until is stored in UTC, so it is compared with the UTC clock.
 const STATUS_FILTERS = {
-    open: "r.status = 'open'",
+    open: "r.status = 'open' AND (r.snoozed_until IS NULL OR r.snoozed_until <= UTC_TIMESTAMP())",
+    snoozed: "r.status = 'open' AND r.snoozed_until > UTC_TIMESTAMP()",
     history: "r.status IN ('done', 'dismissed')",
     all: '1 = 1',
 };
 
-/** placeId is an id, 'none' for reminders without a place, or undefined for any. */
-const listByOwner = async (conn, ownerId, { placeId, status = 'open', sort = 'due' } = {}) => {
+/** placeId is an id, 'none' for reminders without a place, or undefined for any. from and to are inclusive due dates. */
+const listByOwner = async (conn, ownerId, { placeId, status = 'open', sort = 'due', from, to } = {}) => {
     const conditions = ['r.owner_id = ?', STATUS_FILTERS[status]];
     const params = [ownerId];
     if (placeId === 'none') conditions.push('r.place_id IS NULL');
     else if (placeId !== undefined) {
         conditions.push('r.place_id = ?');
         params.push(placeId);
+    }
+
+    if (from !== undefined) {
+        conditions.push('r.due_date >= ?');
+        params.push(from);
+    }
+    if (to !== undefined) {
+        conditions.push('r.due_date <= ?');
+        params.push(to);
     }
 
     const [rows] = await conn.execute(

@@ -131,15 +131,22 @@ const assertSubcategoryFits = async (conn, subcategoryId, placeId) => {
     if (subcategory.place_id !== placeId) throw badRequest('subcategory does not belong to this place');
 };
 
-const listQuerySchema = z.object({
-    placeId: z
-        .union([z.literal('none'), z.string().regex(/^[1-9]\d*$/, 'placeId must be a positive integer or none').transform(Number)])
-        .optional(),
-    status: z.enum(['open', 'history', 'all']).default('open'),
-    sort: z.enum(['due', 'place', 'subcategory', 'created']).default('due'),
-});
+const dateKeyQuery = (field) => z.string().refine(isDateKey, `${field} must be YYYY-MM-DD`).optional();
 
-// GET /api/reminders?placeId=&status=&sort=
+const listQuerySchema = z
+    .object({
+        placeId: z
+            .union([z.literal('none'), z.string().regex(/^[1-9]\d*$/, 'placeId must be a positive integer or none').transform(Number)])
+            .optional(),
+        status: z.enum(['open', 'snoozed', 'history', 'all']).default('open'),
+        sort: z.enum(['due', 'place', 'subcategory', 'created']).default('due'),
+        from: dateKeyQuery('from'),
+        to: dateKeyQuery('to'),
+    })
+    // YYYY-MM-DD keys compare correctly as strings.
+    .refine(({ from, to }) => !from || !to || from <= to, { message: 'from must not be after to' });
+
+// GET /api/reminders?placeId=&status=&sort=&from=&to=
 router.get(
     '/',
     asyncRoute(async (req, res) => {
@@ -147,7 +154,7 @@ router.get(
 
         const rows = await withTransaction((conn) => remindersRepo.listByOwner(conn, req.user.id, filters));
 
-        res.sendData({ reminders: rows.map(toReminder) });
+        res.sendData({ reminders: rows.map((row) => toReminder(row)) });
     })
 );
 
