@@ -122,3 +122,25 @@
     .combinations-page .counts { padding: var(--space-sm); }
     .combinations-page .panel { padding: var(--space-sm); }
 }
+
+.combinations-page .card-rows { display: grid; gap: var(--space-xs); }
+
+.combinations-page .card-row,
+.combinations-page .card-add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+    gap: var(--space-xs);
+    align-items: center;
+}
+
+.combinations-page .card-add { margin-top: var(--space-sm); }
+.combinations-page .card-row input,
+.combinations-page .card-add input { width: 100%; }
+.combinations-page .card-actions { display: flex; gap: var(--space-xs); }
+
+@media (max-width: 480px) {
+    .combinations-page .card-row,
+    .combinations-page .card-add { grid-template-columns: 1fr auto; }
+    .combinations-page .card-row input.detail,
+    .combinations-page .card-add input.detail { grid-column: 1 / -1; grid-row: 2; }
+}

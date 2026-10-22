@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import useCombinations from '../../hooks/useCombinations';
 import { countStates } from '../../lib/combinations';
+import CardList from './CardList';
 import CountsBar from './CountsBar';
 import DeckBar from './DeckBar';
 import '../Styling/Combinations.css';
@@ -16,7 +17,8 @@ const CombinationsPage = () => {
     const [params, setParams] = useSearchParams();
     const projectId = toId(params.get(PROJECT_PARAM));
     const deckId = toId(params.get(DECK_PARAM));
-    const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck } =
+    const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck,
+        addCard, updateCard, moveCard, deleteCard } =
         useCombinations({ projectId, deckId });
 
     const chooseDeck = (id) => {
@@ -64,7 +66,19 @@ const CombinationsPage = () => {
             <div className="layout">
                 <section className="panel view-panel" />
                 <aside className="panel side" />
-                <section className="panel cards" />
+                <section className="panel cards">
+                    {deck && (
+                        <CardList
+                            key={deck.id}
+                            cards={cards}
+                            pairs={pairs}
+                            addCard={addCard}
+                            updateCard={updateCard}
+                            moveCard={moveCard}
+                            deleteCard={deleteCard}
+                        />
+                    )}
+                </section>
             </div>
         </div>
     );
