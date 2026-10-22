@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { test, expect } = require('@playwright/test');
@@ -10,6 +11,18 @@ const PROTOTYPE_URL = pathToFileURL(
 ).href;
 const STATES = ['empty', 'drafted', 'done', 'struck'];
 const NARROW_WIDTH = 860;
+const SCREENSHOT_DIR = 'visual-screenshots';
+
+const slugOf = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// Saves a full-page screenshot under visual-screenshots/ and attaches it to the report.
+async function attachScreenshot(page, testInfo, label) {
+    const name = `${slugOf(testInfo.title)}-${label}-${testInfo.project.name}`;
+    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    const file = path.join(SCREENSHOT_DIR, `${name}.png`);
+    await page.screenshot({ path: file, fullPage: true });
+    await testInfo.attach(name, { path: file, contentType: 'image/png' });
+}
 
 const styleOf = (page, selector, props) =>
     page.locator(selector).first().evaluate(
@@ -43,7 +56,7 @@ const openPrototype = async (browser, viewport, view) => {
 };
 
 test.describe('combinations page matches the prototype', () => {
-    test('chord stroke colour matches per state and the struck chord is dashed', async ({ page, request, browser }) => {
+    test('chord stroke colour matches per state and the struck chord is dashed', async ({ page, request, browser }, testInfo) => {
         await openApp(page, request);
         await page.locator('.ring .chord').first().waitFor();
         const proto = await openPrototype(browser, page.viewportSize());
@@ -58,10 +71,12 @@ test.describe('combinations page matches the prototype', () => {
         if (await page.locator('.ring .chord.st-struck').count()) {
             expect((await styleOf(page, '.ring .chord.st-struck', ['strokeDasharray'])).strokeDasharray).not.toBe('none');
         }
+        await attachScreenshot(page, testInfo, 'app');
+        await attachScreenshot(proto, testInfo, 'prototype');
         await proto.context().close();
     });
 
-    test('view and side panels sit side by side when wide and stacked when narrow', async ({ page, request, browser }) => {
+    test('view and side panels sit side by side when wide and stacked when narrow', async ({ page, request, browser }, testInfo) => {
         await openApp(page, request);
         const proto = await openPrototype(browser, page.viewportSize());
         const isWide = page.viewportSize().width > NARROW_WIDTH;
@@ -72,6 +87,8 @@ test.describe('combinations page matches the prototype', () => {
             if (isWide) expect(side.left).toBeGreaterThanOrEqual(view.right);
             else expect(side.top).toBeGreaterThanOrEqual(view.bottom);
         }
+        await attachScreenshot(page, testInfo, 'app');
+        await attachScreenshot(proto, testInfo, 'prototype');
         await proto.context().close();
     });
 });
@@ -84,7 +101,7 @@ test.describe('combinations page on the phone', () => {
     const hasNoHorizontalOverflow = (page) =>
         page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
-    test('ring svg fits the viewport and the page does not scroll sideways', async ({ page, request }) => {
+    test('ring svg fits the viewport and the page does not scroll sideways', async ({ page, request }, testInfo) => {
         await openApp(page, request);
         await page.locator('.ring').waitFor();
         const ring = await rectOf(page, '.ring');
@@ -92,9 +109,10 @@ test.describe('combinations page on the phone', () => {
         expect(ring.left).toBeGreaterThanOrEqual(0);
         expect(ring.right).toBeLessThanOrEqual(width);
         expect(await hasNoHorizontalOverflow(page)).toBe(true);
+        await attachScreenshot(page, testInfo, 'app');
     });
 
-    test('grid scrolls inside grid-wrap and the page does not scroll sideways', async ({ page, request }) => {
+    test('grid scrolls inside grid-wrap and the page does not scroll sideways', async ({ page, request }, testInfo) => {
         await openApp(page, request, '?view=grid');
         await page.locator('.grid-wrap').waitFor();
         const wrap = await page.locator('.grid-wrap').evaluate((el) => ({
@@ -104,5 +122,6 @@ test.describe('combinations page on the phone', () => {
         expect(['auto', 'scroll']).toContain(wrap.overflowX);
         expect(wrap.scrolls).toBe(true);
         expect(await hasNoHorizontalOverflow(page)).toBe(true);
+        await attachScreenshot(page, testInfo, 'app');
     });
 });
