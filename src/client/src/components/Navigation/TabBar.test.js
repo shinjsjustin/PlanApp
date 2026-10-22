@@ -31,6 +31,13 @@ describe('TabBar', () => {
         expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     });
 
+    it('shows five tabs in order on /reminders', () => {
+        renderAt('/reminders');
+        const names = screen.getAllByRole('link').map((l) => l.textContent);
+        expect(names).toEqual(['Projects', 'Reminders', 'Calendar', 'Thoughts', 'Address Book']);
+        expect(screen.getByRole('link', { name: 'Reminders' })).toHaveAttribute('href', '/reminders');
+    });
+
     it('shows Back on /projects/7', () => {
         renderAt('/projects/7');
         expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();

@@ -29,10 +29,10 @@ const tabRule = (selector) => {
     return new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css)[1];
 };
 
-it('keeps tab labels on one line at a size and padding that fit a quarter of 393px', () => {
+it('keeps tab labels on one line at a size and padding that fit a fifth of 393px', () => {
     const body = tabRule('.tab-bar-link,\n.tab-bar-back');
 
     expect(body).toMatch(/white-space:\s*nowrap/);
-    expect(body).toMatch(/font-size:\s*var\(--font-base\)/);
-    expect(body).toMatch(/padding:\s*var\(--space-sm\)\s+var\(--space-xs\)/);
+    expect(body).toMatch(/font-size:\s*var\(--font-sm\)/);
+    expect(body).toMatch(/padding:\s*var\(--space-sm\)\s+0\s*;/);
 });

@@ -9,6 +9,7 @@ import CalendarPage from './components/Calendar/CalendarPage';
 import ProjectThoughtsPage from './components/ProjectThoughts/ProjectThoughtsPage';
 import ThoughtsPage from './components/Thoughts/ThoughtsPage';
 import AddressBookPage from './components/AddressBook/AddressBookPage';
+import RemindersPage from './components/Reminders/RemindersPage';
 
 import ProtectedRoute from './config/ProtectedRoute';
 import UnprotectedRoute from './config/UnprotectedRoute';
@@ -36,6 +37,7 @@ const routes = [
     { path: '/projects',     element: <ProtectedRoute><ProjectsHome /></ProtectedRoute> },
     { path: '/projects/:id', element: <ProtectedRoute><ProjectPage /></ProtectedRoute> },
     { path: '/projects/:id/thoughts', element: <ProtectedRoute><ProjectThoughtsPage /></ProtectedRoute> },
+    { path: '/reminders',    element: <ProtectedRoute><RemindersPage /></ProtectedRoute> },
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
     { path: '/thoughts',     element: <ProtectedRoute><ThoughtsPage /></ProtectedRoute> },
     { path: '/address-book', element: <ProtectedRoute><AddressBookPage /></ProtectedRoute> },

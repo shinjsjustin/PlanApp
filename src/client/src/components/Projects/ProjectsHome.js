@@ -5,6 +5,7 @@ import CreateProjectDialog from './CreateProjectDialog';
 import ProjectCard from './ProjectCard';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
+import RemindersLink from '../Navigation/RemindersLink';
 import useCardHeights from '../../hooks/useCardHeights';
 import useIsPhone from '../../hooks/useIsPhone';
 import useMasonryColumns from '../../hooks/useMasonryColumns';
@@ -98,6 +99,7 @@ const ProjectsHome = () => {
                         bar already covers it. */}
                     <ThoughtsLink />
                     <PlacesLink />
+                    <RemindersLink />
                     {!isPhone && (
                         <Link className="projects-calendar-link neon-button" to="/calendar">
                             Calendar →
