@@ -55,6 +55,10 @@ const nextOccurrence = (departAt, timeZone, now) => {
 };
 
 const travelBetween = async ({ originAddress, destinationAddress, departAt, timeZone, now }) => {
+    if (originAddress === null || destinationAddress === null) {
+        return { status: 'unavailable', mapsUrl: null };
+    }
+
     const mapsUrl = mapsUrlFor(originAddress, destinationAddress);
     const originHash = hashAddress(originAddress);
     const destinationHash = hashAddress(destinationAddress);

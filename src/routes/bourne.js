@@ -81,7 +81,8 @@ router.get(
                       status: 'ok',
                       durationSeconds: 0,
                       distanceMeters: 0,
-                      mapsUrl: mapsUrlFor(origin.address, destination.address),
+                      mapsUrl:
+                          origin.address === null ? null : mapsUrlFor(origin.address, destination.address),
                   }
                 : await travelBetween({
                       originAddress: origin.address,

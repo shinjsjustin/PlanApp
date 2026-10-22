@@ -44,7 +44,7 @@ const visitMinutesSchema = z
 
 const fieldSchemas = {
     name: requiredText('name', 255),
-    address: requiredText('address', 500),
+    address: requiredText('address', 500).nullable(),
     kind: z.enum(PLACE_KINDS),
     notes: z.string().nullable(),
     visitMinutes: visitMinutesSchema,
@@ -52,7 +52,7 @@ const fieldSchemas = {
 
 const createSchema = z.object({
     name: fieldSchemas.name,
-    address: fieldSchemas.address,
+    address: fieldSchemas.address.optional(),
     kind: fieldSchemas.kind.optional(),
     notes: fieldSchemas.notes.optional(),
     visitMinutes: fieldSchemas.visitMinutes.optional(),

@@ -34,7 +34,7 @@ const listByOwner = async (conn, ownerId) => {
     return rows;
 };
 
-const create = async (conn, { ownerId, name, address, kind = 'other', notes = null, visitMinutes = null }) => {
+const create = async (conn, { ownerId, name, address = null, kind = 'other', notes = null, visitMinutes = null }) => {
     const [result] = await conn.execute(
         `INSERT INTO places (owner_id, name, address, kind, notes, visit_minutes)
          VALUES (?, ?, ?, ?, ?, ?)`,
