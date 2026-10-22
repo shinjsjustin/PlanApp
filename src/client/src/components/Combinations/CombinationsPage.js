@@ -8,10 +8,19 @@ import CountsBar from './CountsBar';
 import DeckBar from './DeckBar';
 import GridView from './GridView';
 import PairPanel from './PairPanel';
+import RingView from './RingView';
 import '../Styling/Combinations.css';
 
 const PROJECT_PARAM = 'project';
 const DECK_PARAM = 'deck';
+const VIEW_PARAM = 'view';
+
+const VIEWS = [
+    { id: 'ring', label: 'Ring' },
+    { id: 'grid', label: 'Grid' },
+    { id: 'walk', label: 'Walkthrough' },
+];
+const DEFAULT_VIEW = 'ring';
 
 const NARROW_WIDTH = 860;
 const STATE_LEGEND = ['empty', 'drafted', 'done', 'struck'];
@@ -25,6 +34,9 @@ const CombinationsPage = () => {
     const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck,
         addCard, updateCard, moveCard, deleteCard, savePair } =
         useCombinations({ projectId, deckId });
+
+    const requestedView = params.get(VIEW_PARAM);
+    const view = VIEWS.some((v) => v.id === requestedView) ? requestedView : DEFAULT_VIEW;
 
     const [selectedKey, setSelectedKey] = useState(null);
     const sideRef = useRef(null);
@@ -41,6 +53,12 @@ const CombinationsPage = () => {
         if (status === 'ready' && decks.length > 0 && !isDeckListed) chooseDeck(decks[0].id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [status, decks, isDeckListed]);
+
+    const chooseView = (id) => {
+        const next = new URLSearchParams(params);
+        next.set(VIEW_PARAM, id);
+        setParams(next, { replace: true });
+    };
 
     const handleCreate = async (name) => {
         const created = await createDeck(name, projectId ?? null);
@@ -86,14 +104,33 @@ const CombinationsPage = () => {
             <div className="layout">
                 <section className="panel view-panel">
                     <div className="tabs" role="tablist">
-                        <button type="button" role="tab" aria-selected="true">Grid</button>
+                        {VIEWS.map(({ id, label }) => (
+                            <button
+                                key={id}
+                                type="button"
+                                role="tab"
+                                aria-selected={id === view}
+                                onClick={() => chooseView(id)}
+                            >
+                                {label}
+                            </button>
+                        ))}
                         <div className="legend">
                             {STATE_LEGEND.map((state) => (
                                 <span key={state}><i className={`dot st-${state}`} />{state}</span>
                             ))}
                         </div>
                     </div>
-                    {deck && (
+                    {deck && view === 'ring' && (
+                        <RingView
+                            key={deck.id}
+                            cards={cards}
+                            pairs={pairs}
+                            selectedKey={selectedKey}
+                            onOpen={openPair}
+                        />
+                    )}
+                    {deck && view === 'grid' && (
                         <GridView cards={cards} pairs={pairs} selectedKey={selectedKey} onOpen={openPair} />
                     )}
                 </section>

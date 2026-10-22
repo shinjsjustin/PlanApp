@@ -33,7 +33,7 @@ const useStatefulHook = () => {
 };
 
 const open = () => render(
-    <MemoryRouter initialEntries={['/combinations?deck=1']}>
+    <MemoryRouter initialEntries={['/combinations?deck=1&view=grid']}>
         <CombinationsPage />
     </MemoryRouter>,
 );
@@ -47,11 +47,11 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('CombinationsPage pair panel', () => {
-    it('shows a tabs bar with a selected Grid tab only, and the legend', () => {
+    it('shows a tabs bar with the Grid tab selected, and the legend', () => {
         const { container } = open();
         const tabs = within(container.querySelector('.tabs')).getAllByRole('tab');
-        expect(tabs.map((t) => t.textContent)).toEqual(['Grid']);
-        expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+        expect(tabs.map((t) => t.textContent)).toEqual(['Ring', 'Grid', 'Walkthrough']);
+        expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
         const legend = container.querySelector('.legend');
         ['empty', 'drafted', 'done', 'struck'].forEach((s) => expect(legend).toHaveTextContent(s));
     });

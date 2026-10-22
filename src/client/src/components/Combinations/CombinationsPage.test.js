@@ -28,8 +28,11 @@ const mockHook = (overrides = {}) => {
     return hook;
 };
 
+// These tests reach the grid, which is no longer the default view.
+const withGridView = (url) => `${url}${url.includes('?') ? '&' : '?'}view=grid`;
+
 const open = (url) => render(
-    <MemoryRouter initialEntries={[url]}>
+    <MemoryRouter initialEntries={[withGridView(url)]}>
         <CombinationsPage />
         <Where />
     </MemoryRouter>,
@@ -60,8 +63,7 @@ describe('CombinationsPage', () => {
     it('does not pick a deck while the list is still loading', () => {
         mockHook({ status: 'loading', decks: [] });
         open('/combinations');
-        expect(screen.getByTestId('where')).toHaveTextContent('');
-        expect(screen.getByTestId('where').textContent).toBe('');
+        expect(screen.getByTestId('where').textContent).toBe('?view=grid');
     });
 
     it('writes the chosen deck to ?deck', () => {

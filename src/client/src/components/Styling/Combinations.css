@@ -274,3 +274,54 @@
     .combinations-page .grid-wrap { max-height: 70vh; }
     .combinations-page .legend { margin-left: 0; }
 }
+
+.combinations-page .ring-wrap { position: relative; display: flex; justify-content: center; }
+.combinations-page .ring { width: 100%; max-width: 680px; max-height: calc(100vh - 230px); min-height: 300px; display: block; }
+.combinations-page .ring .guide { fill: none; stroke: var(--combo-line); stroke-width: 1; }
+.combinations-page .chord {
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    transition: opacity 0.12s, stroke-width 0.12s;
+    pointer-events: none;
+}
+.combinations-page .chord.st-empty { stroke: var(--combo-empty); opacity: 0.45; }
+.combinations-page .chord.st-drafted { stroke: var(--combo-drafted); }
+.combinations-page .chord.st-done { stroke: var(--combo-done); }
+.combinations-page .chord.st-struck { stroke: var(--combo-struck); stroke-dasharray: 7 6; }
+.combinations-page .chord.sel,
+.combinations-page .chord.hot { stroke-width: 5; opacity: 1; }
+.combinations-page .ring.focusing .chord { opacity: 0.08; }
+.combinations-page .ring.focusing .chord.lit { opacity: 1; stroke-width: 3.4; }
+.combinations-page .ring.focusing .chord.hot { opacity: 1; stroke-width: 5.5; }
+.combinations-page .hit { stroke: transparent; stroke-width: 12; cursor: pointer; }
+.combinations-page .ring .card { cursor: pointer; }
+.combinations-page .ring .card rect { fill: var(--combo-card); stroke: var(--combo-empty); stroke-width: 1.2; }
+.combinations-page .ring .card text {
+    fill: var(--bg-page);
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+}
+.combinations-page .ring .card:hover rect,
+.combinations-page .ring .card.pinned rect { stroke: var(--neon-blue); stroke-width: 3; }
+.combinations-page .ring.focusing .card.faded { opacity: 0.45; }
+
+.combinations-page .tip {
+    position: fixed;
+    z-index: 30;
+    pointer-events: none;
+    max-width: 280px;
+    background: var(--combo-card);
+    color: var(--bg-page);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-sm);
+}
+.combinations-page .tip strong { display: block; font-size: var(--font-base); }
+.combinations-page .tip .st { font-size: var(--font-sm); text-transform: uppercase; letter-spacing: 0.04em; }
+
+@media (max-width: 860px) {
+    .combinations-page .ring { max-height: none; min-height: 0; }
+}
