@@ -91,7 +91,7 @@ describe('remindersRepo', () => {
             alert_at: '2026-12-31 23:59:59', snoozed_until: '2027-01-01 06:05:00',
         });
         expect(updated).toMatchObject({ alert_at: '2026-12-31T23:59:59Z', snoozed_until: '2027-01-01T06:05:00Z' });
-        const [listed] = await repo.listByOwner(conn, ownerId);
+        const [listed] = await repo.listByOwner(conn, ownerId, { status: 'all' });
         expect(listed).toMatchObject({ alert_at: '2026-12-31T23:59:59Z', snoozed_until: '2027-01-01T06:05:00Z' });
     });
 
