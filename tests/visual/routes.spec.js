@@ -17,7 +17,7 @@ async function visit(page, testInfo, { slug, path: url, open }) {
     await guardReadOnly(page);
     await page.goto(url);
     // Opening a form only reveals it; nothing is ever submitted.
-    if (open) await page.getByRole('button', { name: open }).click();
+    if (open) await page.getByRole('button', { name: open }).first().click();
     await page.waitForLoadState('networkidle');
     await page.locator('h1, h2, main').first().waitFor();
 

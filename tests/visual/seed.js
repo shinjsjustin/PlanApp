@@ -26,6 +26,10 @@ const pad = (value) => String(value).padStart(2, '0');
 const localToday = (now = new Date()) =>
     `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
+/** A local date `days` away from today, as YYYY-MM-DD. */
+const localDayOffset = (days, now = new Date()) =>
+    localToday(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
+
 /**
  * Recreates the visual user in the test database and fills it, through the API,
  * with data that exercises the awkward layouts. Returns the user's token.
@@ -105,6 +109,8 @@ const seedLocal = async () => {
             priority: 'high',
         });
         await send('post', 'reminders', { title: `Date only: ${LONG_REMINDER_TITLE}`, dueDate: today });
+        await send('post', 'reminders', { title: `Yesterday: ${LONG_REMINDER_TITLE}`, dueDate: localDayOffset(-1) });
+        await send('post', 'reminders', { title: `Tomorrow: ${LONG_REMINDER_TITLE}`, dueDate: localDayOffset(1) });
         await send('post', 'reminders', { title: `No place: ${LONG_REMINDER_TITLE}` });
         await send('post', 'people', {
             name: 'Ada Lovelace',
