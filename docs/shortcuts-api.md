@@ -42,4 +42,6 @@ Pushes one message to all of the owner's devices for the open, unsnoozed reminde
 
 `matched` is the number of reminders; with 0, nothing is sent. The location and event are not stored anywhere.
 
+When configured, each accepted event is also forwarded to Bourne as a one-line text, without delaying the answer. See [bourne-place-forward.md](bourne-place-forward.md).
+
 Errors: 400 for an event other than `arrive` or `leave` or a non-numeric `placeId`, 401 for a bad token, 404 `Place not found` when the place is missing or another user's, 503 `Push is not configured`.
