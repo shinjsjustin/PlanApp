@@ -7,6 +7,8 @@ const asyncRoute = require('../lib/asyncRoute');
 const placesRepo = require('../db/repositories/placesRepo');
 const repo = require('../db/repositories/placeEventsRepo');
 const { isPushConfigured, sendToOwner } = require('../lib/push/sendPush');
+const { formatPlaceLine, placeForwardConfig } = require('../lib/forward/placeLine');
+const { postToBridge } = require('../lib/forward/postToBridge');
 const { HttpError, notFound } = require('../lib/httpError');
 const { withConnection } = require('../db/unitOfWork');
 
@@ -25,6 +27,21 @@ const paramsSchema = z.object({
     event: z.enum(['arrive', 'leave'], { error: 'event must be arrive or leave' }),
 });
 
+// Fire and forget: the Bridge never changes the response or the reminder push.
+const forwardPlaceEvent = async (conn, { ownerId, placeName, event }) => {
+    const config = placeForwardConfig(process.env);
+    if (!config) return;
+
+    const text = formatPlaceLine({
+        ownerName: await repo.ownerName(conn, ownerId),
+        placeName,
+        event,
+        at: new Date(),
+        timeZone: config.timeZone,
+    });
+    void postToBridge(config.url, config.token, { text });
+};
+
 // POST /api/place-events/:placeId/:event
 router.post(
     '/:placeId/:event',
@@ -34,6 +51,7 @@ router.post(
         const result = await withConnection(async (conn) => {
             const place = await placesRepo.findById(conn, placeId);
             if (!place || place.owner_id !== req.device.ownerId) throw notFound('Place');
+            await forwardPlaceEvent(conn, { ownerId: req.device.ownerId, placeName: place.name, event });
             if (!isPushConfigured()) throw new HttpError(503, 'Push is not configured');
 
             const reminders = await repo.listTriggered(conn, req.device.ownerId, placeId, event, new Date());

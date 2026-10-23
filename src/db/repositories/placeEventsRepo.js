@@ -20,4 +20,11 @@ const listTriggered = async (conn, ownerId, placeId, event, now) => {
     return rows;
 };
 
-module.exports = { listTriggered };
+/** The owner's display name, or null when the user is gone. */
+const ownerName = async (conn, ownerId) => {
+    const [rows] = await conn.execute('SELECT name FROM users WHERE id = ?', [ownerId]);
+
+    return rows.length ? rows[0].name : null;
+};
+
+module.exports = { listTriggered, ownerName };
