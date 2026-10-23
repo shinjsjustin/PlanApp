@@ -27,19 +27,23 @@ const paramsSchema = z.object({
     event: z.enum(['arrive', 'leave'], { error: 'event must be arrive or leave' }),
 });
 
-// Fire and forget: the Bridge never changes the response or the reminder push.
+// Fire and forget: nothing here may throw into the route, so the Bridge never
+// changes the response or the reminder push. Logs the error name only, since
+// messages and lines can carry place names and times.
 const forwardPlaceEvent = async (conn, { ownerId, placeName, event }) => {
-    const config = placeForwardConfig(process.env);
-    if (!config) return;
+    try {
+        const config = placeForwardConfig(process.env);
+        if (!config) return;
 
-    const text = formatPlaceLine({
-        ownerName: await repo.ownerName(conn, ownerId),
-        placeName,
-        event,
-        at: new Date(),
-        timeZone: config.timeZone,
-    });
-    void postToBridge(config.url, config.token, { text });
+        const ownerName = await repo.ownerName(conn, ownerId).catch((err) => {
+            console.error('Place forward could not read the owner name:', err.name);
+            return null;
+        });
+        const text = formatPlaceLine({ ownerName, placeName, event, at: new Date(), timeZone: config.timeZone });
+        void postToBridge(config.url, config.token, { text });
+    } catch (err) {
+        console.error('Place forward failed:', err.name);
+    }
 };
 
 // POST /api/place-events/:placeId/:event
