@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import useCombinations from '../../hooks/useCombinations';
 import { countStates, exportFileName, getPair, nextUnfilledKey, stepKey, walkKeys } from '../../lib/combinations';
+import AxisTray from './AxisTray';
 import CardList from './CardList';
 import CountsBar from './CountsBar';
 import DeckBar from './DeckBar';
@@ -35,9 +36,10 @@ const CombinationsPage = () => {
     const projectId = toId(params.get(PROJECT_PARAM));
     const deckId = toId(params.get(DECK_PARAM));
     const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck,
-        importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair } =
+        importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair, setMode, setCardAxes } =
         useCombinations({ projectId, deckId });
 
+    const mode = deck?.mode || 'combinations';
     const requestedView = params.get(VIEW_PARAM);
     const view = VIEWS.some((v) => v.id === requestedView) ? requestedView : DEFAULT_VIEW;
 
@@ -49,17 +51,17 @@ const CombinationsPage = () => {
 
     // Falls back to the first card when the choice is unset or no longer in the deck.
     const walkCard = cards.find((c) => c.id === walkCardChoice) || cards[0];
-    const keys = walkCard ? walkKeys(cards, walkCard.id) : [];
+    const keys = walkCard ? walkKeys(cards, walkCard.id, mode) : [];
     const isWalkNavShown = view === 'walk' && cards.length >= 2;
 
     const chooseWalkCard = (id) => {
         setWalkCardChoice(id);
-        if (selectedKey && !walkKeys(cards, id).includes(selectedKey)) setSelectedKey(null);
+        if (selectedKey && !walkKeys(cards, id, mode).includes(selectedKey)) setSelectedKey(null);
     };
 
     const openStep = (key) => key && openPair(key);
     const handleNextUnfilled = () => {
-        const key = nextUnfilledKey(keys, selectedKey, pairs);
+        const key = nextUnfilledKey(keys, selectedKey, pairs, mode);
         if (key) openPair(key);
         else setToast(`Every pair of ${walkCard.name} is filled.`);
     };
@@ -96,7 +98,7 @@ const CombinationsPage = () => {
     };
 
     const handlePromote = async () => {
-        if (countStates(cards, pairs).done === 0) {
+        if (countStates(cards, pairs, mode).done === 0) {
             setToast('No done pairs in this deck yet.');
             return;
         }
@@ -159,7 +161,7 @@ const CombinationsPage = () => {
                 />
             </header>
             {error && <p className="deck-error" role="alert">{error}</p>}
-            {deck && <CountsBar cardCount={cards.length} counts={countStates(cards, pairs)} />}
+            {deck && <CountsBar cardCount={cards.length} counts={countStates(cards, pairs, mode)} />}
             <div className="layout">
                 <section className="panel view-panel">
                     <div className="tabs" role="tablist">
@@ -180,22 +182,27 @@ const CombinationsPage = () => {
                             ))}
                         </div>
                     </div>
+                    {deck && (
+                        <AxisTray cards={cards} mode={mode} setCardAxes={setCardAxes} setMode={setMode} />
+                    )}
                     {deck && view === 'ring' && (
                         <RingView
                             key={deck.id}
                             cards={cards}
                             pairs={pairs}
+                            mode={mode}
                             selectedKey={selectedKey}
                             onOpen={openPair}
                         />
                     )}
                     {deck && view === 'grid' && (
-                        <GridView cards={cards} pairs={pairs} selectedKey={selectedKey} onOpen={openPair} />
+                        <GridView cards={cards} pairs={pairs} mode={mode} selectedKey={selectedKey} onOpen={openPair} />
                     )}
                     {deck && view === 'walk' && (
                         <WalkView
                             cards={cards}
                             pairs={pairs}
+                            mode={mode}
                             walkCardId={walkCard?.id}
                             selectedKey={selectedKey}
                             onOpen={openPair}
@@ -219,7 +226,7 @@ const CombinationsPage = () => {
                             key={selectedKey}
                             cardA={cardA}
                             cardB={cardB}
-                            pair={getPair(pairs, cardA.id, cardB.id)}
+                            pair={getPair(pairs, cardA.id, cardB.id, mode)}
                             savePair={savePair}
                             onClose={() => setSelectedKey(null)}
                         />
