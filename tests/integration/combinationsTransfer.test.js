@@ -200,8 +200,8 @@ describe('export', () => {
         const strangerId = await createTestUser(conn);
         const project = await projectsRepo.create(conn, { ownerId, title: 'P' });
         const deck = await decksRepo.create(conn, { ownerId, name: 'Spells', projectId: project.id });
-        const a = await cardsRepo.create(conn, { deckId: deck.id, name: 'A', detail: 'da' });
-        const b = await cardsRepo.create(conn, { deckId: deck.id, name: 'B' });
+        const a = await cardsRepo.create(conn, { deckId: deck.id, name: 'A', detail: 'da', onX: true, onY: true });
+        const b = await cardsRepo.create(conn, { deckId: deck.id, name: 'B', onX: true });
         await pairsRepo.upsert(conn, deck.id, b.id, a.id, { name: 'AB', effect: 'e', state: 'done' });
         await decksRepo.create(conn, { ownerId, name: 'Loose' });
         await decksRepo.create(conn, { ownerId: strangerId, name: 'Theirs' });
@@ -217,9 +217,10 @@ describe('export', () => {
         expect(res.body.data).toEqual({
             id: `d_${deck.id}`,
             name: 'Spells',
+            mode: 'combinations',
             cards: [
-                { id: `c_${a.id}`, name: 'A', detail: 'da' },
-                { id: `c_${b.id}`, name: 'B', detail: '' },
+                { id: `c_${a.id}`, name: 'A', detail: 'da', onX: true, onY: true },
+                { id: `c_${b.id}`, name: 'B', detail: '', onX: true, onY: false },
             ],
             pairs: { [`c_${a.id}|c_${b.id}`]: { name: 'AB', effect: 'e', notes: '', state: 'done' } },
         });
@@ -261,6 +262,45 @@ describe('export', () => {
             original.body.data.cards.map((c) => [c.name, c.detail])
         );
         expect(copied.body.data.pairs.map((p) => [p.name, p.effect, p.state])).toEqual([['AB', 'e', 'done']]);
+        const copiedCards = await cardsRepo.listByDeck(getConn(), copy.id);
+        expect(copiedCards.map((c) => [c.on_x, c.on_y])).toEqual([[1, 1], [1, 0]]);
+    });
+
+    test('a permutations deck round-trips mode, axes and both orders', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const deck = await decksRepo.create(conn, { ownerId, name: 'Perm', mode: 'permutations' });
+        const a = await cardsRepo.create(conn, { deckId: deck.id, name: 'A', onX: true, onY: true });
+        const b = await cardsRepo.create(conn, { deckId: deck.id, name: 'B', onX: true, onY: false });
+        await pairsRepo.upsert(conn, deck.id, b.id, a.id, { name: 'BA', state: 'done' }, { ordered: true });
+        await pairsRepo.upsert(conn, deck.id, a.id, b.id, { name: 'AB', state: 'drafted' }, { ordered: true });
+
+        const exported = await as(ownerId, 'get', `/decks/${deck.id}/export`);
+        const res = await as(ownerId, 'post', '/import').send(exported.body.data);
+
+        expect(res.status).toBe(201);
+        const copy = res.body.data.decks[0];
+        expect(copy.mode).toBe('permutations');
+        const { cards, pairs } = await fullDeck(conn, copy.id);
+        expect(cards.map((c) => [c.name, c.on_x, c.on_y])).toEqual([['A', 1, 1], ['B', 1, 0]]);
+        expect(pairs.map((p) => [p.card_a_id, p.card_b_id, p.name]).sort()).toEqual(
+            [
+                [cards[1].id, cards[0].id, 'BA'],
+                [cards[0].id, cards[1].id, 'AB'],
+            ].sort()
+        );
+    });
+
+    test('an old prototype file imports as combinations with every card on both axes', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+
+        const res = await as(ownerId, 'post', '/import').send(deckA);
+
+        const copy = res.body.data.decks[0];
+        expect(copy.mode).toBe('combinations');
+        const { cards } = await fullDeck(conn, copy.id);
+        expect(cards.map((c) => [c.on_x, c.on_y])).toEqual([[1, 1], [1, 1], [1, 1]]);
     });
 });
 
@@ -271,7 +311,7 @@ describe('POST /decks/:id/promote', () => {
         const project = await projectsRepo.create(conn, { ownerId, title: 'P' });
         const deck = await decksRepo.create(conn, { ownerId, name: 'Src', projectId: project.id });
         for (const name of ['A', 'B', 'C']) {
-            await cardsRepo.create(conn, { deckId: deck.id, name });
+            await cardsRepo.create(conn, { deckId: deck.id, name, onX: true, onY: true });
         }
         return { conn, ownerId, project, deck };
     };
@@ -301,6 +341,39 @@ describe('POST /decks/:id/promote', () => {
             ['Named', 'E1'],
         ]);
         expect(pairs).toHaveLength(0);
+        expect(cards.map((x) => [x.on_x, x.on_y])).toEqual([[1, 1], [1, 1]]);
+        expect(res.body.data.mode).toBe('combinations');
+    });
+
+    test('skips a done pair whose card left an axis', async () => {
+        const { conn, ownerId, deck } = await build();
+        const [a, b, c] = await cardsRepo.listByDeck(conn, deck.id);
+        await pairsRepo.upsert(conn, deck.id, a.id, b.id, { name: 'AB', state: 'done' });
+        await pairsRepo.upsert(conn, deck.id, a.id, c.id, { name: 'AC', state: 'done' });
+        await cardsRepo.update(conn, c.id, { onX: false, onY: false });
+
+        const res = await as(ownerId, 'post', `/decks/${deck.id}/promote`);
+
+        const { cards } = await fullDeck(conn, res.body.data.id);
+        expect(cards.map((x) => x.name)).toEqual(['AB']);
+    });
+
+    test('promotes only visible done pairs of a permutations deck into combinations', async () => {
+        const { conn, ownerId, deck } = await build();
+        const [a, b, c] = await cardsRepo.listByDeck(conn, deck.id);
+        await decksRepo.update(conn, deck.id, { mode: 'permutations' });
+        await cardsRepo.update(conn, a.id, { onX: false });
+        await cardsRepo.update(conn, b.id, { onY: false });
+        // a is row-only, b is column-only: A|B shows, B|A does not
+        await pairsRepo.upsert(conn, deck.id, a.id, b.id, { name: 'Shown', state: 'done' }, { ordered: true });
+        await pairsRepo.upsert(conn, deck.id, b.id, a.id, { name: 'Hidden', state: 'done' }, { ordered: true });
+        await pairsRepo.upsert(conn, deck.id, c.id, c.id, { name: 'Self', state: 'drafted' }, { ordered: true });
+
+        const res = await as(ownerId, 'post', `/decks/${deck.id}/promote`);
+
+        expect(res.body.data.mode).toBe('combinations');
+        const { cards } = await fullDeck(conn, res.body.data.id);
+        expect(cards.map((x) => x.name)).toEqual(['Shown']);
     });
 
     test('with no done pairs the new deck has no cards', async () => {

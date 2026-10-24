@@ -4,6 +4,7 @@ const decksRepo = require('../db/repositories/combinationDecksRepo');
 const cardsRepo = require('../db/repositories/combinationCardsRepo');
 const pairsRepo = require('../db/repositories/combinationPairsRepo');
 const { badRequest } = require('./httpError');
+const { isPairVisible } = require('./combinationGrid');
 
 /**
  * Writes imported or promoted decks. Callers run these inside `withTransaction`
@@ -33,18 +34,26 @@ const importDeck = async (conn, ownerId, parsed) => {
     const deck = await decksRepo.create(conn, {
         ownerId,
         name: await uniqueName(conn, ownerId, parsed.name),
+        mode: parsed.mode,
     });
+    const ordered = parsed.mode === 'permutations';
 
     const idByKey = new Map();
     for (const card of parsed.cards) {
         assertFits(card.name, 'Card name');
-        const created = await cardsRepo.create(conn, { deckId: deck.id, name: card.name, detail: card.detail });
+        const created = await cardsRepo.create(conn, {
+            deckId: deck.id,
+            name: card.name,
+            detail: card.detail,
+            onX: card.onX,
+            onY: card.onY,
+        });
         idByKey.set(card.key, created.id);
     }
     for (const pair of parsed.pairs) {
         assertFits(pair.name, 'Pair name');
         const { aKey, bKey, ...fields } = pair;
-        await pairsRepo.upsert(conn, deck.id, idByKey.get(aKey), idByKey.get(bKey), fields);
+        await pairsRepo.upsert(conn, deck.id, idByKey.get(aKey), idByKey.get(bKey), fields, { ordered });
     }
 
     return deck;
@@ -61,14 +70,18 @@ const importDecks = async (conn, ownerId, parsedDecks) => {
     return created;
 };
 
-/** A new deck with a card for each done pair, in grid order (card A's position, then card B's). */
+/**
+ * A new combinations deck with a card for each visible done pair, in grid order
+ * (first card's position, then second's). Its cards sit on both axes.
+ */
 const promoteDeck = async (conn, ownerId, deckId) => {
     const source = await decksRepo.findById(conn, deckId);
     const cards = await cardsRepo.listByDeck(conn, deckId);
     const positionById = new Map(cards.map((card) => [card.id, card.position]));
+    const cardById = new Map(cards.map((card) => [card.id, card]));
     const nameById = new Map(cards.map((card) => [card.id, card.name]));
     const done = (await pairsRepo.listByDeck(conn, deckId))
-        .filter((pair) => pair.state === 'done')
+        .filter((pair) => pair.state === 'done' && isPairVisible(pair, cardById, source.pair_mode))
         .map((pair) => {
             const [first, second] = [pair.card_a_id, pair.card_b_id].sort(
                 (x, y) => positionById.get(x) - positionById.get(y)
@@ -92,6 +105,8 @@ const promoteDeck = async (conn, ownerId, deckId) => {
             deckId: deck.id,
             name: pair.name || `${nameById.get(first)} + ${nameById.get(second)}`,
             detail: pair.effect,
+            onX: true,
+            onY: true,
         });
     }
 

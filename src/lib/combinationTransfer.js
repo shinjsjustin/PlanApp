@@ -12,10 +12,14 @@ const NAME_MAX_LENGTH = 200;
 const TEXT_MAX_LENGTH = 5000;
 const MAX_CARDS_PER_DECK = 200;
 const KEY_SEPARATOR = '|';
+const PERMUTATIONS = 'permutations';
+const COMBINATIONS = 'combinations';
 
 const pairKey = (a, b) => (a < b ? `${a}${KEY_SEPARATOR}${b}` : `${b}${KEY_SEPARATOR}${a}`);
 
 const text = (value) => (value ? String(value) : '');
+
+const orderedKey = (a, b) => `${a}${KEY_SEPARATOR}${b}`;
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -37,6 +41,9 @@ const normaliseDeck = (deck, index) => {
         return str;
     };
     limitName(name, 'the deck');
+    const mode = deck.mode === PERMUTATIONS ? PERMUTATIONS : COMBINATIONS;
+    const isOrdered = mode === PERMUTATIONS;
+    const axis = (value) => (typeof value === 'boolean' ? value : true);
     if (deck.cards.length > MAX_CARDS_PER_DECK) throw fail(`a deck holds at most ${MAX_CARDS_PER_DECK} cards`);
 
     const ids = new Set();
@@ -49,7 +56,13 @@ const normaliseDeck = (deck, index) => {
         }
         if (!card.name.trim()) throw fail('a card name must not be blank');
         ids.add(card.id);
-        return { key: card.id, name: limitName(card.name, 'a card'), detail: limitText(card.detail, 'a card detail') };
+        return {
+            key: card.id,
+            name: limitName(card.name, 'a card'),
+            detail: limitText(card.detail, 'a card detail'),
+            onX: axis(card.onX),
+            onY: axis(card.onY),
+        };
     });
 
     const byKey = new Map();
@@ -57,8 +70,8 @@ const normaliseDeck = (deck, index) => {
     Object.entries(rawPairs).forEach(([key, pair]) => {
         const [a, b] = key.split(KEY_SEPARATOR);
         if (!ids.has(a) || !ids.has(b) || a === b || !pair) return;
-        const [aKey, bKey] = a < b ? [a, b] : [b, a];
-        byKey.set(pairKey(a, b), {
+        const [aKey, bKey] = isOrdered || a < b ? [a, b] : [b, a];
+        byKey.set(isOrdered ? orderedKey(a, b) : pairKey(a, b), {
             aKey,
             bKey,
             name: limitName(text(pair.name), 'a pair'),
@@ -68,7 +81,7 @@ const normaliseDeck = (deck, index) => {
         });
     });
 
-    return { name, cards, pairs: [...byKey.values()] };
+    return { name, mode, cards, pairs: [...byKey.values()] };
 };
 
 /** Accepts one deck, a list of decks, or `{ decks }`; other app fields are ignored. */
@@ -83,10 +96,12 @@ const parseImport = (body) => {
 const toExportDeck = (deck, cards, pairs) => {
     const cardId = (id) => `c_${id}`;
     const exported = {};
+    const mode = deck.pair_mode;
+    const keyFor = mode === PERMUTATIONS ? orderedKey : pairKey;
     pairs
         .filter((pair) => pair.state !== 'empty')
         .forEach((pair) => {
-            exported[pairKey(cardId(pair.card_a_id), cardId(pair.card_b_id))] = {
+            exported[keyFor(cardId(pair.card_a_id), cardId(pair.card_b_id))] = {
                 name: pair.name,
                 effect: pair.effect,
                 notes: pair.notes,
@@ -96,7 +111,14 @@ const toExportDeck = (deck, cards, pairs) => {
     return {
         id: `d_${deck.id}`,
         name: deck.name,
-        cards: cards.map((card) => ({ id: cardId(card.id), name: card.name, detail: card.detail })),
+        mode,
+        cards: cards.map((card) => ({
+            id: cardId(card.id),
+            name: card.name,
+            detail: card.detail,
+            onX: Boolean(card.on_x),
+            onY: Boolean(card.on_y),
+        })),
         pairs: exported,
     };
 };

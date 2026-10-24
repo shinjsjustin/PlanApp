@@ -41,10 +41,11 @@ describe('parseImport', () => {
         expect(parseImport(sample())).toEqual([
             {
                 name: 'HordeGame augments',
+                mode: 'combinations',
                 cards: [
-                    { key: 'c_b', name: 'Burn', detail: 'fire' },
-                    { key: 'c_a', name: 'Arc', detail: '' },
-                    { key: 'c_z', name: 'Zap', detail: 'bolt' },
+                    { key: 'c_b', name: 'Burn', detail: 'fire', onX: true, onY: true },
+                    { key: 'c_a', name: 'Arc', detail: '', onX: true, onY: true },
+                    { key: 'c_z', name: 'Zap', detail: 'bolt', onX: true, onY: true },
                 ],
                 pairs: [
                     { aKey: 'c_a', bKey: 'c_b', name: 'Steam', effect: 'hot', notes: 'n', state: 'done' },
@@ -63,7 +64,7 @@ describe('parseImport', () => {
     });
 
     it('treats a deck without pairs as having none', () => {
-        expect(parseImport({ name: 'N', cards: [] })).toEqual([{ name: 'N', cards: [], pairs: [] }]);
+        expect(parseImport({ name: 'N', cards: [] })).toEqual([{ name: 'N', mode: 'combinations', cards: [], pairs: [] }]);
     });
 
     it.each([
@@ -133,6 +134,38 @@ describe('parseImport', () => {
         });
     });
 
+    describe('mode and axes', () => {
+        const cards = [{ id: 'a', name: 'A', onX: false, onY: true }, { id: 'b', name: 'B', onX: 'no' }];
+        const pairs = {
+            'b|a': { name: 'BA', state: 'done' },
+            'a|b': { name: 'AB', state: 'drafted' },
+        };
+
+        it('keeps both orders of a couple in permutations', () => {
+            const [deck] = parseImport({ name: 'P', mode: 'permutations', cards, pairs });
+            expect(deck.mode).toBe('permutations');
+            expect(deck.pairs.map((p) => [p.aKey, p.bKey, p.name])).toEqual([
+                ['b', 'a', 'BA'],
+                ['a', 'b', 'AB'],
+            ]);
+        });
+
+        it('folds both orders into one pair in combinations', () => {
+            const [deck] = parseImport({ name: 'P', mode: 'combinations', cards, pairs });
+            expect(deck.pairs).toHaveLength(1);
+            expect(deck.pairs[0]).toMatchObject({ aKey: 'a', bKey: 'b' });
+        });
+
+        it.each([[undefined], ['sideways'], [3]])('reads mode %p as combinations', (mode) => {
+            expect(parseImport({ name: 'P', mode, cards: [] })[0].mode).toBe('combinations');
+        });
+
+        it('reads onX and onY, defaulting anything but a boolean to true', () => {
+            const [deck] = parseImport({ name: 'P', cards });
+            expect(deck.cards.map((c) => [c.onX, c.onY])).toEqual([[false, true], [true, true]]);
+        });
+    });
+
     it('throws 400 naming the bad deck inside a list', () => {
         throwsFor([sample(), { name: 'Second', cards: 3 }], 'Second');
     });
@@ -140,9 +173,9 @@ describe('parseImport', () => {
 
 describe('toExportDeck', () => {
     const cards = [
-        { id: 7, name: 'Burn', detail: 'fire', position: 0 },
-        { id: 3, name: 'Arc', detail: '', position: 1 },
-        { id: 12, name: 'Zap', detail: 'bolt', position: 2 },
+        { id: 7, name: 'Burn', detail: 'fire', position: 0, on_x: 1, on_y: 1 },
+        { id: 3, name: 'Arc', detail: '', position: 1, on_x: 1, on_y: 0 },
+        { id: 12, name: 'Zap', detail: 'bolt', position: 2, on_x: 0, on_y: 1 },
     ];
     const pair = (a, b, state, name = '') => ({
         card_a_id: a, card_b_id: b, name, effect: 'e', notes: 'n', state,
@@ -150,17 +183,18 @@ describe('toExportDeck', () => {
 
     it('exports in card order, smaller string id first, only filled pairs', () => {
         const out = toExportDeck(
-            { id: 5, name: 'HordeGame augments' },
+            { id: 5, name: 'HordeGame augments', pair_mode: 'combinations' },
             cards,
             [pair(3, 7, 'done', 'Steam'), pair(7, 12, 'empty'), pair(12, 3, 'struck', 'Odd')],
         );
         expect(out).toEqual({
             id: 'd_5',
             name: 'HordeGame augments',
+            mode: 'combinations',
             cards: [
-                { id: 'c_7', name: 'Burn', detail: 'fire' },
-                { id: 'c_3', name: 'Arc', detail: '' },
-                { id: 'c_12', name: 'Zap', detail: 'bolt' },
+                { id: 'c_7', name: 'Burn', detail: 'fire', onX: true, onY: true },
+                { id: 'c_3', name: 'Arc', detail: '', onX: true, onY: false },
+                { id: 'c_12', name: 'Zap', detail: 'bolt', onX: false, onY: true },
             ],
             pairs: {
                 'c_3|c_7': { name: 'Steam', effect: 'e', notes: 'n', state: 'done' },
@@ -171,17 +205,46 @@ describe('toExportDeck', () => {
     });
 
     it('round-trips through parseImport', () => {
-        const out = toExportDeck({ id: 5, name: 'D' }, cards, [pair(3, 7, 'drafted', 'Steam')]);
+        const out = toExportDeck({ id: 5, name: 'D', pair_mode: 'combinations' }, cards, [pair(3, 7, 'drafted', 'Steam')]);
         expect(parseImport(out)).toEqual([
             {
                 name: 'D',
+                mode: 'combinations',
                 cards: [
-                    { key: 'c_7', name: 'Burn', detail: 'fire' },
-                    { key: 'c_3', name: 'Arc', detail: '' },
-                    { key: 'c_12', name: 'Zap', detail: 'bolt' },
+                    { key: 'c_7', name: 'Burn', detail: 'fire', onX: true, onY: true },
+                    { key: 'c_3', name: 'Arc', detail: '', onX: true, onY: false },
+                    { key: 'c_12', name: 'Zap', detail: 'bolt', onX: false, onY: true },
                 ],
                 pairs: [{ aKey: 'c_3', bKey: 'c_7', name: 'Steam', effect: 'e', notes: 'n', state: 'drafted' }],
             },
+        ]);
+    });
+});
+
+describe('toExportDeck in permutations', () => {
+    const cards = [
+        { id: 7, name: 'Burn', detail: '', position: 0, on_x: 1, on_y: 1 },
+        { id: 3, name: 'Arc', detail: '', position: 1, on_x: 1, on_y: 1 },
+    ];
+    const pair = (a, b, name) => ({ card_a_id: a, card_b_id: b, name, effect: '', notes: '', state: 'done' });
+    const deck = { id: 5, name: 'P', pair_mode: 'permutations' };
+
+    it('writes mode and keeps stored key order for both orders', () => {
+        const out = toExportDeck(deck, cards, [pair(7, 3, 'first'), pair(3, 7, 'second')]);
+        expect(out.mode).toBe('permutations');
+        expect(Object.entries(out.pairs).map(([key, p]) => [key, p.name])).toEqual([
+            ['c_7|c_3', 'first'],
+            ['c_3|c_7', 'second'],
+        ]);
+    });
+
+    it('round-trips both orders through parseImport', () => {
+        const out = toExportDeck(deck, cards, [pair(7, 3, 'first'), pair(3, 7, 'second')]);
+        const [parsed] = parseImport(out);
+        expect(parsed.mode).toBe('permutations');
+        expect(parsed.pairs.map((p) => [p.aKey, p.bKey, p.name])).toEqual([
+            ['c_7', 'c_3', 'first'],
+            ['c_3', 'c_7', 'second'],
         ]);
     });
 });
