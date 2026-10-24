@@ -49,8 +49,10 @@ const CombinationsPage = () => {
     const clearToast = useCallback(() => setToast(''), []);
     const sideRef = useRef(null);
 
-    // Falls back to the first card when the choice is unset or no longer in the deck.
-    const walkCard = cards.find((c) => c.id === walkCardChoice) || cards[0];
+    // Only cards on an axis can be walked (a missing flag counts as on). Falls back to the first of
+    // them when the choice is unset, left the deck or moved to the tray; undefined when none is on an axis.
+    const walkable = cards.filter((c) => c.onX !== false || c.onY !== false);
+    const walkCard = walkable.find((c) => c.id === walkCardChoice) || walkable[0];
     const keys = walkCard ? walkKeys(cards, walkCard.id, mode) : [];
     const isWalkNavShown = view === 'walk' && cards.length >= 2;
 
@@ -61,6 +63,10 @@ const CombinationsPage = () => {
 
     const openStep = (key) => key && openPair(key);
     const handleNextUnfilled = () => {
+        if (!walkCard) {
+            setToast('No card is on an axis.');
+            return;
+        }
         const key = nextUnfilledKey(keys, selectedKey, pairs, mode);
         if (key) openPair(key);
         else setToast(`Every pair of ${walkCard.name} is filled.`);
@@ -198,7 +204,7 @@ const CombinationsPage = () => {
                     {deck && view === 'grid' && (
                         <GridView cards={cards} pairs={pairs} mode={mode} selectedKey={selectedKey} onOpen={openPair} />
                     )}
-                    {deck && view === 'walk' && (
+                    {deck && view === 'walk' && walkCard && (
                         <WalkView
                             cards={cards}
                             pairs={pairs}
@@ -213,7 +219,7 @@ const CombinationsPage = () => {
                 <aside className="panel side" ref={sideRef}>
                     {isWalkNavShown && (
                         <WalkNav
-                            cardName={walkCard.name}
+                            cardName={walkCard?.name ?? ''}
                             keys={keys}
                             selectedKey={selectedKey}
                             onPrevious={() => openStep(stepKey(keys, selectedKey, -1))}
