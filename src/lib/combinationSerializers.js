@@ -9,6 +9,7 @@
 const toComboDeck = (row) => ({
     id: row.id,
     name: row.name,
+    mode: row.pair_mode,
     projectId: row.project_id,
     sourceDeckId: row.source_deck_id,
     cardCount: Number(row.card_count),
@@ -27,6 +28,8 @@ const toComboCard = (row) => ({
     name: row.name,
     detail: row.detail,
     position: row.position,
+    onX: Boolean(row.on_x),
+    onY: Boolean(row.on_y),
 });
 
 const toComboPair = (row) => ({

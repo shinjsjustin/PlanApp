@@ -7,7 +7,7 @@ const { firstRow } = require('./sql');
  * linked to one project; deleting that project unlinks the deck (ON DELETE SET NULL).
  */
 
-const SELECT_COLUMNS = 'id, owner_id, project_id, source_deck_id, name, created_at, updated_at';
+const SELECT_COLUMNS = 'id, owner_id, project_id, source_deck_id, name, pair_mode, created_at, updated_at';
 
 const findById = async (conn, id) => {
     const [rows] = await conn.execute(
@@ -26,7 +26,7 @@ const findById = async (conn, id) => {
 const listByOwner = async (conn, ownerId, { projectId } = {}) => {
     const filterByProject = projectId !== undefined;
     const [rows] = await conn.execute(
-        `SELECT d.id, d.owner_id, d.project_id, d.source_deck_id, d.name, d.created_at, d.updated_at,
+        `SELECT d.id, d.owner_id, d.project_id, d.source_deck_id, d.name, d.pair_mode, d.created_at, d.updated_at,
                 (SELECT COUNT(*) FROM combo_cards c WHERE c.deck_id = d.id) AS card_count,
                 (SELECT COUNT(*) FROM combo_pairs p WHERE p.deck_id = d.id AND p.state = 'drafted') AS drafted_count,
                 (SELECT COUNT(*) FROM combo_pairs p WHERE p.deck_id = d.id AND p.state = 'done') AS done_count,
@@ -40,23 +40,30 @@ const listByOwner = async (conn, ownerId, { projectId } = {}) => {
     return rows;
 };
 
-const create = async (conn, { ownerId, name, projectId = null, sourceDeckId = null }) => {
+const create = async (conn, {
+    ownerId,
+    name,
+    projectId = null,
+    sourceDeckId = null,
+    mode = 'combinations',
+}) => {
     const [result] = await conn.execute(
-        'INSERT INTO combo_decks (owner_id, project_id, source_deck_id, name) VALUES (?, ?, ?, ?)',
-        [ownerId, projectId, sourceDeckId, name]
+        'INSERT INTO combo_decks (owner_id, project_id, source_deck_id, name, pair_mode) VALUES (?, ?, ?, ?, ?)',
+        [ownerId, projectId, sourceDeckId, name, mode]
     );
 
     return findById(conn, result.insertId);
 };
 
 /** Fields left out are kept; `projectId: null` unlinks. Returns the row, or null when missing. */
-const update = async (conn, id, { name, projectId }) => {
+const update = async (conn, id, { name, projectId, mode }) => {
     const [result] = await conn.execute(
         `UPDATE combo_decks
          SET name = COALESCE(?, name),
-             project_id = IF(?, ?, project_id)
+             project_id = IF(?, ?, project_id),
+             pair_mode = COALESCE(?, pair_mode)
          WHERE id = ?`,
-        [name ?? null, projectId !== undefined, projectId ?? null, id]
+        [name ?? null, projectId !== undefined, projectId ?? null, mode ?? null, id]
     );
     if (result.affectedRows === 0) return null;
 

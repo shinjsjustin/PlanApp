@@ -8,7 +8,7 @@ const { firstRow } = require('./sql');
  * `withTransaction`.
  */
 
-const SELECT_COLUMNS = 'id, deck_id, name, detail, position, created_at, updated_at';
+const SELECT_COLUMNS = 'id, deck_id, name, detail, position, on_x, on_y, created_at, updated_at';
 
 const findById = async (conn, id) => {
     const [rows] = await conn.execute(
@@ -29,21 +29,26 @@ const listByDeck = async (conn, deckId) => {
 };
 
 /** Appends after the deck's last card. */
-const create = async (conn, { deckId, name, detail = '' }) => {
+const create = async (conn, { deckId, name, detail = '', onX = false, onY = false }) => {
     const [result] = await conn.execute(
-        `INSERT INTO combo_cards (deck_id, name, detail, position)
-         SELECT ?, ?, ?, COUNT(*) FROM combo_cards WHERE deck_id = ?`,
-        [deckId, name, detail, deckId]
+        `INSERT INTO combo_cards (deck_id, name, detail, position, on_x, on_y)
+         SELECT ?, ?, ?, COUNT(*), ?, ? FROM combo_cards WHERE deck_id = ?`,
+        [deckId, name, detail, onX ? 1 : 0, onY ? 1 : 0, deckId]
     );
 
     return findById(conn, result.insertId);
 };
 
 /** Fields left out are kept. Returns the row, or null when missing. */
-const update = async (conn, id, { name, detail }) => {
+const update = async (conn, id, { name, detail, onX, onY }) => {
     const [result] = await conn.execute(
-        'UPDATE combo_cards SET name = COALESCE(?, name), detail = COALESCE(?, detail) WHERE id = ?',
-        [name ?? null, detail ?? null, id]
+        `UPDATE combo_cards
+         SET name = COALESCE(?, name),
+             detail = COALESCE(?, detail),
+             on_x = COALESCE(?, on_x),
+             on_y = COALESCE(?, on_y)
+         WHERE id = ?`,
+        [name ?? null, detail ?? null, onX === undefined ? null : Number(onX), onY === undefined ? null : Number(onY), id]
     );
     if (result.affectedRows === 0) return null;
 
