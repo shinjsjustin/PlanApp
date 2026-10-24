@@ -105,6 +105,10 @@
 -- A database created before combinations is missing three tables. Apply in place
 -- rather than re-running this file (db/migration/2026-10-22_add_combinations.sql).
 --
+-- A database created before combination axes is missing combo_decks.pair_mode and
+-- combo_cards.on_x and on_y. Back it up first, then apply in place rather than
+-- re-running this file (db/migration/2026-10-24_add_combination_axes.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -591,6 +595,7 @@ CREATE TABLE `combo_decks` (
   `project_id`     int unsigned DEFAULT NULL,
   `source_deck_id` int unsigned DEFAULT NULL,
   `name`           varchar(200) NOT NULL,
+  `pair_mode`      enum('combinations','permutations') NOT NULL DEFAULT 'combinations',
   `created_at`     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -611,6 +616,8 @@ CREATE TABLE `combo_cards` (
   `name`       varchar(200) NOT NULL,
   `detail`     text NOT NULL,
   `position`   int unsigned NOT NULL,
+  `on_x`       tinyint(1) NOT NULL DEFAULT '0',
+  `on_y`       tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
