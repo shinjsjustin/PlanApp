@@ -47,6 +47,26 @@ describe('generateVapidKeys', () => {
     });
 });
 
+describe('generateVapidKeys with a leading zero byte', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('left-pads the private key to 32 bytes and still signs with it', () => {
+        const fixed = Buffer.concat([Buffer.from([0x00]), Buffer.alloc(31, 0x07)]);
+        const ecdh = crypto.createECDH('prime256v1');
+        ecdh.setPrivateKey(fixed);
+        // Keep the fixed key: generateKeys would replace it with a random one.
+        ecdh.generateKeys = () => ecdh.getPublicKey();
+        jest.spyOn(crypto, 'createECDH').mockReturnValueOnce(ecdh);
+
+        const keys = generateVapidKeys();
+
+        expect(fromB64u(keys.privateKey).equals(fixed)).toBe(true);
+        const header = vapidAuthorization('https://push.example.com/x',
+            { subject: 'mailto:a@example.com', ...keys });
+        expect(header).toMatch(/^vapid t=.+, k=.+$/);
+    });
+});
+
 describe('encryptPayload', () => {
     it('decrypts back to the plaintext with the subscriber key and auth secret', () => {
         const sub = newSubscriber();

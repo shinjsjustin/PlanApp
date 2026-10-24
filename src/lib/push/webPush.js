@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 
 const RECORD_SIZE = 4096;
 const SALT_BYTES = 16;
+const PRIVATE_KEY_BYTES = 32;
 const TAG_BYTES = 16;
 // One record: minus the GCM tag and the padding delimiter.
 const MAX_PLAINTEXT_BYTES = RECORD_SIZE - TAG_BYTES - 1;
@@ -19,7 +20,9 @@ const hkdf = (salt, ikm, info, len) =>
 const generateVapidKeys = () => {
     const ecdh = crypto.createECDH('prime256v1');
     ecdh.generateKeys();
-    return { publicKey: b64u(ecdh.getPublicKey()), privateKey: b64u(ecdh.getPrivateKey()) };
+    // getPrivateKey strips leading zero bytes; a JWK `d` must be the full 32.
+    const privateKey = ecdh.getPrivateKey().toString('hex').padStart(PRIVATE_KEY_BYTES * 2, '0');
+    return { publicKey: b64u(ecdh.getPublicKey()), privateKey: b64u(Buffer.from(privateKey, 'hex')) };
 };
 
 // RFC 8291 aes128gcm body for a single record.
