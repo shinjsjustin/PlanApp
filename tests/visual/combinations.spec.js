@@ -112,6 +112,17 @@ test.describe('combinations page on the phone', () => {
         await attachScreenshot(page, testInfo, 'app');
     });
 
+    test('axis tray fits the viewport and the page does not scroll sideways', async ({ page, request }, testInfo) => {
+        await openApp(page, request);
+        await page.locator('.axis-tray').waitFor();
+        const tray = await rectOf(page, '.axis-tray');
+        const width = page.viewportSize().width;
+        expect(tray.left).toBeGreaterThanOrEqual(0);
+        expect(tray.right).toBeLessThanOrEqual(width);
+        expect(await hasNoHorizontalOverflow(page)).toBe(true);
+        await attachScreenshot(page, testInfo, 'app');
+    });
+
     test('grid scrolls inside grid-wrap and the page does not scroll sideways', async ({ page, request }, testInfo) => {
         await openApp(page, request, '?view=grid');
         await page.locator('.grid-wrap').waitFor();
