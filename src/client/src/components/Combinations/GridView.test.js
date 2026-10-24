@@ -64,7 +64,7 @@ describe('GridView', () => {
 
     it('keys cells by sorted ids when deck order differs from id order', () => {
         const { onOpen } = setup({ cards: [CARDS[1], CARDS[0]], pairs: {} });
-        fireEvent.click(screen.getByRole('button'));
+        fireEvent.click(screen.getByRole('button', { name: 'Ice + Fire: empty' }));
         expect(onOpen).toHaveBeenCalledWith('1|2');
     });
 
@@ -99,6 +99,21 @@ describe('GridView', () => {
             fireEvent.keyDown(mirror, { key: 'Enter' });
             expect(onOpen.mock.calls).toEqual([['1|2'], ['1|2']]);
             expect(container.querySelectorAll('td.lower.mirror')).toHaveLength(3);
+        });
+
+        it('names a mirror cell after both orders and the live pair', () => {
+            const { container } = setup({ pairs: { '1|2': { state: 'done', name: 'Steam' } } });
+            const mirror = screen.getByRole('button', { name: 'Ice + Fire (same as Fire + Ice): done · Steam' });
+            expect(mirror).toHaveClass('lower', 'mirror');
+            expect(mirror).toHaveAttribute('title', 'Ice + Fire (same as Fire + Ice): done · Steam');
+            expect(mirror).toBeEmptyDOMElement();
+            expect(screen.getByRole('button', { name: 'Wind + Ice (same as Ice + Wind): empty' })).toBeInTheDocument();
+            expect(container.querySelectorAll('td.lower.mirror')).toHaveLength(3);
+        });
+
+        it('keeps live cell names unique beside mirror cells', () => {
+            setup({ pairs: { '1|2': { state: 'done', name: 'Steam' } } });
+            expect(screen.getAllByRole('button', { name: 'Fire + Ice: done · Steam' })).toHaveLength(1);
         });
 
         it('makes every off-diagonal cell live in permutations, keyed row|col', () => {

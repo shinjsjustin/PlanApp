@@ -25,17 +25,20 @@ const GridView = ({ cards, pairs, mode, selectedKey, onOpen }) => {
     const renderCell = ({ row, col, kind, key }) => {
         if (kind === 'diag') return <td key={col.id} className="diag" />;
         const pair = getPair(pairs, row.id, col.id, mode);
-        const label = `${row.name} + ${col.name}: ${pair.state}${pair.name ? ` · ${pair.name}` : ''}`;
-        const text = pair.name ? truncate(pair.name, MAX_NAME_CHARS) : STATE_SYMBOL[pair.state];
         const isMirror = kind === 'mirror';
+        const detail = `${pair.state}${pair.name ? ` · ${pair.name}` : ''}`;
+        const label = isMirror
+            ? `${row.name} + ${col.name} (same as ${col.name} + ${row.name}): ${detail}`
+            : `${row.name} + ${col.name}: ${detail}`;
+        const text = pair.name ? truncate(pair.name, MAX_NAME_CHARS) : STATE_SYMBOL[pair.state];
         return (
             <td
                 key={col.id}
                 className={`${isMirror ? 'lower mirror' : 'cell'} st-${pair.state}${key === selectedKey && !isMirror ? ' sel' : ''}`}
                 tabIndex={0}
-                role={isMirror ? undefined : 'button'}
+                role="button"
                 title={label}
-                aria-label={isMirror ? undefined : label}
+                aria-label={label}
                 onClick={() => onOpen(key)}
                 onKeyDown={(event) => handleKeyDown(event, key)}
             >
