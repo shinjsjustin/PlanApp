@@ -111,9 +111,9 @@ describe('decks', () => {
             counts: { drafted: 0, done: 1, struck: 1 },
         });
         expect(res.body.data.cards).toEqual([
-            { id: a.id, deckId: deck.id, name: 'A', detail: '', position: 0 },
-            { id: b.id, deckId: deck.id, name: 'B', detail: '', position: 1 },
-            { id: c.id, deckId: deck.id, name: 'C', detail: '', position: 2 },
+            { id: a.id, deckId: deck.id, name: 'A', detail: '', position: 0, onX: false, onY: false },
+            { id: b.id, deckId: deck.id, name: 'B', detail: '', position: 1, onX: false, onY: false },
+            { id: c.id, deckId: deck.id, name: 'C', detail: '', position: 2, onX: false, onY: false },
         ]);
         expect(res.body.data.pairs).toEqual([
             { id: expect.any(Number), cardAId: a.id, cardBId: b.id, name: '', effect: '', notes: '', state: 'struck' },
@@ -153,7 +153,7 @@ describe('cards', () => {
         const res = await as(ownerId, 'post', `/decks/${deck.id}/cards`).send({ name: ' D ', detail: 'info' });
 
         expect(res.status).toBe(201);
-        expect(res.body.data).toEqual({ id: expect.any(Number), deckId: deck.id, name: 'D', detail: 'info', position: 3 });
+        expect(res.body.data).toEqual({ id: expect.any(Number), deckId: deck.id, name: 'D', detail: 'info', position: 3, onX: false, onY: false });
     });
 
     test('POST card is 400 when the deck already has 200 cards', async () => {

@@ -10,6 +10,7 @@ const cardsRepo = require('../db/repositories/combinationCardsRepo');
 const pairsRepo = require('../db/repositories/combinationPairsRepo');
 const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { toComboCard, toComboDeck, toComboPair } = require('../lib/combinationSerializers');
+const { foldToCombinations } = require('../lib/combinationMode');
 const { importDecks, promoteDeck } = require('../lib/combinationImport');
 const {
     MAX_CARDS_PER_DECK,
@@ -41,17 +42,28 @@ const textSchema = (field) =>
         .string({ error: `${field} must be a string` })
         .max(TEXT_MAX_LENGTH, `${field} must be at most ${TEXT_MAX_LENGTH} characters`);
 
+const PAIR_MODES = ['combinations', 'permutations'];
+
 const projectIdSchema = idSchema.nullable();
 
 const createDeckSchema = z.object({ name: nameSchema, projectId: projectIdSchema.optional() });
 const patchDeckSchema = requireSomeField(
-    z.object({ name: nameSchema.optional(), projectId: projectIdSchema.optional() }),
-    ['name', 'projectId']
+    z.object({
+        name: nameSchema.optional(),
+        projectId: projectIdSchema.optional(),
+        mode: z.enum(PAIR_MODES, { error: `mode must be one of: ${PAIR_MODES.join(', ')}` }).optional(),
+    }),
+    ['name', 'projectId', 'mode']
 );
 const createCardSchema = z.object({ name: nameSchema, detail: textSchema('detail').optional() });
 const patchCardSchema = requireSomeField(
-    z.object({ name: nameSchema.optional(), detail: textSchema('detail').optional() }),
-    ['name', 'detail']
+    z.object({
+        name: nameSchema.optional(),
+        detail: textSchema('detail').optional(),
+        onX: z.boolean({ error: 'onX must be a boolean' }).optional(),
+        onY: z.boolean({ error: 'onY must be a boolean' }).optional(),
+    }),
+    ['name', 'detail', 'onX', 'onY']
 );
 const moveSchema = z.object({
     direction: z.enum(['up', 'down'], { error: 'direction must be up or down' }),
@@ -165,6 +177,11 @@ router.patch(
             await assertProjectUsable(conn, fields.projectId, req.user.id);
             if (fields.name) await assertNameFree(conn, req.user.id, fields.name, id);
 
+            if (fields.mode === 'combinations') {
+                const current = await decksRepo.findById(conn, id);
+                if (current.pair_mode === 'permutations') await foldToCombinations(conn, id);
+            }
+
             const deck = await decksRepo.update(conn, id, fields);
             if (!deck) throw notFound('Deck');
 
@@ -223,12 +240,15 @@ router.put(
 
         const pair = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'combinationDeck', deckId, req.user.id);
+            const deck = await decksRepo.findById(conn, deckId);
             const cardIds = (await cardsRepo.listByDeck(conn, deckId)).map((card) => card.id);
             if (!cardIds.includes(cardAId) || !cardIds.includes(cardBId)) {
                 throw badRequest('Both cards must belong to this deck');
             }
 
-            return pairsRepo.upsert(conn, deckId, cardAId, cardBId, fields);
+            return pairsRepo.upsert(conn, deckId, cardAId, cardBId, fields, {
+                ordered: deck.pair_mode === 'permutations',
+            });
         });
 
         res.sendData(toComboPair(pair));
