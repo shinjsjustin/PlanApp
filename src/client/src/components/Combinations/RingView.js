@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 
-import { getPair, pairKey } from '../../lib/combinations';
+import { getPair, visibleKeys } from '../../lib/combinations';
 import {
     CARD_HEIGHT, PHONE_LABEL_SCALE, RING_RADIUS, RING_SIZE, cardWidth, ringPositions, ringViewBox,
 } from '../../lib/ringGeometry';
@@ -11,10 +11,13 @@ const BASE_FONT_SIZE = 14;
 const TIP_GAP = 14;
 const TIP_EDGE = 8;
 
+const COMBINATIONS = 'combinations';
+const PERMUTATIONS = 'permutations';
+
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 const labelScale = () => (window.innerWidth <= PHONE_WIDTH ? PHONE_LABEL_SCALE : 1);
 
-const RingView = ({ cards, pairs, selectedKey, onOpen }) => {
+const RingView = ({ cards, pairs, selectedKey, mode = COMBINATIONS, onOpen }) => {
     const [scale, setScale] = useState(labelScale);
     const [hoverCard, setHoverCard] = useState(null);
     const [pinCard, setPinCard] = useState(null);
@@ -38,15 +41,28 @@ const RingView = ({ cards, pairs, selectedKey, onOpen }) => {
         el.style.top = `${Math.max(TIP_EDGE, y)}px`;
     }, [tip]);
 
-    if (cards.length < 2) {
+    const placed = cards.filter((c) => c.onX !== false || c.onY !== false);
+    if (placed.length < 2) {
         return <p className="placeholder">Add at least two cards below to see their pairs.</p>;
     }
 
-    const positions = ringPositions(cards);
+    const positions = ringPositions(placed);
     const focus = hoverCard ?? pinCard;
-    const links = positions.flatMap((p, i) => positions.slice(i + 1).map((q) => ({
-        key: pairKey(p.card.id, q.card.id), p, q,
-    })));
+    const at = new Map(positions.map((p) => [p.card.id, p]));
+    // One chord per couple, keyed by its first visible key in deck order.
+    const links = [];
+    const coupled = new Map();
+    visibleKeys(cards, mode).forEach((key) => {
+        const ids = key.split('|').map(Number);
+        const couple = [...ids].sort((a, b) => a - b).join('|');
+        if (coupled.has(couple)) {
+            coupled.get(couple).keys.push(key);
+            return;
+        }
+        const link = { key, keys: [key], p: at.get(ids[0]), q: at.get(ids[1]) };
+        coupled.set(couple, link);
+        links.push(link);
+    });
     const isLit = ({ p, q }) => focus !== null && (p.card.id === focus || q.card.id === focus);
     const linked = new Set(links.filter(isLit).flatMap(({ p, q }) => [p.card.id, q.card.id]));
     linked.add(focus);
@@ -63,7 +79,11 @@ const RingView = ({ cards, pairs, selectedKey, onOpen }) => {
 
     const coords = ({ p, q }) => ({ x1: p.x.toFixed(1), y1: p.y.toFixed(1), x2: q.x.toFixed(1), y2: q.y.toFixed(1) });
     const tipLink = tip && links.find((l) => l.key === tip.key);
-    const tipPair = tipLink && getPair(pairs, tipLink.p.card.id, tipLink.q.card.id);
+    const tipPair = tipLink && getPair(pairs, tipLink.p.card.id, tipLink.q.card.id, mode);
+    const orderLine = (key) => {
+        const [a, b] = key.split('|').map(Number);
+        return `${at.get(a).card.name} + ${at.get(b).card.name}: ${getPair(pairs, a, b, mode).state}`;
+    };
     const tipLabel = tipLink && `${tipLink.p.card.name} + ${tipLink.q.card.name}`;
     const cardHeight = CARD_HEIGHT * scale;
 
@@ -80,7 +100,7 @@ const RingView = ({ cards, pairs, selectedKey, onOpen }) => {
                     <g>
                         {links.map((link) => {
                             const { key } = link;
-                            const state = getPair(pairs, link.p.card.id, link.q.card.id).state;
+                            const state = getPair(pairs, link.p.card.id, link.q.card.id, mode).state;
                             const classes = ['chord', `st-${state}`];
                             if (key === selectedKey) classes.push('sel');
                             if (isLit(link)) classes.push('lit');
@@ -133,7 +153,12 @@ const RingView = ({ cards, pairs, selectedKey, onOpen }) => {
             <p className="hint">
                 Hover a card to light its pairs (tap or click to pin). Hover a line for its pair; click it to edit.
             </p>
-            {tipPair && (
+            {tipPair && mode === PERMUTATIONS && (
+                <div className="tip" ref={tipRef}>
+                    {tipLink.keys.map((key) => <div key={key}>{orderLine(key)}</div>)}
+                </div>
+            )}
+            {tipPair && mode !== PERMUTATIONS && (
                 <div className="tip" ref={tipRef}>
                     <span className="st">{tipPair.state}</span>
                     <strong>{tipPair.name || tipLabel}</strong>

@@ -144,4 +144,65 @@ describe('RingView', () => {
             window.innerWidth = original;
         }
     });
+
+    describe('axes and mode', () => {
+        const AXIS_CARDS = [
+            { id: 11, name: 'Fire', detail: '', onX: true, onY: false },
+            { id: 12, name: 'Water', detail: '', onX: false, onY: true },
+            { id: 13, name: 'Earth', detail: '', onX: false, onY: false },
+        ];
+
+        it('places only cards on at least one axis', () => {
+            const { all, q } = setup({ cards: AXIS_CARDS, pairs: {} });
+            expect(all('.card')).toHaveLength(2);
+            expect(q('.card[data-id="13"]')).toBeNull();
+            expect(all('.chord')).toHaveLength(1);
+        });
+
+        it('shows the placeholder when under two cards are placed', () => {
+            const { container } = setup({ cards: [AXIS_CARDS[0], AXIS_CARDS[2]] });
+            expect(container).toHaveTextContent('Add at least two cards below to see their pairs.');
+        });
+
+        it('draws one chord per couple in permutations, keyed by its first visible key', () => {
+            const cards = [{ id: 11, name: 'A' }, { id: 12, name: 'B' }];
+            const pairs = { '12|11': { name: '', effect: '', state: 'done' } };
+            const { all, q, container, onOpen } = setup({ cards, pairs, mode: 'permutations' });
+            expect(all('.chord')).toHaveLength(1);
+            expect(q('.chord')).toHaveAttribute('data-k', '11|12');
+            expect(q('.chord')).toHaveClass('st-empty');
+            fireEvent.click(hit(container, '11|12'));
+            expect(onOpen).toHaveBeenCalledWith('11|12');
+        });
+
+        it('keys a permutations chord by the only visible order', () => {
+            const cards = [
+                { id: 11, name: 'A', onX: false, onY: true },
+                { id: 12, name: 'B', onX: true, onY: false },
+            ];
+            const { all, q } = setup({ cards, pairs: {}, mode: 'permutations' });
+            expect(all('.chord')).toHaveLength(1);
+            expect(q('.chord')).toHaveAttribute('data-k', '11|12');
+        });
+
+        it('lists each visible order with its state in the permutations tip', () => {
+            const cards = [{ id: 11, name: 'A' }, { id: 12, name: 'B' }];
+            const pairs = { '11|12': { state: 'done' } };
+            const { container, q } = setup({ cards, pairs, mode: 'permutations' });
+            fireEvent.pointerEnter(hit(container, '11|12'), { clientX: 10, clientY: 10 });
+            expect(q('.tip')).toHaveTextContent('A + B: done');
+            expect(q('.tip')).toHaveTextContent('B + A: empty');
+        });
+
+        it('lists only the visible order in the permutations tip', () => {
+            const cards = [
+                { id: 11, name: 'A', onX: false, onY: true },
+                { id: 12, name: 'B', onX: true, onY: false },
+            ];
+            const { container, q } = setup({ cards, pairs: {}, mode: 'permutations' });
+            fireEvent.pointerEnter(hit(container, '11|12'), { clientX: 10, clientY: 10 });
+            expect(q('.tip')).toHaveTextContent('A + B: empty');
+            expect(q('.tip')).not.toHaveTextContent('B + A');
+        });
+    });
 });
