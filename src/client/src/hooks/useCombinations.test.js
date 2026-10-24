@@ -282,3 +282,79 @@ describe('useCombinations transfer', () => {
         expect(result.current.error).toBeNull();
     });
 });
+
+describe('useCombinations mode and axes', () => {
+    const PD = { ...D1, mode: 'permutations' };
+    const PAB = { id: 1, cardAId: 11, cardBId: 12, name: 'AB', effect: '', notes: '', state: 'done' };
+    const PBA = { id: 2, cardAId: 12, cardBId: 11, name: 'BA', effect: '', notes: '', state: 'done' };
+
+    const mountPermutations = async () => {
+        route({ '/combinations/decks/1': async () => ({ deck: PD, cards: [C1, C2], pairs: [PAB, PBA] }) });
+        const hook = renderHook((p) => useCombinations(p), { initialProps: { deckId: 1 } });
+        await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+        return hook;
+    };
+
+    it('keeps both orders of a pair when the deck is permutations', async () => {
+        const { result } = await mountPermutations();
+        expect(result.current.pairs).toEqual({ '11|12': PAB, '12|11': PBA });
+    });
+
+    it('savePair stores the pair under the ordered key in a permutations deck', async () => {
+        const { result } = await mountPermutations();
+        const saved = { ...PBA, name: 'Changed' };
+        api.put.mockResolvedValue(saved);
+        await act(async () => { await result.current.savePair({ cardAId: 12, cardBId: 11, name: 'Changed' }); });
+        expect(result.current.pairs).toEqual({ '11|12': PAB, '12|11': saved });
+    });
+
+    it('setMode patches then reloads the deck, cards and pairs', async () => {
+        const { result } = await mountReady();
+        const flipped = { ...D1, mode: 'permutations' };
+        api.patch.mockResolvedValue(flipped);
+        route({ '/combinations/decks/1': async () => ({ deck: flipped, cards: [C1, C2], pairs: [PAB, PBA] }) });
+        await act(async () => { await result.current.setMode('permutations'); });
+        expect(api.patch).toHaveBeenCalledWith('/combinations/decks/1', { mode: 'permutations' });
+        expect(result.current.deck).toEqual(flipped);
+        expect(result.current.cards).toEqual([C1, C2]);
+        expect(result.current.pairs).toEqual({ '11|12': PAB, '12|11': PBA });
+    });
+
+    it('a 409 from setMode sets error, re-throws and keeps the deck, cards and pairs', async () => {
+        const { result } = await mountReady();
+        const failure = new ApiError('Pairs would be lost', 409);
+        api.patch.mockRejectedValue(failure);
+        let caught;
+        await act(async () => { caught = await result.current.setMode('combinations').catch((e) => e); });
+        expect(caught).toBe(failure);
+        expect(result.current.error).toBe('Pairs would be lost');
+        expect(result.current.deck).toEqual(D1);
+        expect(result.current.cards).toEqual([C1, C2, C3]);
+        expect(result.current.pairs).toEqual({ '11|12': P12, '11|13': P13, '12|13': P23 });
+    });
+
+    it('setMode ignores a reload that lands after the deck changed', async () => {
+        const { result, rerender } = await mountReady();
+        let release;
+        api.patch.mockResolvedValue({ ...D1, mode: 'permutations' });
+        route({ '/combinations/decks/1': () => new Promise((resolve) => {
+            release = () => resolve({ deck: { ...D1, mode: 'permutations' }, cards: [C1], pairs: [] });
+        }) });
+        let pending;
+        act(() => { pending = result.current.setMode('permutations'); });
+        await waitFor(() => expect(release).toBeDefined());
+        rerender({ deckId: 2 });
+        await waitFor(() => expect(result.current.deck).toEqual(D2));
+        await act(async () => { release(); await pending; });
+        expect(result.current.deck).toEqual(D2);
+        expect(result.current.cards).toEqual([]);
+    });
+
+    it('setCardAxes patches the axes and replaces that card', async () => {
+        const { result } = await mountReady();
+        api.patch.mockResolvedValue({ ...C2, onX: true, onY: false });
+        await act(async () => { await result.current.setCardAxes(12, { onX: true, onY: false }); });
+        expect(api.patch).toHaveBeenCalledWith('/combinations/cards/12', { onX: true, onY: false });
+        expect(result.current.cards[1]).toEqual({ ...C2, onX: true, onY: false });
+    });
+});

@@ -28,6 +28,8 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     const latestRequest = useRef(0);
     const deckIdRef = useRef(deckId);
     const listPathRef = useRef(listPath);
+    const modeRef = useRef(undefined);
+    modeRef.current = deck?.mode;
     deckIdRef.current = deckId;
     listPathRef.current = listPath;
 
@@ -52,7 +54,7 @@ const useCombinations = ({ projectId, deckId } = {}) => {
                 setDecks(list.decks);
                 setDeck(open ? open.deck : null);
                 setCards(open ? open.cards : []);
-                setPairs(open ? toPairMap(open.pairs) : {});
+                setPairs(open ? toPairMap(open.pairs, open.deck.mode) : {});
                 setError(null);
                 setStatus('ready');
             })
@@ -148,6 +150,22 @@ const useCombinations = ({ projectId, deckId } = {}) => {
         (updated) => setCards((current) => current.map((c) => (c.id === id ? updated : c))),
     ), [run]);
 
+    const setCardAxes = useCallback((id, { onX, onY }) => updateCard(id, { onX, onY }), [updateCard]);
+
+    // Reloads the deck after the flip because going back to combinations folds
+    // pair rows on the server.
+    const setMode = useCallback((mode) => run(
+        async () => {
+            await api.patch(`${DECKS_PATH}/${deckIdRef.current}`, { mode });
+            return api.get(`${DECKS_PATH}/${deckIdRef.current}`);
+        },
+        (open) => {
+            setDeck(open.deck);
+            setCards(open.cards);
+            setPairs(toPairMap(open.pairs, open.deck.mode));
+        },
+    ), [run]);
+
     const moveCard = useCallback((id, direction) => run(
         () => api.put(`/combinations/cards/${id}/move`, { direction }),
         (moved) => setCards(moved.cards),
@@ -170,7 +188,7 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     const savePair = useCallback(async (fields) => {
         const pair = await run(
             () => api.put(`${DECKS_PATH}/${deckIdRef.current}/pairs`, fields),
-            (saved) => setPairs((current) => ({ ...current, [pairKey(saved.cardAId, saved.cardBId)]: saved })),
+            (saved) => setPairs((current) => ({ ...current, [pairKey(saved.cardAId, saved.cardBId, modeRef.current)]: saved })),
         );
         await refreshDecks();
         return pair;
@@ -178,7 +196,7 @@ const useCombinations = ({ projectId, deckId } = {}) => {
 
     return {
         status, decks, deck, cards, pairs, error,
-        createDeck, renameDeck, deleteDeck, importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair,
+        createDeck, renameDeck, deleteDeck, importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair, setMode, setCardAxes,
     };
 };
 
