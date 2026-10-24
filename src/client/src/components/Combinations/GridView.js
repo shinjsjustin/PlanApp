@@ -1,15 +1,19 @@
 import React from 'react';
 
-import { getPair, pairKey } from '../../lib/combinations';
+import { axisCards, getPair, gridCells } from '../../lib/combinations';
 
 const STATE_SYMBOL = { empty: '·', drafted: '~', done: '✓', struck: '✕' };
 const MAX_NAME_CHARS = 12;
 
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
-const GridView = ({ cards, pairs, selectedKey, onOpen }) => {
+const GridView = ({ cards, pairs, mode, selectedKey, onOpen }) => {
     if (cards.length < 2) {
         return <p className="placeholder">Add at least two cards below to see their pairs.</p>;
+    }
+    const { rows, cols } = axisCards(cards);
+    if (rows.length === 0 || cols.length === 0) {
+        return <p className="placeholder">Add cards to both the X and Y axes to see their pairs.</p>;
     }
 
     const handleKeyDown = (event, key) => {
@@ -18,28 +22,29 @@ const GridView = ({ cards, pairs, selectedKey, onOpen }) => {
         onOpen(key);
     };
 
-    const renderCell = (row, col, i, j) => {
-        if (i === j) return <td key={col.id} className="diag" />;
-        if (i > j) return <td key={col.id} className="lower" />;
-        const key = pairKey(row.id, col.id);
-        const pair = getPair(pairs, row.id, col.id);
+    const renderCell = ({ row, col, kind, key }) => {
+        if (kind === 'diag') return <td key={col.id} className="diag" />;
+        const pair = getPair(pairs, row.id, col.id, mode);
         const label = `${row.name} + ${col.name}: ${pair.state}${pair.name ? ` · ${pair.name}` : ''}`;
         const text = pair.name ? truncate(pair.name, MAX_NAME_CHARS) : STATE_SYMBOL[pair.state];
+        const isMirror = kind === 'mirror';
         return (
             <td
                 key={col.id}
-                className={`cell st-${pair.state}${key === selectedKey ? ' sel' : ''}`}
+                className={`${isMirror ? 'lower mirror' : 'cell'} st-${pair.state}${key === selectedKey && !isMirror ? ' sel' : ''}`}
                 tabIndex={0}
-                role="button"
+                role={isMirror ? undefined : 'button'}
                 title={label}
-                aria-label={label}
+                aria-label={isMirror ? undefined : label}
                 onClick={() => onOpen(key)}
                 onKeyDown={(event) => handleKeyDown(event, key)}
             >
-                {text}
+                {isMirror ? null : text}
             </td>
         );
     };
+
+    const cells = gridCells(cards, mode);
 
     return (
         <>
@@ -48,20 +53,24 @@ const GridView = ({ cards, pairs, selectedKey, onOpen }) => {
                     <thead>
                         <tr>
                             <th />
-                            {cards.map((c) => <th key={c.id} scope="col" title={c.name}>{c.name}</th>)}
+                            {cols.map((c) => <th key={c.id} scope="col" title={c.name}>{c.name}</th>)}
                         </tr>
                     </thead>
                     <tbody>
-                        {cards.map((row, i) => (
+                        {rows.map((row) => (
                             <tr key={row.id}>
                                 <th scope="row" title={row.name}>{row.name}</th>
-                                {cards.map((col, j) => renderCell(row, col, i, j))}
+                                {cells.filter((cell) => cell.row.id === row.id).map(renderCell)}
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <p className="hint">Each cell above the diagonal is one pair. Click a cell to edit it.</p>
+            <p className="hint">
+                {mode === 'permutations'
+                    ? 'Each cell is one pair, row then column. Click a cell to edit it.'
+                    : 'Each cell above the diagonal is one pair. Click a cell to edit it.'}
+            </p>
         </>
     );
 };

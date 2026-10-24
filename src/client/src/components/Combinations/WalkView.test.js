@@ -71,4 +71,41 @@ describe('WalkView', () => {
         expect(screen.getByText('Add at least two cards below to walk through their pairs.')).toBeInTheDocument();
         expect(screen.queryByRole('combobox')).toBeNull();
     });
+
+    describe('axes and mode', () => {
+        it('lists only visible keys: a mirrored pair appears once', () => {
+            const cards = [
+                { id: 1, name: 'Fire', onX: true, onY: true },
+                { id: 2, name: 'Ice', onX: true, onY: false },
+                { id: 3, name: 'Wind', onX: false, onY: true },
+            ];
+            const { container } = setup({ cards });
+            const rows = container.querySelectorAll('ol.walk-list li button');
+            expect(rows).toHaveLength(2);
+            expect(rows[0]).toHaveTextContent('+ Ice');
+            expect(rows[1]).toHaveTextContent('+ Wind');
+        });
+
+        it('lists both orders in permutations, marking which card comes first', () => {
+            const { container, onOpen } = setup({ mode: 'permutations', pairs: { '2|1': { state: 'done', name: 'Melt' } } });
+            const rows = container.querySelectorAll('ol.walk-list li button');
+            expect(Array.from(rows).map((r) => r.querySelector('.partner').textContent))
+                .toEqual(['+ Ice', 'Ice +', '+ Wind', 'Wind +']);
+            expect(rows[1]).toHaveTextContent('Melt');
+            expect(rows[0]).toHaveTextContent('empty');
+            fireEvent.click(rows[1]);
+            expect(onOpen).toHaveBeenCalledWith('2|1');
+        });
+
+        it('offers cards on any axis in the picker, not cards on neither', () => {
+            const cards = [
+                { id: 1, name: 'Fire', onX: true, onY: false },
+                { id: 2, name: 'Ice', onX: false, onY: true },
+                { id: 3, name: 'Wind', onX: false, onY: false },
+            ];
+            setup({ cards });
+            const select = screen.getByRole('combobox', { name: 'Card' });
+            expect(Array.from(select.options).map((o) => o.textContent)).toEqual(['Fire', 'Ice']);
+        });
+    });
 });
