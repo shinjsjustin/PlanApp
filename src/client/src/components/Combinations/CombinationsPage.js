@@ -54,7 +54,7 @@ const CombinationsPage = () => {
     const walkable = cards.filter((c) => c.onX !== false || c.onY !== false);
     const walkCard = walkable.find((c) => c.id === walkCardChoice) || walkable[0];
     const keys = walkCard ? walkKeys(cards, walkCard.id, mode) : [];
-    const isWalkNavShown = view === 'walk' && cards.length >= 2;
+    const isWalkNavShown = view === 'walk' && cards.length >= 2 && Boolean(walkCard);
 
     const chooseWalkCard = (id) => {
         setWalkCardChoice(id);
@@ -63,10 +63,6 @@ const CombinationsPage = () => {
 
     const openStep = (key) => key && openPair(key);
     const handleNextUnfilled = () => {
-        if (!walkCard) {
-            setToast('No card is on an axis.');
-            return;
-        }
         const key = nextUnfilledKey(keys, selectedKey, pairs, mode);
         if (key) openPair(key);
         else setToast(`Every pair of ${walkCard.name} is filled.`);
@@ -209,7 +205,7 @@ const CombinationsPage = () => {
                             cards={cards}
                             pairs={pairs}
                             mode={mode}
-                            walkCardId={walkCard?.id}
+                            walkCardId={walkCard.id}
                             selectedKey={selectedKey}
                             onOpen={openPair}
                             onSelectCard={chooseWalkCard}
@@ -219,7 +215,7 @@ const CombinationsPage = () => {
                 <aside className="panel side" ref={sideRef}>
                     {isWalkNavShown && (
                         <WalkNav
-                            cardName={walkCard?.name ?? ''}
+                            cardName={walkCard.name}
                             keys={keys}
                             selectedKey={selectedKey}
                             onPrevious={() => openStep(stepKey(keys, selectedKey, -1))}

@@ -55,14 +55,22 @@ describe('CombinationsPage walkthrough with cards in the tray', () => {
         expect(within(walkList()).getAllByRole('listitem')).toHaveLength(1);
     });
 
-    it('shows no pair list and Next unfilled does not throw when no card is on an axis', () => {
+    it('shows no pair list and no WalkNav when no card is on an axis', () => {
         mockHook([
             { id: 11, name: 'A', ...tray },
             { id: 12, name: 'B', ...tray },
         ]);
         render(ui());
-        expect(document.querySelector('.walk-list')).toBeNull();
-        fireEvent.click(screen.getByRole('button', { name: 'Next unfilled' }));
-        expect(document.querySelector('.walk-list')).toBeNull();
+        expect(walkList()).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Next unfilled' })).toBeNull();
+    });
+
+    it('shows the walk card name in WalkNav when a card is on an axis', () => {
+        mockHook([
+            { id: 11, name: 'A', ...tray },
+            { id: 12, name: 'Bravo', ...on },
+        ]);
+        render(ui());
+        expect(screen.getByText(/Bravo: /)).toBeInTheDocument();
     });
 });
