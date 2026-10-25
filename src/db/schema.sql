@@ -109,6 +109,11 @@
 -- combo_cards.on_x and on_y. Back it up first, then apply in place rather than
 -- re-running this file (db/migration/2026-10-24_add_combination_axes.sql).
 --
+-- A database created before combination recipes is missing combo_decks.is_recipe,
+-- combo_cards.is_crafted and combo_pairs.result_card_id. Back it up first, then
+-- apply in place rather than re-running this file
+-- (db/migration/2026-10-25_add_combination_recipes.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
@@ -596,6 +601,7 @@ CREATE TABLE `combo_decks` (
   `source_deck_id` int unsigned DEFAULT NULL,
   `name`           varchar(200) NOT NULL,
   `pair_mode`      enum('combinations','permutations') NOT NULL DEFAULT 'combinations',
+  `is_recipe`      tinyint(1) NOT NULL DEFAULT '0',
   `created_at`     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -618,6 +624,7 @@ CREATE TABLE `combo_cards` (
   `position`   int unsigned NOT NULL,
   `on_x`       tinyint(1) NOT NULL DEFAULT '0',
   `on_y`       tinyint(1) NOT NULL DEFAULT '0',
+  `is_crafted` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -633,6 +640,7 @@ CREATE TABLE `combo_pairs` (
   `deck_id`    int unsigned NOT NULL,
   `card_a_id`  int unsigned NOT NULL,
   `card_b_id`  int unsigned NOT NULL,
+  `result_card_id` int unsigned DEFAULT NULL,
   `name`       varchar(200) NOT NULL DEFAULT '',
   `effect`     text NOT NULL,
   `notes`      text NOT NULL,
@@ -643,10 +651,13 @@ CREATE TABLE `combo_pairs` (
   UNIQUE KEY `uq_combo_pairs_cards` (`card_a_id`, `card_b_id`),
   KEY `idx_combo_pairs_deck` (`deck_id`),
   KEY `idx_combo_pairs_card_b` (`card_b_id`),
+  KEY `idx_combo_pairs_result` (`result_card_id`),
   CONSTRAINT `fk_combo_pairs_deck`
     FOREIGN KEY (`deck_id`) REFERENCES `combo_decks` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_combo_pairs_card_a`
     FOREIGN KEY (`card_a_id`) REFERENCES `combo_cards` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_combo_pairs_card_b`
-    FOREIGN KEY (`card_b_id`) REFERENCES `combo_cards` (`id`) ON DELETE CASCADE
+    FOREIGN KEY (`card_b_id`) REFERENCES `combo_cards` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_combo_pairs_result`
+    FOREIGN KEY (`result_card_id`) REFERENCES `combo_cards` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
