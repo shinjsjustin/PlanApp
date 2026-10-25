@@ -87,12 +87,19 @@ describe('useCombinations recipe decks', () => {
         expect(result.current.pairs).toEqual({ '11|12': WS });
     });
 
-    it('deleteCard blanks the names of the pairs that make it', async () => {
+    it('deleteCard blanks the names and nulls resultCardId of the pairs that make it', async () => {
         const { result } = await mount(RDECK, [WOOD, STONE, PLANK], [WS, WP]);
         api.delete.mockResolvedValue({ removedPairs: 1 });
         await act(async () => { await result.current.deleteCard(13); });
         expect(result.current.cards).toEqual([WOOD, STONE]);
-        expect(result.current.pairs).toEqual({ '11|12': { ...WS, name: '' } });
+        expect(result.current.pairs).toEqual({ '11|12': { ...WS, name: '', resultCardId: null } });
+    });
+
+    it('deleteCard still removes pairs that use the card as an ingredient', async () => {
+        const { result } = await mount(RDECK, [WOOD, STONE, PLANK], [WS, WP]);
+        api.delete.mockResolvedValue({ removedPairs: 1 });
+        await act(async () => { await result.current.deleteCard(11); });
+        expect(result.current.pairs).toEqual({});
     });
 
     it('other decks keep pair names on rename and delete', async () => {

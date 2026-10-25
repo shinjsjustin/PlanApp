@@ -201,7 +201,13 @@ const useCombinations = ({ projectId, deckId } = {}) => {
             () => {
                 setCards((current) => current.filter((c) => c.id !== id));
                 setPairs((current) => {
-                    const named = isRecipeRef.current ? nameResultPairs(current, id, '') : current;
+                    // The server's ON DELETE SET NULL clears resultCardId too.
+                    const named = isRecipeRef.current
+                        ? Object.fromEntries(Object.entries(nameResultPairs(current, id, '')).map(([key, p]) => [
+                            key,
+                            current[key].resultCardId === id ? { ...p, resultCardId: null } : p,
+                        ]))
+                        : current;
                     return Object.fromEntries(
                         Object.entries(named).filter(([, p]) => p.cardAId !== id && p.cardBId !== id),
                     );
