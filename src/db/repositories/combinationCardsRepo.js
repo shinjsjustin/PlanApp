@@ -8,7 +8,7 @@ const { firstRow } = require('./sql');
  * `withTransaction`.
  */
 
-const SELECT_COLUMNS = 'id, deck_id, name, detail, position, on_x, on_y, created_at, updated_at';
+const SELECT_COLUMNS = 'id, deck_id, name, detail, position, on_x, on_y, is_crafted, created_at, updated_at';
 
 const findById = async (conn, id) => {
     const [rows] = await conn.execute(
@@ -29,14 +29,26 @@ const listByDeck = async (conn, deckId) => {
 };
 
 /** Appends after the deck's last card. */
-const create = async (conn, { deckId, name, detail = '', onX = false, onY = false }) => {
+const create = async (conn, { deckId, name, detail = '', onX = false, onY = false, crafted = false }) => {
     const [result] = await conn.execute(
-        `INSERT INTO combo_cards (deck_id, name, detail, position, on_x, on_y)
-         SELECT ?, ?, ?, COUNT(*), ?, ? FROM combo_cards WHERE deck_id = ?`,
-        [deckId, name, detail, onX ? 1 : 0, onY ? 1 : 0, deckId]
+        `INSERT INTO combo_cards (deck_id, name, detail, position, on_x, on_y, is_crafted)
+         SELECT ?, ?, ?, COUNT(*), ?, ?, ? FROM combo_cards WHERE deck_id = ?`,
+        [deckId, name, detail, onX ? 1 : 0, onY ? 1 : 0, crafted ? 1 : 0, deckId]
     );
 
     return findById(conn, result.insertId);
+};
+
+/** The first card by position whose trimmed name matches, ignoring case, or null. */
+const findByName = async (conn, deckId, name) => {
+    const [rows] = await conn.execute(
+        `SELECT ${SELECT_COLUMNS} FROM combo_cards
+         WHERE deck_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))
+         ORDER BY position LIMIT 1`,
+        [deckId, name]
+    );
+
+    return firstRow(rows) ?? null;
 };
 
 /** Fields left out are kept. Returns the row, or null when missing. */
@@ -91,4 +103,4 @@ const remove = async (conn, id) => {
     return true;
 };
 
-module.exports = { create, findById, listByDeck, move, remove, update };
+module.exports = { create, findById, findByName, listByDeck, move, remove, update };

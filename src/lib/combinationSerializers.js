@@ -12,6 +12,7 @@ const toComboDeck = (row) => ({
     mode: row.pair_mode,
     projectId: row.project_id,
     sourceDeckId: row.source_deck_id,
+    recipe: Boolean(row.is_recipe),
     cardCount: Number(row.card_count),
     counts: {
         drafted: Number(row.drafted_count),
@@ -30,12 +31,14 @@ const toComboCard = (row) => ({
     position: row.position,
     onX: Boolean(row.on_x),
     onY: Boolean(row.on_y),
+    crafted: Boolean(row.is_crafted),
 });
 
 const toComboPair = (row) => ({
     id: row.id,
     cardAId: row.card_a_id,
     cardBId: row.card_b_id,
+    resultCardId: row.result_card_id ?? null,
     name: row.name,
     effect: row.effect,
     notes: row.notes,

@@ -8,7 +8,7 @@ const { firstRow } = require('./sql');
  */
 
 const SELECT_COLUMNS =
-    'id, deck_id, card_a_id, card_b_id, name, effect, notes, state, created_at, updated_at';
+    'id, deck_id, card_a_id, card_b_id, result_card_id, name, effect, notes, state, created_at, updated_at';
 
 const listByDeck = async (conn, deckId) => {
     const [rows] = await conn.execute(
@@ -68,6 +68,33 @@ const setCards = async (conn, id, cardAId, cardBId) => {
     return firstRow(rows);
 };
 
+/** Points the pair at the card it produces, or clears it with null. Returns the row, or null when missing. */
+const setResult = async (conn, id, cardId) => {
+    const [result] = await conn.execute(
+        'UPDATE combo_pairs SET result_card_id = ? WHERE id = ?',
+        [cardId, id]
+    );
+    if (result.affectedRows === 0) return null;
+
+    const [rows] = await conn.execute(`SELECT ${SELECT_COLUMNS} FROM combo_pairs WHERE id = ?`, [id]);
+
+    return firstRow(rows);
+};
+
+const listByResult = async (conn, cardId) => {
+    const [rows] = await conn.execute(
+        `SELECT ${SELECT_COLUMNS} FROM combo_pairs WHERE result_card_id = ? ORDER BY card_a_id, card_b_id`,
+        [cardId]
+    );
+
+    return rows;
+};
+
+/** Renames every pair that produces this card. */
+const setNameForResult = async (conn, cardId, name) => {
+    await conn.execute('UPDATE combo_pairs SET name = ? WHERE result_card_id = ?', [name, cardId]);
+};
+
 /** How many pairs involving this card have a state other than 'empty'. */
 const countFilledForCard = async (conn, cardId) => {
     const [rows] = await conn.execute(
@@ -79,4 +106,6 @@ const countFilledForCard = async (conn, cardId) => {
     return Number(firstRow(rows).filled);
 };
 
-module.exports = { countFilledForCard, listByDeck, remove, setCards, upsert };
+module.exports = {
+    countFilledForCard, listByDeck, listByResult, remove, setCards, setNameForResult, setResult, upsert,
+};
