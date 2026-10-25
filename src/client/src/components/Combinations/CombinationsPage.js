@@ -11,6 +11,7 @@ import GridView from './GridView';
 import PairPanel from './PairPanel';
 import RingView from './RingView';
 import Toast from './Toast';
+import TreeView from './TreeView';
 import WalkNav from './WalkNav';
 import WalkView from './WalkView';
 import '../Styling/Combinations.css';
@@ -24,6 +25,7 @@ const VIEWS = [
     { id: 'grid', label: 'Grid' },
     { id: 'walk', label: 'Walkthrough' },
 ];
+const TREE_VIEW = { id: 'tree', label: 'Tree' };
 const DEFAULT_VIEW = 'ring';
 
 const NARROW_WIDTH = 860;
@@ -42,10 +44,12 @@ const CombinationsPage = () => {
     const mode = deck?.mode || 'combinations';
     const recipe = Boolean(deck?.recipe);
     const requestedView = params.get(VIEW_PARAM);
-    const view = VIEWS.some((v) => v.id === requestedView) ? requestedView : DEFAULT_VIEW;
+    const views = recipe ? [...VIEWS, TREE_VIEW] : VIEWS;
+    const view = views.some((v) => v.id === requestedView) ? requestedView : DEFAULT_VIEW;
 
     const [selectedKey, setSelectedKey] = useState(null);
     const [walkCardChoice, setWalkCardChoice] = useState(null);
+    const [treeItemChoice, setTreeItemChoice] = useState(null);
     const [toast, setToast] = useState('');
     const clearToast = useCallback(() => setToast(''), []);
     const sideRef = useRef(null);
@@ -54,6 +58,7 @@ const CombinationsPage = () => {
     // them when the choice is unset, left the deck or moved to the tray; undefined when none is on an axis.
     const walkable = cards.filter((c) => c.onX !== false || c.onY !== false);
     const walkCard = walkable.find((c) => c.id === walkCardChoice) || walkable[0];
+    const treeItem = cards.find((c) => c.id === treeItemChoice) || cards[0];
     const keys = walkCard ? walkKeys(cards, walkCard.id, mode, recipe) : [];
     const isWalkNavShown = view === 'walk' && cards.length >= (recipe ? 1 : 2) && Boolean(walkCard);
 
@@ -74,6 +79,7 @@ const CombinationsPage = () => {
         next.set(DECK_PARAM, id);
         setParams(next, { replace: true });
         setWalkCardChoice(null);
+        setTreeItemChoice(null);
     };
 
     // Covers a missing ?deck and a deck that was just deleted.
@@ -168,7 +174,7 @@ const CombinationsPage = () => {
             <div className="layout">
                 <section className="panel view-panel">
                     <div className="tabs" role="tablist">
-                        {VIEWS.map(({ id, label }) => (
+                        {views.map(({ id, label }) => (
                             <button
                                 key={id}
                                 type="button"
@@ -218,6 +224,15 @@ const CombinationsPage = () => {
                             selectedKey={selectedKey}
                             onOpen={openPair}
                             onSelectCard={chooseWalkCard}
+                        />
+                    )}
+                    {deck && view === 'tree' && (
+                        <TreeView
+                            cards={cards}
+                            pairs={pairs}
+                            itemId={treeItem?.id}
+                            onSelectItem={setTreeItemChoice}
+                            onOpen={openPair}
                         />
                     )}
                 </section>
