@@ -1,0 +1,24 @@
+{
+  "id": "d2",
+  "name": "HordeGame crafting",
+  "mode": "combinations",
+  "recipe": true,
+  "cards": [
+    { "id": "wood", "name": "Wood", "detail": "Chopped from trees.", "kind": "base" },
+    { "id": "stone", "name": "Stone", "detail": "Mined from rock.", "kind": "base" },
+    { "id": "plank", "name": "Plank", "detail": "Smoothed wood.", "kind": "crafted" },
+    { "id": "gravel", "name": "Gravel", "detail": "Crushed stone.", "kind": "crafted" },
+    { "id": "frame", "name": "Frame", "detail": "A sturdy wall frame.", "kind": "crafted" },
+    { "id": "house", "name": "House", "detail": "Somewhere safe to sleep.", "kind": "crafted" },
+    { "id": "ember", "name": "Ember", "detail": "Feeds on Ash.", "kind": "crafted" },
+    { "id": "ash", "name": "Ash", "detail": "Left by Ember.", "kind": "crafted" }
+  ],
+  "pairs": {
+    "wood|stone": { "name": "Plank", "effect": "Cut and sanded.", "notes": "", "state": "done", "result": "plank" },
+    "stone|stone": { "name": "Gravel", "effect": "Stone ground against stone.", "notes": "", "state": "done", "result": "gravel" },
+    "plank|wood": { "name": "Frame", "effect": "Planks nailed to a beam.", "notes": "", "state": "done", "result": "frame" },
+    "frame|gravel": { "name": "House", "effect": "Frame on a gravel base.", "notes": "", "state": "done", "result": "house" },
+    "ash|wood": { "name": "Ember", "effect": "Wood smoulders in ash.", "notes": "", "state": "drafted", "result": "ember" },
+    "ember|stone": { "name": "Ash", "effect": "Ember cooled on stone.", "notes": "", "state": "drafted", "result": "ash" }
+  }
+}

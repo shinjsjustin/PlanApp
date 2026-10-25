@@ -11,6 +11,8 @@ const PROTOTYPE_URL = pathToFileURL(
 ).href;
 const STATES = ['empty', 'drafted', 'done', 'struck'];
 const NARROW_WIDTH = 860;
+const RECIPE_DECK_NAME = 'HordeGame crafting';
+const DEEPEST_ITEM = 'House';
 const SCREENSHOT_DIR = 'visual-screenshots';
 
 const slugOf = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -132,6 +134,26 @@ test.describe('combinations page on the phone', () => {
         }));
         expect(['auto', 'scroll']).toContain(wrap.overflowX);
         expect(wrap.scrolls).toBe(true);
+        expect(await hasNoHorizontalOverflow(page)).toBe(true);
+        await attachScreenshot(page, testInfo, 'app');
+    });
+
+    test('recipe tree fits the viewport and the page does not scroll sideways', async ({ page, request }, testInfo) => {
+        await guardReadOnly(page);
+        const res = await request.get(`${apiUrl()}/combinations/decks`, {
+            headers: { Authorization: `Bearer ${savedToken()}` },
+        });
+        const { data } = await res.json();
+        const deck = data.decks.find((d) => d.name === RECIPE_DECK_NAME);
+        test.skip(!deck, `The signed-in user has no deck named ${RECIPE_DECK_NAME}`);
+        await page.goto(`/combinations?deck=${deck.id}&view=tree`);
+        await page.locator('.tree').waitFor();
+        await page.locator('.walk-head select').selectOption({ label: DEEPEST_ITEM });
+        const collapsed = page.locator('.tree-toggle[aria-expanded="false"]');
+        while (await collapsed.count()) await collapsed.first().click();
+        const tree = await rectOf(page, '.tree');
+        expect(tree.left).toBeGreaterThanOrEqual(0);
+        expect(tree.right).toBeLessThanOrEqual(page.viewportSize().width);
         expect(await hasNoHorizontalOverflow(page)).toBe(true);
         await attachScreenshot(page, testInfo, 'app');
     });
