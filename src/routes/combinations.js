@@ -11,6 +11,7 @@ const pairsRepo = require('../db/repositories/combinationPairsRepo');
 const { badRequest, conflict, notFound } = require('../lib/httpError');
 const { toComboCard, toComboDeck, toComboPair } = require('../lib/combinationSerializers');
 const { foldToCombinations } = require('../lib/combinationMode');
+const { applyResult, linkAllResults, unlinkAllResults } = require('../lib/combinationRecipes');
 const { importDecks, promoteDeck } = require('../lib/combinationImport');
 const {
     MAX_CARDS_PER_DECK,
@@ -52,8 +53,9 @@ const patchDeckSchema = requireSomeField(
         name: nameSchema.optional(),
         projectId: projectIdSchema.optional(),
         mode: z.enum(PAIR_MODES, { error: `mode must be one of: ${PAIR_MODES.join(', ')}` }).optional(),
+        recipe: z.boolean({ error: 'recipe must be a boolean' }).optional(),
     }),
-    ['name', 'projectId', 'mode']
+    ['name', 'projectId', 'mode', 'recipe']
 );
 const createCardSchema = z.object({ name: nameSchema, detail: textSchema('detail').optional() });
 const patchCardSchema = requireSomeField(
@@ -177,13 +179,20 @@ router.patch(
             await assertProjectUsable(conn, fields.projectId, req.user.id);
             if (fields.name) await assertNameFree(conn, req.user.id, fields.name, id);
 
-            if (fields.mode === 'combinations') {
-                const current = await decksRepo.findById(conn, id);
-                if (current.pair_mode === 'permutations') await foldToCombinations(conn, id);
+            const current = await decksRepo.findById(conn, id);
+            const willBeRecipe = fields.recipe ?? Boolean(current.is_recipe);
+            if (willBeRecipe && (fields.mode ?? current.pair_mode) === 'permutations') {
+                throw conflict('A recipe deck cannot use permutations');
+            }
+
+            if (fields.mode === 'combinations' && current.pair_mode === 'permutations') {
+                await foldToCombinations(conn, id);
             }
 
             const deck = await decksRepo.update(conn, id, fields);
             if (!deck) throw notFound('Deck');
+            if (fields.recipe === true) await linkAllResults(conn, id);
+            if (fields.recipe === false) await unlinkAllResults(conn, id);
 
             return deckWire(conn, deck);
         });
@@ -236,22 +245,33 @@ router.put(
     asyncRoute(async (req, res) => {
         const deckId = parseId(req.params.id);
         const { cardAId, cardBId, ...fields } = pairSchema.parse(req.body ?? {});
-        if (cardAId === cardBId) throw badRequest('A pair needs two different cards');
 
-        const pair = await withTransaction(async (conn) => {
+        const wire = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'combinationDeck', deckId, req.user.id);
             const deck = await decksRepo.findById(conn, deckId);
+            if (cardAId === cardBId && !deck.is_recipe) throw badRequest('A pair needs two different cards');
             const cardIds = (await cardsRepo.listByDeck(conn, deckId)).map((card) => card.id);
             if (!cardIds.includes(cardAId) || !cardIds.includes(cardBId)) {
                 throw badRequest('Both cards must belong to this deck');
             }
 
-            return pairsRepo.upsert(conn, deckId, cardAId, cardBId, fields, {
-                ordered: deck.pair_mode === 'permutations',
-            });
+            const ordered = deck.pair_mode === 'permutations';
+            const pair = await pairsRepo.upsert(conn, deckId, cardAId, cardBId, fields, { ordered });
+            if (!deck.is_recipe) return toComboPair(pair);
+
+            const resultSet = fields.name !== undefined && fields.name.trim() !== '';
+            if (resultSet && fields.state === undefined && pair.state === 'empty') {
+                await pairsRepo.upsert(conn, deckId, cardAId, cardBId, { state: 'done' }, { ordered });
+            }
+            if (fields.name !== undefined) await applyResult(conn, deckId, pair.id, fields.name);
+
+            const fresh = (await pairsRepo.listByDeck(conn, deckId)).find((p) => p.id === pair.id);
+            const cards = await cardsRepo.listByDeck(conn, deckId);
+
+            return { ...toComboPair(fresh), cards: cards.map(toComboCard) };
         });
 
-        res.sendData(toComboPair(pair));
+        res.sendData(wire);
     })
 );
 
@@ -265,7 +285,10 @@ router.patch(
         const card = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'combinationCard', id, req.user.id);
 
-            return cardsRepo.update(conn, id, fields);
+            const updated = await cardsRepo.update(conn, id, fields);
+            if (updated && fields.name) await pairsRepo.setNameForResult(conn, id, fields.name);
+
+            return updated;
         });
         if (!card) throw notFound('Card');
 
@@ -301,6 +324,7 @@ router.delete(
         const removedPairs = await withTransaction(async (conn) => {
             await assertOwnership(conn, 'combinationCard', id, req.user.id);
             const filled = await pairsRepo.countFilledForCard(conn, id);
+            await pairsRepo.setNameForResult(conn, id, '');
             if (!(await cardsRepo.remove(conn, id))) throw notFound('Card');
 
             return filled;
