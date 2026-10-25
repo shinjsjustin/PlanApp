@@ -37,6 +37,26 @@ describe('GridView recipe', () => {
     });
 });
 
+describe('GridView with few cards', () => {
+    const STONE = [{ id: 1, name: 'Stone', onX: true, onY: true }];
+
+    it('opens Stone + Stone from a one-card recipe deck', () => {
+        const { onOpen } = setupGrid({ recipe: true, cards: STONE });
+        fireEvent.click(screen.getByRole('button', { name: 'Stone + Stone: empty' }));
+        expect(onOpen).toHaveBeenCalledWith('1|1');
+    });
+
+    it('asks for at least one card in an empty recipe deck', () => {
+        setupGrid({ recipe: true, cards: [] });
+        expect(screen.getByText(/Add at least one card below/)).toBeInTheDocument();
+    });
+
+    it('still asks for two cards with one card and no flag', () => {
+        setupGrid({ cards: STONE });
+        expect(screen.getByText(/Add at least two cards below/)).toBeInTheDocument();
+    });
+});
+
 describe('WalkView recipe', () => {
     const walk = (recipe) => {
         const onOpen = jest.fn();

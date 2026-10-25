@@ -8,8 +8,12 @@ const MAX_NAME_CHARS = 12;
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 const GridView = ({ cards, pairs, mode, recipe = false, selectedKey, onOpen }) => {
-    if (cards.length < 2) {
-        return <p className="placeholder">Add at least two cards below to see their pairs.</p>;
+    if (cards.length < (recipe ? 1 : 2)) {
+        return (
+            <p className="placeholder">
+                {recipe ? 'Add at least one card below to see their pairs.' : 'Add at least two cards below to see their pairs.'}
+            </p>
+        );
     }
     const { rows, cols } = axisCards(cards);
     if (rows.length === 0 || cols.length === 0) {

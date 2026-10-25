@@ -55,7 +55,7 @@ const CombinationsPage = () => {
     const walkable = cards.filter((c) => c.onX !== false || c.onY !== false);
     const walkCard = walkable.find((c) => c.id === walkCardChoice) || walkable[0];
     const keys = walkCard ? walkKeys(cards, walkCard.id, mode, recipe) : [];
-    const isWalkNavShown = view === 'walk' && cards.length >= 2 && Boolean(walkCard);
+    const isWalkNavShown = view === 'walk' && cards.length >= (recipe ? 1 : 2) && Boolean(walkCard);
 
     const chooseWalkCard = (id) => {
         setWalkCardChoice(id);

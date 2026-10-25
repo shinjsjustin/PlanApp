@@ -11,9 +11,9 @@ const CARDS = [
     { id: 2, name: 'Stick', onX: true, onY: true },
 ];
 
-const mockHook = (deck) => {
+const mockHook = (deck, cards = CARDS) => {
     const hook = {
-        status: 'ready', decks: [deck], deck, cards: CARDS, pairs: {}, error: null,
+        status: 'ready', decks: [deck], deck, cards, pairs: {}, error: null,
         savePair: jest.fn().mockResolvedValue({}),
         setMode: jest.fn(),
         setCardAxes: jest.fn(),
@@ -93,5 +93,17 @@ describe('CombinationsPage recipe', () => {
         expect(screen.getByRole('button', { name: 'Recipe deck' })).toHaveAttribute('aria-pressed', 'false');
         fireEvent.click(screen.getByRole('button', { name: /^Stone \+ Stick:/ }));
         expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    });
+
+    it('shows WalkNav for a one-card recipe deck', () => {
+        mockHook(RECIPE, [CARDS[0]]);
+        open('walk');
+        expect(screen.getByText(/Stone: – of 1/)).toBeInTheDocument();
+    });
+
+    it('shows no WalkNav for a one-card plain deck', () => {
+        mockHook(PLAIN, [CARDS[0]]);
+        open('walk');
+        expect(screen.queryByText(/of 1/)).toBeNull();
     });
 });

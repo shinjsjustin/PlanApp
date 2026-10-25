@@ -3,8 +3,14 @@ import React from 'react';
 import { getPair, walkKeys } from '../../lib/combinations';
 
 const WalkView = ({ cards, pairs, mode, recipe = false, walkCardId, selectedKey, onOpen, onSelectCard }) => {
-    if (cards.length < 2) {
-        return <p className="placeholder">Add at least two cards below to walk through their pairs.</p>;
+    if (cards.length < (recipe ? 1 : 2)) {
+        return (
+            <p className="placeholder">
+                {recipe
+                    ? 'Add at least one card below to walk through their pairs.'
+                    : 'Add at least two cards below to walk through their pairs.'}
+            </p>
+        );
     }
 
     const pickable = cards.filter((c) => c.onX !== false || c.onY !== false);
