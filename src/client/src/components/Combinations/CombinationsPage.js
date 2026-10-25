@@ -40,6 +40,7 @@ const CombinationsPage = () => {
         useCombinations({ projectId, deckId });
 
     const mode = deck?.mode || 'combinations';
+    const recipe = Boolean(deck?.recipe);
     const requestedView = params.get(VIEW_PARAM);
     const view = VIEWS.some((v) => v.id === requestedView) ? requestedView : DEFAULT_VIEW;
 
@@ -53,12 +54,12 @@ const CombinationsPage = () => {
     // them when the choice is unset, left the deck or moved to the tray; undefined when none is on an axis.
     const walkable = cards.filter((c) => c.onX !== false || c.onY !== false);
     const walkCard = walkable.find((c) => c.id === walkCardChoice) || walkable[0];
-    const keys = walkCard ? walkKeys(cards, walkCard.id, mode) : [];
+    const keys = walkCard ? walkKeys(cards, walkCard.id, mode, recipe) : [];
     const isWalkNavShown = view === 'walk' && cards.length >= 2 && Boolean(walkCard);
 
     const chooseWalkCard = (id) => {
         setWalkCardChoice(id);
-        if (selectedKey && !walkKeys(cards, id, mode).includes(selectedKey)) setSelectedKey(null);
+        if (selectedKey && !walkKeys(cards, id, mode, recipe).includes(selectedKey)) setSelectedKey(null);
     };
 
     const openStep = (key) => key && openPair(key);
@@ -100,7 +101,7 @@ const CombinationsPage = () => {
     };
 
     const handlePromote = async () => {
-        if (countStates(cards, pairs, mode).done === 0) {
+        if (countStates(cards, pairs, mode, recipe).done === 0) {
             setToast('No done pairs in this deck yet.');
             return;
         }
@@ -163,7 +164,7 @@ const CombinationsPage = () => {
                 />
             </header>
             {error && <p className="deck-error" role="alert">{error}</p>}
-            {deck && <CountsBar cardCount={cards.length} counts={countStates(cards, pairs, mode)} />}
+            {deck && <CountsBar cardCount={cards.length} counts={countStates(cards, pairs, mode, recipe)} />}
             <div className="layout">
                 <section className="panel view-panel">
                     <div className="tabs" role="tablist">
@@ -198,13 +199,14 @@ const CombinationsPage = () => {
                         />
                     )}
                     {deck && view === 'grid' && (
-                        <GridView cards={cards} pairs={pairs} mode={mode} selectedKey={selectedKey} onOpen={openPair} />
+                        <GridView cards={cards} pairs={pairs} mode={mode} recipe={recipe} selectedKey={selectedKey} onOpen={openPair} />
                     )}
                     {deck && view === 'walk' && walkCard && (
                         <WalkView
                             cards={cards}
                             pairs={pairs}
                             mode={mode}
+                            recipe={recipe}
                             walkCardId={walkCard.id}
                             selectedKey={selectedKey}
                             onOpen={openPair}

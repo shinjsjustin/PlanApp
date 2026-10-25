@@ -2,7 +2,7 @@ import React from 'react';
 
 import { getPair, walkKeys } from '../../lib/combinations';
 
-const WalkView = ({ cards, pairs, mode, walkCardId, selectedKey, onOpen, onSelectCard }) => {
+const WalkView = ({ cards, pairs, mode, recipe = false, walkCardId, selectedKey, onOpen, onSelectCard }) => {
     if (cards.length < 2) {
         return <p className="placeholder">Add at least two cards below to walk through their pairs.</p>;
     }
@@ -22,7 +22,7 @@ const WalkView = ({ cards, pairs, mode, walkCardId, selectedKey, onOpen, onSelec
             </div>
             {walkCard.detail && <p className="hint">{walkCard.detail}</p>}
             <ol className="walk-list">
-                {walkKeys(cards, walkCardId, mode).map((key, i) => {
+                {walkKeys(cards, walkCardId, mode, recipe).map((key, i) => {
                     const [firstId, secondId] = key.split('|').map(Number);
                     const isFirst = firstId === walkCardId;
                     const partnerId = isFirst ? secondId : firstId;

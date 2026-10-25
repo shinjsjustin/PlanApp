@@ -7,7 +7,7 @@ const MAX_NAME_CHARS = 12;
 
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
-const GridView = ({ cards, pairs, mode, selectedKey, onOpen }) => {
+const GridView = ({ cards, pairs, mode, recipe = false, selectedKey, onOpen }) => {
     if (cards.length < 2) {
         return <p className="placeholder">Add at least two cards below to see their pairs.</p>;
     }
@@ -47,7 +47,7 @@ const GridView = ({ cards, pairs, mode, selectedKey, onOpen }) => {
         );
     };
 
-    const cells = gridCells(cards, mode);
+    const cells = gridCells(cards, mode, recipe);
 
     return (
         <>
@@ -70,7 +70,9 @@ const GridView = ({ cards, pairs, mode, selectedKey, onOpen }) => {
                 </table>
             </div>
             <p className="hint">
-                {mode === 'permutations'
+                {recipe
+                    ? 'Each cell is a recipe, including the diagonal. Click a cell to edit it.'
+                    : mode === 'permutations'
                     ? 'Each cell is one pair, row then column. Click a cell to edit it.'
                     : 'Each cell above the diagonal is one pair. Click a cell to edit it.'}
             </p>
