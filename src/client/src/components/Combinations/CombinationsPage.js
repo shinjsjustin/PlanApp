@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import useCombinations from '../../hooks/useCombinations';
-import { countStates, exportFileName, getPair, nextUnfilledKey, stepKey, walkKeys } from '../../lib/combinations';
+import { cardKinds, countStates, exportFileName, getPair, nextUnfilledKey, stepKey, walkKeys } from '../../lib/combinations';
 import AxisTray from './AxisTray';
 import CardList from './CardList';
 import CountsBar from './CountsBar';
@@ -36,7 +36,7 @@ const CombinationsPage = () => {
     const projectId = toId(params.get(PROJECT_PARAM));
     const deckId = toId(params.get(DECK_PARAM));
     const { status, decks, deck, cards, pairs, error, createDeck, renameDeck, deleteDeck,
-        importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair, setMode, setCardAxes } =
+        importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair, setMode, setRecipe, setCardAxes } =
         useCombinations({ projectId, deckId });
 
     const mode = deck?.mode || 'combinations';
@@ -186,7 +186,14 @@ const CombinationsPage = () => {
                         </div>
                     </div>
                     {deck && (
-                        <AxisTray cards={cards} mode={mode} setCardAxes={setCardAxes} setMode={setMode} />
+                        <AxisTray
+                            cards={cards}
+                            mode={mode}
+                            recipe={recipe}
+                            setCardAxes={setCardAxes}
+                            setMode={setMode}
+                            setRecipe={setRecipe}
+                        />
                     )}
                     {deck && view === 'ring' && (
                         <RingView
@@ -231,6 +238,7 @@ const CombinationsPage = () => {
                             cardA={cardA}
                             cardB={cardB}
                             pair={getPair(pairs, cardA.id, cardB.id, mode)}
+                            recipe={recipe}
                             savePair={savePair}
                             onClose={() => setSelectedKey(null)}
                         />
@@ -246,6 +254,7 @@ const CombinationsPage = () => {
                             key={deck.id}
                             cards={cards}
                             pairs={pairs}
+                            kinds={recipe ? cardKinds(cards, Object.values(pairs)) : undefined}
                             addCard={addCard}
                             updateCard={updateCard}
                             moveCard={moveCard}

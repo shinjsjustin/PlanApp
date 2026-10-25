@@ -439,3 +439,14 @@
 }
 
 .combinations-page .axis-chip button { padding: 0 var(--space-xs); font-size: var(--font-sm); }
+
+.combinations-page .kind-badge {
+    font-size: var(--font-sm);
+    padding: 0 var(--space-xs);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.combinations-page .kind-badge.crafted { color: var(--neon-blue); border-color: var(--neon-blue); }
+
+.combinations-page .card-row.has-kind { grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto; }

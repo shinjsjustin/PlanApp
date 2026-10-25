@@ -5,7 +5,7 @@ import ConfirmDialog from '../Project/ConfirmDialog';
 
 const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 
-const CardList = ({ cards, pairs, addCard, updateCard, moveCard, deleteCard }) => {
+const CardList = ({ cards, pairs, kinds, addCard, updateCard, moveCard, deleteCard }) => {
     const [message, setMessage] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
     const newNameRef = useRef(null);
@@ -74,7 +74,8 @@ const CardList = ({ cards, pairs, addCard, updateCard, moveCard, deleteCard }) =
             <div className="card-rows">
                 {cards.length === 0 && <p className="placeholder">No cards yet.</p>}
                 {cards.map((card, index) => (
-                    <div className="card-row" data-testid="card-row" key={card.id}>
+                    <div className={kinds ? 'card-row has-kind' : 'card-row'} data-testid="card-row" key={card.id}>
+                        {kinds && <span className={`kind-badge ${kinds[card.id]}`}>{kinds[card.id]}</span>}
                         <input
                             className="name"
                             defaultValue={card.name}

@@ -16,7 +16,7 @@ const PLACEMENTS = [
 const isOnX = (card) => card.onX !== false;
 const isOnY = (card) => card.onY !== false;
 
-const AxisTray = ({ cards, mode, setCardAxes, setMode }) => {
+const AxisTray = ({ cards, mode, recipe = false, setCardAxes, setMode, setRecipe }) => {
     // The hook already puts a refusal in its error, so the rejection is dropped here.
     const attempt = (call) => call().catch(() => {});
 
@@ -66,11 +66,20 @@ const AxisTray = ({ cards, mode, setCardAxes, setMode }) => {
                         key={id}
                         type="button"
                         aria-pressed={id === mode}
+                        disabled={recipe && id === PERMUTATIONS}
                         onClick={() => attempt(() => setMode(id))}
                     >
                         {label}
                     </button>
                 ))}
+                <button
+                    type="button"
+                    aria-pressed={recipe}
+                    disabled={mode === PERMUTATIONS}
+                    onClick={() => attempt(() => setRecipe(!recipe))}
+                >
+                    Recipe deck
+                </button>
             </div>
             {rows.map(({ label, chips }) => (
                 <div key={label} className="axis-row" role="group" aria-label={label}>

@@ -8,7 +8,7 @@ const Detail = ({ card }) => card.detail
     : null;
 
 // Keyed by pair on the page, so switching pairs remounts it and flushes the old draft.
-const PairPanel = ({ cardA, cardB, pair, savePair, onClose }) => {
+const PairPanel = ({ cardA, cardB, pair, recipe = false, savePair, onClose }) => {
     const save = (fields) => savePair({ cardAId: cardA.id, cardBId: cardB.id, ...fields });
     const { draft, setField, setState, status, retry } = usePairDraft({ pair, save });
     const title = `${cardA.name} + ${cardB.name}`;
@@ -34,11 +34,11 @@ const PairPanel = ({ cardA, cardB, pair, savePair, onClose }) => {
                     </button>
                 ))}
             </div>
-            <label htmlFor="pair-name">Name</label>
+            <label htmlFor="pair-name">{recipe ? 'Result' : 'Name'}</label>
             <input
                 id="pair-name"
                 value={draft.name}
-                placeholder={title}
+                placeholder={recipe ? 'What they make' : title}
                 onChange={(e) => setField('name', e.target.value)}
             />
             <label htmlFor="pair-effect">Effect</label>

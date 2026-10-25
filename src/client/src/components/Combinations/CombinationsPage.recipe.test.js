@@ -69,4 +69,29 @@ describe('CombinationsPage recipe', () => {
         fireEvent.click(screen.getByRole('button', { name: /Next unfilled/i }));
         expect(screen.getByRole('heading', { name: 'Stone + Stone' })).toBeInTheDocument();
     });
+
+    it('wires setRecipe, recipe and card kinds into the tray, cards and pair panel', () => {
+        const hook = mockHook(RECIPE);
+        hook.setRecipe = jest.fn().mockResolvedValue({});
+        hook.pairs = { '1|2': { state: 'done', name: 'Axe', resultCardId: 2 } };
+        open();
+        const toggle = screen.getByRole('button', { name: 'Recipe deck' });
+        expect(toggle).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(toggle);
+        expect(hook.setRecipe).toHaveBeenCalledWith(false);
+        const rows = screen.getAllByTestId('card-row');
+        expect(within(rows[0]).getByText('base')).toBeInTheDocument();
+        expect(within(rows[1]).getByText('crafted')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /^Stone \+ Stick:/ }));
+        expect(screen.getByLabelText('Result')).toBeInTheDocument();
+    });
+
+    it('shows no badges and keeps Name in a plain deck', () => {
+        mockHook(PLAIN);
+        open();
+        expect(screen.queryByText('base')).toBeNull();
+        expect(screen.getByRole('button', { name: 'Recipe deck' })).toHaveAttribute('aria-pressed', 'false');
+        fireEvent.click(screen.getByRole('button', { name: /^Stone \+ Stick:/ }));
+        expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    });
 });
