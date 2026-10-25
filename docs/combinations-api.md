@@ -126,16 +126,16 @@ The prototype deck format:
 
 - A deck needs a string `name` and a `cards` list. Every card needs a string `id` and `name`; ids are unique within the deck and contain no `|`. `detail` is optional. `mode` is optional: `permutations` makes an ordered deck, anything else (or missing) is `combinations`. `onX` and `onY` are optional booleans; old files without them, or with other values, put the card on both axes.
 - In a `combinations` deck a pair key is the two card ids joined by `|`, in either order. In a `permutations` deck the key order matters: `a|b` is the pair from card `a` (first, on Y) to card `b` (second, on X), and `b|a` is a separate pair. A pair whose key names an unknown card, the same card twice, or is not an object is skipped. Missing `name`, `effect` and `notes` become empty text and an unknown `state` becomes `empty`.
-- A recipe deck sets `"recipe": true`. Its cards may have `kind` (`"base"` or `"crafted"`; anything else is `base`), and a pair may have `result`, the id of the card it makes. A pair key may name the same card twice (`s|s`). Without `result`, a pair with a name is linked to a card of that name as in `PUT pairs`. The deck is always a `combinations` deck on import. `items` and `recipes` (see export) are ignored: `cards` and `pairs` hold the deck.
+- A recipe deck sets `"recipe": true`. Its cards may have `kind` (`"base"` or `"crafted"`; anything else is `base`). A `crafted` card is flagged crafted and a `base` card is not, so a hand-added card that a recipe makes (Stone + Stone = Stone) stays a base card. A pair may have `result`, the id of the card it makes. A pair key may name the same card twice (`s|s`). Without `result`, a pair with a name is linked to a card of that name as in `PUT pairs`. The deck is always a `combinations` deck on import. `items` and `recipes` (see export) are ignored: `cards` and `pairs` hold the deck.
 - The deck `id` is ignored: new ids are assigned. Limits match the routes and are checked after trimming names: a deck has at most 200 cards, deck, card and pair names are at most 200 characters, and `detail`, `effect` and `notes` at most 5000. Deck and card names must not be blank (empty or only spaces); a pair name may be. A deck over a limit makes the whole import a 400 that names the deck.
 
 ## GET /api/combinations/export
 
 All your decks as `{ "decks": [deck] }` in the prototype format above, by name. `?projectId=` limits it to one of your projects. Ids are `d_<id>` for decks and `c_<id>` for cards, and pairs still in the `empty` state are left out. Each deck has its `mode`, and each card its `onX` and `onY`. In a `permutations` deck pair keys are written first card then second card; in a `combinations` deck the smaller id comes first. The result can be sent back to `POST /import`.
 
-A deck that is not a recipe deck is exported exactly as above, with no recipe fields. A recipe deck adds `"recipe": true`, a `kind` on each card, a `result` on each pair, and two lists for a game to read:
+A deck that is not a recipe deck is exported exactly as above, with no recipe fields. A recipe deck adds `"recipe": true`, a `kind` on each card (the card's `crafted` flag, so it round-trips through import), a `result` on each pair, and two lists for a game to read:
 
-- `items`: every card as `{ id, name, detail, kind }`, where `kind` is `crafted` if a pair that is not `struck` makes the card, else `base`.
+- `items`: every card as `{ id, name, detail, kind }`, where `kind` says whether a recipe makes the item: `crafted` if a pair that is not `struck` makes the card, else `base`.
 - `recipes`: one `{ ingredients: [id, id], result: id }` for each pair that makes a card and is not `struck`. A same-item recipe repeats the id.
 
 Pairs in a recipe deck are also exported while `empty` if they make something. Example, Wood + Stone makes Plank and Stone + Stone makes Gravel:

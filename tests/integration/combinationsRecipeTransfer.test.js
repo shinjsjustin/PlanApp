@@ -142,6 +142,30 @@ describe('recipe deck export', () => {
         expect(two.cards.map((c) => [c.name, c.kind])).toEqual(one.cards.map((c) => [c.name, c.kind]));
     });
 
+    test('keeps a hand-added Stone made by Stone + Stone base through a round trip and rename', async () => {
+        const conn = getConn();
+        const ownerId = await createTestUser(conn);
+        const body = {
+            name: 'Loop',
+            recipe: true,
+            cards: [{ id: 'stone', name: 'Stone', kind: 'base' }],
+            pairs: { 'stone|stone': { name: 'Stone', state: 'done', result: 'stone' } },
+        };
+        const first = await importOne(ownerId, body);
+        const one = (await as(ownerId, 'get', `/decks/${first.id}/export`)).body.data;
+        expect(one.cards.map((c) => c.kind)).toEqual(['base']);
+
+        const second = await importOne(ownerId, one);
+
+        const [stone] = await cardsRepo.listByDeck(conn, second.id);
+        expect(stone.is_crafted).toBe(0);
+        const renamed = await as(ownerId, 'put', `/decks/${second.id}/pairs`)
+            .send({ cardAId: stone.id, cardBId: stone.id, name: 'Gravel' });
+        expect(renamed.status).toBe(200);
+        const cards = await cardsRepo.listByDeck(conn, second.id);
+        expect(cards.find((c) => c.id === stone.id)).toMatchObject({ name: 'Stone', is_crafted: 0 });
+    });
+
     test('exports a deck that is not a recipe deck without recipe fields', async () => {
         const conn = getConn();
         const ownerId = await createTestUser(conn);

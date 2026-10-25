@@ -48,7 +48,7 @@ describe('toExportDeck recipe fields', () => {
     const cards = [
         { id: 1, name: 'Wood', detail: '', on_x: 1, on_y: 1 },
         { id: 2, name: 'Stone', detail: 's', on_x: 1, on_y: 1 },
-        { id: 3, name: 'Plank', detail: 'p', on_x: 1, on_y: 1 },
+        { id: 3, name: 'Plank', detail: 'p', on_x: 1, on_y: 1, is_crafted: 1 },
         { id: 4, name: 'Ghost', detail: '', on_x: 1, on_y: 1 },
     ];
     const pair = (a, b, state, result, name = '') => ({
@@ -78,6 +78,15 @@ describe('toExportDeck recipe fields', () => {
             { id: 'c_4', name: 'Ghost', detail: '', kind: 'base' },
         ]);
         expect(out.recipes).toEqual([{ ingredients: ['c_1', 'c_1'], result: 'c_3' }]);
+    });
+
+    test('marks a hand-added base card a recipe makes base on cards and crafted on items', () => {
+        const stone = { id: 2, name: 'Stone', detail: '', on_x: 1, on_y: 1, is_crafted: 0 };
+
+        const out = toExportDeck(deck, [stone], [pair(2, 2, 'done', 2, 'Stone')]);
+
+        expect(out.cards.map((c) => c.kind)).toEqual(['base']);
+        expect(out.items.map((i) => i.kind)).toEqual(['crafted']);
     });
 
     test('lists an empty pair that has a result so the recipe survives', () => {

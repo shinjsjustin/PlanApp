@@ -135,16 +135,16 @@ const toExportDeck = (deck, cards, pairs) => {
 
     const makes = pairs.filter((pair) => pair.state !== 'struck' && pair.result_card_id);
     const crafted = new Set(makes.map((pair) => pair.result_card_id));
-    const kindOf = (card) => (crafted.has(card.id) ? CRAFTED : BASE);
+    const itemKind = (card) => (crafted.has(card.id) ? CRAFTED : BASE);
     return {
         ...base,
         recipe: true,
-        cards: base.cards.map((card, i) => ({ ...card, kind: kindOf(cards[i]) })),
+        cards: base.cards.map((card, i) => ({ ...card, kind: cards[i].is_crafted ? CRAFTED : BASE })),
         items: cards.map((card) => ({
             id: cardId(card.id),
             name: card.name,
             detail: card.detail,
-            kind: kindOf(card),
+            kind: itemKind(card),
         })),
         recipes: makes.map((pair) => ({
             ingredients: [cardId(pair.card_a_id), cardId(pair.card_b_id)],
