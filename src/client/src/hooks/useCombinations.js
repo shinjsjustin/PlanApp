@@ -14,6 +14,11 @@ const DECKS_PATH = '/combinations/decks';
 
 const byName = (a, b) => a.name.localeCompare(b.name);
 
+// Gives every pair that makes `cardId` the name, mirroring the server.
+const nameResultPairs = (pairs, cardId, name) => Object.fromEntries(
+    Object.entries(pairs).map(([key, p]) => [key, p.resultCardId === cardId ? { ...p, name } : p]),
+);
+
 const useCombinations = ({ projectId, deckId } = {}) => {
     const listPath = projectId === undefined || projectId === null
         ? DECKS_PATH
@@ -30,6 +35,8 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     const listPathRef = useRef(listPath);
     const modeRef = useRef(undefined);
     modeRef.current = deck?.mode;
+    const isRecipeRef = useRef(false);
+    isRecipeRef.current = deck?.recipe === true;
     deckIdRef.current = deckId;
     listPathRef.current = listPath;
 
@@ -147,7 +154,12 @@ const useCombinations = ({ projectId, deckId } = {}) => {
 
     const updateCard = useCallback((id, fields) => run(
         () => api.patch(`/combinations/cards/${id}`, fields),
-        (updated) => setCards((current) => current.map((c) => (c.id === id ? updated : c))),
+        (updated) => {
+            setCards((current) => current.map((c) => (c.id === id ? updated : c)));
+            if (isRecipeRef.current && fields.name !== undefined) {
+                setPairs((current) => nameResultPairs(current, id, updated.name));
+            }
+        },
     ), [run]);
 
     const setCardAxes = useCallback((id, { onX, onY }) => updateCard(id, { onX, onY }), [updateCard]);
@@ -157,6 +169,18 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     const setMode = useCallback((mode) => run(
         async () => {
             await api.patch(`${DECKS_PATH}/${deckIdRef.current}`, { mode });
+            return api.get(`${DECKS_PATH}/${deckIdRef.current}`);
+        },
+        (open) => {
+            setDeck(open.deck);
+            setCards(open.cards);
+            setPairs(toPairMap(open.pairs, open.deck.mode));
+        },
+    ), [run]);
+
+    const setRecipe = useCallback((recipe) => run(
+        async () => {
+            await api.patch(`${DECKS_PATH}/${deckIdRef.current}`, { recipe });
             return api.get(`${DECKS_PATH}/${deckIdRef.current}`);
         },
         (open) => {
@@ -176,9 +200,12 @@ const useCombinations = ({ projectId, deckId } = {}) => {
             () => api.delete(`/combinations/cards/${id}`),
             () => {
                 setCards((current) => current.filter((c) => c.id !== id));
-                setPairs((current) => Object.fromEntries(
-                    Object.entries(current).filter(([, p]) => p.cardAId !== id && p.cardBId !== id),
-                ));
+                setPairs((current) => {
+                    const named = isRecipeRef.current ? nameResultPairs(current, id, '') : current;
+                    return Object.fromEntries(
+                        Object.entries(named).filter(([, p]) => p.cardAId !== id && p.cardBId !== id),
+                    );
+                });
             },
         );
         await refreshDecks();
@@ -188,7 +215,19 @@ const useCombinations = ({ projectId, deckId } = {}) => {
     const savePair = useCallback(async (fields) => {
         const pair = await run(
             () => api.put(`${DECKS_PATH}/${deckIdRef.current}/pairs`, fields),
-            (saved) => setPairs((current) => ({ ...current, [pairKey(saved.cardAId, saved.cardBId, modeRef.current)]: saved })),
+            ({ cards: answered, ...saved }) => {
+                const key = pairKey(saved.cardAId, saved.cardBId, modeRef.current);
+                if (!answered) {
+                    setPairs((current) => ({ ...current, [key]: saved }));
+                    return;
+                }
+                const ids = new Set(answered.map((c) => c.id));
+                setCards(answered);
+                setPairs((current) => Object.fromEntries(
+                    Object.entries({ ...current, [key]: saved })
+                        .filter(([, p]) => ids.has(p.cardAId) && ids.has(p.cardBId)),
+                ));
+            },
         );
         await refreshDecks();
         return pair;
@@ -196,7 +235,7 @@ const useCombinations = ({ projectId, deckId } = {}) => {
 
     return {
         status, decks, deck, cards, pairs, error,
-        createDeck, renameDeck, deleteDeck, importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair, setMode, setCardAxes,
+        createDeck, renameDeck, deleteDeck, importDecks, exportDeck, promoteDeck, addCard, updateCard, moveCard, deleteCard, savePair, setMode, setRecipe, setCardAxes,
     };
 };
 
