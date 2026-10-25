@@ -14,6 +14,8 @@ const MAX_CARDS_PER_DECK = 200;
 const KEY_SEPARATOR = '|';
 const PERMUTATIONS = 'permutations';
 const COMBINATIONS = 'combinations';
+const BASE = 'base';
+const CRAFTED = 'crafted';
 
 const pairKey = (a, b) => (a < b ? `${a}${KEY_SEPARATOR}${b}` : `${b}${KEY_SEPARATOR}${a}`);
 
@@ -41,6 +43,7 @@ const normaliseDeck = (deck, index) => {
         return str;
     };
     limitName(name, 'the deck');
+    const recipe = deck.recipe === true;
     const mode = deck.mode === PERMUTATIONS ? PERMUTATIONS : COMBINATIONS;
     const isOrdered = mode === PERMUTATIONS;
     const axis = (value) => (typeof value === 'boolean' ? value : true);
@@ -56,32 +59,36 @@ const normaliseDeck = (deck, index) => {
         }
         if (!card.name.trim()) throw fail('a card name must not be blank');
         ids.add(card.id);
-        return {
+        const parsed = {
             key: card.id,
             name: limitName(card.name, 'a card'),
             detail: limitText(card.detail, 'a card detail'),
             onX: axis(card.onX),
             onY: axis(card.onY),
         };
+        return recipe ? { ...parsed, kind: card.kind === CRAFTED ? CRAFTED : BASE } : parsed;
     });
 
     const byKey = new Map();
     const rawPairs = isObject(deck.pairs) ? deck.pairs : {};
     Object.entries(rawPairs).forEach(([key, pair]) => {
         const [a, b] = key.split(KEY_SEPARATOR);
-        if (!ids.has(a) || !ids.has(b) || a === b || !pair) return;
+        if (!ids.has(a) || !ids.has(b) || (a === b && !recipe) || !pair) return;
         const [aKey, bKey] = isOrdered || a < b ? [a, b] : [b, a];
-        byKey.set(isOrdered ? orderedKey(a, b) : pairKey(a, b), {
+        const parsed = {
             aKey,
             bKey,
             name: limitName(text(pair.name), 'a pair'),
             effect: limitText(pair.effect, 'a pair effect'),
             notes: limitText(pair.notes, 'pair notes'),
             state: PAIR_STATES.includes(pair.state) ? pair.state : 'empty',
-        });
+        };
+        const resultKey = ids.has(pair.result) ? pair.result : null;
+        byKey.set(isOrdered ? orderedKey(a, b) : pairKey(a, b), recipe ? { ...parsed, resultKey } : parsed);
     });
 
-    return { name, mode, cards, pairs: [...byKey.values()] };
+    const parsed = { name, mode, cards, pairs: [...byKey.values()] };
+    return recipe ? { ...parsed, recipe } : parsed;
 };
 
 /** Accepts one deck, a list of decks, or `{ decks }`; other app fields are ignored. */
@@ -95,20 +102,23 @@ const parseImport = (body) => {
 /** Rows are the repos' raw rows; a pair is listed once it has left the empty state. */
 const toExportDeck = (deck, cards, pairs) => {
     const cardId = (id) => `c_${id}`;
+    const isRecipe = Boolean(deck.is_recipe);
     const exported = {};
     const mode = deck.pair_mode;
     const keyFor = mode === PERMUTATIONS ? orderedKey : pairKey;
+    // A recipe deck also lists empty pairs that make something, so the recipe survives a round trip.
     pairs
-        .filter((pair) => pair.state !== 'empty')
+        .filter((pair) => pair.state !== 'empty' || (isRecipe && pair.result_card_id))
         .forEach((pair) => {
             exported[keyFor(cardId(pair.card_a_id), cardId(pair.card_b_id))] = {
                 name: pair.name,
                 effect: pair.effect,
                 notes: pair.notes,
                 state: pair.state,
+                ...(isRecipe && { result: pair.result_card_id ? cardId(pair.result_card_id) : null }),
             };
         });
-    return {
+    const base = {
         id: `d_${deck.id}`,
         name: deck.name,
         mode,
@@ -120,6 +130,26 @@ const toExportDeck = (deck, cards, pairs) => {
             onY: Boolean(card.on_y),
         })),
         pairs: exported,
+    };
+    if (!isRecipe) return base;
+
+    const makes = pairs.filter((pair) => pair.state !== 'struck' && pair.result_card_id);
+    const crafted = new Set(makes.map((pair) => pair.result_card_id));
+    const kindOf = (card) => (crafted.has(card.id) ? CRAFTED : BASE);
+    return {
+        ...base,
+        recipe: true,
+        cards: base.cards.map((card, i) => ({ ...card, kind: kindOf(cards[i]) })),
+        items: cards.map((card) => ({
+            id: cardId(card.id),
+            name: card.name,
+            detail: card.detail,
+            kind: kindOf(card),
+        })),
+        recipes: makes.map((pair) => ({
+            ingredients: [cardId(pair.card_a_id), cardId(pair.card_b_id)],
+            result: cardId(pair.result_card_id),
+        })),
     };
 };
 

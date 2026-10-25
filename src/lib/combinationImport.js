@@ -4,6 +4,7 @@ const decksRepo = require('../db/repositories/combinationDecksRepo');
 const cardsRepo = require('../db/repositories/combinationCardsRepo');
 const pairsRepo = require('../db/repositories/combinationPairsRepo');
 const { badRequest } = require('./httpError');
+const { applyResult } = require('./combinationRecipes');
 const { isPairVisible } = require('./combinationGrid');
 
 /**
@@ -35,6 +36,7 @@ const importDeck = async (conn, ownerId, parsed) => {
         ownerId,
         name: await uniqueName(conn, ownerId, parsed.name),
         mode: parsed.mode,
+        recipe: Boolean(parsed.recipe),
     });
     const ordered = parsed.mode === 'permutations';
 
@@ -47,13 +49,16 @@ const importDeck = async (conn, ownerId, parsed) => {
             detail: card.detail,
             onX: card.onX,
             onY: card.onY,
+            crafted: card.kind === 'crafted',
         });
         idByKey.set(card.key, created.id);
     }
     for (const pair of parsed.pairs) {
         assertFits(pair.name, 'Pair name');
-        const { aKey, bKey, ...fields } = pair;
-        await pairsRepo.upsert(conn, deck.id, idByKey.get(aKey), idByKey.get(bKey), fields, { ordered });
+        const { aKey, bKey, resultKey, ...fields } = pair;
+        const row = await pairsRepo.upsert(conn, deck.id, idByKey.get(aKey), idByKey.get(bKey), fields, { ordered });
+        if (resultKey) await pairsRepo.setResult(conn, row.id, idByKey.get(resultKey));
+        else if (parsed.recipe && fields.name.trim()) await applyResult(conn, deck.id, row.id, fields.name);
     }
 
     return deck;
