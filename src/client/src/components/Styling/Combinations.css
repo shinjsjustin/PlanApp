@@ -450,3 +450,19 @@
 .combinations-page .kind-badge.crafted { color: var(--neon-blue); border-color: var(--neon-blue); }
 
 .combinations-page .card-row.has-kind { grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto; }
+
+.combinations-page .tree-list { list-style: none; margin: 0; padding: 0; }
+
+.combinations-page .tree-node { padding-left: var(--space-sm); min-width: 0; }
+.combinations-page .tree-node.flat { padding-left: 0; }
+
+.combinations-page .tree-label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+
+.combinations-page .tree-name,
+.combinations-page .tree-recipe-row { overflow-wrap: anywhere; min-width: 0; }
+
+.combinations-page .tree-recipe-row { display: flex; flex-wrap: wrap; gap: var(--space-xs); text-align: left; max-width: 100%; }
+
+.combinations-page .tree-node .kind-badge.base { color: var(--text-muted); }
+.combinations-page .tree-node .kind-badge.no-recipe,
+.combinations-page .tree-node .kind-badge.cycle { color: var(--color-danger); border-color: var(--color-danger); }
