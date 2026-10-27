@@ -66,7 +66,7 @@ describe('TreeView', () => {
         expect(screen.getByRole('button', { name: /Wood \+ Wood/ })).toBeInTheDocument();
     });
 
-    it('badges base, no recipe and cycle nodes', () => {
+    it('badges the base ingredients as base', () => {
         setup(3);
         expect(screen.getAllByText('base').length).toBe(2);
     });
