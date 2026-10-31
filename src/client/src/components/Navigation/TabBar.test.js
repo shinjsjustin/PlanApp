@@ -31,16 +31,16 @@ describe('TabBar', () => {
         expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     });
 
-    it('shows five tabs in order on /reminders', () => {
-        renderAt('/reminders');
+    it('shows six tabs in order on /chores', () => {
+        renderAt('/chores');
         const names = screen.getAllByRole('link').map((l) => l.textContent);
-        expect(names).toEqual(['Projects', 'Reminders', 'Calendar', 'Thoughts', 'Address Book']);
-        expect(screen.getByRole('link', { name: 'Reminders' })).toHaveAttribute('href', '/reminders');
+        expect(names).toEqual(['Projects', 'Reminders', 'Chores', 'Calendar', 'Thoughts', 'Address Book']);
+        expect(screen.getByRole('link', { name: 'Chores' })).toHaveAttribute('href', '/chores');
     });
 
     it('shows Back on /projects/7', () => {
         renderAt('/projects/7');
-        expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Back' })).toHaveTextContent('‹');
     });
 
     it('renders nothing when not a phone', () => {
