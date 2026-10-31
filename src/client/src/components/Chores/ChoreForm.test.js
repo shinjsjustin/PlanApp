@@ -50,3 +50,21 @@ it('reports dirtiness and shows a save failure and Cancel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalled();
 });
+
+it('uses the chore-hint class for the window hint', () => {
+    render(<ChoreForm onSubmit={jest.fn()} />);
+    expect(screen.getByText(/N or N-M/)).toHaveClass('chore-hint');
+});
+
+it('shows Archive only when onArchive is given and does not submit on click', () => {
+    const { rerender } = render(<ChoreForm chore={chore} onSubmit={jest.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+    const onSubmit = jest.fn();
+    const onArchive = jest.fn();
+    rerender(<ChoreForm chore={chore} onSubmit={onSubmit} onArchive={onArchive} />);
+    const button = screen.getByRole('button', { name: 'Archive' });
+    expect(button).toHaveAttribute('type', 'button');
+    fireEvent.click(button);
+    expect(onArchive).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+});

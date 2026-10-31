@@ -5,7 +5,7 @@ import '../Styling/Places.css';
 
 // Controlled form for a new chore or an edit. `onSubmit(payload)` is called
 // only with a valid draft; the parent reports a failed save through `saveFailed`.
-export default function ChoreForm({ chore, saveFailed, onSubmit, onCancel, onDirtyChange }) {
+export default function ChoreForm({ chore, saveFailed, onSubmit, onCancel, onArchive, onDirtyChange }) {
     const [startDraft] = useState(chore ? fromChore(chore) : emptyDraft());
     const [draft, setDraft] = useState(startDraft);
     const [errors, setErrors] = useState({});
@@ -38,7 +38,7 @@ export default function ChoreForm({ chore, saveFailed, onSubmit, onCancel, onDir
                 Window (days)
                 <input className="place-input" type="text" value={draft.window} onChange={setField('window')} />
             </label>
-            <p className="place-hint">Enter N or N-M days, like 7 or 7-10.</p>
+            <p className="chore-hint">Enter N or N-M days, like 7 or 7-10.</p>
             <label className="place-field">
                 Notes
                 <textarea className="place-input" value={draft.notes} onChange={setField('notes')} />
@@ -53,6 +53,11 @@ export default function ChoreForm({ chore, saveFailed, onSubmit, onCancel, onDir
                 <button type="submit" className="neon-button">Save</button>
                 {onCancel && <button type="button" className="neon-button" onClick={onCancel}>Cancel</button>}
             </div>
+            {onArchive && (
+                <div className="place-actions">
+                    <button type="button" className="neon-button" onClick={onArchive}>Archive</button>
+                </div>
+            )}
         </form>
     );
 }

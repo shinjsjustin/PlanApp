@@ -19,3 +19,8 @@ it('defines the chore selectors', () => {
     ['.chore-row', '.chore-title', '.chore-details', '.chore-badge--overdue', '.chore-actions', '.chore-done', '.chores-page']
         .forEach((selector) => expect(css).toContain(selector));
 });
+
+it('defines the hint, history and archived selectors', () => {
+    ['.chore-hint', '.chore-history', '.chores-archived']
+        .forEach((selector) => expect(css).toContain(selector));
+});

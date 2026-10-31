@@ -78,3 +78,28 @@
     box-shadow: var(--shadow-sm);
     overflow-wrap: anywhere;
 }
+
+.chore-hint {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+.chore-history {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-wrap: anywhere;
+}
+
+.chores-archived {
+    margin: var(--space-md) 0;
+    padding: var(--space-md);
+    background: var(--bg-alt);
+    color: var(--text-muted);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow-wrap: anywhere;
+}

@@ -4,7 +4,7 @@ import { formatWindow } from '../../lib/choreForm';
 import { lastDoneLabel } from '../../lib/choreGroups';
 import '../Styling/Chores.css';
 
-export default function ChoreRow({ chore, onDone, onEdit }) {
+export default function ChoreRow({ chore, onDone, onEdit, onHistory }) {
     const details = [chore.area, formatWindow(chore.window), lastDoneLabel(chore)].filter(Boolean);
     const act = (handler) => () => handler(chore);
 
@@ -20,6 +20,7 @@ export default function ChoreRow({ chore, onDone, onEdit }) {
             <div className="chore-actions">
                 <button type="button" className="chore-done" onClick={act(onDone)}>Done</button>
                 <button type="button" onClick={act(onEdit)}>Edit</button>
+                <button type="button" onClick={act(onHistory)}>History</button>
             </div>
         </li>
     );

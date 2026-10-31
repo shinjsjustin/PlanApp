@@ -35,3 +35,12 @@ it('calls onDone and onEdit with the chore', () => {
     expect(onEdit).toHaveBeenCalledWith(chore);
     expect(screen.getByRole('button', { name: 'Done' })).toHaveClass('chore-done');
 });
+
+it('shows a History button after Edit that calls onHistory with the chore', () => {
+    const onHistory = jest.fn();
+    render(<ChoreRow chore={chore} onDone={jest.fn()} onEdit={jest.fn()} onHistory={onHistory} />);
+    const names = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(names).toEqual(['Done', 'Edit', 'History']);
+    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    expect(onHistory).toHaveBeenCalledWith(chore);
+});
