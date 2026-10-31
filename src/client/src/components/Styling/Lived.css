@@ -150,3 +150,127 @@
     color: var(--combo-card);
     font-size: var(--font-lg);
 }
+
+.lived-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-sm);
+    margin-bottom: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--combo-surface);
+    border-radius: var(--radius-md);
+    color: var(--combo-card);
+    font-size: var(--font-sm);
+}
+
+.lived-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    white-space: nowrap;
+}
+
+.lived-legend i {
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: var(--radius-sm);
+    background: var(--c);
+}
+
+.lived-shape {
+    margin-bottom: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--combo-surface);
+    border-radius: var(--radius-md);
+}
+
+.lived-shape-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    width: 100%;
+    padding: var(--space-xs) 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--combo-card);
+    text-align: left;
+}
+
+.lived-shape-row[aria-pressed="true"] {
+    background: var(--combo-surface-raised);
+    color: var(--combo-drafted);
+}
+
+.lived-shape-day {
+    flex: 0 0 5.5rem;
+    padding-left: var(--space-xs);
+    font-size: var(--font-sm);
+    font-weight: 600;
+}
+
+.lived-shape-bar {
+    position: relative;
+    flex: 1;
+    height: 0.75rem;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--combo-line);
+}
+
+.lived-shape-bar i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--c);
+}
+
+.lived-shape-bar i.lived-shape-drive {
+    top: 35%;
+    bottom: 35%;
+}
+
+.lived-shape-hours {
+    position: relative;
+    height: 1rem;
+    margin-left: 6rem;
+    color: var(--combo-empty);
+    font-size: var(--font-sm);
+}
+
+.lived-shape-hours span {
+    position: absolute;
+    transform: translateX(-50%);
+}
+
+.lived-story {
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--combo-surface);
+}
+
+.lived-story-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-xs);
+    border-bottom: 1px solid var(--combo-line);
+    color: var(--combo-card);
+}
+
+.lived-story-head h3 {
+    margin: 0;
+    font-size: var(--font-md);
+}
+
+.lived-story-head button,
+.lived-empty button {
+    min-width: 2.5rem;
+    min-height: 2.25rem;
+    border: 1px solid var(--combo-line);
+    border-radius: var(--radius-sm);
+    background: var(--combo-surface-raised);
+    color: var(--combo-card);
+    font-size: var(--font-lg);
+}
