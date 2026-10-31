@@ -1,6 +1,8 @@
 import {
     FILTERS,
+    dayMarks,
     dayPercent,
+    filterCounts,
     filterChores,
     nowPercent,
     orderChores,
@@ -88,11 +90,40 @@ describe('timeline geometry', () => {
     test('weekMarks has one per Monday', () => {
         const marks = weekMarks(range);
         expect(marks.map((m) => [m.key, m.label])).toEqual([
-            ['2026-11-02', 'Nov 2'],
-            ['2026-11-09', 'Nov 9'],
-            ['2026-11-16', 'Nov 16'],
+            ['2026-11-02', '2 Nov'],
+            ['2026-11-09', '9 Nov'],
+            ['2026-11-16', '16 Nov'],
         ]);
         expect(marks[0].left).toBeCloseTo(3 * DAY);
+    });
+});
+
+describe('dayMarks', () => {
+    test('has one per day, flagging Mondays', () => {
+        const marks = dayMarks(range);
+        expect(marks).toHaveLength(21);
+        expect(marks[0]).toMatchObject({ key: '2026-10-30', isWeekStart: false });
+        expect(marks[0].left).toBeCloseTo(0);
+        expect(marks[3]).toMatchObject({ key: '2026-11-02', isWeekStart: true });
+        expect(marks[3].left).toBeCloseTo(3 * DAY);
+        expect(marks.filter((m) => m.isWeekStart).map((m) => m.key)).toEqual([
+            '2026-11-02',
+            '2026-11-09',
+            '2026-11-16',
+        ]);
+    });
+});
+
+describe('filterCounts', () => {
+    test('counts each filter', () => {
+        const chores = [
+            chore('yesterday', '2026-10-30', '2026-11-02'),
+            chore('today', '2026-10-30', '2026-11-03'),
+            chore('plus3', '2026-10-30', '2026-11-06'),
+            chore('plus4', '2026-10-30', '2026-11-07'),
+            chore('never', null, null),
+        ];
+        expect(filterCounts(chores, TODAY)).toEqual({ all: 5, soon: 2, overdue: 1, never: 1 });
     });
 });
 

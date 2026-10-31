@@ -55,6 +55,10 @@ export const filterChores = (chores, filterId, today) => {
     }
 };
 
+export const filterCounts = (chores, today) => Object.fromEntries(
+    FILTERS.map(({ id }) => [id, filterChores(chores, id, today).length])
+);
+
 export const timelineRange = (today) => ({
     start: addDays(today, -DAYS_BEFORE_TODAY),
     days: TIMELINE_DAYS,
@@ -65,22 +69,25 @@ export const dayPercent = (key, range) => (daysBetween(range.start, key) / range
 /** Today's marker sits in the middle of its day. */
 export const nowPercent = (range, today) => dayPercent(today, range) + DAY_PERCENT / 2;
 
-export const weekMarks = (range) => {
-    const marks = [];
-    for (let i = 0; i < range.days; i += 1) {
-        const key = addDays(range.start, i);
-        if (new Date(toUtc(key)).getUTCDay() === MONDAY) {
-            const label = new Date(toUtc(key)).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                timeZone: 'UTC',
-            });
-            marks.push({ key, left: dayPercent(key, range), label });
-        }
-    }
+const isMonday = (key) => new Date(toUtc(key)).getUTCDay() === MONDAY;
 
-    return marks;
-};
+export const dayMarks = (range) => Array.from({ length: range.days }, (_, i) => {
+    const key = addDays(range.start, i);
+
+    return { key, left: dayPercent(key, range), isWeekStart: isMonday(key) };
+});
+
+export const weekMarks = (range) => dayMarks(range)
+    .filter((mark) => mark.isWeekStart)
+    .map(({ key, left }) => ({
+        key,
+        left,
+        label: new Date(toUtc(key)).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'UTC',
+        }),
+    }));
 
 const toneFor = (chore, today) => {
     if (today < chore.dueFrom) return 'future';
