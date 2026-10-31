@@ -9,11 +9,16 @@ const chore = {
 const bare = { ...chore, area: null, window: { min: 1, max: 1 }, lastDone: null, status: 'never' };
 
 it('shows name, area, window and last done label', () => {
-    const { container } = render(<ChoreRow chore={chore} onDone={jest.fn()} onEdit={jest.fn()} />);
+    const { container } = render(<ChoreRow chore={chore} today="2026-10-31" onDone={jest.fn()} onEdit={jest.fn()} />);
     const text = container.textContent;
-    ['Clean bathrooms', 'Upstairs', '7-10 days', 'Last done 2026-10-20 by Jacklin']
+    ['Clean bathrooms', 'Upstairs', '7-10 days', 'Done 20 Oct \u00B7 Jacklin']
         .forEach((s) => expect(text).toContain(s));
     expect(container.querySelector('li.chore-row')).not.toBeNull();
+});
+
+it('includes the year when the last done date is in a different year', () => {
+    const { container } = render(<ChoreRow chore={chore} today="2027-01-05" onDone={jest.fn()} onEdit={jest.fn()} />);
+    expect(container.textContent).toContain('Done 20 Oct 2026 \u00B7 Jacklin');
 });
 
 it.each([

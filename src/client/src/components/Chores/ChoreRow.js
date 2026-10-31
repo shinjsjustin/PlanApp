@@ -2,12 +2,13 @@ import React from 'react';
 
 import { formatWindow } from '../../lib/choreForm';
 import { lastDoneLabel } from '../../lib/choreGroups';
+import { todayKey } from '../../lib/dates';
 import '../Styling/Chores.css';
 
 const CHIP_LABELS = { overdue: 'Overdue', due: 'Due now', upcoming: 'Coming up', never: 'Never done' };
 
-export default function ChoreRow({ chore, isHighlighted, onDone, onEdit, onHistory }) {
-    const details = [chore.area, formatWindow(chore.window), lastDoneLabel(chore)].filter(Boolean);
+export default function ChoreRow({ chore, today = todayKey(), isHighlighted, onDone, onEdit, onHistory }) {
+    const details = [chore.area, formatWindow(chore.window), lastDoneLabel(chore, today)].filter(Boolean);
     const act = (handler) => () => handler(chore);
 
     return (
