@@ -74,3 +74,22 @@ it('wraps card buttons and filter rows', () => {
     expect(rule('.chores-filter')).toMatch(/flex-wrap:\s*wrap/);
     expect(rule('.chore-actions')).toMatch(/flex-wrap:\s*wrap/);
 });
+
+it('stacks each timeline row as a full-width block button', () => {
+    const row = rule('.chore-timeline-row');
+    expect(row).toMatch(/display:\s*block/);
+    expect(row).toMatch(/width:\s*100%/);
+    expect(row).toMatch(/text-align:\s*left/);
+});
+
+it('lets taps pass through the NOW line and week labels', () => {
+    expect(rule('.chore-timeline-now')).toMatch(/pointer-events:\s*none/);
+    expect(rule('.chore-timeline-week')).toMatch(/pointer-events:\s*none/);
+});
+
+it('keeps warning and muted colours off the due chip, week labels and never line', () => {
+    ['.chore-chip--due', '.chore-timeline-week', '.chore-timeline-never'].forEach((selector) => {
+        expect(rule(selector)).not.toMatch(/--color-warning\)|--text-muted/);
+    });
+    expect(indexCss).toMatch(/--color-warning-dark:\s*#[0-9a-fA-F]{6};/);
+});

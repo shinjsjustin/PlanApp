@@ -80,7 +80,7 @@
 }
 
 .chore-hint {
-    color: var(--text-secondary);
+    color: var(--text-glow);
     font-size: var(--font-sm);
 }
 
@@ -98,7 +98,7 @@
     margin: var(--space-md) 0;
     padding: var(--space-md);
     background: var(--bg-alt);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
     overflow-wrap: anywhere;
@@ -127,8 +127,9 @@
     top: 0;
     bottom: 0;
     border-left: 1px solid var(--bg-alt);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: var(--font-sm);
+    pointer-events: none;
 }
 
 .chore-timeline-now {
@@ -139,12 +140,21 @@
     border-left: 2px solid var(--color-danger);
     color: var(--color-danger);
     font-size: var(--font-sm);
-    z-index: 1;
+    pointer-events: none;
 }
 
 .chore-timeline-row {
+    display: block;
     position: relative;
-    padding: var(--space-xs) 0;
+    width: 100%;
+    margin: 0;
+    padding: var(--space-xs) 0 var(--space-md);
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
 .chore-timeline-label {
@@ -190,7 +200,7 @@
 }
 
 .chore-timeline-never {
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: var(--font-sm);
 }
 
@@ -222,7 +232,7 @@
 }
 
 .chore-chip--due {
-    color: var(--color-warning);
+    color: var(--color-warning-dark);
 }
 
 .chore-chip--upcoming {
