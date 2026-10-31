@@ -114,10 +114,15 @@
 -- apply in place rather than re-running this file
 -- (db/migration/2026-10-25_add_combination_recipes.sql).
 --
+-- A database created before chores is missing two tables. Apply in place rather
+-- than re-running this file (db/migration/2026-10-31_add_chores.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `chore_logs`;
+DROP TABLE IF EXISTS `chores`;
 DROP TABLE IF EXISTS `combo_pairs`;
 DROP TABLE IF EXISTS `combo_cards`;
 DROP TABLE IF EXISTS `combo_decks`;
@@ -364,6 +369,37 @@ CREATE TABLE `reminders` (
     FOREIGN KEY (`todo_id`) REFERENCES `todos` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_reminders_repeated_from`
     FOREIGN KEY (`repeated_from_id`) REFERENCES `reminders` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- -- chores ----------------------------------------------------------------
+CREATE TABLE `chores` (
+  `id`          int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`    int unsigned NOT NULL,
+  `name`        varchar(100) NOT NULL,
+  `area`        varchar(50) DEFAULT NULL,
+  `window_min`  smallint unsigned NOT NULL,
+  `window_max`  smallint unsigned NOT NULL,
+  `notes`       text DEFAULT NULL,
+  `archived_at` timestamp NULL DEFAULT NULL,
+  `created_at`  timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`  timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_chores_owner_name` (`owner_id`, `name`),
+  CONSTRAINT `fk_chores_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE `chore_logs` (
+  `id`         int unsigned NOT NULL AUTO_INCREMENT,
+  `chore_id`   int unsigned NOT NULL,
+  `done_on`    date NOT NULL,
+  `done_by`    varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_chore_logs_chore_done` (`chore_id`, `done_on`),
+  CONSTRAINT `fk_chore_logs_chore`
+    FOREIGN KEY (`chore_id`) REFERENCES `chores` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -- push ----------------------------------------------------------------
