@@ -57,17 +57,74 @@ it('lays the grid out as two columns, auto-filling from 700px', () => {
     expect(css).toMatch(/@media\s*\(min-width:\s*700px\)\s*\{[^@]*\.chore-grid\s*\{[^}]*repeat\(auto-fill,\s*minmax\(16rem,\s*1fr\)\)/);
 });
 
-it('scrolls the timeline sideways over a 21-day track', () => {
+it('scrolls the timeline sideways over a 21-day lane', () => {
     expect(rule('.chore-timeline-scroll')).toMatch(/overflow-x:\s*auto/);
-    expect(rule('.chore-timeline-track')).toMatch(/min-width:\s*calc\(21 \* 1\.75rem\)/);
+    expect(rule('.chore-timeline-lane')).toMatch(/min-width:\s*calc\(21 \* 0\.875rem\)/);
 });
 
-it('colours bars, tail and NOW from tokens', () => {
-    expect(rule('.chore-timeline-bar--future')).toContain('var(--color-schedule-future)');
-    expect(rule('.chore-timeline-bar--open')).toContain('var(--color-accent)');
-    expect(rule('.chore-timeline-bar--late')).toContain('var(--color-danger)');
-    expect(rule('.chore-timeline-tail')).toContain('var(--color-danger-faint)');
-    expect(rule('.chore-timeline-now')).toContain('var(--color-danger)');
+it('aliases the dark tokens on .chores-page', () => {
+    const page = rule('.chores-page');
+    [['surface', 'combo-surface'], ['raised', 'combo-surface-raised'], ['line', 'combo-line'],
+        ['accent', 'neon-blue'], ['text', 'text-glow'], ['late', 'combo-struck'],
+        ['future', 'color-schedule-future'], ['never', 'combo-empty']]
+        .forEach(([alias, token]) => expect(page).toMatch(new RegExp(`--chores-${alias}:\\s*var\\(--${token}\\)`)));
+});
+
+it('uses no light surfaces and only --chores-* colours outside the alias rule', () => {
+    expect(css).not.toMatch(/--bg-card|--bg-alt/);
+    const rest = css.replace(rule('.chores-page'), '');
+    expect(rest).not.toMatch(/var\(--(?:combo|neon|text|color|bg|shadow)/);
+});
+
+it('colours bars, tail and NOW from the chores tokens', () => {
+    expect(rule('.chore-timeline-bar--future')).toContain('var(--chores-future)');
+    expect(rule('.chore-timeline-bar--open')).toContain('var(--chores-accent)');
+    expect(rule('.chore-timeline-bar--late')).toContain('var(--chores-late)');
+    expect(rule('.chore-timeline-tail')).toContain('var(--chores-late)');
+    expect(rule('.chore-timeline-tail')).toMatch(/opacity:\s*0?\.\d+/);
+    expect(rule('.chore-timeline-now')).toContain('var(--chores-late)');
+});
+
+it('gives chips the bar colours', () => {
+    expect(rule('.chore-chip--overdue')).toContain('var(--chores-late)');
+    expect(rule('.chore-chip--due')).toContain('var(--chores-accent)');
+    expect(rule('.chore-chip--upcoming')).toContain('var(--chores-future)');
+    expect(rule('.chore-chip--never')).toContain('var(--chores-never)');
+});
+
+it('sets the label column width, wider from 700px', () => {
+    expect(rule('.chore-timeline')).toMatch(/--chore-label-width:\s*110px/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*700px\)\s*\{[^@]*\.chore-timeline\s*\{[^}]*--chore-label-width:\s*180px/);
+});
+
+it('makes only the label sticky, one line with ellipsis on a dark background', () => {
+    expect(css.match(/position:\s*sticky/g)).toHaveLength(1);
+    const label = rule('.chore-timeline-label');
+    expect(label).toMatch(/position:\s*sticky/);
+    expect(label).toMatch(/left:\s*0/);
+    expect(label).toMatch(/text-overflow:\s*ellipsis/);
+    expect(label).toMatch(/white-space:\s*nowrap/);
+    expect(label).toContain('background: var(--chores-surface)');
+});
+
+it('sizes rows about 2rem tall with a rounded 0.625rem bar', () => {
+    expect(rule('.chore-timeline-row')).toMatch(/height:\s*2rem/);
+    const bar = rule('.chore-timeline-bar');
+    expect(bar).toMatch(/height:\s*0\.625rem/);
+    expect(bar).toMatch(/border-radius:/);
+});
+
+it('offsets head and grid by the label width', () => {
+    expect(rule('.chore-timeline-track')).toContain('var(--chore-label-width)');
+    ['.chore-timeline-head', '.chore-timeline-grid', '.chore-timeline-now']
+        .forEach((selector) => expect(rule(selector)).toMatch(/grid-column:\s*2/));
+});
+
+it('defines the new timeline selectors and pressed pill', () => {
+    ['.chore-timeline-head', '.chore-timeline-now-tag', '.chore-timeline-dates', '.chore-timeline-grid',
+        '.chore-timeline-day', '.chore-timeline-day--week', '.chore-timeline-lane', '.chore-timeline-empty']
+        .forEach((selector) => expect(rule(selector)).not.toBe(''));
+    expect(css).toMatch(/\.chores-filter button\[aria-pressed="true"\]\s*\{[^}]*var\(--chores-accent\)/);
 });
 
 it('wraps card buttons and filter rows', () => {
@@ -75,10 +132,10 @@ it('wraps card buttons and filter rows', () => {
     expect(rule('.chore-actions')).toMatch(/flex-wrap:\s*wrap/);
 });
 
-it('stacks each timeline row as a full-width block button', () => {
+it('stacks each timeline row as a full-width flex button', () => {
     const row = rule('.chore-timeline-row');
-    expect(row).toMatch(/display:\s*block/);
-    expect(row).toMatch(/width:\s*100%/);
+    expect(row).toMatch(/display:\s*flex/);
+    expect(row).toMatch(/grid-column:\s*1\s*\/\s*-1/);
     expect(row).toMatch(/text-align:\s*left/);
 });
 
