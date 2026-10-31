@@ -41,14 +41,45 @@ it('places bars with tone, cut modifiers and a tail only when late', () => {
     expect(parseFloat(tail.style.width)).toBeCloseTo((1.5 / 21) * 100, 3);
 });
 
-it('shows the NOW line and a label per Monday', () => {
+it('renders head with NOW tag and week labels, a day grid, an empty NOW line, then rows', () => {
     const { container } = renderIt([open]);
-    const now = container.querySelector('.chore-timeline-now');
-    expect(now.textContent).toBe('NOW');
-    expect(parseFloat(now.style.left)).toBeCloseTo((4.5 / 21) * 100, 3);
-    const weeks = [...container.querySelectorAll('.chore-timeline-week')];
-    expect(weeks.map((w) => w.textContent)).toEqual(['Nov 2', 'Nov 9', 'Nov 16']);
+    const track = container.querySelector('.chore-timeline-track');
+    expect([...track.children].map((c) => c.className)).toEqual([
+        'chore-timeline-head', 'chore-timeline-grid', 'chore-timeline-now', 'chore-timeline-row',
+    ]);
+    const head = track.querySelector('.chore-timeline-head');
+    const tag = head.querySelector('.chore-timeline-now-tag');
+    expect(tag.textContent).toBe('NOW');
+    expect(parseFloat(tag.style.left)).toBeCloseTo((4.5 / 21) * 100, 3);
+    expect(tag.nextElementSibling).toBe(head.querySelector('.chore-timeline-dates'));
+    const weeks = [...head.querySelectorAll('.chore-timeline-dates > .chore-timeline-week')];
+    expect(weeks.map((w) => w.textContent)).toEqual(['2 Nov', '9 Nov', '16 Nov']);
     expect(parseFloat(weeks[0].style.left)).toBeCloseTo((6 / 21) * 100, 3);
+    const days = [...track.querySelectorAll('.chore-timeline-grid > .chore-timeline-day')];
+    expect(days).toHaveLength(21);
+    expect(days.filter((d) => d.classList.contains('chore-timeline-day--week'))).toHaveLength(3);
+    expect(days[6]).toHaveClass('chore-timeline-day--week');
+    expect(parseFloat(days[6].style.left)).toBeCloseTo((6 / 21) * 100, 3);
+    const now = track.querySelector('.chore-timeline-now');
+    expect(now.textContent).toBe('');
+    expect(parseFloat(now.style.left)).toBeCloseTo((4.5 / 21) * 100, 3);
+});
+
+it('gives each row a titled label and a lane holding the bar and tail', () => {
+    const { container } = renderIt([late]);
+    const row = container.querySelector('button.chore-timeline-row');
+    const label = row.querySelector('.chore-timeline-label');
+    expect(label).toHaveAttribute('title', 'Mop');
+    const lane = row.querySelector('.chore-timeline-lane');
+    expect(lane.querySelector('.chore-timeline-bar')).not.toBeNull();
+    expect(lane.querySelector('.chore-timeline-tail')).not.toBeNull();
+});
+
+it('shows an empty prompt before the never-done line when nothing is dated', () => {
+    const { container } = renderIt([never]);
+    const empty = container.querySelector('p.chore-timeline-empty');
+    expect(empty.textContent).toBe('Mark a chore done to start its schedule');
+    expect(empty.nextElementSibling).toBe(container.querySelector('p.chore-timeline-never'));
 });
 
 it('shows the never-done count only when positive, even with no scroller', () => {
