@@ -93,6 +93,19 @@ const OWNER_QUERIES = {
         label: 'Subcategory',
         sql: 'SELECT id, owner_id FROM reminder_subcategories WHERE id = ?',
     },
+    // Owned directly by a user; the row returned is the chore itself.
+    chore: {
+        label: 'Chore',
+        sql: 'SELECT id, owner_id FROM chores WHERE id = ?',
+    },
+    // Reached through its chore, which is owned directly. The row returned is the
+    // chore, not the log: `owned.id` is the chore's id.
+    choreLog: {
+        label: 'Chore log',
+        sql: `SELECT c.id, c.owner_id FROM chore_logs l
+              JOIN chores c ON c.id = l.chore_id
+              WHERE l.id = ?`,
+    },
     // Owned directly by a user; the row returned is the deck itself.
     combinationDeck: {
         label: 'Deck',

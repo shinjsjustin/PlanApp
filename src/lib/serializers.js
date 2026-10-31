@@ -1,6 +1,7 @@
 'use strict';
 
 const { isOverdue } = require('./reminderSchedule');
+const { dueStatus } = require('./choreStatus');
 
 /**
  * Database rows out, API payloads in — one place that decides what the client
@@ -296,7 +297,34 @@ const toReminder = (row, now = new Date()) => {
     return { ...reminder, overdue: isOverdue(reminder, now) };
 };
 
+const toChore = (row, today) => ({
+    id: row.id,
+    name: row.name,
+    area: row.area ?? null,
+    window: { min: row.window_min, max: row.window_max },
+    notes: row.notes ?? null,
+    archived: row.archived_at != null,
+    archivedAt: toIso(row.archived_at),
+    lastDone: row.last_done_on == null ? null : { on: row.last_done_on, by: row.last_done_by },
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+    ...dueStatus(
+        { windowMin: row.window_min, windowMax: row.window_max, lastDoneOn: row.last_done_on ?? null },
+        today
+    ),
+});
+
+const toChoreLog = (row) => ({
+    id: row.id,
+    choreId: row.chore_id,
+    on: row.done_on,
+    by: row.done_by,
+    createdAt: toIso(row.created_at),
+});
+
 module.exports = {
+    toChore,
+    toChoreLog,
     toCalendarDay,
     toCalendarEvent,
     toCalendarItem,
