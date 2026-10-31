@@ -1,15 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import useChores from '../../hooks/useChores';
-import { groupChores } from '../../lib/choreGroups';
+import { todayKey } from '../../lib/dates';
+import { FILTERS, filterChores, orderChores } from '../../lib/choreSchedule';
 import FormDialog, { confirmDiscard } from '../AddressBook/FormDialog';
 import ChoreForm from './ChoreForm';
 import ChoreHistory from './ChoreHistory';
 import ChoreRow from './ChoreRow';
+import ChoreTimeline from './ChoreTimeline';
 import '../Styling/Places.css';
 import '../Styling/Chores.css';
 
 const UNDO_WINDOW_MS = 10000;
+const HIGHLIGHT_MS = 2000;
+const ALL = 'all';
 const DEFAULT_PERSON = 'Justin';
 const OTHER = 'Other';
 const PEOPLE = [DEFAULT_PERSON, 'Jacklin', OTHER];
@@ -23,14 +27,35 @@ const ChoresPage = () => {
     const [person, setPerson] = useState(DEFAULT_PERSON);
     const [otherName, setOtherName] = useState('');
     const [lastDone, setLastDone] = useState(null);
+    const [filterId, setFilterId] = useState(ALL);
+    const [focus, setFocus] = useState(null);
     const undoTimer = useRef(null);
+    const highlightTimer = useRef(null);
+    const today = todayKey();
+    const ordered = orderChores(chores.chores);
+    const visible = filterChores(ordered, filterId, today);
 
     const clearUndo = () => {
         clearTimeout(undoTimer.current);
         setLastDone(null);
     };
 
-    useEffect(() => () => clearTimeout(undoTimer.current), []);
+    useEffect(() => () => {
+        clearTimeout(undoTimer.current);
+        clearTimeout(highlightTimer.current);
+    }, []);
+
+    useEffect(() => {
+        if (!focus) return;
+        document.getElementById(`chore-${focus.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [focus]);
+
+    const selectChore = (chore) => {
+        if (!visible.some((c) => c.id === chore.id)) setFilterId(ALL);
+        clearTimeout(highlightTimer.current);
+        setFocus({ id: chore.id });
+        highlightTimer.current = setTimeout(() => setFocus(null), HIGHLIGHT_MS);
+    };
 
     const closeDialog = () => {
         setDialog(null);
@@ -121,22 +146,31 @@ const ChoresPage = () => {
                     <button type="button" className="neon-button" onClick={chores.seed}>Load starter chores</button>
                 </>
             )}
-            {chores.status === 'ready' && groupChores(chores.chores).map((group) => (
-                <section key={group.status}>
-                    <h2>{group.label}</h2>
-                    <ul className="chore-list">
-                        {group.chores.map((chore) => (
+            {chores.status === 'ready' && chores.chores.length > 0 && (
+                <>
+                    <ChoreTimeline chores={ordered} today={today} onSelect={selectChore} />
+                    <div className="chores-filter">
+                        {FILTERS.map(({ id, label }) => (
+                            <button key={id} type="button" aria-pressed={filterId === id} onClick={() => setFilterId(id)}>
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    {visible.length === 0 && <p>No chores match.</p>}
+                    <ul className="chore-grid">
+                        {visible.map((chore) => (
                             <ChoreRow
                                 key={chore.id}
                                 chore={chore}
+                                isHighlighted={focus?.id === chore.id}
                                 onDone={markDone}
                                 onEdit={(target) => openDialog({ chore: target })}
                                 onHistory={(target) => openDialog({ chore: target, isHistory: true })}
                             />
                         ))}
                     </ul>
-                </section>
-            ))}
+                </>
+            )}
 
             {chores.archived.length > 0 && (
                 <section className="chores-archived">

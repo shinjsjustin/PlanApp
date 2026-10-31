@@ -47,12 +47,103 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('ChoresPage', () => {
-    test('shows heading, New chore button and the non-empty groups in order', () => {
+    test('shows heading, New chore button and no status group headings', () => {
         render(<ChoresPage />);
         expect(screen.getByRole('heading', { level: 1, name: 'Chores' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'New chore' })).toBeInTheDocument();
-        expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent))
-            .toEqual(['Overdue', 'Coming up', 'Never done']);
+        expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
+    });
+
+    describe('schedule', () => {
+        const dated = (id, name, status, dueFrom, dueBy) => ({ ...chore(id, name, status), dueFrom, dueBy });
+        const cardNames = (container) => Array.from(container.querySelectorAll('ul.chore-grid > li .chore-title > span:first-child'))
+            .map((el) => el.textContent);
+        let scrollIntoView;
+
+        beforeEach(() => {
+            jest.setSystemTime(new Date(2026, 9, 20, 12));
+            scrollIntoView = jest.fn();
+            Element.prototype.scrollIntoView = scrollIntoView;
+            hook.chores = [
+                dated(1, 'Later', 'upcoming', '2026-10-28', '2026-11-02'),
+                dated(2, 'Late', 'overdue', '2026-10-10', '2026-10-15'),
+                dated(3, 'Soon', 'due', '2026-10-18', '2026-10-22'),
+                chore(4, 'Never', 'never'),
+            ];
+        });
+
+        afterEach(() => { delete Element.prototype.scrollIntoView; });
+
+        test('renders the timeline, then four filters with All pressed, then cards in due order', () => {
+            const { container } = render(<ChoresPage />);
+            const timeline = container.querySelector('.chore-timeline');
+            const filters = container.querySelector('.chores-filter');
+            const grid = container.querySelector('ul.chore-grid');
+            expect(timeline.compareDocumentPosition(filters) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            expect(filters.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            const buttons = Array.from(filters.querySelectorAll('button'));
+            expect(buttons.map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
+                ['All', 'true'], ['Due within 3 days', 'false'], ['Overdue', 'false'], ['Never done', 'false'],
+            ]);
+            expect(cardNames(container)).toEqual(['Late', 'Soon', 'Later', 'Never']);
+        });
+
+        test.each([
+            ['Due within 3 days', ['Soon']],
+            ['Overdue', ['Late']],
+            ['Never done', ['Never']],
+        ])('the %s filter shows only matching cards', (label, names) => {
+            const { container } = render(<ChoresPage />);
+            fireEvent.click(screen.getByRole('button', { name: label, pressed: false }));
+            expect(cardNames(container)).toEqual(names);
+            expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
+            expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
+        });
+
+        test('an empty filter says No chores match.', () => {
+            hook.chores = [dated(3, 'Soon', 'due', '2026-10-18', '2026-10-22')];
+            render(<ChoresPage />);
+            fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
+            expect(screen.getByText('No chores match.')).toBeInTheDocument();
+        });
+
+        test('the filter resets to All on a new visit', () => {
+            const first = render(<ChoresPage />);
+            fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
+            first.unmount();
+            render(<ChoresPage />);
+            expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+        });
+
+        test('tapping a timeline row scrolls its visible card to centre and highlights it for 2 seconds', () => {
+            const { container } = render(<ChoresPage />);
+            fireEvent.click(screen.getByRole('button', { name: /Soon/, hidden: false, selector: '.chore-timeline-row' }));
+            expect(scrollIntoView).toHaveBeenCalledTimes(1);
+            expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+            expect(scrollIntoView.mock.instances[0].id).toBe('chore-3');
+            expect(container.querySelector('#chore-3')).toHaveClass('chore-row--highlight');
+            act(() => { jest.advanceTimersByTime(1999); });
+            expect(container.querySelector('#chore-3')).toHaveClass('chore-row--highlight');
+            act(() => { jest.advanceTimersByTime(1); });
+            expect(container.querySelector('#chore-3')).not.toHaveClass('chore-row--highlight');
+        });
+
+        test('tapping a row whose card is filtered out switches to All first', () => {
+            const { container } = render(<ChoresPage />);
+            fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
+            expect(container.querySelector('#chore-3')).toBeNull();
+            fireEvent.click(screen.getByRole('button', { name: /Soon/, selector: '.chore-timeline-row' }));
+            expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+            expect(scrollIntoView.mock.instances[0].id).toBe('chore-3');
+            expect(container.querySelector('#chore-3')).toHaveClass('chore-row--highlight');
+        });
+
+        test('unmounting clears the highlight timer', () => {
+            const { unmount } = render(<ChoresPage />);
+            fireEvent.click(screen.getByRole('button', { name: /Soon/, selector: '.chore-timeline-row' }));
+            unmount();
+            expect(jest.getTimerCount()).toBe(0);
+        });
     });
 
     test('shows No chores yet. when the list is empty', () => {
