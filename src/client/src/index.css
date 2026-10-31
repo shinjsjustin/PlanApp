@@ -59,6 +59,16 @@
   --combo-done:    #3fd06f;
   --combo-struck:  #ff5d5d;
 
+  /* Lived day story hues */
+  --lived-god:      #C9971C;
+  --lived-family:   #D9546F;
+  --lived-work:     #1E6FD9;
+  --lived-building: #8A55D0;
+  --lived-rest:     #3E9F5E;
+  --lived-sleep:    #56637E;
+  --lived-drive:    #A7AFB8;
+  --lived-chat-tick: #0091B3;
+
   /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
