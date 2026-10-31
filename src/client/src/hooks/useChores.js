@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../lib/api';
 
-// Owns the active chore list and talks to /chores. After every action the list
+// Owns the active and archived chore lists and talks to /chores. After every action the list
 // is reloaded; a failed call leaves the list untouched and surfaces its message
 // in `error`. Only the newest request may update state.
 
@@ -11,6 +11,7 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 const useChores = () => {
     const [loadStatus, setLoadStatus] = useState('loading');
     const [chores, setChores] = useState([]);
+    const [archived, setArchived] = useState([]);
     const [error, setError] = useState(null);
     const isMounted = useRef(true);
     const latestRequest = useRef(0);
@@ -29,9 +30,13 @@ const useChores = () => {
         const requestId = latestRequest.current;
         const isStale = () => !isMounted.current || requestId !== latestRequest.current;
         try {
-            const data = await api.get('/chores');
+            const [active, archivedData] = await Promise.all([
+                api.get('/chores'),
+                api.get('/chores?archived=true'),
+            ]);
             if (isStale()) return 'stale';
-            setChores(data.chores);
+            setChores(active.chores);
+            setArchived(archivedData.chores);
             setError(null);
             setLoadStatus('ready');
             return 'ready';
@@ -74,6 +79,10 @@ const useChores = () => {
         [act],
     );
 
+    const archive = useCallback((id) => act(() => api.post(`/chores/${id}/archive`)), [act]);
+    const restore = useCallback((id) => act(() => api.post(`/chores/${id}/restore`)), [act]);
+    const seed = useCallback(() => act(() => api.post('/chores/seed')), [act]);
+
     const markDone = useCallback(async (id, by) => {
         const answer = await attempt(() => api.post(`/chores/${id}/done`, { by }), null);
         if (!answer) return null;
@@ -84,7 +93,7 @@ const useChores = () => {
         return answer.log;
     }, [attempt, reload]);
 
-    return { status: loadStatus, chores, error, reload, add, edit, markDone, undo };
+    return { status: loadStatus, chores, archived, error, reload, add, edit, markDone, undo, archive, restore, seed };
 };
 
 export default useChores;
