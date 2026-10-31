@@ -117,10 +117,14 @@
 -- A database created before chores is missing two tables. Apply in place rather
 -- than re-running this file (db/migration/2026-10-31_add_chores.sql).
 --
+-- A database created before lived moments is missing one table. Apply in place
+-- rather than re-running this file (db/migration/2026-10-31_add_lived_moments.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `lived_moments`;
 DROP TABLE IF EXISTS `chore_logs`;
 DROP TABLE IF EXISTS `chores`;
 DROP TABLE IF EXISTS `combo_pairs`;
@@ -400,6 +404,25 @@ CREATE TABLE `chore_logs` (
   KEY `idx_chore_logs_chore_done` (`chore_id`, `done_on`),
   CONSTRAINT `fk_chore_logs_chore`
     FOREIGN KEY (`chore_id`) REFERENCES `chores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- lived moments --------------------------------------------------------
+CREATE TABLE `lived_moments` (
+  `id`               int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`         int unsigned NOT NULL,
+  `lived_on`         date NOT NULL,
+  `start_minutes`    smallint unsigned NOT NULL,
+  `duration_minutes` smallint unsigned NOT NULL,
+  `title`            varchar(100) NOT NULL,
+  `category`         varchar(16) NOT NULL,
+  `detail`           text DEFAULT NULL,
+  `chat_ticks`       json NOT NULL,
+  `created_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_lived_moments_owner_day` (`owner_id`, `lived_on`, `start_minutes`),
+  CONSTRAINT `fk_lived_moments_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -- push ----------------------------------------------------------------
