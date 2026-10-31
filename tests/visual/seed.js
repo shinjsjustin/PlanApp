@@ -25,11 +25,32 @@ const LONG_REMINDER_TITLE =
 const LONG_CHORE_NAME =
     'Wipe down the inside of every kitchen cabinet and reorganise the pantry shelves';
 
+const DAY_ROLLOVER_HOUR = 4;
+
+const LIVED_MOMENTS = [
+    { startMinutes: 420, durationMinutes: 60, title: 'Morning prayer', category: 'god', detail: 'Quiet time before the house wakes up.' },
+    { startMinutes: 540, durationMinutes: 120, title: 'Deep work block', category: 'work', detail: 'Rotor assembly drawings.' },
+    { startMinutes: 600, durationMinutes: 120, title: 'Family call overlapping', category: 'family', detail: 'Caught up with everyone at home.' },
+    { startMinutes: 780, durationMinutes: 120, title: 'Long build session', category: 'building', detail: 'Assembled the test stand.' },
+    { startMinutes: 800, durationMinutes: 30, title: 'Covered quick fix', category: 'rest', detail: 'Tightened one loose bolt.' },
+    { startMinutes: 960, durationMinutes: 10, title: 'Ten minute stretch', category: 'rest', detail: 'Stretched the back.' },
+    { startMinutes: 1000, durationMinutes: 30, title: 'Drive to office', category: 'drive' },
+    {
+        startMinutes: 1080, durationMinutes: 90, title: 'Evening reading', category: 'god',
+        detail: 'Finished chapter three.\nSecond line: notes for the weekend.',
+        chatTicks: [1100, 1140],
+    },
+];
+
 const pad = (value) => String(value).padStart(2, '0');
 
 /** Today as YYYY-MM-DD in local time, like the seed's other "today" values. */
 const localToday = (now = new Date()) =>
     `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+/** The lived day for `now`: the lived day rolls over at 04:00, so earlier hours belong to yesterday. */
+const livedToday = (now = new Date()) =>
+    now.getHours() < DAY_ROLLOVER_HOUR ? localDayOffset(-1, now) : localToday(now);
 
 /** A local date `days` away from today, as YYYY-MM-DD. */
 const localDayOffset = (days, now = new Date()) =>
@@ -136,6 +157,7 @@ const seedLocal = async () => {
         await send('post', 'chores', { name: LONG_CHORE_NAME, area: 'Kitchen', window: { min: 30, max: 60 } });
         const archived = await send('post', 'chores', { name: 'Defrost freezer', window: { min: 90, max: 120 } });
         await send('post', `chores/${archived.id}/archive`);
+        await send('put', `lived/days/${livedToday()}`, { moments: LIVED_MOMENTS });
         await send('post', 'combinations/import', combinationsDeck);
         await send('post', 'combinations/import', recipeDeck);
 
