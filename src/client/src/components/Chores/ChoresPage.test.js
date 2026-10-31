@@ -5,12 +5,16 @@ import ChoresPage from './ChoresPage';
 import useChores from '../../hooks/useChores';
 
 jest.mock('../../hooks/useChores');
-jest.mock('./ChoreForm', () => ({ chore, onSubmit, onCancel, saveFailed }) => (
+jest.mock('./ChoreHistory', () => ({ chore, onChanged }) => (
+    <button type="button" onClick={onChanged}>{`history of ${chore.name}`}</button>
+));
+jest.mock('./ChoreForm', () => ({ chore, onSubmit, onCancel, onArchive, saveFailed }) => (
     <div>
         <p>{chore ? `form for ${chore.name}` : 'blank form'}</p>
         {saveFailed && <p>save failed</p>}
         <button type="button" onClick={() => onSubmit({ name: 'Saved' })}>Save</button>
         <button type="button" onClick={onCancel}>Cancel form</button>
+        {onArchive && <button type="button" onClick={onArchive}>Archive form</button>}
     </div>
 ));
 
@@ -35,6 +39,7 @@ beforeEach(() => {
         add: jest.fn().mockResolvedValue(true), edit: jest.fn().mockResolvedValue(true),
         markDone: jest.fn(async (id) => (pending ? pending : { id: 100 + id })),
         undo: jest.fn().mockResolvedValue(true), reload: jest.fn(),
+        archived: [], archive: jest.fn().mockResolvedValue(true), restore: jest.fn(), seed: jest.fn(),
     };
     useChores.mockImplementation(() => hook);
 });
@@ -160,5 +165,73 @@ describe('ChoresPage', () => {
         expect(screen.getByText('form for Clean bathrooms')).toBeInTheDocument();
         expect(screen.getByText('save failed')).toBeInTheDocument();
         expect(screen.getAllByText('Name taken').length).toBeGreaterThan(1);
+    });
+
+    test('History opens a dialog titled with the chore name whose onChanged reloads', () => {
+        render(<ChoresPage />);
+        fireEvent.click(screen.getAllByRole('button', { name: 'History' })[0]);
+        expect(screen.getByText('History: Clean bathrooms')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'history of Clean bathrooms' }));
+        expect(hook.reload).toHaveBeenCalledTimes(1);
+    });
+
+    test('Archive is offered only when editing and archives after confirmation', async () => {
+        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+        render(<ChoresPage />);
+        fireEvent.click(screen.getByRole('button', { name: 'New chore' }));
+        expect(screen.queryByRole('button', { name: 'Archive form' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel form' }));
+        fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
+        fireEvent.click(screen.getByRole('button', { name: 'Archive form' }));
+        await flush();
+        expect(confirm).toHaveBeenCalledWith('Archive this chore?');
+        expect(hook.archive).toHaveBeenCalledWith(2);
+        expect(screen.queryByText('form for Dust')).not.toBeInTheDocument();
+        confirm.mockRestore();
+    });
+
+    test('declining the archive confirmation does nothing', async () => {
+        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+        render(<ChoresPage />);
+        fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
+        fireEvent.click(screen.getByRole('button', { name: 'Archive form' }));
+        await flush();
+        expect(hook.archive).not.toHaveBeenCalled();
+        expect(screen.getByText('form for Dust')).toBeInTheDocument();
+        confirm.mockRestore();
+    });
+
+    test('a failed archive keeps the dialog open', async () => {
+        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+        hook.archive.mockResolvedValue(false);
+        render(<ChoresPage />);
+        fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
+        fireEvent.click(screen.getByRole('button', { name: 'Archive form' }));
+        await flush();
+        expect(screen.getByText('form for Dust')).toBeInTheDocument();
+        confirm.mockRestore();
+    });
+
+    test('archived chores list with Restore buttons only when non-empty', () => {
+        const { container, unmount } = render(<ChoresPage />);
+        expect(container.querySelector('.chores-archived')).toBeNull();
+        unmount();
+        hook.archived = [chore(7, 'Old gutters', 'never'), chore(8, 'Old fridge', 'never')];
+        const view = render(<ChoresPage />);
+        const section = view.container.querySelector('.chores-archived');
+        expect(section.querySelector('h2')).toHaveTextContent('Archived');
+        expect(section).toHaveTextContent('Old gutters');
+        fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[1]);
+        expect(hook.restore).toHaveBeenCalledWith(8);
+    });
+
+    test('Load starter chores shows only when empty and calls seed', () => {
+        const { unmount } = render(<ChoresPage />);
+        expect(screen.queryByRole('button', { name: 'Load starter chores' })).not.toBeInTheDocument();
+        unmount();
+        hook.chores = [];
+        render(<ChoresPage />);
+        fireEvent.click(screen.getByRole('button', { name: 'Load starter chores' }));
+        expect(hook.seed).toHaveBeenCalledTimes(1);
     });
 });

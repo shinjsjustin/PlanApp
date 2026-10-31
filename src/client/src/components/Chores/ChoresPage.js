@@ -4,6 +4,7 @@ import useChores from '../../hooks/useChores';
 import { groupChores } from '../../lib/choreGroups';
 import FormDialog, { confirmDiscard } from '../AddressBook/FormDialog';
 import ChoreForm from './ChoreForm';
+import ChoreHistory from './ChoreHistory';
 import ChoreRow from './ChoreRow';
 import '../Styling/Places.css';
 import '../Styling/Chores.css';
@@ -47,6 +48,11 @@ const ChoresPage = () => {
         const didSucceed = await (dialog.chore ? chores.edit(dialog.chore.id, fields) : chores.add(fields));
         if (didSucceed) closeDialog();
         else setSaveFailed(true);
+    };
+
+    const archiveChore = async () => {
+        if (!window.confirm('Archive this chore?')) return;
+        if (await chores.archive(dialog.chore.id)) closeDialog();
     };
 
     const requestCancel = () => {
@@ -109,7 +115,12 @@ const ChoresPage = () => {
             )}
 
             {chores.status === 'loading' && <p>Loading chores...</p>}
-            {chores.status === 'ready' && chores.chores.length === 0 && <p>No chores yet.</p>}
+            {chores.status === 'ready' && chores.chores.length === 0 && (
+                <>
+                    <p>No chores yet.</p>
+                    <button type="button" className="neon-button" onClick={chores.seed}>Load starter chores</button>
+                </>
+            )}
             {chores.status === 'ready' && groupChores(chores.chores).map((group) => (
                 <section key={group.status}>
                     <h2>{group.label}</h2>
@@ -120,13 +131,34 @@ const ChoresPage = () => {
                                 chore={chore}
                                 onDone={markDone}
                                 onEdit={(target) => openDialog({ chore: target })}
+                                onHistory={(target) => openDialog({ chore: target, isHistory: true })}
                             />
                         ))}
                     </ul>
                 </section>
             ))}
 
-            {dialog && (
+            {chores.archived.length > 0 && (
+                <section className="chores-archived">
+                    <h2>Archived</h2>
+                    <ul className="chore-list">
+                        {chores.archived.map((chore) => (
+                            <li key={chore.id}>
+                                <span>{chore.name}</span>
+                                <button type="button" onClick={() => chores.restore(chore.id)}>Restore</button>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+
+            {dialog && dialog.isHistory && (
+                <FormDialog title={`History: ${dialog.chore.name}`} isDirty={false} onClose={closeDialog}>
+                    <ChoreHistory chore={dialog.chore} onChanged={chores.reload} />
+                </FormDialog>
+            )}
+
+            {dialog && !dialog.isHistory && (
                 <FormDialog
                     title={dialog.chore ? 'Edit chore' : 'New chore'}
                     isDirty={isDirty}
@@ -138,6 +170,7 @@ const ChoresPage = () => {
                         saveFailed={saveFailed}
                         onSubmit={submitForm}
                         onCancel={requestCancel}
+                        onArchive={dialog.chore ? archiveChore : undefined}
                         onDirtyChange={setIsDirty}
                     />
                 </FormDialog>
