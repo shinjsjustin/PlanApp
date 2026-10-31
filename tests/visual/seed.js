@@ -22,6 +22,9 @@ const DUE_AT_THREE_PM = '15:00';
 const LONG_REMINDER_TITLE =
     'Collect the signed customs paperwork and confirm the rotor assembly shipment with the front desk';
 
+const LONG_CHORE_NAME =
+    'Wipe down the inside of every kitchen cabinet and reorganise the pantry shelves';
+
 const pad = (value) => String(value).padStart(2, '0');
 
 /** Today as YYYY-MM-DD in local time, like the seed's other "today" values. */
@@ -123,6 +126,16 @@ const seedLocal = async () => {
             name: 'Grace Hopper',
             phones: [{ label: 'office', number: '(555) 010-0199' }, { label: '', number: '5550100' }],
         });
+        const markDone = (chore, on, by) => send('post', `chores/${chore.id}/done`, { on, by });
+        const overdue = await send('post', 'chores', { name: 'Clean bathrooms', area: 'Bathroom', window: { min: 7, max: 10 } });
+        await markDone(overdue, localDayOffset(-20), 'Justin');
+        const due = await send('post', 'chores', { name: 'Vacuum floors', area: 'Living room', window: { min: 3, max: 5 } });
+        await markDone(due, localDayOffset(-4), 'Jacklin');
+        const upcoming = await send('post', 'chores', { name: 'Change bedding', window: { min: 7, max: 14 } });
+        await markDone(upcoming, today, 'Justin');
+        await send('post', 'chores', { name: LONG_CHORE_NAME, area: 'Kitchen', window: { min: 30, max: 60 } });
+        const archived = await send('post', 'chores', { name: 'Defrost freezer', window: { min: 90, max: 120 } });
+        await send('post', `chores/${archived.id}/archive`);
         await send('post', 'combinations/import', combinationsDeck);
         await send('post', 'combinations/import', recipeDeck);
 
