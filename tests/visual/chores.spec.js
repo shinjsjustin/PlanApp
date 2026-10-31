@@ -131,7 +131,64 @@ test.describe('chores layout', () => {
         }
     });
 
-    test('chores NOW tag is inside the scroller on load', async ({ page }) => {
+    test('chores gridlines and NOW line span from the first row to the last row', async ({ page }) => {
+        await openChores(page);
+        const rows = (await boxesOf(page, '.chore-timeline-row')).sort((a, b) => a.top - b.top);
+        const firstTop = rows[0].top;
+        const lastBottom = rows[rows.length - 1].bottom;
+        const lines = [
+            ...(await boxesOf(page, '.chore-timeline-now')),
+            ...(await boxesOf(page, '.chore-timeline-day')),
+        ];
+        expect(lines.length).toBeGreaterThan(1);
+        for (const line of lines) {
+            expect(line.top).toBeLessThanOrEqual(firstTop + 0.5);
+            expect(line.bottom).toBeGreaterThanOrEqual(lastBottom - 0.5);
+        }
+    });
+
+    test('chores lanes match the grid width and rows have no padding or border', async ({ page }) => {
+        await openChores(page);
+        const [grid] = await boxesOf(page, '.chore-timeline-grid');
+        const lanes = await boxesOf(page, '.chore-timeline-lane');
+        expect(lanes.length).toBeGreaterThan(0);
+        for (const lane of lanes) {
+            expect(Math.abs(lane.left - grid.left)).toBeLessThanOrEqual(1);
+            expect(Math.abs(lane.right - grid.right)).toBeLessThanOrEqual(1);
+        }
+        const spacing = await page.locator('.chore-timeline-row').evaluateAll((els) =>
+            els.flatMap((el) => {
+                const style = getComputedStyle(el);
+                return ['Top', 'Right', 'Bottom', 'Left'].flatMap((side) => [
+                    style[`padding${side}`],
+                    style[`border${side}Width`],
+                ]);
+            })
+        );
+        expect(spacing.length).toBeGreaterThan(0);
+        for (const value of spacing) expect(parseFloat(value)).toBe(0);
+    });
+
+    test('chores week labels stay on one line inside the track', async ({ page }) => {
+        await openChores(page);
+        const [track] = await boxesOf(page, '.chore-timeline-track');
+        const weeks = await page.locator('.chore-timeline-week').evaluateAll((els) =>
+            els.map((el) => {
+                const { height, right } = el.getBoundingClientRect();
+                const style = getComputedStyle(el);
+                // 'normal' line-height is not a number; browsers use about 1.2 x font-size
+                const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+                return { height, right, lineHeight };
+            })
+        );
+        expect(weeks.length).toBeGreaterThan(0);
+        for (const week of weeks) {
+            expect(week.height).toBeLessThan(week.lineHeight * 1.5);
+            expect(week.right).toBeLessThanOrEqual(track.right);
+        }
+    });
+
+    test('chores NOW tag is inside the scroller on load',async ({ page }) => {
         await openChores(page);
         const [scroller] = await boxesOf(page, '.chore-timeline-scroll');
         const [tag] = await boxesOf(page, '.chore-timeline-now-tag');
