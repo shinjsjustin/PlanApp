@@ -9,6 +9,8 @@
   --color-accent-hover:   #0d47a1;
   --color-danger:         #C62828;
   --color-danger-hover:   #b71c1c;
+  --color-danger-faint:   rgba(198, 40, 40, 0.15);
+  --color-schedule-future: #78909C;
   --color-warning:        #F57F17;
   --color-warning-light:  #FFF8E1;
 
