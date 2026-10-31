@@ -41,11 +41,11 @@ it('places bars with tone, cut modifiers and a tail only when late', () => {
     expect(parseFloat(tail.style.width)).toBeCloseTo((1.5 / 21) * 100, 3);
 });
 
-it('renders head with NOW tag and week labels, a day grid, an empty NOW line, then rows', () => {
+it('renders head with NOW tag and week labels, a day grid holding an empty NOW line, then rows', () => {
     const { container } = renderIt([open]);
     const track = container.querySelector('.chore-timeline-track');
     expect([...track.children].map((c) => c.className)).toEqual([
-        'chore-timeline-head', 'chore-timeline-grid', 'chore-timeline-now', 'chore-timeline-row',
+        'chore-timeline-head', 'chore-timeline-grid', 'chore-timeline-row',
     ]);
     const head = track.querySelector('.chore-timeline-head');
     const tag = head.querySelector('.chore-timeline-now-tag');
@@ -60,7 +60,7 @@ it('renders head with NOW tag and week labels, a day grid, an empty NOW line, th
     expect(days.filter((d) => d.classList.contains('chore-timeline-day--week'))).toHaveLength(3);
     expect(days[6]).toHaveClass('chore-timeline-day--week');
     expect(parseFloat(days[6].style.left)).toBeCloseTo((6 / 21) * 100, 3);
-    const now = track.querySelector('.chore-timeline-now');
+    const now = track.querySelector('.chore-timeline-grid > .chore-timeline-now');
     expect(now.textContent).toBe('');
     expect(parseFloat(now.style.left)).toBeCloseTo((4.5 / 21) * 100, 3);
 });

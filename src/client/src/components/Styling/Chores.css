@@ -123,6 +123,7 @@
 
 .chore-timeline {
     --chore-label-width: 110px;
+    --chore-end-gutter: 3rem;
     margin: var(--space-md) 0;
     padding: var(--space-md);
     background: var(--chores-surface);
@@ -145,13 +146,14 @@
     position: relative;
     display: grid;
     grid-template-columns: var(--chore-label-width) minmax(0, 1fr);
-    min-width: calc(var(--chore-label-width) + 21 * 0.875rem);
+    min-width: calc(var(--chore-label-width) + 21 * 0.875rem + var(--chore-end-gutter));
 }
 
 .chore-timeline-head {
     grid-column: 2;
     grid-row: 1;
     position: relative;
+    margin-right: var(--chore-end-gutter);
     height: var(--space-lg);
     border-bottom: 1px solid var(--chores-line);
 }
@@ -173,19 +175,18 @@
 .chore-timeline-week {
     position: absolute;
     bottom: 0;
+    white-space: nowrap;
     color: var(--chores-never);
     font-size: var(--font-sm);
     pointer-events: none;
 }
 
 .chore-timeline-grid {
-    grid-column: 2;
-    grid-row: 1 / -1;
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 0;
-    right: 0;
+    left: var(--chore-label-width);
+    right: var(--chore-end-gutter);
     pointer-events: none;
 }
 
@@ -202,8 +203,6 @@
 }
 
 .chore-timeline-now {
-    grid-column: 2;
-    grid-row: 1 / -1;
     position: absolute;
     top: 0;
     bottom: 0;
@@ -228,6 +227,13 @@
     cursor: pointer;
 }
 
+/* Outranks .chores-page button so lanes start exactly at the label width. */
+.chores-page .chore-timeline-row {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
 .chore-timeline-label {
     position: sticky;
     left: 0;
@@ -247,6 +253,7 @@
 .chore-timeline-lane {
     position: relative;
     flex: 1;
+    margin-right: var(--chore-end-gutter);
     min-width: calc(21 * 0.875rem);
 }
 

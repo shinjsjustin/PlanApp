@@ -116,8 +116,34 @@ it('sizes rows about 2rem tall with a rounded 0.625rem bar', () => {
 
 it('offsets head and grid by the label width', () => {
     expect(rule('.chore-timeline-track')).toContain('var(--chore-label-width)');
-    ['.chore-timeline-head', '.chore-timeline-grid', '.chore-timeline-now']
-        .forEach((selector) => expect(rule(selector)).toMatch(/grid-column:\s*2/));
+    expect(rule('.chore-timeline-head')).toMatch(/grid-column:\s*2/);
+});
+
+it('runs the day grid the full track height, offset by the label width, with no head-band row span', () => {
+    expect(css).not.toMatch(/grid-row:\s*1\s*\/\s*-1/);
+    const grid = rule('.chore-timeline-grid');
+    expect(grid).toMatch(/position:\s*absolute/);
+    expect(grid).toMatch(/top:\s*0/);
+    expect(grid).toMatch(/bottom:\s*0/);
+    expect(grid).toMatch(/left:\s*var\(--chore-label-width\)/);
+    expect(grid).toMatch(/right:\s*var\(--chore-end-gutter\)/);
+    expect(rule('.chore-timeline-now')).toMatch(/top:\s*0/);
+    expect(rule('.chore-timeline-now')).toMatch(/bottom:\s*0/);
+});
+
+it('resets timeline row padding, border and background with a rule that beats .chores-page button', () => {
+    const reset = rule('.chores-page .chore-timeline-row');
+    expect(reset).toMatch(/padding:\s*0/);
+    expect(reset).toMatch(/border:\s*0/);
+    expect(reset).toMatch(/background:\s*none/);
+});
+
+it('keeps week labels on one line and reserves a right gutter on head, grid and lane', () => {
+    expect(rule('.chore-timeline-week')).toMatch(/white-space:\s*nowrap/);
+    expect(rule('.chore-timeline')).toMatch(/--chore-end-gutter:\s*3rem/);
+    expect(rule('.chore-timeline-head')).toMatch(/margin-right:\s*var\(--chore-end-gutter\)/);
+    expect(rule('.chore-timeline-lane')).toMatch(/margin-right:\s*var\(--chore-end-gutter\)/);
+    expect(rule('.chore-timeline-track')).toContain('var(--chore-end-gutter)');
 });
 
 it('defines the new timeline selectors and pressed pill', () => {

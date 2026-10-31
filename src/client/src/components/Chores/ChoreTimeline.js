@@ -42,8 +42,8 @@ export default function ChoreTimeline({ chores, today, onSelect }) {
                                     style={{ left: percent(mark.left) }}
                                 />
                             ))}
+                            <div className="chore-timeline-now" style={{ left: percent(now) }} />
                         </div>
-                        <div className="chore-timeline-now" style={{ left: percent(now) }} />
                         {dated.map((chore) => {
                             const bar = timelineBar(chore, range, today);
 
