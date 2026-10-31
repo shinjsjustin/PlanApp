@@ -8,21 +8,40 @@ const chore = {
 };
 const bare = { ...chore, area: null, window: { min: 1, max: 1 }, lastDone: null, status: 'never' };
 
-it('shows name, area, window, last done label and the Overdue badge', () => {
+it('shows name, area, window and last done label', () => {
     const { container } = render(<ChoreRow chore={chore} onDone={jest.fn()} onEdit={jest.fn()} />);
     const text = container.textContent;
-    ['Clean bathrooms', 'Upstairs', '7-10 days', 'Last done 2026-10-20 by Jacklin', 'Overdue']
+    ['Clean bathrooms', 'Upstairs', '7-10 days', 'Last done 2026-10-20 by Jacklin']
         .forEach((s) => expect(text).toContain(s));
     expect(container.querySelector('li.chore-row')).not.toBeNull();
 });
 
-it('omits area and badge when unset and not overdue', () => {
+it.each([
+    ['overdue', 'Overdue'],
+    ['due', 'Due now'],
+    ['upcoming', 'Coming up'],
+    ['never', 'Never done'],
+])('shows one %s chip labelled %s', (status, label) => {
+    const { container } = render(<ChoreRow chore={{ ...chore, status }} onDone={jest.fn()} onEdit={jest.fn()} />);
+    const chips = container.querySelectorAll('.chore-chip');
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveClass(`chore-chip--${status}`);
+    expect(chips[0].textContent).toBe(label);
+});
+
+it('omits area when unset', () => {
     const { container } = render(<ChoreRow chore={bare} onDone={jest.fn()} onEdit={jest.fn()} />);
-    const text = container.textContent;
-    expect(text).toContain('1 day');
-    expect(text).toContain('Never done');
-    expect(text).not.toContain('Overdue');
+    expect(container.textContent).toContain('1 day');
     expect(container.querySelectorAll('.chore-details li')).toHaveLength(2);
+});
+
+it('gives the li an id and highlights only when isHighlighted', () => {
+    const { container, rerender } = render(<ChoreRow chore={chore} onDone={jest.fn()} onEdit={jest.fn()} />);
+    const li = () => container.querySelector('li.chore-row');
+    expect(li().id).toBe('chore-5');
+    expect(li()).not.toHaveClass('chore-row--highlight');
+    rerender(<ChoreRow chore={chore} isHighlighted onDone={jest.fn()} onEdit={jest.fn()} />);
+    expect(li()).toHaveClass('chore-row--highlight');
 });
 
 it('calls onDone and onEdit with the chore', () => {

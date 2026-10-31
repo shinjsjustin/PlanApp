@@ -4,15 +4,17 @@ import { formatWindow } from '../../lib/choreForm';
 import { lastDoneLabel } from '../../lib/choreGroups';
 import '../Styling/Chores.css';
 
-export default function ChoreRow({ chore, onDone, onEdit, onHistory }) {
+const CHIP_LABELS = { overdue: 'Overdue', due: 'Due now', upcoming: 'Coming up', never: 'Never done' };
+
+export default function ChoreRow({ chore, isHighlighted, onDone, onEdit, onHistory }) {
     const details = [chore.area, formatWindow(chore.window), lastDoneLabel(chore)].filter(Boolean);
     const act = (handler) => () => handler(chore);
 
     return (
-        <li className="chore-row">
+        <li id={`chore-${chore.id}`} className={isHighlighted ? 'chore-row chore-row--highlight' : 'chore-row'}>
             <div className="chore-title">
                 <span>{chore.name}</span>
-                {chore.status === 'overdue' && <span className="chore-badge chore-badge--overdue">Overdue</span>}
+                <span className={`chore-chip chore-chip--${chore.status}`}>{CHIP_LABELS[chore.status]}</span>
             </div>
             <ul className="chore-details">
                 {details.map((text) => <li key={text}>{text}</li>)}
