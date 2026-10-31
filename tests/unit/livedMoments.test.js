@@ -108,6 +108,14 @@ describe('rangeSchema', () => {
         expect(() => rangeSchema.parse({ from: '2026-01-01', to: '2026-03-03' })).not.toThrow();
     });
     test.each([
+        ['bad from', { from: 'nope', to: '2026-10-31' }],
+        ['bad to', { from: '2026-10-31', to: 'nope' }],
+    ])('safeParse reports %s as a ZodError without throwing', (_name, query) => {
+        const result = rangeSchema.safeParse(query);
+        expect(result.success).toBe(false);
+        expect(result.error).toBeInstanceOf(ZodError);
+    });
+    test.each([
         ['63 days inclusive', { from: '2026-01-01', to: '2026-03-04' }],
         ['from after to', { from: '2026-10-16', to: '2026-10-15' }],
         ['bad from', { from: '2026-02-30', to: '2026-03-05' }],
@@ -121,13 +129,13 @@ describe('toLivedMoment', () => {
     const row = {
         id: 7,
         owner_id: 1,
-        lived_on: new Date(2026, 9, 5),
+        lived_on: '2026-10-05',
         start_minutes: 300,
         duration_minutes: 45,
         title: 'Build',
         category: 'building',
         detail: null,
-        chat_ticks: '[310,320]',
+        chat_ticks: [310, 320],
     };
     const expected = {
         id: 7,
@@ -140,10 +148,7 @@ describe('toLivedMoment', () => {
         chatTicks: [310, 320],
     };
 
-    test('maps a row with a Date and JSON-string ticks', () => {
+    test('maps a row with a string date and array ticks', () => {
         expect(toLivedMoment(row)).toEqual(expected);
-    });
-    test('maps a row with a string date and already-parsed ticks', () => {
-        expect(toLivedMoment({ ...row, lived_on: '2026-10-05', chat_ticks: [310, 320] })).toEqual(expected);
     });
 });

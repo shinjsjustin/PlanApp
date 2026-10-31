@@ -18,10 +18,6 @@ const router = express.Router();
 router.get(
     '/',
     asyncRoute(async (req, res) => {
-        // rangeSchema's cross-field checks run even when a date is malformed and then throw,
-        // so each date is checked on its own first.
-        dateParamSchema.parse(req.query.from);
-        dateParamSchema.parse(req.query.to);
         const { from, to } = rangeSchema.parse(req.query);
 
         const rows = await withTransaction((conn) => livedMomentsRepo.listRange(conn, req.user.id, from, to));

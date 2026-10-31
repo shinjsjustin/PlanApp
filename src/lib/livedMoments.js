@@ -65,29 +65,25 @@ const dateParamSchema = z
     .string({ error: 'date must be YYYY-MM-DD' })
     .refine(isDateKey, 'date must be YYYY-MM-DD');
 
+// Cross-field checks only make sense for real dates; the per-field errors already cover the rest.
+const hasValidKeys = (from, to) => isDateKey(from) && isDateKey(to);
+
 const rangeSchema = z
     .object({ from: dateParamSchema, to: dateParamSchema })
-    .refine(({ from, to }) => from <= to, { message: 'from must not be after to' })
-    .refine(({ from, to }) => to <= addDays(from, MAX_RANGE_DAYS - 1), {
+    .refine(({ from, to }) => !hasValidKeys(from, to) || from <= to, { message: 'from must not be after to' })
+    .refine(({ from, to }) => !hasValidKeys(from, to) || to <= addDays(from, MAX_RANGE_DAYS - 1), {
         message: `range must be at most ${MAX_RANGE_DAYS} days`,
     });
 
-// mysql2 returns DATE as a local-midnight Date and JSON as text or parsed, by driver config.
-const dateKeyOf = (value) => {
-    if (typeof value === 'string') return value.slice(0, 10);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
-};
-
 const toLivedMoment = (row) => ({
     id: row.id,
-    date: dateKeyOf(row.lived_on),
+    date: row.lived_on,
     startMinutes: row.start_minutes,
     durationMinutes: row.duration_minutes,
     title: row.title,
     category: row.category,
     detail: row.detail ?? null,
-    chatTicks: (typeof row.chat_ticks === 'string' ? JSON.parse(row.chat_ticks) : row.chat_ticks).map(Number),
+    chatTicks: row.chat_ticks,
 });
 
 module.exports = {

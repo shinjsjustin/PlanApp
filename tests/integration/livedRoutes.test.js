@@ -121,6 +121,7 @@ describe('GET /api/lived', () => {
         ['no range', {}],
         ['a missing to', { from: '2026-10-29' }],
         ['a bad date', { from: 'nope', to: '2026-10-31' }],
+        ['a bad to date', { from: '2026-10-31', to: 'bad' }],
         ['from after to', { from: '2026-10-31', to: '2026-10-29' }],
     ])('%s is 400', async (_name, query) => {
         const userId = await createTestUser(getConn());
