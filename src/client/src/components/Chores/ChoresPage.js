@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import useChores from '../../hooks/useChores';
 import { todayKey } from '../../lib/dates';
-import { FILTERS, filterChores, orderChores } from '../../lib/choreSchedule';
+import { FILTERS, filterChores, filterCounts, orderChores } from '../../lib/choreSchedule';
 import FormDialog, { confirmDiscard } from '../AddressBook/FormDialog';
 import ChoreForm from './ChoreForm';
 import ChoreHistory from './ChoreHistory';
@@ -34,6 +34,7 @@ const ChoresPage = () => {
     const today = todayKey();
     const ordered = orderChores(chores.chores);
     const visible = filterChores(ordered, filterId, today);
+    const counts = filterCounts(ordered, today);
 
     const clearUndo = () => {
         clearTimeout(undoTimer.current);
@@ -152,7 +153,7 @@ const ChoresPage = () => {
                     <div className="chores-filter">
                         {FILTERS.map(({ id, label }) => (
                             <button key={id} type="button" aria-pressed={filterId === id} onClick={() => setFilterId(id)}>
-                                {label}
+                                {label} <span className="chores-filter-count">{counts[id]}</span>
                             </button>
                         ))}
                     </div>
@@ -162,6 +163,7 @@ const ChoresPage = () => {
                             <ChoreRow
                                 key={chore.id}
                                 chore={chore}
+                                today={today}
                                 isHighlighted={focus?.id === chore.id}
                                 onDone={markDone}
                                 onEdit={(target) => openDialog({ chore: target })}

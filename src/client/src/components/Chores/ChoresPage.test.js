@@ -83,8 +83,10 @@ describe('ChoresPage', () => {
             expect(filters.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
             const buttons = Array.from(filters.querySelectorAll('button'));
             expect(buttons.map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
-                ['All', 'true'], ['Due within 3 days', 'false'], ['Overdue', 'false'], ['Never done', 'false'],
+                ['All 4', 'true'], ['Due within 3 days 1', 'false'], ['Overdue 1', 'false'], ['Never done 1', 'false'],
             ]);
+            expect(Array.from(filters.querySelectorAll('span.chores-filter-count')).map((el) => el.textContent))
+                .toEqual(['4', '1', '1', '1']);
             expect(cardNames(container)).toEqual(['Late', 'Soon', 'Later', 'Never']);
         });
 
@@ -93,26 +95,34 @@ describe('ChoresPage', () => {
             ['Overdue', ['Late']],
             ['Never done', ['Never']],
         ])('the %s filter shows only matching cards', (label, names) => {
+            const counted = `${label} ${names.length}`;
             const { container } = render(<ChoresPage />);
-            fireEvent.click(screen.getByRole('button', { name: label, pressed: false }));
+            fireEvent.click(screen.getByRole('button', { name: counted, pressed: false }));
             expect(cardNames(container)).toEqual(names);
-            expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
-            expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
+            expect(screen.getByRole('button', { name: counted })).toHaveAttribute('aria-pressed', 'true');
+            expect(screen.getByRole('button', { name: /^All \d+$/ })).toHaveAttribute('aria-pressed', 'false');
+        });
+
+        test('counts follow the chores: an empty filter reads 0', () => {
+            hook.chores = [dated(3, 'Soon', 'due', '2026-10-18', '2026-10-22')];
+            render(<ChoresPage />);
+            expect(screen.getByRole('button', { name: 'Overdue 0' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'All 1' })).toBeInTheDocument();
         });
 
         test('an empty filter says No chores match.', () => {
             hook.chores = [dated(3, 'Soon', 'due', '2026-10-18', '2026-10-22')];
             render(<ChoresPage />);
-            fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Overdue 0' }));
             expect(screen.getByText('No chores match.')).toBeInTheDocument();
         });
 
         test('the filter resets to All on a new visit', () => {
             const first = render(<ChoresPage />);
-            fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Overdue 1' }));
             first.unmount();
             render(<ChoresPage />);
-            expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+            expect(screen.getByRole('button', { name: /^All \d+$/ })).toHaveAttribute('aria-pressed', 'true');
         });
 
         test('tapping a timeline row scrolls its visible card to centre and highlights it for 2 seconds', () => {
@@ -130,10 +140,10 @@ describe('ChoresPage', () => {
 
         test('tapping a row whose card is filtered out switches to All first', () => {
             const { container } = render(<ChoresPage />);
-            fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Overdue 1' }));
             expect(container.querySelector('#chore-3')).toBeNull();
             fireEvent.click(screen.getByRole('button', { name: /Soon/, selector: '.chore-timeline-row' }));
-            expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+            expect(screen.getByRole('button', { name: /^All \d+$/ })).toHaveAttribute('aria-pressed', 'true');
             expect(scrollIntoView.mock.instances[0].id).toBe('chore-3');
             expect(container.querySelector('#chore-3')).toHaveClass('chore-row--highlight');
         });
