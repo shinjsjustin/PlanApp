@@ -56,3 +56,25 @@
     padding: var(--space-sm) var(--space-lg);
     font-size: var(--font-md);
 }
+
+.chores-done-by {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+    overflow-wrap: anywhere;
+}
+
+.chores-undo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-alt);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow-wrap: anywhere;
+}
