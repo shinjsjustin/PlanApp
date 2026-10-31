@@ -15,6 +15,7 @@ const renderPage = () => render(<CalendarPage />, { wrapper: MemoryRouter });
 
 beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.setItem('calendarView', 'plan');
     calendarAnswer = { days: [{ id: 1, position: 0, createdAt: '2026-09-16T08:00:00.000Z' }], items: [] };
     api.get.mockImplementation((path) => {
         if (path === '/calendar/notes') return Promise.resolve({ notes: [] });
@@ -59,3 +60,5 @@ describe('CalendarPage on a phone', () => {
         expect(screen.queryByRole('region', { name: 'Projects' })).not.toBeInTheDocument();
     });
 });
+
+afterEach(() => localStorage.clear());

@@ -35,6 +35,9 @@ const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 // array rather than a new one per call — the common case in a fresh strip.
 const EMPTY_NOTES = [];
 
+// Lived moments mirrored into notes carry this prefix; the Lived view owns them.
+const LIVED_NOTE_PREFIX = 'Lived: ';
+
 const messageOf = (error) => error?.message || GENERIC_FAILURE;
 
 /**
@@ -317,7 +320,9 @@ const useCalendarNotes = () => {
     const notesByDay = useMemo(() => {
         const byDay = new Map();
 
-        state.notes.forEach((note) =>
+        state.notes
+            .filter((note) => !note.text.startsWith(LIVED_NOTE_PREFIX))
+            .forEach((note) =>
             byDay.set(note.dayId, [...(byDay.get(note.dayId) ?? []), note])
         );
 

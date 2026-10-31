@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import GoogleConnectButton from './GoogleConnectButton';
 import CalendarDragArea from './CalendarDragArea';
 import PhoneCalendarView from './PhoneCalendarView';
+import CalendarViewSwitch from './CalendarViewSwitch';
+import LivedView from './LivedView';
 import ProjectPanel from './ProjectPanel';
 import ThoughtsLink from '../Navigation/ThoughtsLink';
 import PlacesLink from '../Navigation/PlacesLink';
@@ -16,6 +18,7 @@ import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
 import { todayKey } from '../../lib/dates';
+import { readCalendarView, saveCalendarView } from '../../lib/lived';
 import { CALENDAR_STATUS } from '../../state/calendarReducer';
 import { CalendarProvider } from '../../state/CalendarContext';
 import '../Styling/Calendar.css';
@@ -39,6 +42,12 @@ import '../Styling/CalendarPhone.css';
 const CalendarPage = () => {
     const navigate = useNavigate();
     const isPhone = useIsPhone();
+    const [view, setView] = useState(() => readCalendarView(isPhone));
+
+    const changeView = useCallback((next) => {
+        saveCalendarView(next);
+        setView(next);
+    }, []);
 
     // The two hooks meet here and nowhere else: neither knows the other exists,
     // and the page is what tells the pool that a booking was ticked off, so the
@@ -140,6 +149,7 @@ const CalendarPage = () => {
         <main className={isPhone ? 'calendar-page calendar-page--phone' : 'calendar-page'}>
             <header className="calendar-header">
                 <h1>Calendar</h1>
+                <CalendarViewSwitch value={view} onChange={changeView} />
                 {!isPhone && (
                     <Link className="neon-button" to="/projects">← All projects</Link>
                 )}
@@ -207,7 +217,9 @@ const CalendarPage = () => {
                 either way (design section 10), but with no calendar behind it, it
                 drops the badges and the count rather than reporting every booked
                 to-do as unscheduled. A successful retry brings both back. */}
-            {state.status === CALENDAR_STATUS.ready ? (
+            {view === 'lived' ? (
+                <LivedView />
+            ) : state.status === CALENDAR_STATUS.ready ? (
                 <CalendarProvider value={calendar}>
                     <PlaceOptionsProvider>
                         {isPhone ? (

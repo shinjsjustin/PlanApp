@@ -274,3 +274,27 @@
     color: var(--combo-card);
     font-size: var(--font-lg);
 }
+
+.lived-seg {
+    display: inline-flex;
+    border: 1px solid var(--neon-blue);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.lived-seg button {
+    padding: var(--space-sm) var(--space-md);
+    border: 0;
+    background: transparent;
+    color: var(--text-glow);
+    font-size: var(--font-sm);
+}
+
+.lived-seg button + button {
+    border-left: 1px solid color-mix(in srgb, var(--neon-blue) 50%, transparent);
+}
+
+.lived-seg button[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--neon-blue) 22%, transparent);
+    text-shadow: var(--glow-text-shadow);
+}

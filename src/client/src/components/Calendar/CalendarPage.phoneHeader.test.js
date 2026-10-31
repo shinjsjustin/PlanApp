@@ -20,6 +20,7 @@ const queryConnect = () => screen.queryByText(/connect google/i);
 
 beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.setItem('calendarView', 'plan');
     mockIsPhone = true;
     api.get.mockImplementation((path) => {
         if (path === '/calendar/notes') return Promise.resolve({ notes: [] });
@@ -115,3 +116,5 @@ describe('CalendarPage header on a phone', () => {
         expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
     });
 });
+
+afterEach(() => localStorage.clear());
