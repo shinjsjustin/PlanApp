@@ -298,3 +298,15 @@
     background: color-mix(in srgb, var(--neon-blue) 22%, transparent);
     text-shadow: var(--glow-text-shadow);
 }
+
+/* The calendar page is exactly one screen tall and never scrolls itself (Calendar.css),
+ * because the Plan view scrolls inside its own strip. The Lived view is one long column,
+ * so it owns its vertical scroll; the bottom padding keeps the last block clear of the
+ * phone tab bar. */
+.lived-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(var(--tab-bar-height, 0) + env(safe-area-inset-bottom) + var(--space-md));
+}
