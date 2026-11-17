@@ -185,3 +185,44 @@
         flex: none;
     }
 }
+
+/* ─── Calendar marker layer ──────────────────────────────────────────────── */
+
+/* Absolute and inert: no layout space, no clicks, and z-index 0 so booking
+ * cards, notes and the now-line paint above it. */
+.rhythm-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.rhythm-marker {
+    position: absolute;
+    left: var(--cal-gutter-width);
+    right: 0;
+    border-top: 1px dashed var(--color-accent);
+    pointer-events: none;
+}
+
+.rhythm-marker-gate {
+    border-top: 1px solid var(--color-warning);
+}
+
+.rhythm-marker-label {
+    position: absolute;
+    right: var(--space-xs);
+    top: 0;
+    font-size: var(--font-sm);
+    line-height: 1;
+    color: var(--color-accent);
+    opacity: 0.8;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.rhythm-marker-gate .rhythm-marker-label {
+    color: var(--color-warning);
+}
