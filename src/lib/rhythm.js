@@ -23,7 +23,7 @@ const externalIdSchema = z
     .string({ error: 'id must be a string' })
     .min(1, 'id is required')
     .max(MAX_EXTERNAL_ID, `id must be at most ${MAX_EXTERNAL_ID} characters`)
-    .regex(/^[A-Za-z0-9.:-]+$/, 'id may only contain letters, digits and . : -');
+    .regex(/^[A-Za-z0-9._:-]+$/, 'id may only contain letters, digits and . _ : -');
 
 const timeSchema = z
     .string({ error: 'time must be HH:MM' })

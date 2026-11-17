@@ -21,7 +21,7 @@ Items are addressed by an external id the caller chooses (`wake`, `gate-2026-11-
 
 | Field | Meaning |
 | ----- | ------- |
-| `id` | external id, 1 to 64 characters of letters, digits and `. : -` |
+| `id` | external id, 1 to 64 characters of letters, digits and `. _ : -` |
 | `title` | trimmed, 1 to 100 characters |
 | `description` | up to 200 characters, or `null` |
 | `time` | `HH:MM`, 24 hour, in the user's time zone |

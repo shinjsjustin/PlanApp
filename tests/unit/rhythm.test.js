@@ -22,10 +22,10 @@ const accepts = (schema, value) => schema.parse(value);
 const rejects = (schema, value) => expect(() => schema.parse(value)).toThrow(ZodError);
 
 describe('externalIdSchema', () => {
-    test.each(['a', 'Anchor_1'.replace('_', '.'), 'a:b-c.d', 'x'.repeat(64)])('accepts %p', (v) => {
+    test.each(['a', 'Anchor_1', 'a:b-c.d_e', 'x'.repeat(64)])('accepts %p', (v) => {
         expect(accepts(externalIdSchema, v)).toBe(v);
     });
-    test.each(['', 'x'.repeat(65), 'has space', 'a/b', 'é', 'a_b', 5, null])('rejects %p', (v) => {
+    test.each(['', 'x'.repeat(65), 'has space', 'a/b', 'é', 5, null])('rejects %p', (v) => {
         rejects(externalIdSchema, v);
     });
 });
