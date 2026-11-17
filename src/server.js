@@ -28,6 +28,7 @@ const deviceTokensRoutes = require('./routes/deviceTokens');
 const placeEventsRoutes = require('./routes/placeEvents');
 const combinationsRoutes = require('./routes/combinations');
 const livedRoutes = require('./routes/lived');
+const rhythmRoutes = require('./routes/rhythm');
 const legalRoutes = require('./routes/legal');
 
 const isAuth = require('./middleware/isAuth');
@@ -101,6 +102,7 @@ app.use('/api/reminder-subcategories', isAuth, respond, reminderSubcategoriesRou
 app.use('/api/reminders', isAuth, respond, remindersRoutes);
 app.use('/api/chores', isAuth, respond, choresRoutes);
 app.use('/api/lived', isAuth, respond, livedRoutes);
+app.use('/api/rhythm', isAuth, respond, rhythmRoutes);
 app.use('/api/push', isAuth, respond, pushRoutes);
 app.use('/api/device-tokens', isAuth, respond, deviceTokensRoutes);
 app.use('/api/combinations', isAuth, respond, combinationsRoutes);
