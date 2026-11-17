@@ -82,10 +82,12 @@ describe('GET /api/reminders snoozed and range', () => {
         const { ownerId, r } = await seed();
         const ancient = await remindersRepo.create(getConn(), { ownerId, timeZone: 'UTC', title: 'old', dueDate: '2020-01-01' });
 
+        const upcoming = await remindersRepo.create(getConn(), { ownerId, timeZone: 'UTC', title: 'new', dueDate: '2099-01-01' });
+
         const reminders = (await list(ownerId, '?status=all')).body.data.reminders;
         const byId = Object.fromEntries(reminders.map((x) => [x.id, x]));
         expect(byId[ancient.id].overdue).toBe(true);
-        expect(byId[r.early].overdue).toBe(false);
+        expect(byId[upcoming.id].overdue).toBe(false);
         expect(byId[r.undated].overdue).toBe(false);
         expect(byId[r.done].overdue).toBe(false);
     });
