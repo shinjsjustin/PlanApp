@@ -120,10 +120,17 @@
 -- A database created before lived moments is missing one table. Apply in place
 -- rather than re-running this file (db/migration/2026-10-31_add_lived_moments.sql).
 --
+-- A database created before rhythm is missing four tables. Apply in place rather
+-- than re-running this file (db/migration/2026-11-17_add_rhythm.sql).
+--
 -- Apply with:
 --   mysql -u <user> -p <database> < src/db/schema.sql
 
 -- -- Teardown ---------------------------------------------------------------
+DROP TABLE IF EXISTS `rhythm_deletions`;
+DROP TABLE IF EXISTS `rhythm_gates`;
+DROP TABLE IF EXISTS `rhythm_anchors`;
+DROP TABLE IF EXISTS `rhythm_settings`;
 DROP TABLE IF EXISTS `lived_moments`;
 DROP TABLE IF EXISTS `chore_logs`;
 DROP TABLE IF EXISTS `chores`;
@@ -422,6 +429,70 @@ CREATE TABLE `lived_moments` (
   PRIMARY KEY (`id`),
   KEY `idx_lived_moments_owner_day` (`owner_id`, `lived_on`, `start_minutes`),
   CONSTRAINT `fk_lived_moments_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -- rhythm ---------------------------------------------------------------
+-- weekdays is a bitmask: Mon=1 .. Sun=64. Instants are DATETIME(3) UTC.
+CREATE TABLE `rhythm_settings` (
+  `owner_id`   int unsigned NOT NULL,
+  `time_zone`  varchar(64) NOT NULL,
+  `updated_at` datetime(3) NOT NULL,
+  PRIMARY KEY (`owner_id`),
+  CONSTRAINT `fk_rhythm_settings_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- weekdays is a bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64.
+CREATE TABLE `rhythm_anchors` (
+  `id`          int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`    int unsigned NOT NULL,
+  `external_id` varchar(64) NOT NULL,
+  `title`       varchar(100) NOT NULL,
+  `description` varchar(200) DEFAULT NULL,
+  `at_minutes`  smallint unsigned NOT NULL,
+  `weekdays`    tinyint unsigned NOT NULL,
+  `enabled`     tinyint(1) NOT NULL DEFAULT '1',
+  `created_at`  datetime(3) NOT NULL,
+  `updated_at`  datetime(3) NOT NULL,
+  `updated_by`  enum('bourne','justin') NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rhythm_anchors_owner_external` (`owner_id`, `external_id`),
+  KEY `idx_rhythm_anchors_owner_updated` (`owner_id`, `updated_at`),
+  CONSTRAINT `fk_rhythm_anchors_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE `rhythm_gates` (
+  `id`          int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`    int unsigned NOT NULL,
+  `external_id` varchar(64) NOT NULL,
+  `title`       varchar(150) NOT NULL,
+  `kind`        enum('game_plan','plan','problem_phase','content') NOT NULL,
+  `opens_at`    datetime(3) NOT NULL,
+  `closes_at`   datetime(3) NOT NULL,
+  `state`       enum('open','held','green','assumed','rejected') NOT NULL,
+  `hub_url`     varchar(500) DEFAULT NULL,
+  `created_at`  datetime(3) NOT NULL,
+  `updated_at`  datetime(3) NOT NULL,
+  `updated_by`  enum('bourne','justin') NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rhythm_gates_owner_external` (`owner_id`, `external_id`),
+  KEY `idx_rhythm_gates_owner_updated` (`owner_id`, `updated_at`),
+  CONSTRAINT `fk_rhythm_gates_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE `rhythm_deletions` (
+  `id`          int unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id`    int unsigned NOT NULL,
+  `item_kind`   enum('anchor','gate') NOT NULL,
+  `external_id` varchar(64) NOT NULL,
+  `deleted_at`  datetime(3) NOT NULL,
+  `deleted_by`  enum('bourne','justin') NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rhythm_deletions_item` (`owner_id`, `item_kind`, `external_id`),
+  CONSTRAINT `fk_rhythm_deletions_owner`
     FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
