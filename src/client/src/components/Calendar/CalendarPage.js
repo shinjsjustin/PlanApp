@@ -17,10 +17,12 @@ import useCalendarNotes from '../../hooks/useCalendarNotes';
 import { PlaceOptionsProvider } from '../../hooks/usePlaceOptions';
 import useIsPhone from '../../hooks/useIsPhone';
 import usePool from '../../hooks/usePool';
+import useRhythm from '../../hooks/useRhythm';
 import { todayKey } from '../../lib/dates';
 import { readCalendarView, saveCalendarView } from '../../lib/lived';
 import { CALENDAR_STATUS } from '../../state/calendarReducer';
 import { CalendarProvider } from '../../state/CalendarContext';
+import { RhythmProvider } from '../../state/RhythmContext';
 import '../Styling/Calendar.css';
 import '../Styling/CalendarPhone.css';
 
@@ -57,6 +59,7 @@ const CalendarPage = () => {
     const events = useCalendarEvents();
     const reminders = useCalendarReminders();
     const exporter = useCalendarExport();
+    const rhythm = useRhythm();
     const calendar = useCalendar({
         onTodoCompleted: pool.refresh,
         // The server has already destroyed them through the schema's cascade
@@ -221,19 +224,21 @@ const CalendarPage = () => {
                 <LivedView />
             ) : state.status === CALENDAR_STATUS.ready ? (
                 <CalendarProvider value={calendar}>
-                    <PlaceOptionsProvider>
-                        {isPhone ? (
-                            <PhoneCalendarView notes={notes} events={events} reminders={reminders} onOpenSource={openSource} />
-                        ) : (
-                            <CalendarDragArea
-                                pool={pool}
-                                notes={notes}
-                                events={events}
-                                reminders={reminders}
-                                onOpenSource={openSource}
-                            />
-                        )}
-                    </PlaceOptionsProvider>
+                    <RhythmProvider value={rhythm}>
+                        <PlaceOptionsProvider>
+                            {isPhone ? (
+                                <PhoneCalendarView notes={notes} events={events} reminders={reminders} onOpenSource={openSource} />
+                            ) : (
+                                <CalendarDragArea
+                                    pool={pool}
+                                    notes={notes}
+                                    events={events}
+                                    reminders={reminders}
+                                    onOpenSource={openSource}
+                                />
+                            )}
+                        </PlaceOptionsProvider>
+                    </RhythmProvider>
                 </CalendarProvider>
             ) : (
                 <div className="calendar-body">

@@ -8,6 +8,7 @@ import EventLayer from './EventLayer';
 import ReminderLayer from './ReminderLayer';
 import NotePlane from './NotePlane';
 import NowLine from './NowLine';
+import RhythmLayer from './RhythmLayer';
 import useDateEvents from '../../hooks/useDateEvents';
 import useSwipe from '../../hooks/useSwipe';
 import { dayLabel, nextDateKey, previousDateKey, todayKey } from '../../lib/dates';
@@ -83,6 +84,7 @@ const PhoneCalendarView = ({ notes, onOpenSource, events = null, reminders = nul
                     <EventLayer events={shownEvents} />
                     <ReminderLayer reminders={reminders?.remindersForDate(selectedDate) ?? NO_REMINDERS} />
                     <DriveLayer date={selectedDate} items={dayItems} />
+                    <RhythmLayer date={selectedDate} />
                     {dayItems.map((item) => (
                         <DayItemCard
                             key={itemKeyOf(item)}

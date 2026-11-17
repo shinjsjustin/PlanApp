@@ -10,6 +10,7 @@ import DriveLayer from './DriveLayer';
 import DeleteBubble from '../common/DeleteBubble';
 import NotePlane from './NotePlane';
 import NowLine from './NowLine';
+import RhythmLayer from './RhythmLayer';
 import { dayLabel, todayKey } from '../../lib/dates';
 import { itemKeyOf } from '../../lib/schedule';
 import { INITIAL_SCROLL_MINUTES } from '../../lib/scheduleGeometry';
@@ -199,6 +200,7 @@ const DayColumn = ({
                         <EventLayer events={events} />
                         <ReminderLayer reminders={reminders} />
                         <DriveLayer date={day.date} items={items} />
+                        {day.date && <RhythmLayer date={day.date} />}
 
                         {items.map((item) =>
                             cardFor ? (
