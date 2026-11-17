@@ -42,6 +42,24 @@ const LIVED_MOMENTS = [
     },
 ];
 
+const RHYTHM_ZONE = 'America/Los_Angeles';
+const MS_PER_HOUR = 3600 * 1000;
+const RHYTHM_ANCHORS = [
+    { id: 'wake', title: 'Wake', description: null, time: '06:30', days: 'daily' },
+    { id: 'gym', title: 'Gym', description: null, time: '17:30', days: ['mon', 'wed', 'fri'] },
+    { id: 'journal', title: 'Journal', description: null, time: '21:00', days: 'daily', enabled: false },
+];
+
+/** Gates around `now`: an open one over two days, a held one inside today, and a green one that must not show. */
+const rhythmGates = (now = Date.now()) => {
+    const at = (hours) => new Date(now + hours * MS_PER_HOUR).toISOString();
+    return [
+        { id: 'visual-open', title: 'Plan the week', kind: 'plan', opensAt: at(-18), closesAt: at(18), state: 'open', hubUrl: 'https://hub.example.test/plan' },
+        { id: 'visual-held', title: 'Held review', kind: 'game_plan', opensAt: at(-0.5), closesAt: at(0.5), state: 'held', hubUrl: null },
+        { id: 'visual-green', title: 'Green gate hidden', kind: 'content', opensAt: at(2), closesAt: at(3), state: 'green', hubUrl: null },
+    ];
+};
+
 const pad = (value) => String(value).padStart(2, '0');
 
 /** Today as YYYY-MM-DD in local time, like the seed's other "today" values. */
@@ -158,6 +176,9 @@ const seedLocal = async () => {
         const archived = await send('post', 'chores', { name: 'Defrost freezer', window: { min: 90, max: 120 } });
         await send('post', `chores/${archived.id}/archive`);
         await send('put', `lived/days/${livedToday()}`, { moments: LIVED_MOMENTS });
+        await send('put', 'rhythm/zone', { timeZone: RHYTHM_ZONE });
+        for (const { id, ...anchor } of RHYTHM_ANCHORS) await send('put', `rhythm/anchors/${id}`, anchor);
+        for (const { id, ...gate } of rhythmGates()) await send('put', `rhythm/gates/${id}`, gate);
         await send('post', 'combinations/import', combinationsDeck);
         await send('post', 'combinations/import', recipeDeck);
 

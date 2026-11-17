@@ -17,6 +17,7 @@ const ROUTES = [
     { name: 'chores new form', path: '/chores', signedIn: true, open: 'New chore' },
     { name: 'chores edit form', path: '/chores', signedIn: true, open: 'Edit' },
     { name: 'chores history', path: '/chores', signedIn: true, open: 'History' },
+    { name: 'rhythm', path: '/rhythm', signedIn: true },
     { name: 'address book', path: '/address-book', signedIn: true },
     { name: 'address book add person form', path: '/address-book', signedIn: true, open: 'Add person' },
     { name: 'address book add place form', path: '/address-book', signedIn: true, open: 'Add place' },
