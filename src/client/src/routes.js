@@ -11,6 +11,7 @@ import ThoughtsPage from './components/Thoughts/ThoughtsPage';
 import AddressBookPage from './components/AddressBook/AddressBookPage';
 import RemindersPage from './components/Reminders/RemindersPage';
 import ChoresPage from './components/Chores/ChoresPage';
+import RhythmPage from './components/Rhythm/RhythmPage';
 import CombinationsPage from './components/Combinations/CombinationsPage';
 import ShortcutsPage from './components/Shortcuts/ShortcutsPage';
 
@@ -42,6 +43,7 @@ const routes = [
     { path: '/projects/:id/thoughts', element: <ProtectedRoute><ProjectThoughtsPage /></ProtectedRoute> },
     { path: '/reminders',    element: <ProtectedRoute><RemindersPage /></ProtectedRoute> },
     { path: '/chores',       element: <ProtectedRoute><ChoresPage /></ProtectedRoute> },
+    { path: '/rhythm',       element: <ProtectedRoute><RhythmPage /></ProtectedRoute> },
     { path: '/calendar',     element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
     { path: '/thoughts',     element: <ProtectedRoute><ThoughtsPage /></ProtectedRoute> },
     { path: '/address-book', element: <ProtectedRoute><AddressBookPage /></ProtectedRoute> },

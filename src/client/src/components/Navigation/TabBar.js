@@ -3,7 +3,7 @@ import { NavLink, matchPath, useLocation, useNavigate } from 'react-router-dom';
 import useIsPhone from '../../hooks/useIsPhone';
 import '../Styling/TabBar.css';
 
-const TAB_PATHS = ['/projects', '/projects/:id', '/reminders', '/chores', '/calendar', '/thoughts', '/address-book'];
+const TAB_PATHS = ['/projects', '/projects/:id', '/reminders', '/chores', '/rhythm', '/calendar', '/thoughts', '/address-book'];
 
 // Standalone (home-screen) mode has no Safari chrome, so phones get their
 // navigation and back button from this bar.
